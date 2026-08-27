@@ -1,0 +1,710 @@
+import type { Node } from "@vscode/tree-sitter-wasm";
+import type { FoldCategory, FoldRegion, LensConfig } from "../model.ts";
+
+// Works for typescript, tsx, and javascript grammars — they share these node types.
+// The rule DATA (receivers, methods, scores, markers) comes from LensConfig;
+// only the structural analysis lives here.
+
+interface CompiledPattern {
+  category: FoldCategory;
+  score: number;
+  receiver: RegExp;
+  /** null = any method name */
+  methods: Set<string> | null;
+}
+
+interface RuleContext {
+  lines: string[];
+  patterns: CompiledPattern[];
+  keepMarkers: RegExp | null;
+  score: (category: FoldCategory) => number;
+}
+
+// Priority when regions overlap: the more specific/structural rule wins.
+// Custom pattern categories rank alongside logging/telemetry.
+const CATEGORY_PRIORITY: FoldCategory[] = [
+  "barrel", "guard", "error-boilerplate", "accessor", "import", "data",
+];
+function priorityOf(category: FoldCategory): number {
+  const index = CATEGORY_PRIORITY.indexOf(category);
+  if (index !== -1) return index;
+  return category === "comment" ? CATEGORY_PRIORITY.length + 1 : CATEGORY_PRIORITY.length;
+}
+
+/** Glob-ish receiver name → regex fragment ("*Logger" matches requestLogger). */
+function compileReceivers(receivers: string[]): RegExp {
+  const alternatives = receivers
+    .map((r) => escapeRegExp(r).replace(/\\\*/g, "[\\w$]*"))
+    .join("|");
+  return new RegExp(`(^|\\.)(?:${alternatives})$`);
+}
+
+function compilePatterns(config: LensConfig): CompiledPattern[] {
+  return config.callPatterns.map((p) => {
+    // legacy loggerNames extend the logging pattern's receivers
+    const receivers = p.category === "logging"
+      ? [...p.receivers, ...config.loggerNames]
+      : p.receivers;
+    return {
+      category: p.category,
+      score: p.score ?? config.scores[p.category] ?? 1,
+      receiver: compileReceivers(receivers),
+      methods: p.methods && !p.methods.includes("*") ? new Set(p.methods) : null,
+    };
+  });
+}
+
+export function classify(root: Node, source: string, config: LensConfig): FoldRegion[] {
+  const lines = source.split("\n");
+  const ctx: RuleContext = {
+    lines,
+    patterns: compilePatterns(config),
+    // Lookarounds instead of \b: markers like "@ts-ignore" start with a
+    // non-word character, where \b can never match.
+    keepMarkers: config.keepCommentMarkers.length > 0
+      ? new RegExp(`(?<!\\w)(${config.keepCommentMarkers.map(escapeRegExp).join("|")})(?!\\w)`)
+      : null,
+    score: (category) => config.scores[category] ?? 1,
+  };
+
+  const candidates: FoldRegion[] = [
+    ...barrelRegions(root, ctx),
+    ...importRegions(root, ctx),
+    ...guardRegions(root, ctx),
+    ...catchRegions(root, ctx),
+    ...accessorRegions(root, ctx),
+    ...dataRegions(root, ctx),
+    ...patternRegions(root, ctx),
+    ...commentRegions(root, ctx),
+  ].filter((r) => config.categories[r.category] !== false);
+
+  // Resolve overlaps by category priority, then by position.
+  candidates.sort((a, b) =>
+    priorityOf(a.category) - priorityOf(b.category) || a.startLine - b.startLine,
+  );
+  const accepted: FoldRegion[] = [];
+  for (const region of candidates) {
+    if (accepted.some((a) => region.startLine <= a.endLine && a.startLine <= region.endLine)) continue;
+    accepted.push(region);
+  }
+  accepted.sort((a, b) => a.startLine - b.startLine);
+
+  // The keep directive pins a region open: a region never folds when it
+  // contains the directive, or when the directive sits on the line above it.
+  // Score 4 is above the slider's maximum threshold of 3.
+  if (config.keepDirective) {
+    for (const region of accepted) {
+      for (let l = region.startLine - 1; l <= region.endLine; l++) {
+        if ((lines[l - 1] ?? "").includes(config.keepDirective)) {
+          region.score = 4;
+          break;
+        }
+      }
+    }
+  }
+  return accepted;
+}
+
+// ---------- helpers ----------
+
+function startLine(n: Node): number { return n.startPosition.row + 1; }
+function endLine(n: Node): number { return n.endPosition.row + 1; }
+
+function namedChildren(n: Node): Node[] {
+  return n.namedChildren.filter((c): c is Node => c !== null);
+}
+
+function walk(node: Node, fn: (n: Node) => void): void {
+  fn(node);
+  for (const child of namedChildren(node)) walk(child, fn);
+}
+
+/** True when nothing but whitespace surrounds the node on its start and end lines. */
+function ownsWholeLines(n: Node, lines: string[]): boolean {
+  const before = (lines[n.startPosition.row] ?? "").slice(0, n.startPosition.column);
+  const after = (lines[n.endPosition.row] ?? "").slice(n.endPosition.column);
+  return before.trim() === "" && after.trim() === "";
+}
+
+function onlyBlankBetween(a: Node, b: Node, lines: string[]): boolean {
+  for (let row = a.endPosition.row + 1; row < b.startPosition.row; row++) {
+    if ((lines[row] ?? "").trim() !== "") return false;
+  }
+  return true;
+}
+
+function truncate(text: string, max = 60): string {
+  const collapsed = text.replace(/\s+/g, " ").trim();
+  return collapsed.length > max ? collapsed.slice(0, max - 1) + "…" : collapsed;
+}
+
+function plural(n: number, word: string): string {
+  return `${n} ${word}${n === 1 ? "" : "s"}`;
+}
+
+function lineSpan(startL: number, endL: number): string {
+  const n = endL - startL + 1;
+  return n > 1 ? ` (${n} lines)` : "";
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// ---------- rule: imports ----------
+
+function importRegions(root: Node, ctx: RuleContext): FoldRegion[] {
+  // Re-exports (`export { x } from "y"`) group with imports rather than
+  // breaking up the run; whole-file barrels are handled by the barrel rule.
+  const importish = namedChildren(root).filter((c) =>
+    c.type === "import_statement" ||
+    (c.type === "export_statement" && c.childForFieldName("source") !== null),
+  );
+  const groups: Node[][] = [];
+  for (const stmt of importish) {
+    const lastGroup = groups[groups.length - 1];
+    const last = lastGroup?.[lastGroup.length - 1];
+    if (last && onlyBlankBetween(last, stmt, ctx.lines)) lastGroup.push(stmt);
+    else groups.push([stmt]);
+  }
+  return groups.map((group) => {
+    const names = group.map(shortModuleName).filter(Boolean);
+    const shown = names.slice(0, 5);
+    const suffix = names.length > shown.length ? ", …" : "";
+    const reexports = group.filter((s) => s.type === "export_statement").length;
+    const imports = group.length - reexports;
+    const label =
+      imports > 0 && reexports > 0 ? `${plural(imports, "import")} + ${plural(reexports, "re-export")}`
+      : reexports > 0 ? plural(reexports, "re-export")
+      : plural(imports, "import");
+    return {
+      startLine: startLine(group[0]),
+      endLine: endLine(group[group.length - 1]),
+      category: "import" as const,
+      score: ctx.score("import"),
+      summary: `${label} — ${shown.join(", ")}${suffix}`,
+    };
+  });
+}
+
+function shortModuleName(imp: Node): string {
+  const src = imp.childForFieldName("source");
+  if (!src) return "";
+  const raw = src.text.replace(/^['"`]|['"`]$/g, "").replace(/^node:/, "");
+  const segment = raw.split("/").filter(Boolean).pop() ?? raw;
+  return segment.replace(/\.(ts|js|mjs|cjs|tsx|jsx)$/, "");
+}
+
+// ---------- rule: comments ----------
+
+function commentRegions(root: Node, ctx: RuleContext): FoldRegion[] {
+  const comments: Node[] = [];
+  walk(root, (n) => {
+    if (n.type === "comment" && ownsWholeLines(n, ctx.lines)) comments.push(n);
+  });
+
+  const runs: Node[][] = [];
+  for (const c of comments) {
+    const lastRun = runs[runs.length - 1];
+    const last = lastRun?.[lastRun.length - 1];
+    if (last && startLine(c) === endLine(last) + 1) lastRun.push(c);
+    else runs.push([c]);
+  }
+
+  return runs.map((run) => {
+    const first = run[0];
+    const last = run[run.length - 1];
+    const text = run.map((c) => c.text).join("\n");
+    const isMarker = ctx.keepMarkers !== null && ctx.keepMarkers.test(text);
+    return {
+      startLine: startLine(first),
+      endLine: endLine(last),
+      category: "comment" as const,
+      // keep-marker comments carry review signal — score 4 never folds at any threshold
+      score: isMarker ? 4 : ctx.score("comment"),
+      summary: commentSummary(text, startLine(first), endLine(last)),
+    };
+  });
+}
+
+function commentSummary(text: string, startL: number, endL: number): string {
+  const isDoc = text.startsWith("/**");
+  const content = text
+    .split("\n")
+    .map((l) => l.replace(/^\s*(\/\*\*?|\*\/|\*|\/\/)\s?/, "").replace(/\*\/\s*$/, "").trim())
+    .filter(Boolean)
+    .join(" ");
+  const label = isDoc ? "doc" : "//";
+  return `${label} "${truncate(content, 56)}"${lineSpan(startL, endL)}`;
+}
+
+// ---------- rule: guards ----------
+
+/**
+ * A guard is any else-less `if` whose body does nothing but exit early
+ * (throw, return, continue, break), optionally with a log line. lens flags
+ * them anywhere in the code; judging whether a guard matters is the
+ * reviewer's job — the pill is one click from the real code.
+ */
+function guardRegions(root: Node, ctx: RuleContext): FoldRegion[] {
+  const regions: FoldRegion[] = [];
+  walk(root, (node) => {
+    if (node.type !== "statement_block" && node.type !== "program") return;
+
+    // Merge consecutive guards (and the comments directly above them) into
+    // one region per run.
+    let run: { first: Node; last: Node; count: number; exits: string[]; logged: boolean } | null = null;
+    let pendingComments: Node[] = [];
+    const flush = () => {
+      if (run) {
+        const unique = [...new Set(run.exits)];
+        const logNote = run.logged ? " + log" : "";
+        regions.push({
+          startLine: startLine(run.first),
+          endLine: endLine(run.last),
+          category: "guard",
+          score: ctx.score("guard"),
+          summary: `${plural(run.count, "guard")} \u2192 ${unique.join(", ")}${logNote}${lineSpan(startLine(run.first), endLine(run.last))}`,
+        });
+      }
+      run = null;
+    };
+
+    for (const stmt of namedChildren(node)) {
+      if (stmt.type === "comment") {
+        pendingComments.push(stmt);
+        continue;
+      }
+      const guard = asGuard(stmt, ctx);
+      if (guard) {
+        if (!run) run = { first: pendingComments[0] ?? stmt, last: stmt, count: 0, exits: [], logged: false };
+        run.last = stmt;
+        run.count++;
+        run.exits.push(...guard.exits);
+        run.logged ||= guard.logged;
+      } else {
+        flush();
+      }
+      pendingComments = [];
+    }
+    flush();
+  });
+  return regions;
+}
+
+function asGuard(stmt: Node, ctx: RuleContext): { exits: string[]; logged: boolean } | null {
+  if (stmt.type !== "if_statement") return null;
+  if (stmt.childForFieldName("alternative")) return null;
+  const consequence = stmt.childForFieldName("consequence");
+  if (!consequence) return null;
+  const statements =
+    consequence.type === "statement_block"
+      ? namedChildren(consequence).filter((c) => c.type !== "comment")
+      : [consequence];
+  if (statements.length === 0) return null;
+
+  const exits: string[] = [];
+  let logged = false;
+  for (const s of statements) {
+    const exit = exitDescription(s);
+    if (exit) { exits.push(exit); continue; }
+    if (asNoiseCall(s, ctx)) { logged = true; continue; }
+    return null; // anything else is real logic, not a guard
+  }
+  if (exits.length === 0) return null;
+  return { exits, logged };
+}
+
+function exitDescription(s: Node): string | null {
+  if (s.type === "throw_statement") {
+    const arg = namedChildren(s)[0];
+    if (arg?.type === "new_expression") {
+      const ctor = arg.childForFieldName("constructor");
+      if (ctor) return `throw ${ctor.text}`;
+    }
+    return "throw";
+  }
+  if (s.type === "return_statement") {
+    const arg = namedChildren(s)[0];
+    return arg ? `return ${truncate(arg.text, 24)}` : "return";
+  }
+  if (s.type === "continue_statement") return "continue";
+  if (s.type === "break_statement") return "break";
+  return null;
+}
+
+// ---------- rule: logging ----------
+
+interface LogCall {
+  receiver: string;
+  method: string;
+  firstStringArg: string | null;
+}
+
+/** One rule pass per configured call pattern (logging, telemetry, custom...). */
+function patternRegions(root: Node, ctx: RuleContext): FoldRegion[] {
+  return ctx.patterns.flatMap((pattern) =>
+    callStatementRegions(root, ctx, pattern.category, `${pattern.category} call`,
+      (stmt) => asCallTo(stmt, pattern.receiver, pattern.methods), pattern.score),
+  );
+}
+
+function callStatementRegions(
+  root: Node,
+  ctx: RuleContext,
+  category: FoldCategory,
+  noun: string,
+  match: (stmt: Node) => LogCall | null,
+  score: number,
+): FoldRegion[] {
+  const calls: { node: Node; call: LogCall }[] = [];
+  walk(root, (n) => {
+    if (n.type !== "expression_statement" || !ownsWholeLines(n, ctx.lines)) return;
+    const call = match(n);
+    if (call) calls.push({ node: n, call });
+  });
+
+  const runs: { node: Node; call: LogCall }[][] = [];
+  for (const entry of calls) {
+    const lastRun = runs[runs.length - 1];
+    const last = lastRun?.[lastRun.length - 1];
+    if (last && startLine(entry.node) === endLine(last.node) + 1) lastRun.push(entry);
+    else runs.push([entry]);
+  }
+
+  return runs.map((run) => {
+    const first = run[0];
+    const last = run[run.length - 1];
+    let summary: string;
+    if (run.length === 1) {
+      const { receiver, method, firstStringArg } = first.call;
+      const preview = firstStringArg ? ` — "${truncate(firstStringArg, 44)}"` : "";
+      summary = `${receiver}.${method}${preview}`;
+    } else {
+      summary = `${plural(run.length, noun)}`;
+    }
+    return {
+      startLine: startLine(first.node),
+      endLine: endLine(last.node),
+      category,
+      score,
+      summary,
+    };
+  });
+}
+
+/** Matches any configured noise-call pattern (used by the guard and catch rules). */
+function asNoiseCall(stmt: Node, ctx: RuleContext): LogCall | null {
+  for (const pattern of ctx.patterns) {
+    const call = asCallTo(stmt, pattern.receiver, pattern.methods);
+    if (call) return call;
+  }
+  return null;
+}
+
+function asCallTo(stmt: Node, receiverPattern: RegExp, methods: Set<string> | null): LogCall | null {
+  const expr = namedChildren(stmt)[0];
+  if (!expr || expr.type !== "call_expression") return null;
+  const fn = expr.childForFieldName("function");
+  if (!fn || fn.type !== "member_expression") return null;
+  const method = fn.childForFieldName("property")?.text ?? "";
+  if (methods !== null && !methods.has(method)) return null;
+  const receiver = fn.childForFieldName("object")?.text ?? "";
+  if (!receiverPattern.test(receiver)) return null;
+
+  let firstStringArg: string | null = null;
+  const args = expr.childForFieldName("arguments");
+  const firstArg = args ? namedChildren(args)[0] : undefined;
+  if (firstArg) {
+    // Use the first string literal in the first argument, so previews survive
+    // concatenations like `"no config at " + file`.
+    walk(firstArg, (n) => {
+      if (firstStringArg === null && (n.type === "string" || n.type === "template_string")) {
+        firstStringArg = n.text.replace(/^['"`]|['"`]$/g, "");
+      }
+    });
+  }
+  return { receiver, method, firstStringArg };
+}
+
+// ---------- rule: error boilerplate ----------
+
+function catchRegions(root: Node, ctx: RuleContext): FoldRegion[] {
+  const regions: FoldRegion[] = [];
+  walk(root, (node) => {
+    if (node.type !== "catch_clause") return;
+    const body = node.childForFieldName("body");
+    if (!body || body.type !== "statement_block") return;
+    const param = node.childForFieldName("parameter")?.text ?? "";
+    const statements = namedChildren(body).filter((c) => c.type !== "comment");
+    if (statements.length === 0) return;
+
+    let logs = 0;
+    let rethrows = 0;
+    for (const s of statements) {
+      if (asNoiseCall(s, ctx)) { logs++; continue; }
+      if (s.type === "throw_statement" && namedChildren(s)[0]?.type === "identifier" &&
+          namedChildren(s)[0].text === param) { rethrows++; continue; }
+      return; // anything else means the catch has behavior — keep it visible
+    }
+
+    const inner = namedChildren(body);
+    const first = inner[0];
+    const last = inner[inner.length - 1];
+    const parts = [logs > 0 ? "log" : "", rethrows > 0 ? "rethrow" : ""].filter(Boolean);
+    regions.push({
+      startLine: startLine(first),
+      endLine: endLine(last),
+      category: "error-boilerplate",
+      score: ctx.score("error-boilerplate"),
+      summary: `catch${param ? ` (${param})` : ""}: ${parts.join(" + ")}${lineSpan(startLine(first), endLine(last))}`,
+    });
+  });
+  return regions;
+}
+
+// ---------- rule: constant data ----------
+
+const PURE_LITERAL_TYPES = new Set([
+  "string", "number", "true", "false", "null", "undefined", "regex",
+]);
+
+/** Unwraps `as const`, `satisfies T`, and parentheses down to the value node. */
+function unwrapValue(node: Node): Node {
+  let n = node;
+  while (
+    n.type === "as_expression" ||
+    n.type === "satisfies_expression" ||
+    n.type === "parenthesized_expression"
+  ) {
+    const inner = namedChildren(n)[0];
+    if (!inner) break;
+    n = inner;
+  }
+  return n;
+}
+
+/** Literals all the way down — no calls, identifiers, spreads, or substitutions. */
+function isPureLiteral(node: Node): boolean {
+  const n = unwrapValue(node);
+  if (PURE_LITERAL_TYPES.has(n.type)) return true;
+  if (n.type === "template_string") {
+    return !namedChildren(n).some((c) => c.type === "template_substitution");
+  }
+  if (n.type === "unary_expression") return namedChildren(n)[0]?.type === "number";
+  if (n.type === "array") {
+    return namedChildren(n).filter((c) => c.type !== "comment").every(isPureLiteral);
+  }
+  if (n.type === "object") {
+    return namedChildren(n).every((prop) => {
+      if (prop.type === "comment") return true;
+      if (prop.type !== "pair") return false; // shorthand/spread/method = behavior
+      const value = prop.childForFieldName("value");
+      return value !== null && isPureLiteral(value);
+    });
+  }
+  return false;
+}
+
+interface ConstData {
+  names: string[];
+  singleDesc: string;
+}
+
+/** Matches `const X = <pure literal>` (optionally exported) and literal enums. */
+function asConstData(stmt: Node): ConstData | null {
+  let decl = stmt;
+  if (decl.type === "export_statement") {
+    decl = decl.childForFieldName("declaration") ?? decl;
+  }
+
+  if (decl.type === "enum_declaration") {
+    const name = decl.childForFieldName("name")?.text ?? "enum";
+    const body = decl.childForFieldName("body");
+    const members = body ? namedChildren(body).filter((c) => c.type !== "comment") : [];
+    if (members.length === 0) return null;
+    const allLiteral = members.every((m) => {
+      if (m.type === "property_identifier" || m.type === "string") return true;
+      if (m.type !== "enum_assignment") return false;
+      const value = m.childForFieldName("value");
+      return value !== null && isPureLiteral(value);
+    });
+    if (!allLiteral) return null;
+    return { names: [name], singleDesc: `enum ${name} — ${plural(members.length, "member")}` };
+  }
+
+  if (decl.type !== "lexical_declaration") return null;
+  if (!decl.children.some((c) => c?.type === "const")) return null;
+  const declarators = namedChildren(decl).filter((c) => c.type === "variable_declarator");
+  if (declarators.length === 0) return null;
+
+  const names: string[] = [];
+  let singleDesc = "";
+  for (const declarator of declarators) {
+    const value = declarator.childForFieldName("value");
+    if (!value || !isPureLiteral(value)) return null;
+    const name = declarator.childForFieldName("name")?.text ?? "?";
+    names.push(name);
+    singleDesc = describeLiteral(name, value);
+  }
+  return { names, singleDesc };
+}
+
+function describeLiteral(name: string, valueNode: Node): string {
+  const v = unwrapValue(valueNode);
+  if (v.type === "object") {
+    const keys = namedChildren(v).filter((c) => c.type === "pair").length;
+    return `const ${name} — object, ${plural(keys, "key")}`;
+  }
+  if (v.type === "array") {
+    const items = namedChildren(v).filter((c) => c.type !== "comment").length;
+    return `const ${name} — array, ${plural(items, "item")}`;
+  }
+  return `const ${name} = ${truncate(v.text, 24)}`;
+}
+
+/**
+ * Pure-literal constants fold as data: a multi-line literal (lookup maps,
+ * option objects, enums) on its own, and runs of adjacent one-liner constants
+ * together. Groups spanning fewer than 3 lines stay visible — inline
+ * constants are more readable than a pill.
+ */
+function dataRegions(root: Node, ctx: RuleContext): FoldRegion[] {
+  const regions: FoldRegion[] = [];
+  walk(root, (container) => {
+    if (container.type !== "statement_block" && container.type !== "program") return;
+
+    let run: { first: Node; last: Node; entries: ConstData[] } | null = null;
+    const flush = () => {
+      if (run) {
+        const span = endLine(run.last) - startLine(run.first) + 1;
+        if (span >= 3) {
+          const summary = run.entries.length === 1
+            ? run.entries[0].singleDesc + lineSpan(startLine(run.first), endLine(run.last))
+            : `${plural(run.entries.length, "constant")} — ${
+                run.entries.flatMap((e) => e.names).slice(0, 4).join(", ")
+              }${run.entries.flatMap((e) => e.names).length > 4 ? ", …" : ""}${lineSpan(startLine(run.first), endLine(run.last))}`;
+          regions.push({
+            startLine: startLine(run.first),
+            endLine: endLine(run.last),
+            category: "data",
+            score: ctx.score("data"),
+            summary,
+          });
+        }
+      }
+      run = null;
+    };
+
+    for (const stmt of namedChildren(container)) {
+      if (stmt.type === "comment") continue; // don't absorb, don't break the run check below
+      const data = ownsWholeLines(stmt, ctx.lines) ? asConstData(stmt) : null;
+      if (data) {
+        // only merge directly adjacent statements into one run
+        if (run && startLine(stmt) > endLine(run.last) + 1) flush();
+        if (!run) run = { first: stmt, last: stmt, entries: [] };
+        run.last = stmt;
+        run.entries.push(data);
+      } else {
+        flush();
+      }
+    }
+    flush();
+  });
+  return regions;
+}
+
+// ---------- rule: trivial accessors ----------
+
+function accessorRegions(root: Node, ctx: RuleContext): FoldRegion[] {
+  const regions: FoldRegion[] = [];
+  walk(root, (node) => {
+    if (node.type !== "class_body") return;
+    let run: { first: Node; last: Node; names: string[] } | null = null;
+    const flush = () => {
+      if (run) {
+        const shown = run.names.slice(0, 4);
+        const suffix = run.names.length > shown.length ? ", …" : "";
+        regions.push({
+          startLine: startLine(run.first),
+          endLine: endLine(run.last),
+          category: "accessor",
+          score: ctx.score("accessor"),
+          summary: `${plural(run.names.length, "accessor")} — ${shown.join(", ")}${suffix}${lineSpan(startLine(run.first), endLine(run.last))}`,
+        });
+      }
+      run = null;
+    };
+    for (const member of namedChildren(node)) {
+      const name = asAccessor(member);
+      if (name) {
+        if (!run) run = { first: member, last: member, names: [] };
+        run.last = member;
+        run.names.push(name);
+      } else {
+        flush();
+      }
+    }
+    flush();
+  });
+  return regions;
+}
+
+/**
+ * Getters/setters with a single-statement body, and one-statement delegation
+ * methods (a lone return or call). Constructors and multi-statement methods
+ * never match.
+ */
+function asAccessor(member: Node): string | null {
+  if (member.type !== "method_definition") return null;
+  const name = member.childForFieldName("name")?.text ?? "";
+  if (name === "constructor") return null;
+  const body = member.childForFieldName("body");
+  if (!body || body.type !== "statement_block") return null;
+  const statements = namedChildren(body).filter((c) => c.type !== "comment");
+  if (statements.length !== 1) return null;
+  const stmt = statements[0];
+
+  const keywords = member.children.filter((c): c is Node => c !== null).map((c) => c.type);
+  if (keywords.includes("get")) return stmt.type === "return_statement" ? `get ${name}` : null;
+  if (keywords.includes("set")) return stmt.type === "expression_statement" ? `set ${name}` : null;
+
+  // delegation: the whole method is one call, or one return of a call/property
+  const RETURNABLE = new Set(["call_expression", "member_expression", "identifier"]);
+  if (stmt.type === "return_statement" && RETURNABLE.has(namedChildren(stmt)[0]?.type ?? "")) return `${name}()`;
+  if (stmt.type === "expression_statement" && namedChildren(stmt)[0]?.type === "call_expression") return `${name}()`;
+  return null;
+}
+
+// ---------- rule: barrel files ----------
+
+/** A file whose every statement is an import or a re-export folds to one pill. */
+function barrelRegions(root: Node, ctx: RuleContext): FoldRegion[] {
+  const all = namedChildren(root);
+  const statements = all.filter((c) => c.type !== "comment");
+  if (statements.length === 0) return [];
+
+  let reexports = 0;
+  const names: string[] = [];
+  for (const stmt of statements) {
+    if (stmt.type === "import_statement") continue;
+    if (stmt.type === "export_statement" && stmt.childForFieldName("source")) {
+      reexports++;
+      const name = shortModuleName(stmt);
+      if (name) names.push(name);
+      continue;
+    }
+    return [];
+  }
+  if (reexports === 0) return [];
+
+  const shown = names.slice(0, 5);
+  const suffix = names.length > shown.length ? ", …" : "";
+  return [{
+    startLine: 1,
+    endLine: endLine(all[all.length - 1]),
+    category: "barrel",
+    score: ctx.score("barrel"),
+    summary: `barrel file — re-exports ${plural(reexports, "module")}: ${shown.join(", ")}${suffix}`,
+  }];
+}

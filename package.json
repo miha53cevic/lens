@@ -1,0 +1,28 @@
+{
+  "name": "lens",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A reading lens for AI-generated code: statically folds review-irrelevant regions (imports, doc comments, guards, logging, defensive boilerplate)",
+  "type": "module",
+  "bin": {
+    "lens": "src/cli.ts"
+  },
+  "engines": {
+    "node": ">=23.6"
+  },
+  "scripts": {
+    "lens": "node src/cli.ts",
+    "install-cli": "npm link",
+    "uninstall-cli": "npm unlink -g lens",
+    "typecheck": "tsc --noEmit",
+    "test": "tsc --noEmit && node --test test/*.test.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "@vscode/tree-sitter-wasm": "^0.3.1",
+    "shiki": "^4.4.3"
+  }
+}

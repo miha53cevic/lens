@@ -1,0 +1,52 @@
+{
+  "$comment": "lens's built-in rules — the 'base game'. A project's .lens.json merges over this file. Field-by-field documentation and examples: CONFIG.md",
+
+  "threshold": 1,
+  "theme": "vesper",
+
+  "categories": {
+    "import": true,
+    "comment": true,
+    "guard": true,
+    "logging": true,
+    "telemetry": true,
+    "error-boilerplate": true,
+    "accessor": true,
+    "barrel": true,
+    "data": true
+  },
+
+  "scores": {
+    "import": 0,
+    "comment": 0,
+    "guard": 1,
+    "logging": 1,
+    "telemetry": 1,
+    "error-boilerplate": 1,
+    "accessor": 1,
+    "barrel": 0,
+    "data": 1
+  },
+
+  "callPatterns": [
+    {
+      "category": "logging",
+      "receivers": ["console", "log", "logger", "*Logger"],
+      "methods": ["log", "debug", "info", "warn", "error", "trace", "verbose", "fatal"]
+    },
+    {
+      "category": "telemetry",
+      "receivers": ["metrics", "telemetry", "analytics", "tracker", "stats"]
+    }
+  ],
+
+  "keepCommentMarkers": [
+    "TODO", "FIXME", "HACK", "XXX",
+    "eslint-disable", "@ts-ignore", "@ts-expect-error", "@ts-nocheck", "biome-ignore"
+  ],
+  "keepDirective": "lens:keep",
+
+  "testFilePatterns": ["*.spec.*", "*.test.*", "__tests__/**"],
+
+  "exclude": ["package-lock.json", "yarn.lock", "pnpm-lock.yaml", "*.min.js", "*.min.css", "*.map"]
+}
