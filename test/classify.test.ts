@@ -304,6 +304,47 @@ class Store {
   }
 });
 
+test("one-liners with real logic are not accessors; genuine delegation is", async () => {
+  const regions = await regionsOf(`
+class Resource {
+  private throwUnlessPubliclyAccessible() {
+    assertPublic(this.visibility, this.owner);
+  }
+
+  static fromEntity(entity: ResourceEntity) {
+    return plainToInstance(Resource, entity);
+  }
+
+  transform(entity: ResourceEntity) {
+    return buildDto(entity.id, { deep: true });
+  }
+
+  close() { this.socket.close(); }
+  send(msg: Message) { return this.bus.send(msg); }
+}
+`.trim());
+  const accessors = regions.filter((r) => r.category === "accessor");
+  assert.equal(accessors.length, 1);
+  // only the forwarding pair folds: same-named callee, verbatim param pass-through
+  assert.match(accessors[0].summary, /2 accessors — close\(\), send\(\)/);
+});
+
+test("files with syntax errors are never folded", async () => {
+  const model = await analyzeSource("broken.ts", `
+import { readFileSync } from "node:fs";
+import { z } from "zod";
+
+export function loadConfig(path: string {
+  if (!path) throw new Error("path required");
+  return readFileSync(path, "utf8");
+}
+`.trim(), DEFAULT_CONFIG);
+  assert.ok(model);
+  assert.equal(model.parseError, true);
+  // the imports and the guard would normally fold — not in a broken file
+  assert.deepEqual(model.regions, []);
+});
+
 test("barrel files fold to a single pill", async () => {
   const barrel = await analyzeSource("index.ts", `
 export * from "./api";

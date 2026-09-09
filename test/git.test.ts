@@ -4,7 +4,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { parseDiff, gitDiffTargets } from "../src/git.ts";
+import { parseDiff, parseRawShas, gitDiffTargets, readBlob } from "../src/git.ts";
 
 const SAMPLE = `diff --git a/src/api.ts b/src/api.ts
 index 111..222 100644
@@ -118,13 +118,92 @@ test("parseDiff captures removed lines with new-side anchors", () => {
   assert.deepEqual(api.changedLines, [3, 4, 5, 20]);
 });
 
-test("gitDiffTargets keeps unsupported text files and skips binaries", () => {
+const SHA_A = "a".repeat(40);
+const SHA_B = "b".repeat(40);
+const SHA_C = "c".repeat(40);
+const ZEROS = "0".repeat(40);
+
+const RAW_SAMPLE = [
+  `:100644 100644 ${SHA_A} ${SHA_B} M\0src/api.ts\0`,
+  `:000000 100644 ${ZEROS} ${SHA_C} A\0src/Widget.tsx\0`,
+  `:100644 100644 ${SHA_A} ${ZEROS} M\0src/worktree.ts\0`, // new side = working tree
+  `:100644 100644 ${SHA_A} ${SHA_B} R87\0old-name.ts\0new-name.ts\0`,
+  `:160000 160000 ${SHA_A} ${SHA_B} M\0vendor/submodule\0`,
+  " CLAUDE.md | 2 +-\n 5 files changed\n", // pass-through --stat noise after the records
+].join("");
+
+test("parseRawShas maps new-side paths to blob SHAs", () => {
+  const shas = parseRawShas(RAW_SAMPLE);
+  assert.equal(shas.get("src/api.ts"), SHA_B);
+  assert.equal(shas.get("src/Widget.tsx"), SHA_C);
+  assert.equal(shas.get("new-name.ts"), SHA_B, "renames map the NEW path");
+  assert.equal(shas.has("old-name.ts"), false);
+  assert.equal(shas.has("src/worktree.ts"), false, "zero SHA = read from disk");
+  assert.equal(shas.has("vendor/submodule"), false, "submodule commits are not blobs");
+  assert.equal(shas.size, 3);
+});
+
+test("parseRawShas handles an empty diff", () => {
+  assert.equal(parseRawShas("").size, 0);
+});
+
+/** Runs `fn` in a fresh temp git repo (branch "main"), cleaned up afterwards. */
+function withRepo(fn: (dir: string, git: (...args: string[]) => string) => void): void {
   const dir = mkdtempSync(join(tmpdir(), "lens-git-"));
   const git = (...args: string[]) => execFileSync("git", args, { cwd: dir, encoding: "utf8" });
   try {
-    git("init", "-q");
+    git("init", "-q", "-b", "main");
     git("config", "user.email", "t@t");
     git("config", "user.name", "t");
+    fn(dir, git);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+test("gitDiffTargets: ref-to-ref diffs read the new side from git, not the working tree", () => {
+  withRepo((dir, git) => {
+    writeFileSync(join(dir, "a.ts"), "export const a = 1;\n");
+    git("add", "-A");
+    git("commit", "-qm", "base");
+
+    git("checkout", "-qb", "feature");
+    writeFileSync(join(dir, "a.ts"), "export const a = 2;\n");
+    writeFileSync(join(dir, "b.ts"), "export const b = 1;\n");
+    git("add", "-A");
+    git("commit", "-qm", "feature work");
+    git("checkout", "-q", "main"); // b.ts is now absent from the working tree
+
+    const result = gitDiffTargets(["main...feature"], dir);
+    const names = result.targets.map((t) => t.file.split("/").pop()).sort();
+    assert.deepEqual(names, ["a.ts", "b.ts"], "added-on-feature files are not dropped");
+
+    const added = result.targets.find((t) => t.file.endsWith("b.ts"))!;
+    assert.equal(added.status, "added");
+    assert.ok(added.newBlob);
+    assert.equal(readBlob(added.newBlob!, dir), "export const b = 1;\n");
+
+    const modified = result.targets.find((t) => t.file.endsWith("a.ts"))!;
+    assert.ok(modified.newBlob);
+    assert.equal(readBlob(modified.newBlob!, dir), "export const a = 2;\n", "feature's content, not main's");
+  });
+});
+
+test("gitDiffTargets: working-tree diffs carry no blob and read from disk", () => {
+  withRepo((dir, git) => {
+    writeFileSync(join(dir, "a.ts"), "export const a = 1;\n");
+    git("add", "-A");
+    git("commit", "-qm", "base");
+
+    writeFileSync(join(dir, "a.ts"), "export const a = 2;\n");
+    const result = gitDiffTargets([], dir);
+    assert.equal(result.targets.length, 1);
+    assert.equal(result.targets[0].newBlob, undefined);
+  });
+});
+
+test("gitDiffTargets keeps unsupported text files and skips binaries", () => {
+  withRepo((dir, git) => {
     writeFileSync(join(dir, "code.ts"), "export const a = 1;\n");
     writeFileSync(join(dir, "README.md"), "# hello\n");
     writeFileSync(join(dir, "logo.bin"), Buffer.from([0, 1, 2, 255, 0, 3]));
@@ -143,7 +222,5 @@ test("gitDiffTargets keeps unsupported text files and skips binaries", () => {
     assert.ok(readme);
     assert.equal(readme.status, "modified");
     assert.ok(readme.changedLines.length > 0);
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
+  });
 });

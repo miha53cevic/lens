@@ -12,6 +12,8 @@ export interface DiffTarget {
   changedLines: number[];
   status: DiffStatus;
   removals: RemovedBlock[];
+  /** New-side blob SHA; absent when the new side is the working tree (read from disk) */
+  newBlob?: string;
 }
 
 export interface RenamedFile {
@@ -112,24 +114,68 @@ export function parseDiff(output: string): ParsedDiff {
 }
 
 /**
+ * Parses `git diff --raw -z --no-abbrev` output into new-side path → blob SHA.
+ * Entries whose new side is the working tree (all-zero SHA) or a submodule
+ * commit (mode 160000) are omitted — those have no blob to read.
+ */
+export function parseRawShas(output: string): Map<string, string> {
+  const shas = new Map<string, string>();
+  const tokens = output.split("\0");
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i];
+    // "::" entries are merge diffs; other non-":" tokens are pass-through
+    // noise from user flags (e.g. --stat text) and never look like records.
+    if (!token.startsWith(":") || token.startsWith("::")) continue;
+    const fields = token.slice(1).split(" ");
+    if (fields.length < 5) continue;
+    const [, dstMode, , dstSha, status] = fields;
+    const pathCount = status.startsWith("R") || status.startsWith("C") ? 2 : 1;
+    const path = tokens[i + pathCount]; // renames/copies: the NEW path is the second one
+    i += pathCount;
+    if (path && !/^0+$/.test(dstSha) && dstMode !== "160000") {
+      shas.set(path, dstSha);
+    }
+  }
+  return shas;
+}
+
+function runGit(args: string[], cwd: string): string {
+  return execFileSync("git", args, { cwd, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+}
+
+/** Reads a blob's content from git's object store. */
+export function readBlob(sha: string, cwd: string): string {
+  return runGit(["cat-file", "blob", sha], cwd);
+}
+
+/**
  * Runs `git diff --unified=0` with the given passthrough args and returns the
  * supported changed files (with status and line numbers) plus deleted files.
  */
 export function gitDiffTargets(gitArgs: string[], cwd: string): DiffResult {
-  const root = execFileSync("git", ["rev-parse", "--show-toplevel"], { cwd, encoding: "utf8" }).trim();
-  const output = execFileSync(
-    "git",
-    ["diff", "--unified=0", "--no-color", ...gitArgs],
-    { cwd, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
-  );
+  const root = runGit(["rev-parse", "--show-toplevel"], cwd).trim();
+  const output = runGit(["diff", "--unified=0", "--no-color", ...gitArgs], cwd);
+  // Second pass for new-side blob SHAs, so ref-to-ref diffs (qa...feature)
+  // read content from git instead of the working tree — which may hold the
+  // OLD side, or not hold added files at all.
+  const raw = runGit(["diff", "--raw", "-z", "--no-abbrev", "--no-color", ...gitArgs], cwd);
   const parsed = parseDiff(output);
+  const newBlobs = parseRawShas(raw);
   const abs = (p: string) => (isAbsolute(p) ? p : join(root, p));
   // Unsupported file types are kept — the viewer shows their changes without
   // folding. Binary files never reach here: their diffs carry no hunks.
   return {
     targets: parsed.files
-      .map((f) => ({ file: abs(f.path), changedLines: f.changedLines, status: f.status, removals: f.removals }))
-      .filter((t) => existsSync(t.file)),
+      .map((f) => ({
+        file: abs(f.path),
+        changedLines: f.changedLines,
+        status: f.status,
+        removals: f.removals,
+        newBlob: newBlobs.get(f.path),
+      }))
+      // No blob means the new side is the working tree; a file gone from disk
+      // too has nothing to show (e.g. deleted since the diff was staged).
+      .filter((t) => t.newBlob !== undefined || existsSync(t.file)),
     deleted: parsed.deleted.map(abs),
     renamed: parsed.renamed.map((r) => ({ from: abs(r.from), to: abs(r.to) })),
   };

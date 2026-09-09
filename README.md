@@ -32,6 +32,10 @@ lens diff              # worktree vs index
 lens diff --staged     # staged changes
 lens diff HEAD~1       # any git diff args pass through
 
+# review a GitHub PR (run inside a clone of its repo)
+lens pr https://github.com/owner/repo/pull/123
+lens pr 123            # against the origin remote
+
 # other outputs
 lens src/ --term       # folded view in the terminal
 lens diff --term --hunks  # terminal, changed hunks only (PR-style)
@@ -44,6 +48,16 @@ The viewer also has a live theme dropdown — switching re-tokenizes on the serv
 `--term` output uses the same theme as 24-bit ANSI color when stdout is a terminal
 (plain text when piped, or with `NO_COLOR` set).
 
+**PR mode** (`lens pr <url|N>`) shows a GitHub pull request as a diff, with
+git alone — no GitHub API, no gh CLI, so private repos just use your normal
+git auth. It fetches the PR head (`refs/pull/N/head`, so fork PRs work) from
+a matching local remote and diffs from the merge base with the PR's target
+branch — the same range the PR page shows. The target branch is taken from
+GitHub's `refs/pull/N/merge` when it exists, falling back to the remote's
+default branch (only PRs targeting a non-default branch whose merge ref is
+gone would diff against the wrong base). The PR shows in the viewer header,
+and ↻ refresh re-fetches — new pushes to the PR appear without restarting.
+
 Diff mode includes **every text file the diff touched** — unsupported types
 (json, md, yaml, ...) appear with change markers, removed lines, and syntax
 colors when Shiki knows the language, just without folding (binaries are
@@ -53,9 +67,14 @@ show as `R` rows (`old → new` on hover). A **hunks only**
 toggle shows just the changed hunks with 3 lines of context, PR-style, with
 click-to-expand separators for the unchanged stretches — folds still apply
 inside the hunks. The sidebar has a filter box (Esc clears), a ⚙ settings
-modal showing the effective config, and is collapsible and resizable. Press
-`?` in the viewer for the keyboard shortcuts (j/k files, e/c folds, [/]
-threshold, h hunks, x removed lines, t tests, / filter, s sidebar, r refresh). The viewer also shows the **removed lines** inline (red,
+modal showing the effective config, and is collapsible and resizable.
+**⌘P** (Ctrl+P) opens a **search in files** palette — text search across every
+loaded file, with whole-word and match-case toggles; a result jumps to that
+file and line, expanding any fold or hidden hunk covering it. **⌥-clicking an
+identifier** in the code finds its usages (whole-word, case-sensitive search).
+Press `?` in the viewer for the keyboard shortcuts (⌘P search, j/k files, e/c
+folds, [/] threshold, h hunks, x removed lines, t tests, / filter, s sidebar,
+r refresh). The viewer also shows the **removed lines** inline (red,
 struck-through, anchored where they were deleted) with a toggle to hide them,
 and the **↻ refresh** button re-runs the analysis — new file contents and a
 fresh `git diff` — without restarting the server. A **hide tests** toggle

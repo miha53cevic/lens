@@ -26,6 +26,8 @@ export interface FileFoldModel {
   lineCount: number;
   /** Sorted by startLine, non-overlapping */
   regions: FoldRegion[];
+  /** The file has syntax errors — folding is disabled so nothing is misclassified */
+  parseError?: boolean;
   /** Diff mode: new-side line numbers touched by the diff */
   changedLines?: number[];
   /** Diff mode: how the diff produced this file */

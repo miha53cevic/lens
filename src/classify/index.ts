@@ -11,12 +11,15 @@ export async function analyzeSource(
   if (!language) return null;
   const tree = await parseSource(source, language);
   try {
-    const regions = classify(tree.rootNode, source, config);
+    // Tree-sitter recovers from syntax errors with ERROR nodes the rules
+    // could misread — a broken file is shown in full instead.
+    const parseError = tree.rootNode.hasError;
     return {
       file,
       language,
       lineCount: source.split("\n").length,
-      regions,
+      regions: parseError ? [] : classify(tree.rootNode, source, config),
+      ...(parseError ? { parseError } : {}),
     };
   } finally {
     tree.delete();

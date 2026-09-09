@@ -40,6 +40,7 @@ export function renderTerm(
   const folded = foldedLineCount(model, threshold);
   const percent = model.lineCount > 0 ? Math.round((folded / model.lineCount) * 100) : 0;
   out.push(bold(model.file) + dim(` — ${model.lineCount} lines, ${folded} folded (${percent}%)`));
+  if (model.parseError) out.push(yellow("⚠ folding disabled — this file has syntax errors"));
 
   const regionAt = new Map<number, FileFoldModel["regions"][number]>();
   for (const r of model.regions) {

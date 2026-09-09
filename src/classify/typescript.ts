@@ -651,29 +651,56 @@ function accessorRegions(root: Node, ctx: RuleContext): FoldRegion[] {
 }
 
 /**
- * Getters/setters with a single-statement body, and one-statement delegation
- * methods (a lone return or call). Constructors and multi-statement methods
- * never match.
+ * Getters/setters with a single-statement body, trivial property returns, and
+ * genuine delegation — a one-call body that forwards to a same-named callee or
+ * passes the method's own parameters through verbatim. Constructors, static
+ * members (usually factories: fromEntity, of, parse), one-liners with real
+ * logic (assertions, mapping), and multi-statement methods never match.
  */
 function asAccessor(member: Node): string | null {
   if (member.type !== "method_definition") return null;
   const name = member.childForFieldName("name")?.text ?? "";
   if (name === "constructor") return null;
+  const keywords = member.children.filter((c): c is Node => c !== null).map((c) => c.type);
+  if (keywords.includes("static")) return null;
   const body = member.childForFieldName("body");
   if (!body || body.type !== "statement_block") return null;
   const statements = namedChildren(body).filter((c) => c.type !== "comment");
   if (statements.length !== 1) return null;
   const stmt = statements[0];
+  const expr = namedChildren(stmt)[0];
 
-  const keywords = member.children.filter((c): c is Node => c !== null).map((c) => c.type);
   if (keywords.includes("get")) return stmt.type === "return_statement" ? `get ${name}` : null;
   if (keywords.includes("set")) return stmt.type === "expression_statement" ? `set ${name}` : null;
 
-  // delegation: the whole method is one call, or one return of a call/property
-  const RETURNABLE = new Set(["call_expression", "member_expression", "identifier"]);
-  if (stmt.type === "return_statement" && RETURNABLE.has(namedChildren(stmt)[0]?.type ?? "")) return `${name}()`;
-  if (stmt.type === "expression_statement" && namedChildren(stmt)[0]?.type === "call_expression") return `${name}()`;
+  // trivial property return: `return this._x`
+  if (stmt.type === "return_statement" &&
+      (expr?.type === "member_expression" || expr?.type === "identifier")) return `${name}()`;
+  // delegation: the whole method is one forwarding call, returned or bare
+  if ((stmt.type === "return_statement" || stmt.type === "expression_statement") &&
+      expr?.type === "call_expression" && isForwardingCall(expr, member, name)) return `${name}()`;
   return null;
+}
+
+/**
+ * A call forwards when the callee shares the method's name (`close() {
+ * this.socket.close(); }`) or the arguments are exactly the method's own
+ * parameters, verbatim and in order (`send(msg) { this.bus.send(msg); }`).
+ */
+function isForwardingCall(call: Node, member: Node, methodName: string): boolean {
+  const fn = call.childForFieldName("function");
+  const calleeName = fn?.type === "member_expression" ? fn.childForFieldName("property")?.text
+    : fn?.type === "identifier" ? fn.text
+    : undefined;
+  if (calleeName === methodName) return true;
+
+  const paramsNode = member.childForFieldName("parameters");
+  const argsNode = call.childForFieldName("arguments");
+  if (!paramsNode || !argsNode) return false;
+  const params = namedChildren(paramsNode).map((p) => p.childForFieldName("pattern")?.text ?? "");
+  const args = namedChildren(argsNode);
+  return params.length > 0 && params.length === args.length &&
+    args.every((a, i) => a.type === "identifier" && a.text === params[i]);
 }
 
 // ---------- rule: barrel files ----------

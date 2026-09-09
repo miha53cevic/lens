@@ -13,6 +13,7 @@
     --panel-2: #1b1e25;
     --border: #23262f;
     --border-soft: #1c1f27;
+    --border-strong: #3a3f4d;
     --text: #e8eaf0;
     --muted: #8b93a4;
     --accent: #e9b04d;
@@ -20,6 +21,27 @@
     --added: #7bd88f;
     --modified: #e2c08d;
     --removed: #f0716e;
+    --shadow: #00000090;
+    --scrollbar: #2a2e39;
+  }
+  /* light chrome — applied when the selected code theme has a light background,
+     so the surrounding UI matches instead of framing a bright pane in dark panels */
+  :root[data-appearance="light"] {
+    --bg: #f4f5f8;
+    --panel: #ffffff;
+    --panel-2: #eceef3;
+    --border: #d8dce4;
+    --border-soft: #e5e8ee;
+    --border-strong: #b9c0cc;
+    --text: #23272f;
+    --muted: #667082;
+    --accent: #b07a14;
+    --changed: #1d7f91;
+    --added: #2c8f4a;
+    --modified: #9a6e1f;
+    --removed: #c9403c;
+    --shadow: #1c223040;
+    --scrollbar: #c4cad6;
   }
   * { box-sizing: border-box; }
   body {
@@ -44,19 +66,27 @@
     background: radial-gradient(circle at 35% 35%, var(--accent), color-mix(in srgb, var(--accent) 25%, transparent));
   }
   .stats { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pr-label {
+    flex: none; max-width: 34vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    color: var(--text); font-size: 12px;
+    border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+    border-radius: 999px; padding: 2px 0.7rem;
+  }
 
   button, select {
     background: transparent; border: 1px solid var(--border); color: var(--muted);
     border-radius: 7px; padding: 0 0.65rem; height: 28px; font-size: 12px; cursor: pointer;
     font-family: inherit;
   }
-  button:hover, select:hover { color: var(--text); border-color: #3a3f4d; background: var(--panel-2); }
+  button:hover, select:hover { color: var(--text); border-color: var(--border-strong); background: var(--panel-2); }
   select { background: var(--panel); }
   button:disabled { opacity: 0.5; cursor: default; }
+  .ended { display: grid; place-items: center; height: 100vh; color: var(--muted); }
 
   .control { display: flex; align-items: center; gap: 0.45rem; color: var(--muted); font-size: 12px; white-space: nowrap; cursor: pointer; }
-  .control input[type="range"] { width: 84px; accent-color: var(--accent); }
   .control input[type="checkbox"] { accent-color: var(--accent); }
+  .control select { height: 24px; padding: 0 0.45rem; border-radius: 6px; }
   .vdivider { width: 1px; height: 18px; background: var(--border); flex: none; }
   .info {
     position: relative; cursor: help; color: var(--muted);
@@ -67,7 +97,7 @@
     display: none; position: absolute; top: calc(100% + 10px); right: -10px; z-index: 50;
     width: max-content; max-width: 360px;
     background: var(--panel-2); border: 1px solid var(--border); border-radius: 9px;
-    padding: 0.6rem 0.75rem; box-shadow: 0 10px 30px #00000090;
+    padding: 0.6rem 0.75rem; box-shadow: 0 10px 30px var(--shadow);
     font-size: 11.5px; color: var(--muted); white-space: normal; text-align: left;
     cursor: default;
   }
@@ -166,6 +196,33 @@
   nav .file.renamed .fname { color: var(--modified); }
   nav .file .st-R { color: var(--modified); }
 
+  /* ---- editor tabs ---- */
+  .editor { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .tabbar {
+    display: flex; align-items: stretch; flex: none; overflow-x: auto;
+    background: var(--panel); border-bottom: 1px solid var(--border);
+    scrollbar-width: thin;
+  }
+  .tab {
+    display: flex; align-items: center; gap: 0.45rem; padding: 0 0.45rem 0 0.8rem;
+    height: 34px; flex: none; max-width: 240px; cursor: pointer; user-select: none;
+    color: var(--muted); font-size: 12px; border-right: 1px solid var(--border-soft);
+    white-space: nowrap;
+  }
+  .tab:hover { color: var(--text); background: var(--panel-2); }
+  .tab.active {
+    color: var(--text); background: var(--code-bg, var(--bg));
+    box-shadow: inset 0 2px var(--accent);
+  }
+  .tab.preview .tab-name { font-style: italic; }
+  .tab-name { overflow: hidden; text-overflow: ellipsis; }
+  .tab-dir { font-size: 10.5px; opacity: 0.65; overflow: hidden; text-overflow: ellipsis; }
+  .tab-close {
+    width: 18px; height: 18px; padding: 0; border: none; border-radius: 4px;
+    font-size: 10px; line-height: 1; background: transparent; visibility: hidden;
+  }
+  .tab:hover .tab-close, .tab.active .tab-close { visibility: visible; }
+
   /* ---- code pane ---- */
   main { flex: 1; overflow: auto; min-width: 0; background: var(--code-bg, var(--bg)); }
   .code {
@@ -183,6 +240,8 @@
   .mark.changed { background: var(--changed); }
 
   .pill-row { cursor: pointer; align-items: baseline; }
+  /* baseline alignment collapses the empty gutter mark — stretch it back */
+  .pill-row .mark { align-self: stretch; }
   .pill {
     --cat: var(--accent);
     display: inline-flex; gap: 0.7ch; align-items: baseline;
@@ -199,8 +258,10 @@
   }
   .pill .cat { text-transform: uppercase; letter-spacing: 0.07em; font-size: 9px; font-weight: 700; color: var(--cat); }
   .pill .caret { transition: transform 0.12s; font-size: 9px; color: var(--cat); }
+  /* category hues are picked for dark backgrounds — darken small text on light chrome */
+  :root[data-appearance="light"] .pill .cat,
+  :root[data-appearance="light"] .pill .caret { color: color-mix(in srgb, var(--cat) 62%, #333a45); }
   .region.open .pill .caret { transform: rotate(90deg); }
-  .pill .changed-dot { color: var(--changed); }
   .region .body { display: none; }
   .region.open .body { display: block; opacity: 0.62; }
   .region.pinned > .pill-row { display: none; }
@@ -214,13 +275,21 @@
   .row.gap .num { opacity: 0.5; }
 
   .row.removed {
-    color: var(--removed); text-decoration: line-through;
-    background: color-mix(in srgb, var(--removed) 8%, transparent);
+    color: color-mix(in srgb, var(--code-fg, #fff) 72%, var(--removed));
+    background: color-mix(in srgb, var(--removed) 9%, transparent);
   }
-  .row.removed:hover { background: color-mix(in srgb, var(--removed) 14%, transparent); }
-  .row.removed .num { color: var(--removed); opacity: 0.6; text-decoration: none; }
+  .row.removed:hover { background: color-mix(in srgb, var(--removed) 16%, transparent); }
+  .row.removed .num { color: var(--removed); opacity: 0.6; }
+  .row.removed .mark { background: var(--removed); opacity: 0.65; }
 
   .empty { padding: 3rem; color: var(--muted); text-align: center; }
+  .notice {
+    margin: 0 1.25rem 0.6rem; padding: 0.45rem 0.8rem; border-radius: 7px;
+    font-family: ui-sans-serif, system-ui, sans-serif; font-size: 12px;
+    color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+    width: fit-content;
+  }
 
   kbd {
     display: inline-block; min-width: 18px; text-align: center;
@@ -234,9 +303,9 @@
     background: var(--panel); color: var(--text);
     border: 1px solid var(--border); border-radius: 12px;
     padding: 0; width: min(620px, 90vw); max-height: 80vh;
-    box-shadow: 0 20px 60px #000000b0;
+    box-shadow: 0 20px 60px var(--shadow);
   }
-  dialog::backdrop { background: #000000a0; }
+  dialog::backdrop { background: #00000060; }
   .modal-head {
     display: flex; align-items: center; gap: 0.75rem;
     padding: 0.7rem 1rem; border-bottom: 1px solid var(--border);
@@ -267,8 +336,52 @@
     font-size: 11px;
   }
 
+  /* ---- search palette (⌘P) ---- */
+  dialog.palette { margin-top: 7vh; margin-bottom: auto; width: min(700px, 92vw); }
+  .palette-head {
+    display: flex; align-items: center; gap: 0.7rem;
+    padding: 0.65rem 0.8rem; border-bottom: 1px solid var(--border);
+  }
+  .palette-head input[type="text"] {
+    flex: 1; min-width: 0; height: 30px; padding: 0 0.65rem;
+    background: var(--panel-2); border: 1px solid var(--border); border-radius: 7px;
+    color: var(--text); font: inherit; font-size: 13px;
+  }
+  .palette-head input[type="text"]::placeholder { color: var(--muted); }
+  .palette-head input[type="text"]:focus { outline: none; border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+  .palette-head .control { user-select: none; }
+  .search-results { max-height: 56vh; overflow-y: auto; padding: 0.35rem 0; }
+  .search-empty { color: var(--muted); padding: 0.9rem 1rem; font-size: 12px; }
+  .search-file {
+    padding: 0.5rem 0.8rem 0.2rem; color: var(--muted); font-size: 11px;
+    font-family: ui-monospace, Menlo, monospace;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .search-file .count { opacity: 0.65; }
+  .search-hit {
+    display: flex; gap: 0.7rem; align-items: baseline; cursor: pointer;
+    padding: 0.18rem 0.8rem 0.18rem 1.4rem;
+    font-family: ui-monospace, Menlo, monospace; font-size: 12px;
+    white-space: pre; overflow: hidden;
+  }
+  .search-hit .ln { flex: none; min-width: 3.2ch; text-align: right; color: var(--muted); opacity: 0.7; }
+  .search-hit .preview { overflow: hidden; text-overflow: ellipsis; color: var(--muted); }
+  .search-hit .preview .match { color: var(--accent); font-weight: 700; }
+  .search-hit:hover, .search-hit.selected { background: var(--panel-2); }
+  .search-hit.selected { box-shadow: inset 2px 0 var(--accent); }
+  .search-hit.selected .preview { color: var(--text); }
+  .palette-foot {
+    display: flex; gap: 1.1rem; padding: 0.45rem 0.8rem; border-top: 1px solid var(--border);
+    color: var(--muted); font-size: 10.5px; align-items: center;
+  }
+  .row.flash { animation: line-flash 1.6s ease-out; }
+  @keyframes line-flash {
+    0%, 45% { background: color-mix(in srgb, var(--accent) 28%, transparent); }
+    100% { background: transparent; }
+  }
+
   ::-webkit-scrollbar { width: 10px; height: 10px; }
-  ::-webkit-scrollbar-thumb { background: #2a2e39; border-radius: 5px; border: 2px solid var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 5px; border: 2px solid var(--bg); }
   ::-webkit-scrollbar-track { background: transparent; }
 </style>
 </head>
@@ -277,12 +390,15 @@
   <div class="bar">
     <button id="nav-toggle" class="icon" title="toggle the file tree" style="display:none">&#9776;</button>
     <div class="brand">lens</div>
+    <span class="pr-label" id="pr-label" style="display:none"></span>
     <span class="stats" id="stats"></span>
     <span class="spacer"></span>
+    <button id="search-btn" class="icon" title="search in files (⌘P)">⌕</button>
     <select id="theme-select" title="color theme"></select>
     <button id="settings-btn" class="icon" title="current settings">⚙</button>
     <button id="keys-btn" class="icon" title="keyboard shortcuts (?)">?</button>
     <button id="refresh" title="re-run the analysis" style="display:none">↻ refresh</button>
+    <button id="end-session" title="stop the lens server">⏻ end</button>
   </div>
   <div class="bar toolbar">
     <div class="toggles" id="toggles"></div>
@@ -297,8 +413,14 @@
       <input type="checkbox" id="show-removed" checked> removed lines
     </label>
     <label class="control" id="threshold-control">
-      fold ≤ <input type="range" id="threshold" min="-1" max="3" step="1">
-      <span id="threshold-value"></span>
+      fold ≤
+      <select id="threshold" title="fold regions scored at or below this level">
+        <option value="-1">off</option>
+        <option value="0">0</option>
+        <option value="1">1</option>
+        <option value="2">2</option>
+        <option value="3">3</option>
+      </select>
       <span class="info" id="threshold-info" aria-label="what each fold level shows">&#9432;
         <span class="tip" id="threshold-tip"></span>
       </span>
@@ -326,6 +448,10 @@
   <div class="modal-body">
     <table class="set-table">
       <tr><td><kbd>j</kbd> / <kbd>k</kbd></td><td>next / previous file</td></tr>
+      <tr><td><kbd>w</kbd></td><td>close the active tab</td></tr>
+      <tr><td><kbd>o</kbd></td><td>keep the preview tab open (pin it)</td></tr>
+      <tr><td><kbd>⌘P</kbd> / <kbd>Ctrl P</kbd></td><td>search in files</td></tr>
+      <tr><td><kbd>⌥ click</kbd></td><td>find usages of the clicked identifier</td></tr>
       <tr><td><kbd>/</kbd></td><td>focus the file filter</td></tr>
       <tr><td><kbd>s</kbd></td><td>toggle the file tree</td></tr>
       <tr><td><kbd>e</kbd> / <kbd>c</kbd></td><td>expand / collapse all folds</td></tr>
@@ -340,6 +466,22 @@
   </div>
 </dialog>
 
+<dialog id="search-modal" class="palette">
+  <div class="palette-head">
+    <input id="search-input" type="text" placeholder="search in files…" spellcheck="false" autocomplete="off">
+    <label class="control" title="match whole words only"><input type="checkbox" id="search-word"> word</label>
+    <label class="control" title="match case"><input type="checkbox" id="search-case"> case</label>
+  </div>
+  <div class="search-results" id="search-results"></div>
+  <div class="palette-foot">
+    <span><kbd>↑</kbd> <kbd>↓</kbd> navigate</span>
+    <span><kbd>↵</kbd> jump</span>
+    <span><kbd>Esc</kbd> close</span>
+    <span class="spacer"></span>
+    <span>tip: <kbd>⌥ click</kbd> an identifier in the code finds its usages</span>
+  </div>
+</dialog>
+
 <div class="layout">
   <nav id="nav">
     <div class="nav-filter">
@@ -349,7 +491,10 @@
     <div id="tree"></div>
   </nav>
   <div class="resizer" id="resizer" title="drag to resize the file tree"></div>
-  <main><div class="code" id="code"></div></main>
+  <div class="editor">
+    <div class="tabbar" id="tabbar"></div>
+    <main><div class="code" id="code"></div></main>
+  </div>
 </div>
 
 <script>
@@ -387,10 +532,23 @@ const CAT_COLORS = {
 function catColor(cat) { return CAT_COLORS[cat] || "#e9b04d"; }
 
 const state = {
-  active: 0,
+  active: DATA.files.length > 0 ? 0 : -1,
+  // Open editor tabs, vscode-style: at most one is unpinned — the "preview"
+  // tab, reused by the next single-click open. Double-click pins.
+  tabs: DATA.files.length > 0 ? [{ index: 0, pinned: false }] : [],
   hiddenCategories: new Set(), // categories toggled to "show" (i.e. not folded)
   showRemoved: true,
 };
+
+// PR mode: "owner/repo#N — title" in the header and the tab title
+const prLabelEl = document.getElementById("pr-label");
+function syncLabel() {
+  prLabelEl.style.display = DATA.label ? "" : "none";
+  prLabelEl.textContent = DATA.label || "";
+  prLabelEl.title = DATA.label || "";
+  document.title = DATA.label ? "lens — " + DATA.label : "lens";
+}
+syncLabel();
 
 const nav = document.getElementById("nav");
 const treeEl = document.getElementById("tree");
@@ -403,13 +561,81 @@ const statsEl = document.getElementById("stats");
 const togglesEl = document.getElementById("toggles");
 const mainEl = document.querySelector("main");
 
-// Full re-render that keeps the reading position (theme/removed-lines switches).
-function rerenderInPlace() {
-  const scrollTop = mainEl.scrollTop;
-  const scrollLeft = mainEl.scrollLeft;
+// ---- editor tabs ----
+const tabbarEl = document.getElementById("tabbar");
+
+// Every file shares the one scroll container, so each remembers its own
+// reading position, saved and restored by render() — a tab switch comes back
+// where the reader left off, an in-place re-render (theme, toggles) stays put.
+// Keyed by path so positions survive a refresh.
+const scrollMemory = new Map(); // file path -> { top, left }
+let renderedPath = null; // the file currently shown in the code pane
+function rememberScroll() {
+  if (renderedPath !== null) {
+    scrollMemory.set(renderedPath, { top: mainEl.scrollTop, left: mainEl.scrollLeft });
+  }
+}
+
+// Make sure the file has a tab, without rendering. A new file takes over the
+// preview tab when one exists; otherwise it opens next to the active tab.
+function ensureTab(index, pin) {
+  const existing = state.tabs.find((t) => t.index === index);
+  if (existing) {
+    if (pin) existing.pinned = true;
+    return;
+  }
+  const preview = state.tabs.find((t) => !t.pinned);
+  if (!pin && preview) {
+    preview.index = index;
+    return;
+  }
+  const at = state.tabs.findIndex((t) => t.index === state.active);
+  state.tabs.splice(at + 1, 0, { index, pinned: !!pin });
+}
+
+function openFile(index, pin) {
+  ensureTab(index, pin);
+  state.active = index;
   render();
-  mainEl.scrollTop = scrollTop;
-  mainEl.scrollLeft = scrollLeft;
+}
+
+function closeTab(index) {
+  const at = state.tabs.findIndex((t) => t.index === index);
+  if (at === -1) return;
+  state.tabs.splice(at, 1);
+  if (state.active === index) {
+    const next = state.tabs[Math.min(at, state.tabs.length - 1)];
+    state.active = next ? next.index : -1;
+  }
+  render();
+}
+
+function renderTabs() {
+  tabbarEl.innerHTML = "";
+  tabbarEl.style.display = state.tabs.length === 0 ? "none" : "";
+  // basenames shared by several open tabs get their directory as a suffix
+  const counts = new Map();
+  for (const t of state.tabs) {
+    const base = DATA.files[t.index].file.split("/").pop();
+    counts.set(base, (counts.get(base) || 0) + 1);
+  }
+  for (const t of state.tabs) {
+    const path = DATA.files[t.index].file;
+    const base = path.split("/").pop();
+    const dir = path.slice(0, Math.max(0, path.length - base.length - 1));
+    const el = document.createElement("div");
+    el.className = "tab" + (t.index === state.active ? " active" : "") + (t.pinned ? "" : " preview");
+    el.title = path + (t.pinned ? "" : " — preview tab: reused by the next open, double-click to keep");
+    el.innerHTML =
+      '<span class="tab-name">' + escapeHtml(base) + "</span>" +
+      (counts.get(base) > 1 && dir ? '<span class="tab-dir">' + escapeHtml(dir) + "</span>" : "") +
+      '<button class="tab-close" title="close (or middle-click)">✕</button>';
+    el.onclick = () => openFile(t.index);
+    el.ondblclick = () => { t.pinned = true; renderTabs(); };
+    el.onauxclick = (ev) => { if (ev.button === 1) closeTab(t.index); };
+    el.querySelector(".tab-close").onclick = (ev) => { ev.stopPropagation(); closeTab(t.index); };
+    tabbarEl.appendChild(el);
+  }
 }
 
 function foldedCount(file) {
@@ -549,7 +775,7 @@ function renderNav() {
     ...(DATA.excluded || []), ...(DATA.renamed || []).map((r) => r.to)];
   testsWrap.style.display = paths.some(isTestFile) ? "" : "none";
   const visible = paths.filter(visibleFile);
-  hasTree = visible.length > 1;
+  hasTree = visible.length > 0;
   syncNavVisibility();
   if (!hasTree) return;
   const tree = buildTree();
@@ -598,7 +824,8 @@ function renderTreeNode(node, path, depth, container) {
       (letter ? '<span class="status st-' + letter + '">' + letter + "</span>" : "");
     if (entry.index !== null) {
       navOrder.push(entry.index);
-      b.onclick = () => { state.active = entry.index; render(); };
+      b.onclick = () => openFile(entry.index);
+      b.ondblclick = () => openFile(entry.index, true);
     } else {
       b.disabled = true;
     }
@@ -642,22 +869,26 @@ function renderToggles(file) {
 }
 
 function render() {
+  rememberScroll();
+  renderedPath = null; // set again at the end, once a file actually renders
   if (hideTests) {
     const active = DATA.files[state.active];
     if (active && isTestFile(active.file)) {
       const firstVisible = DATA.files.findIndex((f) => !isTestFile(f.file));
-      if (firstVisible >= 0) state.active = firstVisible;
+      if (firstVisible >= 0) { ensureTab(firstVisible); state.active = firstVisible; }
     }
   }
   const file = DATA.files[state.active];
   renderNav();
+  renderTabs();
   lastHiddenTotal = 0;
   if (!file) {
-    const onlyListed = (DATA.excluded || []).length + (DATA.deleted || []).length +
-      (DATA.renamed || []).length > 0;
-    codeEl.innerHTML = '<div class="empty">' + (onlyListed
-      ? "nothing to analyze — this diff only renamed, deleted, or excluded files (see the tree)"
-      : "no supported files found") + "</div>";
+    codeEl.innerHTML = '<div class="empty">' + (DATA.files.length > 0
+      ? "no file open — pick one from the tree"
+      : listedOnlyCount() > 0
+        ? "nothing to analyze — this diff only renamed, deleted, or excluded files (see the tree)"
+        : "no supported files found") + "</div>";
+    togglesEl.innerHTML = "";
     updateStats();
     return;
   }
@@ -694,6 +925,9 @@ function render() {
 
   const gutter = String(file.lineCount).length;
   codeEl.innerHTML = "";
+  if (file.parseError) {
+    codeEl.innerHTML = '<div class="notice">⚠ folding disabled — this file has syntax errors</div>';
+  }
   emitRemoved(0, codeEl, gutter);
   let lineNo = 1;
   let hiddenTotal = 0;
@@ -719,6 +953,10 @@ function render() {
   }
   lastHiddenTotal = hiddenTotal;
   updateStats();
+  renderedPath = file.file;
+  const saved = scrollMemory.get(file.file);
+  mainEl.scrollTop = saved ? saved.top : 0;
+  mainEl.scrollLeft = saved ? saved.left : 0;
 }
 
 // Hunks-only windows: ±CONTEXT lines around every change/removal anchor, merged;
@@ -767,17 +1005,30 @@ function gapRowEl(count, key, gutter) {
     '<span class="num">' + "⋯".padStart(gutter) + "</span>" +
     '<span class="mark"></span>' +
     "<span>⋯ " + count + " unchanged line" + (count === 1 ? "" : "s") + "</span>";
-  row.onclick = () => { expandedGaps.add(key); rerenderInPlace(); };
+  row.onclick = () => { expandedGaps.add(key); render(); };
   return row;
+}
+
+// changed files the diff lists but the viewer can't open: deleted, excluded, renamed
+function listedOnlyCount() {
+  return (DATA.deleted || []).length + (DATA.excluded || []).length + (DATA.renamed || []).length;
+}
+
+function isDiffMode() {
+  return listedOnlyCount() > 0 ||
+    DATA.files.some((f) => (f.removals || []).length > 0 || f.status);
 }
 
 let lastHiddenTotal = 0;
 function updateStats() {
   const file = DATA.files[state.active];
   if (!file) { statsEl.textContent = ""; return; }
+  const changed = isDiffMode() ? DATA.files.length + listedOnlyCount() : 0;
   const folded = foldedCount(file);
   const pct = file.lineCount ? Math.round((folded / file.lineCount) * 100) : 0;
-  statsEl.textContent = file.file + " — " + file.lineCount + " lines, " + folded + " folded (−" + pct + "%)" +
+  statsEl.textContent =
+    (changed > 0 ? changed + (changed === 1 ? " file" : " files") + " changed · " : "") +
+    file.file + " — " + file.lineCount + " lines, " + folded + " folded (−" + pct + "%)" +
     (lastHiddenTotal > 0 ? " · " + lastHiddenTotal + " unchanged hidden" : "");
 }
 
@@ -802,6 +1053,7 @@ function removedRowEl(text, gutter) {
 function rowEl(lineNo, html, isChanged, gutter) {
   const row = document.createElement("div");
   row.className = "row";
+  row.dataset.line = lineNo;
   row.innerHTML =
     '<span class="num">' + String(lineNo).padStart(gutter) + "</span>" +
     '<span class="mark' + (isChanged ? " changed" : "") + '"></span>' +
@@ -828,9 +1080,7 @@ function regionEl(region, lines, changed, gutter, emitRemoved) {
     // stay scannable in the margin
     '<span class="mark' + (touchesChange ? " changed" : "") + '"></span>' +
     '<span class="pill" style="--cat:' + catColor(region.category) + '"><span class="caret">▸</span><span class="cat">' +
-    escapeHtml(region.category) + "</span>" + escapeHtml(region.summary) +
-    (touchesChange ? '<span class="changed-dot" title="contains changed lines">●</span>' : "") +
-    "</span>";
+    escapeHtml(region.category) + "</span>" + escapeHtml(region.summary) + "</span>";
   head.onclick = () => wrap.classList.toggle("open");
 
   const body = document.createElement("div");
@@ -854,9 +1104,21 @@ for (const name of DATA.themes) {
   if (name === DATA.theme) option.selected = true;
   themeSelect.appendChild(option);
 }
+// A light code theme flips the whole chrome to the light palette, so the
+// header/sidebar/modals match instead of boxing a bright pane in dark panels.
+function isLightColor(color) {
+  // longest-first: themes report #rgb, #rgba, #rrggbb, or #rrggbbaa
+  const m = /^#([0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{4}|[0-9a-f]{3})$/i.exec((color || "").trim());
+  if (!m) return false;
+  let hex = m[1];
+  if (hex.length <= 4) hex = [...hex].map((c) => c + c).join("");
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  return 0.299 * r + 0.587 * g + 0.114 * b > 140;
+}
 function applyThemeColors(fg, bg) {
   document.documentElement.style.setProperty("--code-fg", fg);
   document.documentElement.style.setProperty("--code-bg", bg);
+  document.documentElement.dataset.appearance = isLightColor(bg) ? "light" : "dark";
 }
 async function switchTheme(theme) {
   themeSelect.disabled = true;
@@ -876,7 +1138,7 @@ async function switchTheme(theme) {
     }
     themeSelect.value = entry.theme;
     applyThemeColors(entry.fg, entry.bg);
-    rerenderInPlace();
+    render();
     return true;
   } catch (err) {
     console.error("theme switch failed:", err);
@@ -900,9 +1162,8 @@ if (!DATA.themePinned && savedTheme && savedTheme !== DATA.theme) {
   });
 }
 
-// ---- fold threshold slider ----
-const thresholdInput = document.getElementById("threshold");
-const thresholdValue = document.getElementById("threshold-value");
+// ---- fold threshold select ----
+const thresholdSelect = document.getElementById("threshold");
 const thresholdTipEl = document.getElementById("threshold-tip");
 
 // Lowest score seen per category across all files — the ground truth for
@@ -937,15 +1198,11 @@ function renderThresholdTip() {
     '<div class="tip-note">TODO/FIXME comments and lens:keep regions never fold</div>';
 }
 
-function syncThresholdLabel() {
-  thresholdValue.textContent = DATA.threshold < 0 ? "off" : String(DATA.threshold);
+thresholdSelect.value = String(DATA.threshold);
+renderThresholdTip();
+thresholdSelect.onchange = () => {
+  DATA.threshold = Number(thresholdSelect.value);
   renderThresholdTip();
-}
-thresholdInput.value = DATA.threshold;
-syncThresholdLabel();
-thresholdInput.oninput = () => {
-  DATA.threshold = Number(thresholdInput.value);
-  syncThresholdLabel();
   applyThreshold();
 };
 
@@ -957,7 +1214,7 @@ hunksBox.onchange = () => {
   hunksOnly = hunksBox.checked;
   writePref("lens.hunksOnly", hunksOnly ? "1" : "0");
   expandedGaps.clear(); // toggling starts fresh — no stale expansions
-  rerenderInPlace();
+  render();
 };
 
 // ---- hide-tests toggle ----
@@ -974,13 +1231,11 @@ hideTestsBox.onchange = () => {
 const removedWrap = document.getElementById("removed-wrap");
 const showRemovedBox = document.getElementById("show-removed");
 function syncDiffControls() {
-  const isDiff = DATA.files.some((f) => (f.removals || []).length > 0 || f.status) ||
-    (DATA.deleted || []).length > 0 || (DATA.excluded || []).length > 0 ||
-    (DATA.renamed || []).length > 0;
+  const isDiff = isDiffMode();
   removedWrap.style.display = isDiff ? "" : "none";
   hunksWrap.style.display = isDiff ? "" : "none";
 }
-showRemovedBox.onchange = () => { state.showRemoved = showRemovedBox.checked; rerenderInPlace(); };
+showRemovedBox.onchange = () => { state.showRemoved = showRemovedBox.checked; render(); };
 syncDiffControls();
 
 // ---- settings modal ----
@@ -1061,16 +1316,25 @@ refreshBtn.onclick = async () => {
     if (!res.ok) throw new Error("http " + res.status);
     const payload = await res.json();
     const activePath = DATA.files[state.active]?.file;
+    // tabs survive a refresh by path; files gone from the new analysis drop out
+    const tabPaths = state.tabs.map((t) => ({ path: DATA.files[t.index]?.file, pinned: t.pinned }));
     const userThreshold = DATA.threshold; // slider choice survives a refresh
     Object.assign(DATA, payload);
     DATA.threshold = userThreshold;
-    const idx = DATA.files.findIndex((f) => f.file === activePath);
-    state.active = idx >= 0 ? idx : 0;
+    sourceLineCache.clear(); // sources may have changed
+    state.tabs = tabPaths
+      .map((t) => ({ index: DATA.files.findIndex((f) => f.file === t.path), pinned: t.pinned }))
+      .filter((t) => t.index >= 0);
+    let idx = DATA.files.findIndex((f) => f.file === activePath);
+    if (idx === -1) idx = state.tabs[0]?.index ?? (DATA.files.length > 0 ? 0 : -1);
+    if (idx >= 0) ensureTab(idx);
+    state.active = idx;
     applyThemeColors(DATA.fg, DATA.bg);
     themeSelect.value = DATA.theme;
-    thresholdInput.value = DATA.threshold;
-    syncThresholdLabel();
+    thresholdSelect.value = String(DATA.threshold);
+    renderThresholdTip();
     syncDiffControls();
+    syncLabel();
     render();
   } catch (err) {
     console.error("refresh failed:", err);
@@ -1078,6 +1342,16 @@ refreshBtn.onclick = async () => {
     refreshBtn.disabled = false;
     refreshBtn.textContent = "↻ refresh";
   }
+};
+
+// ---- end session: stop the server and leave a farewell page ----
+document.getElementById("end-session").onclick = async (ev) => {
+  ev.target.disabled = true;
+  try {
+    await fetch("/api/shutdown", { method: "POST" });
+  } catch { /* the server may drop the connection while dying — that's success */ }
+  document.body.innerHTML =
+    '<div class="ended">session ended — the lens server has stopped, you can close this tab</div>';
 };
 
 // expand/collapse all keep the category chips in sync with the regions
@@ -1092,6 +1366,192 @@ document.getElementById("collapse-all").onclick = () => {
   togglesEl.querySelectorAll("input").forEach(b => (b.checked = false));
   document.querySelectorAll(".region").forEach(el => el.classList.remove("open"));
 };
+
+// ---- global search (⌘P) ----
+const searchModal = document.getElementById("search-modal");
+const searchInput = document.getElementById("search-input");
+const searchResultsEl = document.getElementById("search-results");
+const searchWordBox = document.getElementById("search-word");
+const searchCaseBox = document.getElementById("search-case");
+const SEARCH_LIMIT = 500;
+
+// Plain-text lines per file, split lazily once — sources never change between refreshes.
+const sourceLineCache = new Map();
+function sourceLines(fileIndex) {
+  let lines = sourceLineCache.get(fileIndex);
+  if (!lines) {
+    lines = (DATA.files[fileIndex].source || "").split("\n");
+    sourceLineCache.set(fileIndex, lines);
+  }
+  return lines;
+}
+
+let searchHits = []; // { fileIndex, line (1-based), col, len }
+let searchSel = 0;
+// Find-usages (alt-click) jumps pin the tab being read — that search is a
+// detour the reader returns from. Plain ⌘P search keeps the preview behavior.
+let searchPinsOrigin = false;
+
+function openSearch(query, opts) {
+  searchPinsOrigin = !!opts?.pinOrigin;
+  if (typeof query === "string") searchInput.value = query;
+  if (opts) {
+    searchWordBox.checked = !!opts.word;
+    searchCaseBox.checked = !!opts.matchCase;
+  }
+  if (!searchModal.open) searchModal.showModal();
+  searchInput.focus();
+  searchInput.select();
+  runSearch();
+}
+
+function escapeRegExp(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
+
+function runSearch() {
+  const query = searchInput.value;
+  searchHits = [];
+  searchSel = 0;
+  if (query.trim().length < 2) {
+    searchResultsEl.innerHTML = '<div class="search-empty">' + (query.trim()
+      ? "keep typing — at least 2 characters"
+      : "search across all " + DATA.files.length + " loaded files") + "</div>";
+    return;
+  }
+  let body = escapeRegExp(query);
+  if (searchWordBox.checked) body = "\\b" + body + "\\b";
+  const re = new RegExp(body, searchCaseBox.checked ? "g" : "gi");
+
+  outer:
+  for (let i = 0; i < DATA.files.length; i++) {
+    if (!visibleFile(DATA.files[i].file)) continue; // respect "hide tests"
+    const lines = sourceLines(i);
+    for (let ln = 0; ln < lines.length; ln++) {
+      re.lastIndex = 0;
+      let m;
+      while ((m = re.exec(lines[ln])) !== null) {
+        if (m[0].length === 0) break;
+        searchHits.push({ fileIndex: i, line: ln + 1, col: m.index, len: m[0].length });
+        if (searchHits.length >= SEARCH_LIMIT) break outer;
+      }
+    }
+  }
+  renderSearchResults();
+}
+
+function renderSearchResults() {
+  searchResultsEl.innerHTML = "";
+  if (searchHits.length === 0) {
+    searchResultsEl.innerHTML = '<div class="search-empty">no matches</div>';
+    return;
+  }
+  let lastFile = -1;
+  searchHits.forEach((hit, idx) => {
+    if (hit.fileIndex !== lastFile) {
+      lastFile = hit.fileIndex;
+      const count = searchHits.filter((h) => h.fileIndex === hit.fileIndex).length;
+      const head = document.createElement("div");
+      head.className = "search-file";
+      head.innerHTML = escapeHtml(DATA.files[hit.fileIndex].file) +
+        ' <span class="count">· ' + count + "</span>";
+      searchResultsEl.appendChild(head);
+    }
+    const text = sourceLines(hit.fileIndex)[hit.line - 1] ?? "";
+    const from = hit.col > 80 ? hit.col - 60 : 0;
+    const before = ((from > 0 ? "…" : "") + text.slice(from, hit.col)).replace(/^\s+/, "");
+    const after = text.slice(hit.col + hit.len, hit.col + hit.len + 160);
+    const row = document.createElement("div");
+    row.className = "search-hit" + (idx === searchSel ? " selected" : "");
+    row.dataset.idx = idx;
+    row.innerHTML =
+      '<span class="ln">' + hit.line + "</span>" +
+      '<span class="preview">' + escapeHtml(before) +
+      '<span class="match">' + escapeHtml(text.substr(hit.col, hit.len)) + "</span>" +
+      escapeHtml(after) + "</span>";
+    row.onclick = () => { searchModal.close(); jumpToLine(hit.fileIndex, hit.line); };
+    searchResultsEl.appendChild(row);
+  });
+  if (searchHits.length >= SEARCH_LIMIT) {
+    const note = document.createElement("div");
+    note.className = "search-empty";
+    note.textContent = "stopped at " + SEARCH_LIMIT + " matches — refine the query";
+    searchResultsEl.appendChild(note);
+  }
+}
+
+function moveSearchSel(delta) {
+  if (searchHits.length === 0) return;
+  searchSel = (searchSel + delta + searchHits.length) % searchHits.length;
+  searchResultsEl.querySelectorAll(".search-hit").forEach((el) => {
+    const selected = Number(el.dataset.idx) === searchSel;
+    el.classList.toggle("selected", selected);
+    if (selected) el.scrollIntoView({ block: "nearest" });
+  });
+}
+
+searchInput.oninput = runSearch;
+searchWordBox.onchange = runSearch;
+searchCaseBox.onchange = runSearch;
+searchInput.onkeydown = (ev) => {
+  if (ev.key === "ArrowDown") { moveSearchSel(1); ev.preventDefault(); }
+  else if (ev.key === "ArrowUp") { moveSearchSel(-1); ev.preventDefault(); }
+  else if (ev.key === "Enter") {
+    const hit = searchHits[searchSel];
+    if (hit) { searchModal.close(); jumpToLine(hit.fileIndex, hit.line); }
+  }
+};
+document.getElementById("search-btn").onclick = () => openSearch();
+
+// Show the target line: expand a hidden hunks-gap or a fold covering it,
+// scroll it centered, and flash it.
+function jumpToLine(fileIndex, line) {
+  // Pin the preview tab being read before a find-usages jump replaces it,
+  // so the target opens beside it and the reader can come back.
+  if (searchPinsOrigin && fileIndex !== state.active) {
+    const current = state.tabs.find((t) => t.index === state.active);
+    if (current && !current.pinned) current.pinned = true;
+  }
+  ensureTab(fileIndex);
+  state.active = fileIndex;
+  const file = DATA.files[fileIndex];
+  if (hunksOnly) {
+    const { hiddenGaps } = computeHunks(file);
+    const gap = hiddenGaps.find((g) => line >= g.start && line <= g.end);
+    if (gap) expandedGaps.add(file.file + ":" + gap.start);
+  }
+  render();
+  const row = codeEl.querySelector('.row[data-line="' + line + '"]');
+  if (!row) return;
+  const region = row.closest(".region");
+  if (region) region.classList.add("open");
+  row.scrollIntoView({ block: "center" });
+  row.classList.remove("flash");
+  void row.offsetWidth; // restart the animation on repeated jumps to the same line
+  row.classList.add("flash");
+}
+
+// ---- find usages: alt-click an identifier in the code ----
+codeEl.addEventListener("click", (ev) => {
+  if (!ev.altKey) return;
+  if (ev.target instanceof Element && ev.target.closest(".pill-row, .row.gap, .num")) return;
+  let node = null, offset = 0;
+  if (document.caretPositionFromPoint) {
+    const pos = document.caretPositionFromPoint(ev.clientX, ev.clientY);
+    if (pos) { node = pos.offsetNode; offset = pos.offset; }
+  } else if (document.caretRangeFromPoint) {
+    const range = document.caretRangeFromPoint(ev.clientX, ev.clientY);
+    if (range) { node = range.startContainer; offset = range.startOffset; }
+  }
+  if (!node || node.nodeType !== Node.TEXT_NODE) return;
+  const text = node.textContent;
+  const WORD = /[A-Za-z0-9_$]/;
+  let start = offset, end = offset;
+  while (start > 0 && WORD.test(text[start - 1])) start--;
+  while (end < text.length && WORD.test(text[end])) end++;
+  const word = text.slice(start, end);
+  if (!word || /^\d+$/.test(word)) return;
+  ev.preventDefault();
+  openSearch(word, { word: true, matchCase: true, pinOrigin: true });
+});
 
 // ---- keyboard shortcuts ----
 const keysModal = document.getElementById("keys-modal");
@@ -1108,20 +1568,25 @@ function stepFile(direction) {
         .map((e) => e.index);
   if (order.length === 0) return;
   const pos = order.indexOf(state.active);
-  state.active = pos === -1
+  openFile(pos === -1
     ? (direction > 0 ? order[0] : order[order.length - 1])
-    : order[(pos + direction + order.length) % order.length];
-  render();
+    : order[(pos + direction + order.length) % order.length]);
 }
 
 function stepThreshold(delta) {
   const next = Math.max(-1, Math.min(3, DATA.threshold + delta));
   if (next === DATA.threshold) return;
-  thresholdInput.value = next;
-  thresholdInput.dispatchEvent(new Event("input"));
+  thresholdSelect.value = String(next);
+  thresholdSelect.dispatchEvent(new Event("change"));
 }
 
 document.addEventListener("keydown", (ev) => {
+  // ⌘P / Ctrl+P opens the search palette from anywhere (and suppresses print)
+  if ((ev.metaKey || ev.ctrlKey) && !ev.altKey && !ev.shiftKey && ev.key.toLowerCase() === "p") {
+    ev.preventDefault();
+    openSearch();
+    return;
+  }
   if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
   const tag = ev.target instanceof Element ? ev.target.tagName : "";
   if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
@@ -1131,6 +1596,12 @@ document.addEventListener("keydown", (ev) => {
     case "?": keysModal.showModal(); ev.preventDefault(); break;
     case "j": stepFile(1); break;
     case "k": stepFile(-1); break;
+    case "w": if (state.active >= 0) closeTab(state.active); break;
+    case "o": {
+      const tab = state.tabs.find((t) => t.index === state.active);
+      if (tab && !tab.pinned) { tab.pinned = true; renderTabs(); }
+      break;
+    }
     case "/":
       if (hasTree) {
         if (navCollapsed) navToggle.click();

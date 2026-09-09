@@ -3,19 +3,22 @@ import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { join, resolve, relative } from "node:path";
 import { analyzeSource } from "./classify/index.ts";
 import { loadConfig, findConfigPath, initConfig, resetConfig } from "./config.ts";
-import { gitDiffTargets } from "./git.ts";
+import { gitDiffTargets, readBlob, type DiffTarget } from "./git.ts";
+import { resolvePr } from "./pr.ts";
 import { languageForFile } from "./parse/parser.ts";
 import { renderTerm, colorEnabled } from "./render/term.ts";
 import { highlightSource, isBundledTheme, shikiLangForFile } from "./render/highlight.ts";
 import { serveViewer, type ViewerInput } from "./render/web/server.ts";
 import { compilePatterns, matchesAny } from "./glob.ts";
-import type { FileFoldModel, FoldModel, LensConfig, RemovedBlock } from "./model.ts";
+import type { FileFoldModel, FoldModel, LensConfig } from "./model.ts";
 
 const HELP = `lens — a reading lens for AI-generated code (static analysis, no AI)
 
 usage:
   lens <path...>              analyze files or directories
   lens diff [git-diff-args]   analyze files changed in git diff (e.g. lens diff --staged)
+  lens pr <url|N>             analyze a GitHub PR (URL, or a number on origin)
+                              — run inside a clone; refresh picks up new pushes
   lens config [show]          print the effective config and where it comes from
   lens config init            create a .lens.json here, seeded from the built-in defaults
   lens config reset           restore default behavior (.lens.json moves to .lens.json.bak)
@@ -42,12 +45,13 @@ interface CliOptions {
   hunks: boolean;
 }
 
-function parseCli(argv: string[]): { command: "paths" | "diff" | "config"; rest: string[]; opts: CliOptions } {
+function parseCli(argv: string[]): { command: "paths" | "diff" | "pr" | "config"; rest: string[]; opts: CliOptions } {
   const opts: CliOptions = { json: false, term: false, open: true, port: 5326, threshold: null, theme: null, hunks: false };
   const rest: string[] = [];
-  let command: "paths" | "diff" | "config" = "paths";
+  let command: "paths" | "diff" | "pr" | "config" = "paths";
   const args = [...argv];
   if (args[0] === "diff") { command = "diff"; args.shift(); }
+  else if (args[0] === "pr") { command = "pr"; args.shift(); }
   else if (args[0] === "config") { command = "config"; args.shift(); }
   while (args.length > 0) {
     const arg = args.shift()!;
@@ -154,24 +158,31 @@ async function main(): Promise<void> {
     excluded: string[];
     renamed: { from: string; to: string }[];
     config: LensConfig;
+    /** PR mode: "owner/repo#N — title", shown in the viewer header */
+    label: string | null;
   }
 
   // Re-runnable so the viewer's refresh button can pick up new file contents
   // (and, in diff mode, a fresh git diff) without restarting the server.
   const runAnalysis = async (): Promise<Analysis> => {
     const config = resolveConfig();
-    let targets: {
-      file: string;
-      changedLines?: number[];
-      status?: "added" | "modified";
-      removals?: RemovedBlock[];
-    }[];
+    // Path mode carries only `file`; diff mode fills in the rest.
+    let targets: (Partial<DiffTarget> & { file: string })[];
     let deleted: string[] = [];
     let renamed: { from: string; to: string }[] = [];
     const excluded: string[] = [];
+    let label: string | null = null;
     const excludeRegexes = compilePatterns(config.exclude);
-    if (command === "diff") {
-      const result = gitDiffTargets(rest, cwd);
+    if (command === "diff" || command === "pr") {
+      let diffArgs = rest;
+      if (command === "pr") {
+        // Re-resolved (and re-fetched) on every run, so the viewer's refresh
+        // picks up commits pushed to the PR since.
+        const pr = await resolvePr(rest[0], cwd);
+        diffArgs = pr.diffArgs;
+        label = pr.label;
+      }
+      const result = gitDiffTargets(diffArgs, cwd);
       // Excluded files are dropped BEFORE reading/tokenizing (that's the whole
       // point: lockfiles cost seconds of Shiki time and thousands of DOM rows)
       // but still listed so the reviewer sees that they changed.
@@ -197,7 +208,7 @@ async function main(): Promise<void> {
     const sources = new Map<string, string>();
     const model: FoldModel = { version: 1, threshold: config.threshold, files: [] };
     for (const target of targets) {
-      const source = readFileSync(target.file, "utf8");
+      const source = target.newBlob !== undefined ? readBlob(target.newBlob, cwd) : readFileSync(target.file, "utf8");
       const display = relative(cwd, target.file) || target.file;
       // Unsupported file types (diff mode only) are shown without folding.
       const fileModel: FileFoldModel | null = languageForFile(target.file)
@@ -213,17 +224,21 @@ async function main(): Promise<void> {
     if (deleted.length > 0) model.deleted = deleted;
     if (excluded.length > 0) model.excluded = excluded;
     if (renamed.length > 0) model.renamed = renamed;
-    return { model, sources, deleted, excluded, renamed, config };
+    return { model, sources, deleted, excluded, renamed, config, label };
   };
 
-  if (command !== "diff" && rest.length === 0) { console.log(HELP); process.exit(1); }
+  if (command === "pr" && rest.length !== 1) {
+    console.error("lens: pr takes exactly one argument — a PR URL or a PR number");
+    process.exit(1);
+  }
+  if (command !== "diff" && command !== "pr" && rest.length === 0) { console.log(HELP); process.exit(1); }
   const initial = await runAnalysis();
   const { model, sources, deleted, excluded, renamed } = initial;
   if (model.files.length === 0 && deleted.length === 0 && excluded.length === 0 && renamed.length === 0) {
     console.error(
-      command === "diff"
-        ? "lens: no changed supported files in this diff"
-        : "lens: no supported files found (ts, tsx, js, jsx, mjs, cjs)",
+      command === "diff" ? "lens: no changed supported files in this diff"
+      : command === "pr" ? "lens: no changed supported files in this PR"
+      : "lens: no supported files found (ts, tsx, js, jsx, mjs, cjs)",
     );
     process.exit(1);
   }
@@ -262,6 +277,7 @@ async function main(): Promise<void> {
     testFilePatterns: a.config.testFilePatterns,
     config: a.config,
     configSource: findConfigPath(cwd),
+    label: a.label,
   });
   await serveViewer(
     toViewerInput(initial),

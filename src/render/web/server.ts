@@ -26,6 +26,8 @@ export interface ViewerInput {
   /** The effective merged config, shown in the viewer's settings modal */
   config: LensConfig;
   configSource: string | null;
+  /** PR mode: "owner/repo#N — title", shown in the viewer header */
+  label: string | null;
 }
 
 export interface ViewerOptions {
@@ -90,6 +92,7 @@ export async function serveViewer(
       testFilePatterns: current.testFilePatterns,
       config: current.config,
       configSource: current.configSource,
+      label: current.label,
       themePinned: opts.themePinned,
       canRefresh: reanalyze !== undefined,
     };
@@ -140,6 +143,13 @@ export async function serveViewer(
         htmlCache.clear();
         res.writeHead(200, { "content-type": "application/json" });
         res.end(JSON.stringify(await payloadFor(theme)));
+      } else if (url.pathname === "/api/shutdown" && req.method === "POST") {
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(JSON.stringify({ ok: true }), () => {
+          console.log("lens viewer stopped from the viewer");
+          server.close(() => process.exit(0));
+          server.closeAllConnections();
+        });
       } else {
         res.writeHead(404);
         res.end("not found");
