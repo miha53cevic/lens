@@ -39,6 +39,8 @@ export interface FileFoldModel {
 export interface RemovedBlock {
   /** New-side line number this block sits after (0 = before the first line) */
   afterLine: number;
+  /** Old-side line number of the first removed line */
+  oldStart: number;
   lines: string[];
 }
 

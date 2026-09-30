@@ -380,6 +380,123 @@
     100% { background: transparent; }
   }
 
+  /* ---- view switch (Code | Summary) ---- */
+  .view-switch { display: inline-flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; flex: none; }
+  .view-switch button {
+    border: 0; border-radius: 0; height: 26px; padding: 0 0.75rem; color: var(--muted);
+    display: inline-flex; align-items: center; gap: 0.4rem;
+  }
+  .view-switch button:hover { background: var(--panel-2); color: var(--text); border-color: transparent; }
+  .view-switch button[aria-pressed="true"] { background: var(--panel-2); color: var(--text); box-shadow: inset 0 -2px var(--accent); }
+  .new-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+
+  /* ---- summary: list ---- */
+  #summary-list { font-family: ui-sans-serif, system-ui, sans-serif; margin: -0.6rem -0.45rem 0; }
+  .sum-head {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem;
+    padding: 0.8rem 0.9rem 0.6rem; border-bottom: 1px solid var(--border-soft);
+  }
+  .sum-head .title { font-weight: 600; font-size: 12.5px; color: var(--text); }
+  .sum-head .legend { color: var(--muted); font-size: 11.5px; display: inline-flex; align-items: center; gap: 0.35rem; }
+  .sum-section { padding: 0.65rem 0 0.2rem; }
+  .sum-section + .sum-section { border-top: 1px solid var(--border-soft); }
+  .sum-section-title { padding: 0 0.9rem 0.35rem; display: flex; align-items: baseline; gap: 0.5rem; }
+  .sum-section-title .t { font-weight: 600; font-size: 12px; color: var(--text); }
+  .sum-section-title .sub { color: var(--muted); font-size: 11px; }
+  .sum-item {
+    display: grid; grid-template-columns: 7px minmax(0, max-content) minmax(0, 1fr); column-gap: 0.6rem; row-gap: 1px;
+    align-items: baseline; width: 100%; height: auto; text-align: left; background: none;
+    border: 0; border-left: 2px solid transparent; border-radius: 0; padding: 0.4rem 0.8rem;
+    cursor: pointer; color: var(--text); font: inherit;
+  }
+  .sum-item:hover { background: var(--panel-2); border-color: transparent; border-left-color: transparent; }
+  .sum-item.active, .sum-item.active:hover { background: var(--panel-2); border-left-color: var(--accent); }
+  .sum-item .name {
+    font-family: ui-monospace, Menlo, monospace; font-size: 12px; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap;
+  }
+  .sum-item .gist { grid-column: 2 / 4; color: var(--muted); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sum-item .side {
+    color: var(--muted); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; text-align: right; min-width: 0;
+  }
+  .sum-item.routine .name { color: var(--muted); }
+  .sum-item.pending .name, .sum-item.pending .gist { opacity: 0.6; }
+  .sum-item .gist.stale { color: var(--modified); }
+  .attn-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--removed); align-self: center; }
+
+  /* ---- summary: focus pane ---- */
+  .summary-pane { flex: 1; overflow: auto; min-width: 0; background: var(--bg); }
+  .sum-inner { max-width: 1000px; margin: 0 auto; padding: 1.6rem 1.5rem 4rem; display: flex; flex-direction: column; gap: 1.1rem; }
+  .sum-inner > * { min-width: 0; }
+  .sum-headline { font-size: 21px; font-weight: 650; line-height: 1.3; margin: 0; color: var(--text); text-wrap: balance; }
+  .sum-headline.pending { color: var(--muted); font-weight: 500; font-family: ui-monospace, Menlo, monospace; font-size: 17px; }
+  .sum-note {
+    padding: 0.55rem 0.8rem; border-radius: 8px; font-size: 12.5px; line-height: 1.5;
+    border: 1px solid var(--border); background: var(--panel); color: var(--muted);
+  }
+  .sum-note.stale { border-color: color-mix(in srgb, var(--modified) 45%, transparent); color: var(--modified); }
+  .sum-note code, .sum-empty code {
+    font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: var(--text);
+    background: var(--panel-2); border: 1px solid var(--border-soft); border-radius: 5px; padding: 1px 6px;
+  }
+  .sum-empty { max-width: 560px; margin: 12vh auto 0; padding: 0 1.5rem; color: var(--muted); font-size: 13px; line-height: 1.6; }
+  .sum-empty h2 { color: var(--text); font-size: 17px; margin: 0 0 0.6rem; font-weight: 600; }
+  .sum-empty .cmd {
+    display: flex; align-items: center; gap: 0.6rem; margin: 0.8rem 0; padding: 0.55rem 0.7rem;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    font-family: ui-monospace, Menlo, monospace; font-size: 13px; color: var(--text);
+  }
+  .sum-empty .cmd span { flex: 1; overflow-x: auto; white-space: nowrap; }
+
+  .changes { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.3fr) auto; font-size: 13px; }
+  .changes .th {
+    font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted);
+    font-weight: 600; padding: 0 0.9rem 0.4rem 0; border-bottom: 1px solid var(--border);
+  }
+  .changes .td { padding: 0.6rem 0.9rem 0.6rem 0; border-bottom: 1px solid var(--border-soft); line-height: 1.4; }
+  .changes .when, .changes .before { color: var(--muted); }
+  .changes .now { font-weight: 600; color: var(--text); }
+  .changes .none { opacity: 0.6; }
+  .cite {
+    height: auto; padding: 0 5px; border-radius: 4px; font-family: ui-monospace, Menlo, monospace; font-size: 10.5px;
+    color: var(--changed); border-color: color-mix(in srgb, var(--changed) 40%, transparent);
+  }
+  .cite:hover { background: color-mix(in srgb, var(--changed) 12%, transparent); color: var(--changed); }
+
+  .breaks { display: flex; flex-direction: column; gap: 0.3rem; }
+  .brk-head {
+    height: auto; border: 0; padding: 0; background: none; text-align: left; cursor: pointer;
+    font-weight: 600; font-size: 13px; color: var(--removed); display: inline-flex; gap: 0.45rem; align-items: baseline;
+  }
+  .brk-head:hover { background: none; color: var(--removed); text-decoration: underline; }
+  .brk-callers { display: flex; flex-direction: column; gap: 0.15rem; padding-left: 1rem; }
+  .caller {
+    height: auto; border: 0; padding: 0.15rem 0; background: none; text-align: left; cursor: pointer;
+    font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: var(--changed);
+  }
+  .caller:hover { background: none; color: var(--changed); text-decoration: underline; }
+  .peek {
+    font-family: ui-monospace, Menlo, monospace; font-size: 12px; line-height: 1.6;
+    background: var(--code-bg, var(--bg)); color: var(--code-fg, var(--text));
+    border: 1px solid var(--border-soft); border-radius: 7px; padding: 0.35rem 0; overflow-x: auto; margin: 0.15rem 0 0.4rem;
+  }
+  .peek .row.call { background: color-mix(in srgb, var(--removed) 16%, transparent); }
+
+  .unit-head { display: flex; align-items: center; gap: 0.9rem; margin-bottom: -0.5rem; }
+  .unit-head .path { font-family: ui-monospace, Menlo, monospace; font-size: 11.5px; color: var(--muted); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .unit-head .status { font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+  .unit-head .status.new { color: var(--added); }
+  .unit-head .status.modified { color: var(--modified); }
+  .unit-head .status.deleted { color: var(--removed); }
+  .unit-code {
+    background: var(--code-bg, var(--bg)); border: 1px solid var(--border-soft); border-radius: 8px; overflow-x: auto;
+  }
+  .unit-code .code { padding: 0.5rem 0; min-width: max-content; }
+  .unit-code .row.cited .num { color: var(--accent); opacity: 1; font-weight: 700; }
+  .unit-code .unit-gap .num { opacity: 0.5; }
+  .renamed-from { font-size: 11.5px; color: var(--muted); padding: 0.4rem 1.25rem 0.1rem; font-family: ui-sans-serif, system-ui, sans-serif; }
+
   ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 5px; border: 2px solid var(--bg); }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -391,6 +508,10 @@
     <button id="nav-toggle" class="icon" title="toggle the file tree" style="display:none">&#9776;</button>
     <div class="brand">lens</div>
     <span class="pr-label" id="pr-label" style="display:none"></span>
+    <div class="view-switch" id="view-switch" style="display:none" role="group" aria-label="view">
+      <button id="view-code" aria-pressed="true" title="the diff, folded (v)">Code</button>
+      <button id="view-summary" aria-pressed="false" title="one changed function at a time, summarized by your agent (v)">Summary<span class="new-dot" id="summary-dot" style="display:none" title="a new summary is available"></span></button>
+    </div>
     <span class="stats" id="stats"></span>
     <span class="spacer"></span>
     <button id="search-btn" class="icon" title="search in files (⌘P)">⌕</button>
@@ -460,6 +581,8 @@
       <tr><td><kbd>x</kbd></td><td>toggle removed lines <span class="set-source">(diff mode)</span></td></tr>
       <tr><td><kbd>t</kbd></td><td>toggle hide tests</td></tr>
       <tr><td><kbd>r</kbd></td><td>refresh the analysis</td></tr>
+      <tr><td><kbd>v</kbd></td><td>switch Code / Summary <span class="set-source">(diff mode)</span></td></tr>
+      <tr><td colspan="2" class="set-source">in Summary: <kbd>j</kbd> / <kbd>k</kbd> next / previous change · <kbd>o</kbd> open it in the code view · <kbd>x</kbd> removed lines</td></tr>
       <tr><td><kbd>?</kbd></td><td>this help</td></tr>
       <tr><td><kbd>Esc</kbd></td><td>close dialogs · clear the filter</td></tr>
     </table>
@@ -489,11 +612,13 @@
       <button id="filter-clear" title="clear filter (Esc)" style="display:none">✕</button>
     </div>
     <div id="tree"></div>
+    <div id="summary-list" style="display:none"></div>
   </nav>
   <div class="resizer" id="resizer" title="drag to resize the file tree"></div>
   <div class="editor">
     <div class="tabbar" id="tabbar"></div>
     <main><div class="code" id="code"></div></main>
+    <div class="summary-pane" id="summary-pane" style="display:none"></div>
   </div>
 </div>
 
@@ -538,6 +663,7 @@ const state = {
   tabs: DATA.files.length > 0 ? [{ index: 0, pinned: false }] : [],
   hiddenCategories: new Set(), // categories toggled to "show" (i.e. not folded)
   showRemoved: true,
+  view: "code", // "code" | "summary" — Code is always the default
 };
 
 // PR mode: "owner/repo#N — title" in the header and the tab title
@@ -869,6 +995,7 @@ function renderToggles(file) {
 }
 
 function render() {
+  if (state.view === "summary") { renderSummary(); return; }
   rememberScroll();
   renderedPath = null; // set again at the end, once a file actually renders
   if (hideTests) {
@@ -1335,6 +1462,7 @@ refreshBtn.onclick = async () => {
     renderThresholdTip();
     syncDiffControls();
     syncLabel();
+    syncViewSwitch();
     render();
   } catch (err) {
     console.error("refresh failed:", err);
@@ -1592,6 +1720,13 @@ document.addEventListener("keydown", (ev) => {
   if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
   if (document.querySelector("dialog[open]")) return; // Esc closes natively
 
+  if (ev.key === "v" && DATA.summary) { setView(state.view === "summary" ? "code" : "summary"); return; }
+  if (state.view === "summary") {
+    if (ev.key === "j") { stepSummary(1); return; }
+    if (ev.key === "k") { stepSummary(-1); return; }
+    if (ev.key === "o") { openUnitInCode(currentUnit()); return; }
+    if (!["?", "x", "s", "r"].includes(ev.key)) return; // code-view keys don't apply here
+  }
   switch (ev.key) {
     case "?": keysModal.showModal(); ev.preventDefault(); break;
     case "j": stepFile(1); break;
@@ -1621,7 +1756,342 @@ document.addEventListener("keydown", (ev) => {
   }
 });
 
+// ---- summary view ----
+// One changed unit (function, component, hook, …) at a time: the agent's
+// headline, a When / Before / Now table, callers it may break, and the code.
+const viewSwitch = document.getElementById("view-switch");
+const viewCodeBtn = document.getElementById("view-code");
+const viewSummaryBtn = document.getElementById("view-summary");
+const summaryDot = document.getElementById("summary-dot");
+const summaryListEl = document.getElementById("summary-list");
+const summaryPaneEl = document.getElementById("summary-pane");
+const toolbarEl = document.querySelector(".bar.toolbar");
+const tabbarWrap = tabbarEl;
+let summaryOrder = []; // unit ids in list order (j/k walk this)
+let summaryActive = null; // active unit id
+
+function syncViewSwitch() {
+  viewSwitch.style.display = DATA.summary ? "" : "none";
+  // the summary went away (e.g. a refresh in path mode): leave the Summary view properly
+  if (!DATA.summary && state.view === "summary") setView("code");
+}
+
+function setView(view) {
+  if (view === "summary" && !DATA.summary) return;
+  if (state.view === "code") rememberScroll();
+  state.view = view;
+  viewCodeBtn.setAttribute("aria-pressed", String(view === "code"));
+  viewSummaryBtn.setAttribute("aria-pressed", String(view === "summary"));
+  const summary = view === "summary";
+  toolbarEl.style.display = summary ? "none" : "";
+  tabbarWrap.style.display = summary ? "none" : "";
+  mainEl.style.display = summary ? "none" : "";
+  summaryPaneEl.style.display = summary ? "" : "none";
+  document.querySelector(".nav-filter").style.display = summary ? "none" : "";
+  treeEl.style.display = summary ? "none" : "";
+  summaryListEl.style.display = summary ? "" : "none";
+  statsEl.style.visibility = summary ? "hidden" : "";
+  if (summary && summaryDot.style.display !== "none") { loadSummary(); return; }
+  render();
+}
+viewCodeBtn.onclick = () => setView("code");
+viewSummaryBtn.onclick = () => setView("summary");
+
+async function loadSummary() {
+  try {
+    const res = await fetch("/api/summary");
+    if (!res.ok) throw new Error("http " + res.status);
+    const summary = await res.json();
+    if (summary) DATA.summary = summary;
+  } catch (err) {
+    console.error("loading the summary failed:", err);
+  }
+  summaryDot.style.display = "none";
+  render();
+}
+
+// A submit from the agent lands in summary.json; notice it when the reader comes back.
+window.addEventListener("focus", async () => {
+  if (!DATA.summary) return;
+  try {
+    const res = await fetch("/api/summary/stamp");
+    const { stamp } = await res.json();
+    if (stamp !== null && stamp !== DATA.summary.stamp) {
+      if (state.view === "summary") loadSummary();
+      else summaryDot.style.display = "";
+    }
+  } catch { /* server gone — nothing to do */ }
+});
+
+function unitById(id) { return (DATA.summary?.units || []).find((u) => u.id === id) || null; }
+function currentUnit() { return unitById(summaryActive); }
+
+function unitLabel(u) {
+  if (u.name === "(module)") return "imports & module-level";
+  if (u.name === "(file)") return u.displayFile.split("/").pop();
+  return u.name;
+}
+
+function renderSummary() {
+  const summary = DATA.summary;
+  syncNavVisibilitySummary();
+  if (!summary) return;
+  const units = summary.units;
+  const flowOf = new Map();
+  for (const f of summary.flows) for (const [id, layer] of Object.entries(f.units)) flowOf.set(id, { flow: f, layer });
+
+  // list order: flows, then needs-a-look, routine, not yet summarized / stale
+  const rank = (u) => !u.summary ? 3 : u.summary.needsLook ? 0 : 1;
+  const others = units.filter((u) => !flowOf.has(u.id)).sort((a, b) => rank(a) - rank(b));
+  summaryOrder = [];
+  const itemHtml = (u, side) => {
+    summaryOrder.push(u.id);
+    const s = u.summary;
+    const cls = "sum-item" + (u.id === summaryActive ? " active" : "") +
+      (!s ? " pending" : s.needsLook ? "" : " routine");
+    const gist = u.stale ? '<span class="gist stale">code changed — re-run</span>'
+      : '<span class="gist">' + escapeHtml(s ? s.gist : u.kind + " · " + u.status) + "</span>";
+    return '<button class="' + cls + '" data-id="' + escapeHtml(u.id) + '" title="' + escapeHtml(u.id) + '">' +
+      (s && s.needsLook ? '<span class="attn-dot" title="needs a look"></span>' : "<span></span>") +
+      '<span class="name">' + escapeHtml(unitLabel(u)) + '</span><span class="side">' + escapeHtml(side || "") + "</span>" +
+      gist + "</button>";
+  };
+  const summarized = units.filter((u) => u.summary).length;
+  const attention = units.filter((u) => u.summary && u.summary.needsLook).length;
+  let html = '<div class="sum-head"><span class="title">' + units.length + (units.length === 1 ? " change" : " changes") + "</span>" +
+    (summarized === 0 ? '<span class="legend">not summarized yet</span>'
+      : '<span class="legend"><span class="attn-dot"></span>' + attention + " need a look</span>") + "</div>";
+  for (const f of summary.flows) {
+    const members = Object.keys(f.units).map(unitById).filter(Boolean);
+    html += '<div class="sum-section"><div class="sum-section-title"><span class="t">' + escapeHtml(f.title) +
+      '</span><span class="sub">' + escapeHtml(f.path) + "</span></div>" +
+      members.map((u) => itemHtml(u, f.units[u.id])).join("") + "</div>";
+  }
+  if (others.length > 0) {
+    html += '<div class="sum-section">' + (summary.flows.length > 0 ? '<div class="sum-section-title"><span class="t">Other changes</span></div>' : "") +
+      others.map((u) => itemHtml(u, u.displayFile.split("/").pop())).join("") + "</div>";
+  }
+  summaryListEl.innerHTML = html;
+  summaryListEl.querySelectorAll(".sum-item").forEach((b) => {
+    b.onclick = () => { summaryActive = b.dataset.id; summaryPaneEl.dataset.browsing = "1"; renderSummary(); };
+  });
+  if (!summaryActive || !unitById(summaryActive)) summaryActive = summaryOrder[0] || null;
+  if (summarized === 0 && !summaryPaneEl.dataset.browsing) {
+    renderSummaryEmpty(summary);
+  } else {
+    renderSummaryUnit(currentUnit());
+  }
+  summaryListEl.querySelector(".sum-item.active")?.scrollIntoView({ block: "nearest" });
+}
+
+function syncNavVisibilitySummary() {
+  const show = !navCollapsed;
+  nav.style.display = show ? "" : "none";
+  resizerEl.style.display = show ? "" : "none";
+  navToggle.style.display = "";
+}
+
+function renderSummaryEmpty(summary) {
+  summaryPaneEl.innerHTML =
+    '<div class="sum-empty"><h2>No summary yet</h2>' +
+    "<p>Your coding agent writes the summary. Run this in it:</p>" +
+    '<div class="cmd"><span>' + escapeHtml(summary.command) + '</span><button id="copy-cmd">copy</button></div>' +
+    "<p>Without the skill, any agent with a shell can follow <code>" + escapeHtml(summary.cli) + "</code>. " +
+    "When it's done, come back here: the Summary tab gets a dot, or press ↻ refresh.</p>" +
+    '<p><button id="browse-units">browse the ' + summary.units.length + " changes without a summary</button></p></div>";
+  document.getElementById("copy-cmd").onclick = async (ev) => {
+    try { await navigator.clipboard.writeText(summary.command); ev.target.textContent = "copied"; }
+    catch { ev.target.textContent = "select + copy"; }
+  };
+  document.getElementById("browse-units").onclick = () => { summaryPaneEl.dataset.browsing = "1"; renderSummary(); };
+}
+
+function renderSummaryUnit(u) {
+  summaryPaneEl.innerHTML = "";
+  if (!u) { summaryPaneEl.innerHTML = '<div class="sum-empty">nothing changed</div>'; return; }
+  const s = u.summary;
+  const inner = document.createElement("div");
+  inner.className = "sum-inner";
+  let html = s
+    ? '<h1 class="sum-headline">' + escapeHtml(s.headline) + "</h1>"
+    : '<h1 class="sum-headline pending">' + escapeHtml(unitLabel(u)) + "</h1>";
+  if (u.stale) {
+    html += '<div class="sum-note stale">The code changed since this was summarized. Run <code>' +
+      escapeHtml(DATA.summary.command) + "</code> again to update it.</div>";
+  } else if (!s) {
+    html += '<div class="sum-note">Not summarized yet — run <code>' + escapeHtml(DATA.summary.command) + "</code> in your agent.</div>";
+  }
+  if (s && s.changes.length > 0) {
+    html += '<div class="changes"><div class="th">When</div><div class="th">Before</div><div class="th">Now</div><div class="th"></div>' +
+      s.changes.map((c) =>
+        '<div class="td when">' + escapeHtml(c.when) + "</div>" +
+        '<div class="td before">' + (c.before ? escapeHtml(c.before) : '<span class="none">—</span>') + "</div>" +
+        '<div class="td now">' + escapeHtml(c.now) + "</div>" +
+        '<div class="td"><button class="cite" data-line="' + escapeHtml(c.line) + '" title="show this line in the code below">' +
+        escapeHtml(c.line.startsWith("O") ? "−" + c.line.slice(1) : "L" + c.line.slice(1)) + "</button></div>",
+      ).join("") + "</div>";
+  }
+  if (s && s.breaks.length > 0) {
+    html += '<div class="breaks">' + s.breaks.map((b, bi) =>
+      '<button class="brk-head" data-brk="' + bi + '"><span class="pk">▸</span>⚠ ' + escapeHtml(b.summary) + "</button>" +
+      '<div class="brk-callers" data-brk="' + bi + '" style="display:none">' +
+      b.callers.map((c, ci) =>
+        '<button class="caller" data-peek="' + bi + "-" + ci + '">▸ ' + escapeHtml(c.file + ":" + c.line) + "</button>" +
+        '<div class="peek" data-peek="' + bi + "-" + ci + '" style="display:none">' +
+        c.lines.map((l) =>
+          '<div class="row' + (l.n === c.line ? " call" : "") + '"><span class="num">' + l.n + '</span><span class="mark"></span><span>' +
+          (escapeHtml(l.text) || " ") + "</span></div>").join("") +
+        "</div>").join("") +
+      "</div>").join("") + "</div>";
+  }
+  const fileIndex = DATA.files.findIndex((f) => f.file === u.displayFile);
+  html += '<div class="unit-head"><span class="path" title="' + escapeHtml(u.id) + '">' + escapeHtml(u.displayFile) + "</span>" +
+    '<span class="status ' + u.status + '">' + u.status + (u.formattingOnly ? " · formatting only" : "") + "</span>" +
+    '<label class="control"><input type="checkbox" id="sum-removed"' + (state.showRemoved ? " checked" : "") + "> removed lines</label>" +
+    (fileIndex >= 0 && u.ranges.length > 0 ? '<button id="open-in-code" title="open in the code view (o)">code view ↗</button>' : "") +
+    "</div>";
+  inner.innerHTML = html;
+  inner.appendChild(unitCodeEl(u, fileIndex, s));
+  summaryPaneEl.appendChild(inner);
+
+  inner.querySelectorAll(".cite").forEach((b) => b.onclick = () => flashCited(inner, b.dataset.line));
+  inner.querySelectorAll(".brk-head").forEach((b) => b.onclick = () => {
+    const box = inner.querySelector('.brk-callers[data-brk="' + b.dataset.brk + '"]');
+    const open = box.style.display === "none";
+    box.style.display = open ? "" : "none";
+    b.querySelector(".pk").textContent = open ? "▾" : "▸";
+  });
+  inner.querySelectorAll(".caller").forEach((b) => b.onclick = () => {
+    const box = inner.querySelector('.peek[data-peek="' + b.dataset.peek + '"]');
+    const open = box.style.display === "none";
+    box.style.display = open ? "" : "none";
+    b.textContent = (open ? "▾ " : "▸ ") + b.textContent.slice(2);
+  });
+  const removedBox = inner.querySelector("#sum-removed");
+  removedBox.onchange = () => { showRemovedBox.checked = removedBox.checked; showRemovedBox.onchange(); };
+  const openBtn = inner.querySelector("#open-in-code");
+  if (openBtn) openBtn.onclick = () => openUnitInCode(u);
+  summaryPaneEl.scrollTop = 0;
+}
+
+// Where each removed block shows: snapped into the unit's shown lines (mirrors
+// removalAnchors in src/summary/bundle.ts).
+function removalAnchors(u) {
+  const at = new Map();
+  const shown = [];
+  for (const r of u.ranges) for (let l = r.start; l <= r.end; l++) shown.push(l);
+  for (const b of u.removals) {
+    let anchor = 0;
+    if (shown.length > 0) {
+      anchor = b.afterLine < shown[0] ? shown[0] - 1 : (shown.filter((l) => l <= b.afterLine).pop() ?? shown[0] - 1);
+      if (u.ranges.some((r) => r.start - 1 === b.afterLine)) anchor = b.afterLine;
+    }
+    at.set(anchor, (at.get(anchor) || []).concat([b]));
+  }
+  return at;
+}
+
+function unitCodeEl(u, fileIndex, s) {
+  const wrap = document.createElement("div");
+  wrap.className = "unit-code";
+  const code = document.createElement("div");
+  code.className = "code";
+  wrap.appendChild(code);
+  const file = fileIndex >= 0 ? DATA.files[fileIndex] : null;
+  const cited = new Set((s ? s.changes : []).map((c) => c.line));
+  const gutter = String(Math.max(file ? file.lineCount : 0, ...u.removals.map((b) => b.oldStart + b.lines.length))).length;
+  const removedAt = removalAnchors(u);
+  const emitRemoved = (after, container) => {
+    if (!state.showRemoved) return;
+    for (const b of removedAt.get(after) || []) {
+      b.lines.forEach((text, i) => {
+        const row = removedRowEl(text, gutter);
+        row.dataset.old = b.oldStart + i;
+        if (cited.has("O" + (b.oldStart + i))) row.classList.add("cited");
+        container.appendChild(row);
+      });
+    }
+  };
+  if (!file || u.ranges.length === 0) {
+    const was = state.showRemoved;
+    state.showRemoved = true; // a deleted unit is nothing but removed lines
+    emitRemoved(0, code);
+    state.showRemoved = was;
+  } else {
+    const lines = linesFromTokens(file);
+    const changed = new Set(u.changedLines);
+    const regionAt = new Map();
+    for (const r of file.regions) regionAt.set(r.startLine, r);
+    u.ranges.forEach((range, ri) => {
+      if (ri > 0) {
+        const gap = document.createElement("div");
+        gap.className = "row unit-gap";
+        gap.innerHTML = '<span class="num">' + "⋯".padStart(gutter) + '</span><span class="mark"></span><span></span>';
+        code.appendChild(gap);
+      }
+      emitRemoved(range.start - 1, code);
+      let l = range.start;
+      while (l <= range.end) {
+        const region = regionAt.get(l);
+        if (region && region.endLine <= range.end) {
+          code.appendChild(regionEl(region, lines, changed, gutter, (after, container) => emitRemoved(after, container)));
+          emitRemoved(region.endLine, code);
+          l = region.endLine + 1;
+          continue;
+        }
+        const row = rowEl(l, lines[l - 1] ?? "", changed.has(l), gutter);
+        if (cited.has("N" + l)) row.classList.add("cited");
+        code.appendChild(row);
+        emitRemoved(l, code);
+        l++;
+      }
+    });
+  }
+  // rows built inside folds (regionEl) get their cited mark here
+  for (const label of cited) {
+    if (label.startsWith("N")) code.querySelector('.row[data-line="' + label.slice(1) + '"]')?.classList.add("cited");
+  }
+  if (u.renamedFrom) {
+    const note = document.createElement("div");
+    note.className = "renamed-from";
+    note.textContent = "was " + u.renamedFrom.id;
+    code.appendChild(note);
+    for (const b of u.renamedFrom.removals) for (const text of b.lines) code.appendChild(removedRowEl(text, gutter));
+  }
+  return wrap;
+}
+
+function flashCited(container, label) {
+  const selector = label.startsWith("O") ? '.row[data-old="' + label.slice(1) + '"]' : '.row[data-line="' + label.slice(1) + '"]';
+  const row = container.querySelector(".unit-code " + selector);
+  if (!row) return;
+  const region = row.closest(".region");
+  if (region) region.classList.add("open");
+  row.scrollIntoView({ block: "center", behavior: "smooth" });
+  row.classList.remove("flash");
+  void row.offsetWidth;
+  row.classList.add("flash");
+}
+
+function stepSummary(direction) {
+  if (summaryOrder.length === 0) return;
+  const pos = summaryOrder.indexOf(summaryActive);
+  summaryActive = summaryOrder[(pos + direction + summaryOrder.length) % summaryOrder.length];
+  summaryPaneEl.dataset.browsing = "1";
+  renderSummary();
+}
+
+function openUnitInCode(u) {
+  if (!u) return;
+  const fileIndex = DATA.files.findIndex((f) => f.file === u.displayFile);
+  if (fileIndex < 0 || u.ranges.length === 0) return;
+  setView("code");
+  jumpToLine(fileIndex, u.changedLines[0] ?? u.ranges[0].start);
+}
+
+syncViewSwitch();
 render();
+if (location.hash === "#summary" && DATA.summary) setView("summary");
 </script>
 </body>
 </html>

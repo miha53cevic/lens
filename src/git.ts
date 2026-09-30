@@ -14,6 +14,8 @@ export interface DiffTarget {
   removals: RemovedBlock[];
   /** New-side blob SHA; absent when the new side is the working tree (read from disk) */
   newBlob?: string;
+  /** Old-side blob SHA; absent for added files */
+  oldBlob?: string;
 }
 
 export interface RenamedFile {
@@ -27,6 +29,8 @@ export interface DiffResult {
   deleted: string[];
   /** Pure renames (100% similarity) — no content to analyze, but worth listing */
   renamed: RenamedFile[];
+  /** Old-side blob SHAs of deleted files, keyed by absolute path */
+  deletedBlobs: Map<string, string>;
 }
 
 export interface ParsedDiffFile {
@@ -95,15 +99,17 @@ export function parseDiff(output: string): ParsedDiff {
       minus = null;
       hunkRemoval = null;
     } else if (current && line.startsWith("@@")) {
-      const match = /\+(\d+)(?:,(\d+))?/.exec(line);
+      // "@@ -a,b +c,d @@", or "@@@ -a,b -c,d +e,f @@@" for combined (merge-conflict) diffs
+      const match = /^@@+ -(\d+)(?:,\d+)?(?: -\d+(?:,\d+)?)* \+(\d+)(?:,(\d+))?/.exec(line);
       if (!match) continue;
-      const start = Number(match[1]);
-      const count = match[2] === undefined ? 1 : Number(match[2]);
+      const oldStart = Number(match[1]);
+      const start = Number(match[2]);
+      const count = match[3] === undefined ? 1 : Number(match[3]);
       for (let l = start; l < start + count; l++) current.changedLines.push(l);
       // Where removed lines anchor on the new side: a pure deletion's `start`
       // is the line BEFORE the gap; a replacement's removed lines sit before
       // its added lines.
-      hunkRemoval = { afterLine: count === 0 ? start : start - 1, lines: [] };
+      hunkRemoval = { afterLine: count === 0 ? start : start - 1, oldStart, lines: [] };
     } else if (current && hunkRemoval && line.startsWith("-")) {
       hunkRemoval.lines.push(line.slice(1));
       if (hunkRemoval.lines.length === 1) current.removals.push(hunkRemoval);
@@ -113,14 +119,21 @@ export function parseDiff(output: string): ParsedDiff {
   return { files, deleted, renamed };
 }
 
-/**
- * Parses `git diff --raw -z --no-abbrev` output into new-side path → blob SHA.
- * Entries whose new side is the working tree (all-zero SHA) or a submodule
- * commit (mode 160000) are omitted — those have no blob to read.
- */
-export function parseRawShas(output: string): Map<string, string> {
-  const shas = new Map<string, string>();
+export interface RawEntry {
+  /** New-side path (the old path for deletions) */
+  path: string;
+  /** Old-side blob SHA, null for added files and submodules */
+  oldSha: string | null;
+  /** New-side blob SHA, null for the working tree, deletions and submodules */
+  newSha: string | null;
+  status: string;
+}
+
+/** Parses `git diff --raw -z --no-abbrev` output into one entry per changed path. */
+export function parseRawEntries(output: string): RawEntry[] {
+  const entries: RawEntry[] = [];
   const tokens = output.split("\0");
+  const blob = (sha: string, mode: string) => (/^0+$/.test(sha) || mode === "160000" ? null : sha);
   for (let i = 0; i < tokens.length; i++) {
     const token = tokens[i];
     // "::" entries are merge diffs; other non-":" tokens are pass-through
@@ -128,14 +141,23 @@ export function parseRawShas(output: string): Map<string, string> {
     if (!token.startsWith(":") || token.startsWith("::")) continue;
     const fields = token.slice(1).split(" ");
     if (fields.length < 5) continue;
-    const [, dstMode, , dstSha, status] = fields;
+    const [srcMode, dstMode, srcSha, dstSha, status] = fields;
     const pathCount = status.startsWith("R") || status.startsWith("C") ? 2 : 1;
     const path = tokens[i + pathCount]; // renames/copies: the NEW path is the second one
     i += pathCount;
-    if (path && !/^0+$/.test(dstSha) && dstMode !== "160000") {
-      shas.set(path, dstSha);
-    }
+    if (path) entries.push({ path, oldSha: blob(srcSha, srcMode), newSha: blob(dstSha, dstMode), status });
   }
+  return entries;
+}
+
+/**
+ * New-side path → blob SHA. Entries whose new side is the working tree
+ * (all-zero SHA) or a submodule commit (mode 160000) are omitted — those have
+ * no blob to read.
+ */
+export function parseRawShas(output: string): Map<string, string> {
+  const shas = new Map<string, string>();
+  for (const e of parseRawEntries(output)) if (e.newSha) shas.set(e.path, e.newSha);
   return shas;
 }
 
@@ -160,7 +182,13 @@ export function gitDiffTargets(gitArgs: string[], cwd: string): DiffResult {
   // OLD side, or not hold added files at all.
   const raw = runGit(["diff", "--raw", "-z", "--no-abbrev", "--no-color", ...gitArgs], cwd);
   const parsed = parseDiff(output);
-  const newBlobs = parseRawShas(raw);
+  const rawEntries = parseRawEntries(raw);
+  const newBlobs = new Map<string, string>();
+  const oldBlobs = new Map<string, string>();
+  for (const e of rawEntries) {
+    if (e.newSha) newBlobs.set(e.path, e.newSha);
+    if (e.oldSha) oldBlobs.set(e.path, e.oldSha);
+  }
   const abs = (p: string) => (isAbsolute(p) ? p : join(root, p));
   // Unsupported file types are kept — the viewer shows their changes without
   // folding. Binary files never reach here: their diffs carry no hunks.
@@ -172,11 +200,15 @@ export function gitDiffTargets(gitArgs: string[], cwd: string): DiffResult {
         status: f.status,
         removals: f.removals,
         newBlob: newBlobs.get(f.path),
+        oldBlob: oldBlobs.get(f.path),
       }))
       // No blob means the new side is the working tree; a file gone from disk
       // too has nothing to show (e.g. deleted since the diff was staged).
       .filter((t) => t.newBlob !== undefined || existsSync(t.file)),
     deleted: parsed.deleted.map(abs),
     renamed: parsed.renamed.map((r) => ({ from: abs(r.from), to: abs(r.to) })),
+    deletedBlobs: new Map(parsed.deleted
+      .filter((p) => oldBlobs.has(p))
+      .map((p) => [abs(p), oldBlobs.get(p)!])),
   };
 }

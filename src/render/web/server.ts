@@ -4,6 +4,7 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { join, dirname } from "node:path";
 import type { FileFoldModel, LensConfig } from "../../model.ts";
+import type { SummaryView } from "../../summary/view.ts";
 import {
   highlightSource,
   isBundledTheme,
@@ -28,11 +29,19 @@ export interface ViewerInput {
   configSource: string | null;
   /** PR mode: "owner/repo#N — title", shown in the viewer header */
   label: string | null;
+  /** Diff/PR mode: data for the Summary tab */
+  summary: SummaryView | null;
+  /** Re-reads the stored summary for the current units (after a submit) */
+  reloadSummary: (() => SummaryView | null) | null;
+  /** summary.json mtime, cheap: polled on window focus */
+  summaryStamp: (() => number | null) | null;
 }
 
 export interface ViewerOptions {
   port: number;
   open: boolean;
+  /** Open the browser on the Summary tab instead of the code view */
+  openSummary?: boolean;
   theme: string;
   /** true when --theme was passed explicitly — the viewer then ignores its saved choice */
   themePinned: boolean;
@@ -93,6 +102,7 @@ export async function serveViewer(
       config: current.config,
       configSource: current.configSource,
       label: current.label,
+      summary: current.summary,
       themePinned: opts.themePinned,
       canRefresh: reanalyze !== undefined,
     };
@@ -143,6 +153,19 @@ export async function serveViewer(
         htmlCache.clear();
         res.writeHead(200, { "content-type": "application/json" });
         res.end(JSON.stringify(await payloadFor(theme)));
+      } else if (url.pathname === "/api/summary") {
+        // A submit since the page loaded: re-read the stored summary; the
+        // units stay those of the last analysis (↻ refresh recomputes them).
+        const summary = current.reloadSummary ? current.reloadSummary() : null;
+        if (summary) {
+          current = { ...current, summary };
+          htmlCache.clear();
+        }
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(JSON.stringify(summary));
+      } else if (url.pathname === "/api/summary/stamp") {
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(JSON.stringify({ stamp: current.summaryStamp ? current.summaryStamp() : null }));
       } else if (url.pathname === "/api/shutdown" && req.method === "POST") {
         res.writeHead(200, { "content-type": "application/json" });
         res.end(JSON.stringify({ ok: true }), () => {
@@ -160,13 +183,21 @@ export async function serveViewer(
     }
   });
 
+  server.on("error", (err: NodeJS.ErrnoException) => {
+    if (err.code === "EADDRINUSE") {
+      console.error(`lens: port ${opts.port} is in use — a lens viewer is probably already running ` +
+        `(refresh it with ↻), or pick another port with --port`);
+      process.exit(1);
+    }
+    throw err;
+  });
   server.listen(opts.port, "127.0.0.1", () => {
     const url = `http://127.0.0.1:${opts.port}/`;
     console.log(`lens viewer on ${url}  (ctrl-c to stop)`);
     if (opts.open) {
       const opener = process.platform === "darwin" ? "open"
         : process.platform === "win32" ? "start" : "xdg-open";
-      spawn(opener, [url], { stdio: "ignore", detached: true }).unref();
+      spawn(opener, [url + (opts.openSummary ? "#summary" : "")], { stdio: "ignore", detached: true }).unref();
     }
   });
 }

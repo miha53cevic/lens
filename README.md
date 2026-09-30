@@ -4,6 +4,8 @@ A reading lens for AI-generated code. lens statically classifies every region of
 file and **folds the parts that carry no review signal** — imports, doc comments,
 input guards, logging, defensive boilerplate — so a reviewer sees the lines where
 the actual behavior lives. Pure parsing and rules (tree-sitter); no AI involved.
+An optional **Summary** view adds a per-function review summary written by *your own*
+coding agent — lens never calls an AI itself and needs no API key.
 
 ## Why
 
@@ -18,6 +20,8 @@ by syntax; lens folds by review relevance.
 npm install
 npm run install-cli     # npm-links a global `lens` command (live-updates with the source)
 npm run uninstall-cli   # removes it
+npm run install-skill   # links the /lens-review and /lens-build-review skills into ~/.claude/skills
+npm run uninstall-skill
 ```
 
 ## Usage
@@ -83,6 +87,55 @@ via `testFilePatterns` in `.lens.json`), and the file tree is collapsible
 and resizable.
 
 Requires Node >= 23 (runs TypeScript directly via type stripping).
+
+## Summary mode
+
+In diff and PR mode the viewer has two tabs: **Code** (the default, everything above)
+and **Summary** — one changed unit at a time (function, component, hook, method,
+type, …) with a one-line headline, a **When / Before / Now** table of what behaves
+differently (each row links to the line that causes it), callers outside the diff it
+may break (click one to peek at the call), and the unit's code with the usual folds
+and removed lines.
+
+The summary is written by your coding agent through the `lens-review` skill, so it
+runs on your existing subscription:
+
+```bash
+# in your agent (Claude Code: after npm run install-skill)
+/lens-review --staged          # same arguments as `lens diff`, or: pr 87
+```
+
+which runs
+
+```bash
+lens summary prepare --staged  # splits the diff into units → .lens/summary/<key>/
+                               # (tasks.md with labeled lines, schema.json, instructions)
+lens summary submit .lens/summary/diff-staged
+                               # validates the agent's result.json and stores it
+```
+
+**As the review step of a plan → build workflow**: `/lens-build-review [base-commit]
+[plan-file]` at the end of the build has the agent do everything — pick the build's
+diff (making new files visible with `git add --intent-to-add`), let a fresh subagent
+write and submit the summary (flagging changes the plan didn't ask for), and open the
+viewer on the Summary tab (`lens diff <diff> --summary`), then point you at the units
+that need a look.
+
+Any agent with a shell can follow `lens summary prepare`'s printed instructions — the
+skill is only a thin pointer to them. After a submit the viewer's Summary tab shows a
+dot when you come back to it (or press ↻ refresh).
+
+**What lens checks.** Lens finds the units deterministically (tree-sitter, old and new
+side of every changed file) and guarantees every changed or removed line belongs to
+exactly one unit. `submit` drops, with a reason, any claim that doesn't point at real
+code: a table row must cite one of the unit's changed (`N18`) or removed (`O16`) lines;
+a caller must be a `path:line` that exists and mentions the unit; flows need 2+ known
+units; text over the length limits is rejected. Summaries remember the unit's hash:
+when the code changes, the unit shows "code changed — re-run", and the next `prepare`
+only asks the agent about units that changed.
+
+`.lens/` holds its own `*` `.gitignore`, so nothing needs adding to your repo's
+ignores and nothing is written into `.git`.
 
 ## How it works
 
@@ -188,6 +241,7 @@ bug — a rule change that suddenly folds more fails loudly.
 
 ## Non-goals (v1)
 
-No AI/LLM anything (future maybe). No semantic analysis or type checking. No
+lens itself calls no AI/LLM (summary mode hands the writing to your own agent). No
+semantic analysis or type checking. No
 editing — lens is read-only. No editor plugin yet, though the fold model JSON is
 designed so one can exist later.
