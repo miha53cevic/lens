@@ -4,6 +4,7 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { join, dirname } from "node:path";
 import type { FileFoldModel, LensConfig } from "../../model.ts";
+import type { SummaryView } from "../../summary/view.ts";
 import {
   highlightSource,
   isBundledTheme,
@@ -28,14 +29,42 @@ export interface ViewerInput {
   configSource: string | null;
   /** PR mode: "owner/repo#N — title", shown in the viewer header */
   label: string | null;
+  /** Diff/PR mode: data for the Summary tab */
+  summary: SummaryView | null;
+  /** Re-reads the stored summary for the current units (after a submit) */
+  reloadSummary: (() => SummaryView | null) | null;
+  /** summary.json mtime, cheap: polled on window focus */
+  summaryStamp: (() => number | null) | null;
 }
 
 export interface ViewerOptions {
   port: number;
   open: boolean;
+  /** Open the browser on the Summary tab instead of the code view */
+  openSummary?: boolean;
   theme: string;
   /** true when --theme was passed explicitly — the viewer then ignores its saved choice */
   themePinned: boolean;
+}
+
+/** What the page gets as DATA (viewer.js) — ViewerInput made serializable, plus tokens. */
+export interface ViewerPayload {
+  threshold: number;
+  theme: string;
+  themes: string[];
+  fg: string;
+  bg: string;
+  files: (ViewerFile & { tokens: ViewerToken[][] })[];
+  deleted: string[];
+  excluded: string[];
+  renamed: { from: string; to: string }[];
+  testFilePatterns: string[];
+  config: LensConfig;
+  configSource: string | null;
+  label: string | null;
+  summary: SummaryView | null;
+  themePinned: boolean;
+  canRefresh: boolean;
 }
 
 interface ThemeTokens {
@@ -46,7 +75,16 @@ interface ThemeTokens {
   tokens: ViewerToken[][][];
 }
 
-const templatePath = join(dirname(fileURLToPath(import.meta.url)), "viewer.html");
+const webDir = dirname(fileURLToPath(import.meta.url));
+
+/** viewer.html with its stylesheet and scripts inlined: one self-contained page. */
+function loadTemplate(): string {
+  const read = (name: string) => readFileSync(join(webDir, name), "utf8");
+  // Function replacements: plain strings would expand $-sequences in the code.
+  return read("viewer.html")
+    .replace("/*__LENS_CSS__*/", () => read("viewer.css"))
+    .replace("/*__LENS_JS__*/", () => read("viewer.js") + "\n" + read("summary.js"));
+}
 
 export async function serveViewer(
   input: ViewerInput,
@@ -77,7 +115,7 @@ export async function serveViewer(
     ? SUGGESTED_THEMES
     : [opts.theme, ...SUGGESTED_THEMES];
 
-  async function payloadFor(theme: string) {
+  async function payloadFor(theme: string): Promise<ViewerPayload> {
     const t = await tokensFor(theme);
     return {
       threshold: current.threshold,
@@ -93,6 +131,7 @@ export async function serveViewer(
       config: current.config,
       configSource: current.configSource,
       label: current.label,
+      summary: current.summary,
       themePinned: opts.themePinned,
       canRefresh: reanalyze !== undefined,
     };
@@ -100,7 +139,7 @@ export async function serveViewer(
 
   // Warm the initial theme before accepting requests.
   await tokensFor(opts.theme);
-  const template = readFileSync(templatePath, "utf8");
+  const template = loadTemplate();
 
   // Serialized pages are cached per theme — payloads can be MBs, and
   // stringifying them on every reload is waste. Cleared on refresh.
@@ -143,6 +182,19 @@ export async function serveViewer(
         htmlCache.clear();
         res.writeHead(200, { "content-type": "application/json" });
         res.end(JSON.stringify(await payloadFor(theme)));
+      } else if (url.pathname === "/api/summary") {
+        // A submit since the page loaded: re-read the stored summary; the
+        // units stay those of the last analysis (↻ refresh recomputes them).
+        const summary = current.reloadSummary ? current.reloadSummary() : null;
+        if (summary) {
+          current = { ...current, summary };
+          htmlCache.clear();
+        }
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(JSON.stringify(summary));
+      } else if (url.pathname === "/api/summary/stamp") {
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(JSON.stringify({ stamp: current.summaryStamp ? current.summaryStamp() : null }));
       } else if (url.pathname === "/api/shutdown" && req.method === "POST") {
         res.writeHead(200, { "content-type": "application/json" });
         res.end(JSON.stringify({ ok: true }), () => {
@@ -160,13 +212,21 @@ export async function serveViewer(
     }
   });
 
+  server.on("error", (err: NodeJS.ErrnoException) => {
+    if (err.code === "EADDRINUSE") {
+      console.error(`lens: port ${opts.port} is in use — a lens viewer is probably already running ` +
+        `(refresh it with ↻), or pick another port with --port`);
+      process.exit(1);
+    }
+    throw err;
+  });
   server.listen(opts.port, "127.0.0.1", () => {
     const url = `http://127.0.0.1:${opts.port}/`;
     console.log(`lens viewer on ${url}  (ctrl-c to stop)`);
     if (opts.open) {
       const opener = process.platform === "darwin" ? "open"
         : process.platform === "win32" ? "start" : "xdg-open";
-      spawn(opener, [url], { stdio: "ignore", detached: true }).unref();
+      spawn(opener, [url + (opts.openSummary ? "#summary" : "")], { stdio: "ignore", detached: true }).unref();
     }
   });
 }

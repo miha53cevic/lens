@@ -40,18 +40,12 @@ function compileReceivers(receivers: string[]): RegExp {
 }
 
 function compilePatterns(config: LensConfig): CompiledPattern[] {
-  return config.callPatterns.map((p) => {
-    // legacy loggerNames extend the logging pattern's receivers
-    const receivers = p.category === "logging"
-      ? [...p.receivers, ...config.loggerNames]
-      : p.receivers;
-    return {
-      category: p.category,
-      score: p.score ?? config.scores[p.category] ?? 1,
-      receiver: compileReceivers(receivers),
-      methods: p.methods && !p.methods.includes("*") ? new Set(p.methods) : null,
-    };
-  });
+  return config.callPatterns.map((p) => ({
+    category: p.category,
+    score: p.score ?? config.scores[p.category] ?? 1,
+    receiver: compileReceivers(p.receivers),
+    methods: p.methods && !p.methods.includes("*") ? new Set(p.methods) : null,
+  }));
 }
 
 export function classify(root: Node, source: string, config: LensConfig): FoldRegion[] {

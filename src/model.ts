@@ -7,6 +7,8 @@ export type FoldCategory = string;
 
 export type LanguageId = "typescript" | "tsx" | "javascript";
 
+export type DiffStatus = "added" | "modified";
+
 export interface FoldRegion {
   /** 1-based, inclusive */
   startLine: number;
@@ -31,7 +33,7 @@ export interface FileFoldModel {
   /** Diff mode: new-side line numbers touched by the diff */
   changedLines?: number[];
   /** Diff mode: how the diff produced this file */
-  status?: "added" | "modified";
+  status?: DiffStatus;
   /** Diff mode: old-side lines the diff removed, anchored to new-side positions */
   removals?: RemovedBlock[];
 }
@@ -39,19 +41,9 @@ export interface FileFoldModel {
 export interface RemovedBlock {
   /** New-side line number this block sits after (0 = before the first line) */
   afterLine: number;
+  /** Old-side line number of the first removed line */
+  oldStart: number;
   lines: string[];
-}
-
-export interface FoldModel {
-  version: 1;
-  threshold: number;
-  files: FileFoldModel[];
-  /** Diff mode: supported files the diff deleted (no content to analyze) */
-  deleted?: string[];
-  /** Diff mode: changed files skipped via the exclude patterns */
-  excluded?: string[];
-  /** Diff mode: pure renames (content unchanged) */
-  renamed?: { from: string; to: string }[];
 }
 
 /**
@@ -89,18 +81,8 @@ export interface LensConfig {
   keepCommentMarkers: string[];
   /** A directive string; regions containing it (or starting right below it) never fold */
   keepDirective: string;
-  /** Legacy alias: extra receivers appended to the "logging" call pattern */
-  loggerNames: string[];
   /** Glob-ish path patterns the viewer's "hide tests" toggle matches against */
   testFilePatterns: string[];
   /** Glob-ish path patterns never read or tokenized in diff mode (lockfiles, minified) */
   exclude: string[];
-}
-
-export function foldedLineCount(model: FileFoldModel, threshold: number): number {
-  let folded = 0;
-  for (const r of model.regions) {
-    if (r.score <= threshold) folded += r.endLine - r.startLine; // each fold still shows 1 pill line
-  }
-  return folded;
 }

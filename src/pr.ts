@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { runGit } from "./git.ts";
 
 // A GitHub pull request reference: parsed from a URL, or a bare number
 // (owner/repo then comes from the origin remote).
@@ -95,10 +95,6 @@ export function parseRemoteRefs(output: string, prNumber: number): RemoteRefs {
     else if (name === `refs/pull/${prNumber}/merge`) refs.mergeSha = left;
   }
   return refs;
-}
-
-function runGit(args: string[], cwd: string): string {
-  return execFileSync("git", args, { cwd, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
 }
 
 /**

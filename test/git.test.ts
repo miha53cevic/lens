@@ -4,7 +4,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { parseDiff, parseRawShas, gitDiffTargets, readBlob } from "../src/git.ts";
+import { parseDiff, parseRawEntries, gitDiffTargets, readBlob } from "../src/git.ts";
 
 const SAMPLE = `diff --git a/src/api.ts b/src/api.ts
 index 111..222 100644
@@ -109,11 +109,11 @@ test("parseDiff captures removed lines with new-side anchors", () => {
   assert.equal(api.path, "src/api.ts");
   assert.deepEqual(api.removals, [
     // replacement: removed lines sit before the added block at new line 3
-    { afterLine: 2, lines: ["const old1 = 1;", "const old2 = 2;"] },
+    { afterLine: 2, oldStart: 3, lines: ["const old1 = 1;", "const old2 = 2;"] },
     // pure deletion: new-side count 0, anchored after new line 11
-    { afterLine: 11, lines: ["function gone() {", "}"] },
+    { afterLine: 11, oldStart: 10, lines: ["function gone() {", "}"] },
     // a removed line starting with "-" must not be mistaken for a header
-    { afterLine: 19, lines: ["-decrement-looking line;"] },
+    { afterLine: 19, oldStart: 20, lines: ["-decrement-looking line;"] },
   ]);
   assert.deepEqual(api.changedLines, [3, 4, 5, 20]);
 });
@@ -132,8 +132,8 @@ const RAW_SAMPLE = [
   " CLAUDE.md | 2 +-\n 5 files changed\n", // pass-through --stat noise after the records
 ].join("");
 
-test("parseRawShas maps new-side paths to blob SHAs", () => {
-  const shas = parseRawShas(RAW_SAMPLE);
+test("parseRawEntries maps new-side paths to blob SHAs", () => {
+  const shas = new Map(parseRawEntries(RAW_SAMPLE).filter((e) => e.newSha).map((e) => [e.path, e.newSha]));
   assert.equal(shas.get("src/api.ts"), SHA_B);
   assert.equal(shas.get("src/Widget.tsx"), SHA_C);
   assert.equal(shas.get("new-name.ts"), SHA_B, "renames map the NEW path");
@@ -143,8 +143,31 @@ test("parseRawShas maps new-side paths to blob SHAs", () => {
   assert.equal(shas.size, 3);
 });
 
-test("parseRawShas handles an empty diff", () => {
-  assert.equal(parseRawShas("").size, 0);
+test("parseDiff reads changed lines from combined (merge-conflict) hunk headers", () => {
+  const combined = `diff --cc src/a.ts
+index 111,222..333
+--- a/src/a.ts
++++ b/src/a.ts
+@@@ -3,1 -3,1 +3,2 @@@
+++const x = 1;
+++const y = 2;
+`;
+  assert.deepEqual(parseDiff(combined).files[0].changedLines, [3, 4]);
+});
+
+test("parseRawEntries keeps old-side SHAs, including deletions", () => {
+  const raw = `:100644 000000 ${SHA_C} ${ZEROS} D\0src/gone.ts\0` + RAW_SAMPLE;
+  const byPath = new Map(parseRawEntries(raw).map((e) => [e.path, e]));
+  assert.equal(byPath.get("src/api.ts")?.oldSha, SHA_A);
+  assert.equal(byPath.get("src/Widget.tsx")?.oldSha, null); // added
+  assert.equal(byPath.get("src/worktree.ts")?.newSha, null); // working tree
+  assert.equal(byPath.get("new-name.ts")?.oldSha, SHA_A);
+  assert.equal(byPath.get("vendor/submodule")?.oldSha, null);
+  assert.deepEqual(byPath.get("src/gone.ts"), { path: "src/gone.ts", oldSha: SHA_C, newSha: null, status: "D" });
+});
+
+test("parseRawEntries handles an empty diff", () => {
+  assert.equal(parseRawEntries("").length, 0);
 });
 
 /** Runs `fn` in a fresh temp git repo (branch "main"), cleaned up afterwards. */

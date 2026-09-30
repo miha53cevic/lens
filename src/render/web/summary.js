@@ -1,0 +1,342 @@
+// lens viewer: the Summary view. Inlined after viewer.js (see there).
+
+// One changed unit (function, component, hook, …) at a time: the agent's
+// headline, a When / Before / Now table, callers it may break, and the code.
+const viewSwitch = document.getElementById("view-switch");
+const viewCodeBtn = document.getElementById("view-code");
+const viewSummaryBtn = document.getElementById("view-summary");
+const summaryDot = document.getElementById("summary-dot");
+const summaryListEl = document.getElementById("summary-list");
+const summaryPaneEl = document.getElementById("summary-pane");
+const toolbarEl = /** @type {HTMLElement} */ (document.querySelector(".bar.toolbar"));
+const tabbarWrap = tabbarEl;
+let summaryOrder = []; // unit ids in list order (j/k walk this)
+
+function syncViewSwitch() {
+  viewSwitch.style.display = DATA.summary ? "" : "none";
+  // the summary went away (e.g. a refresh in path mode): leave the Summary view properly
+  if (!DATA.summary && state.view === "summary") setView("code");
+}
+
+// The tree and the summary list share the sidebar's scroller: each view keeps its own position.
+const navScroll = { code: 0, summary: 0 };
+
+function setView(view) {
+  if (view === "summary" && !DATA.summary) return;
+  if (state.view === "code") rememberScroll();
+  navScroll[state.view] = nav.scrollTop;
+  state.view = view;
+  viewCodeBtn.setAttribute("aria-pressed", String(view === "code"));
+  viewSummaryBtn.setAttribute("aria-pressed", String(view === "summary"));
+  const summary = view === "summary";
+  toolbarEl.style.display = summary ? "none" : "";
+  tabbarWrap.style.display = summary ? "none" : "";
+  mainEl.style.display = summary ? "none" : "";
+  summaryPaneEl.style.display = summary ? "" : "none";
+  /** @type {HTMLElement} */ (document.querySelector(".nav-filter")).style.display = summary ? "none" : "";
+  treeEl.style.display = summary ? "none" : "";
+  summaryListEl.style.display = summary ? "" : "none";
+  statsEl.style.visibility = summary ? "hidden" : "";
+  nav.scrollTop = navScroll[view];
+  if (summary && summaryDot.style.display !== "none") { loadSummary(); return; }
+  render();
+}
+viewCodeBtn.onclick = () => setView("code");
+viewSummaryBtn.onclick = () => setView("summary");
+
+async function loadSummary() {
+  try {
+    const res = await fetch("/api/summary");
+    if (!res.ok) throw new Error("http " + res.status);
+    const summary = await res.json();
+    if (summary) DATA.summary = summary;
+  } catch (err) {
+    console.error("loading the summary failed:", err);
+  }
+  summaryDot.style.display = "none";
+  render();
+}
+
+// A submit from the agent lands in summary.json; notice it when the reader comes back.
+window.addEventListener("focus", async () => {
+  if (!DATA.summary) return;
+  try {
+    const res = await fetch("/api/summary/stamp");
+    const { stamp } = await res.json();
+    if (stamp !== null && stamp !== DATA.summary.stamp) {
+      if (state.view === "summary") loadSummary();
+      else summaryDot.style.display = "";
+    }
+  } catch { /* server gone — nothing to do */ }
+});
+
+function unitById(id) { return (DATA.summary?.units || []).find((u) => u.id === id) || null; }
+function currentUnit() { return unitById(state.summaryActive); }
+
+function unitLabel(u) {
+  if (u.name === "(module)") return "imports & module-level";
+  if (u.name === "(file)") return u.displayFile.split("/").pop();
+  return u.name;
+}
+
+function renderSummary() {
+  const summary = DATA.summary;
+  syncNavVisibilitySummary();
+  if (!summary) return;
+  const units = summary.units;
+
+  // list order: flows, then needs-a-look, routine, not yet summarized / stale.
+  // A unit in several flows is listed once, under the first.
+  const listed = new Set();
+  const sections = summary.flows
+    .map((flow) => ({
+      flow,
+      members: Object.keys(flow.units).map(unitById).filter((u) => u && !listed.has(u.id) && listed.add(u.id)),
+    }))
+    .filter((section) => section.members.length > 0);
+  const rank = (u) => !u.summary ? 3 : u.summary.needsLook ? 0 : 1;
+  const others = units.filter((u) => !listed.has(u.id)).sort((a, b) => rank(a) - rank(b));
+  summaryOrder = [...sections.flatMap((section) => section.members), ...others].map((u) => u.id);
+  // before building the list, so the default unit is highlighted too
+  if (!state.summaryActive || !unitById(state.summaryActive)) state.summaryActive = summaryOrder[0] || null;
+  const itemHtml = (u, side) => {
+    const s = u.summary;
+    const cls = "sum-item" + (u.id === state.summaryActive ? " active" : "") +
+      (!s ? " pending" : s.needsLook ? "" : " routine");
+    const gist = u.stale ? '<span class="gist stale">code changed — re-run</span>'
+      : '<span class="gist">' + escapeHtml(s ? s.gist : u.kind + " · " + u.status) + "</span>";
+    return '<button class="' + cls + '" data-id="' + escapeHtml(u.id) + '" title="' + escapeHtml(u.id) + '">' +
+      (s && s.needsLook ? '<span class="attn-dot" title="needs a look"></span>' : "<span></span>") +
+      '<span class="name">' + escapeHtml(unitLabel(u)) + '</span><span class="side">' + escapeHtml(side || "") + "</span>" +
+      gist + "</button>";
+  };
+  const summarized = units.filter((u) => u.summary).length;
+  const attention = units.filter((u) => u.summary && u.summary.needsLook).length;
+  let html = '<div class="sum-head"><span class="title">' + units.length + (units.length === 1 ? " change" : " changes") + "</span>" +
+    (summarized === 0 ? '<span class="legend">not summarized yet</span>'
+      : '<span class="legend"><span class="attn-dot"></span>' + attention + " need a look</span>") + "</div>";
+  for (const { flow, members } of sections) {
+    html += '<div class="sum-section"><div class="sum-section-title"><span class="t">' + escapeHtml(flow.title) +
+      '</span><span class="sub">' + escapeHtml(flow.path) + "</span></div>" +
+      members.map((u) => itemHtml(u, flow.units[u.id])).join("") + "</div>";
+  }
+  if (others.length > 0) {
+    html += '<div class="sum-section">' + (sections.length > 0 ? '<div class="sum-section-title"><span class="t">Other changes</span></div>' : "") +
+      others.map((u) => itemHtml(u, u.displayFile.split("/").pop())).join("") + "</div>";
+  }
+  const scrolled = nav.scrollTop; // rebuilding the list must not move it
+  summaryListEl.innerHTML = html;
+  nav.scrollTop = scrolled;
+  /** @type {NodeListOf<HTMLElement>} */ (summaryListEl.querySelectorAll(".sum-item")).forEach((b) => {
+    b.onclick = () => { state.summaryActive = b.dataset.id; summaryPaneEl.dataset.browsing = "1"; renderSummary(); };
+  });
+  if (summarized === 0 && !summaryPaneEl.dataset.browsing) {
+    renderSummaryEmpty(summary);
+  } else {
+    renderSummaryUnit(currentUnit());
+  }
+  summaryListEl.querySelector(".sum-item.active")?.scrollIntoView({ block: "nearest" });
+}
+
+function syncNavVisibilitySummary() {
+  const show = !state.navCollapsed;
+  nav.style.display = show ? "" : "none";
+  resizerEl.style.display = show ? "" : "none";
+  navToggle.style.display = "";
+}
+
+function renderSummaryEmpty(summary) {
+  summaryPaneEl.innerHTML =
+    '<div class="sum-empty"><h2>No summary yet</h2>' +
+    "<p>Your coding agent writes the summary. Run this in it:</p>" +
+    '<div class="cmd"><span>' + escapeHtml(summary.command) + '</span><button id="copy-cmd">copy</button></div>' +
+    "<p>Without the skill, any agent with a shell can follow <code>" + escapeHtml(summary.cli) + "</code>. " +
+    "When it's done, come back here: the Summary tab gets a dot, or press ↻ refresh.</p>" +
+    '<p><button id="browse-units">browse the ' + summary.units.length + " changes without a summary</button></p></div>";
+  document.getElementById("copy-cmd").onclick = async (ev) => {
+    const btn = /** @type {HTMLElement} */ (ev.target);
+    try { await navigator.clipboard.writeText(summary.command); btn.textContent = "copied"; }
+    catch { btn.textContent = "select + copy"; }
+  };
+  document.getElementById("browse-units").onclick = () => { summaryPaneEl.dataset.browsing = "1"; renderSummary(); };
+}
+
+function renderSummaryUnit(u) {
+  summaryPaneEl.innerHTML = "";
+  if (!u) { summaryPaneEl.innerHTML = '<div class="sum-empty">nothing changed</div>'; return; }
+  const s = u.summary;
+  const inner = document.createElement("div");
+  inner.className = "sum-inner";
+  let html = s
+    ? '<h1 class="sum-headline">' + escapeHtml(s.headline) + "</h1>"
+    : '<h1 class="sum-headline pending">' + escapeHtml(unitLabel(u)) + "</h1>";
+  if (u.stale) {
+    html += '<div class="sum-note stale">The code changed since this was summarized. Run <code>' +
+      escapeHtml(DATA.summary.command) + "</code> again to update it.</div>";
+  } else if (!s) {
+    html += '<div class="sum-note">Not summarized yet — run <code>' + escapeHtml(DATA.summary.command) + "</code> in your agent.</div>";
+  }
+  if (s && s.changes.length > 0) {
+    html += '<div class="changes"><div class="th">When</div><div class="th">Before</div><div class="th">Now</div><div class="th"></div>' +
+      s.changes.map((c) =>
+        '<div class="td when">' + escapeHtml(c.when) + "</div>" +
+        '<div class="td before">' + (c.before ? escapeHtml(c.before) : '<span class="none">—</span>') + "</div>" +
+        '<div class="td now">' + escapeHtml(c.now) + "</div>" +
+        '<div class="td"><button class="cite" data-line="' + escapeHtml(c.line) + '" title="show this line in the code below">' +
+        escapeHtml(c.line.startsWith("O") ? "−" + c.line.slice(1) : "L" + c.line.slice(1)) + "</button></div>",
+      ).join("") + "</div>";
+  }
+  if (s && s.breaks.length > 0) {
+    html += '<div class="breaks">' + s.breaks.map((b, bi) =>
+      '<button class="brk-head" data-brk="' + bi + '"><span class="pk">▸</span>⚠ ' + escapeHtml(b.summary) + "</button>" +
+      '<div class="brk-callers" data-brk="' + bi + '" style="display:none">' +
+      b.callers.map((c, ci) =>
+        '<button class="caller" data-peek="' + bi + "-" + ci + '">▸ ' + escapeHtml(c.file + ":" + c.line) + "</button>" +
+        '<div class="peek" data-peek="' + bi + "-" + ci + '" style="display:none">' +
+        c.lines.map((l) =>
+          '<div class="row' + (l.n === c.line ? " call" : "") + '"><span class="num">' + l.n + '</span><span class="mark"></span><span>' +
+          (escapeHtml(l.text) || " ") + "</span></div>").join("") +
+        "</div>").join("") +
+      "</div>").join("") + "</div>";
+  }
+  const fileIndex = DATA.files.findIndex((f) => f.file === u.displayFile);
+  html += '<div class="unit-head"><span class="path" title="' + escapeHtml(u.id) + '">' + escapeHtml(u.displayFile) + "</span>" +
+    '<span class="status ' + u.status + '">' + u.status + (u.formattingOnly ? " · formatting only" : "") + "</span>" +
+    '<label class="control"><input type="checkbox" id="sum-removed"' + (state.showRemoved ? " checked" : "") + "> removed lines</label>" +
+    (fileIndex >= 0 && u.ranges.length > 0 ? '<button id="open-in-code" title="open in the code view (o)">code view ↗</button>' : "") +
+    "</div>";
+  inner.innerHTML = html;
+  inner.appendChild(unitCodeEl(u, fileIndex, s));
+  summaryPaneEl.appendChild(inner);
+
+  /** @param {string} selector */
+  const all = (selector) => /** @type {NodeListOf<HTMLElement>} */ (inner.querySelectorAll(selector));
+  /** @param {string} selector */
+  const one = (selector) => /** @type {HTMLElement} */ (inner.querySelector(selector));
+  all(".cite").forEach((b) => b.onclick = () => flashCited(inner, b.dataset.line));
+  all(".brk-head").forEach((b) => b.onclick = () => {
+    const box = one('.brk-callers[data-brk="' + b.dataset.brk + '"]');
+    const open = box.style.display === "none";
+    box.style.display = open ? "" : "none";
+    b.querySelector(".pk").textContent = open ? "▾" : "▸";
+  });
+  all(".caller").forEach((b) => b.onclick = () => {
+    const box = one('.peek[data-peek="' + b.dataset.peek + '"]');
+    const open = box.style.display === "none";
+    box.style.display = open ? "" : "none";
+    b.textContent = (open ? "▾ " : "▸ ") + b.textContent.slice(2);
+  });
+  const removedBox = /** @type {HTMLInputElement} */ (one("#sum-removed"));
+  removedBox.onchange = () => {
+    showRemovedBox.checked = state.showRemoved = removedBox.checked; // keep the Code view's toggle in sync
+    render();
+  };
+  const openBtn = one("#open-in-code");
+  if (openBtn) openBtn.onclick = () => openUnitInCode(u);
+  summaryPaneEl.scrollTop = 0;
+}
+
+function unitCodeEl(u, fileIndex, s) {
+  const wrap = document.createElement("div");
+  wrap.className = "unit-code";
+  const code = document.createElement("div");
+  code.className = "code";
+  wrap.appendChild(code);
+  const file = fileIndex >= 0 ? DATA.files[fileIndex] : null;
+  const cited = new Set((s ? s.changes : []).map((c) => c.line));
+  const gutter = String(Math.max(file ? file.lineCount : 0, ...u.removals.map((b) => b.oldStart + b.lines.length))).length;
+  // each removed block carries its display anchor (computed by the server)
+  const emitRemoved = (after, container) => {
+    if (!state.showRemoved) return;
+    for (const b of u.removals.filter((r) => r.anchor === after)) {
+      b.lines.forEach((text, i) => {
+        const row = removedRowEl(text, gutter);
+        row.dataset.old = b.oldStart + i;
+        if (cited.has("O" + (b.oldStart + i))) row.classList.add("cited");
+        container.appendChild(row);
+      });
+    }
+  };
+  if (!file || u.ranges.length === 0) {
+    const was = state.showRemoved;
+    state.showRemoved = true; // a deleted unit is nothing but removed lines
+    emitRemoved(0, code);
+    state.showRemoved = was;
+  } else {
+    const lines = linesFromTokens(file);
+    const changed = new Set(u.changedLines);
+    const regionAt = new Map();
+    for (const r of file.regions) regionAt.set(r.startLine, r);
+    u.ranges.forEach((range, ri) => {
+      if (ri > 0) {
+        const gap = document.createElement("div");
+        gap.className = "row unit-gap";
+        gap.innerHTML = '<span class="num">' + "⋯".padStart(gutter) + '</span><span class="mark"></span><span></span>';
+        code.appendChild(gap);
+      }
+      emitRemoved(range.start - 1, code);
+      let l = range.start;
+      while (l <= range.end) {
+        const region = regionAt.get(l);
+        if (region && region.endLine <= range.end) {
+          code.appendChild(regionEl(region, lines, changed, gutter, (after, container) => emitRemoved(after, container)));
+          emitRemoved(region.endLine, code);
+          l = region.endLine + 1;
+          continue;
+        }
+        const row = rowEl(l, lines[l - 1] ?? "", changed.has(l), gutter);
+        if (cited.has("N" + l)) row.classList.add("cited");
+        code.appendChild(row);
+        emitRemoved(l, code);
+        l++;
+      }
+    });
+  }
+  // rows built inside folds (regionEl) get their cited mark here
+  for (const label of cited) {
+    if (label.startsWith("N")) code.querySelector('.row[data-line="' + label.slice(1) + '"]')?.classList.add("cited");
+  }
+  if (u.renamedFrom) {
+    const note = document.createElement("div");
+    note.className = "renamed-from";
+    note.textContent = "was " + u.renamedFrom.id;
+    code.appendChild(note);
+    for (const b of u.renamedFrom.removals) for (const text of b.lines) code.appendChild(removedRowEl(text, gutter));
+  }
+  return wrap;
+}
+
+function flashCited(container, label) {
+  const selector = label.startsWith("O") ? '.row[data-old="' + label.slice(1) + '"]' : '.row[data-line="' + label.slice(1) + '"]';
+  const row = container.querySelector(".unit-code " + selector);
+  if (!row) return;
+  const region = row.closest(".region");
+  if (region) region.classList.add("open");
+  row.scrollIntoView({ block: "center", behavior: "smooth" });
+  row.classList.remove("flash");
+  void row.offsetWidth;
+  row.classList.add("flash");
+}
+
+function stepSummary(direction) {
+  if (summaryOrder.length === 0) return;
+  const pos = summaryOrder.indexOf(state.summaryActive);
+  state.summaryActive = pos === -1
+    ? summaryOrder[direction > 0 ? 0 : summaryOrder.length - 1]
+    : summaryOrder[(pos + direction + summaryOrder.length) % summaryOrder.length];
+  summaryPaneEl.dataset.browsing = "1";
+  renderSummary();
+}
+
+function openUnitInCode(u) {
+  if (!u) return;
+  const fileIndex = DATA.files.findIndex((f) => f.file === u.displayFile);
+  if (fileIndex < 0 || u.ranges.length === 0) return;
+  jumpToLine(fileIndex, u.changedLines[0] ?? u.ranges[0].start);
+}
+
+// Start-up: last, after both files' top-level declarations have run.
+openFirstTreeFile();
+syncViewSwitch();
+render();
+if (location.hash === "#summary" && DATA.summary) setView("summary");
