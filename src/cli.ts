@@ -2,7 +2,7 @@
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { join, resolve, relative, dirname, basename } from "node:path";
 import { analyzeSource } from "./classify/index.ts";
-import { loadConfig, findConfigPath, initConfig, resetConfig } from "./config.ts";
+import { loadConfig, findConfigPath } from "./config.ts";
 import { readBlob, type DiffTarget } from "./git.ts";
 import { parsePrRef } from "./pr.ts";
 import { languageForFile } from "./parse/parser.ts";
@@ -23,9 +23,7 @@ usage:
   lens diff [git-diff-args]   analyze files changed in git diff (e.g. lens diff --staged)
   lens pr <url|N>             analyze a GitHub PR (URL, or a number on origin)
                               — run inside a clone; refresh picks up new pushes
-  lens config [show]          print the effective config and where it comes from
-  lens config init            create a .lens.json here, seeded from the built-in defaults
-  lens config reset           restore default behavior (.lens.json moves to .lens.json.bak)
+  lens config                 print the effective config and where it comes from
 
 summary mode (written by your own coding agent — see skills/lens-review):
   lens summary prepare [diff-args | pr <url|N>]
@@ -112,29 +110,11 @@ async function main(): Promise<void> {
   const cwd = process.cwd();
 
   if (command === "config") {
-    const sub = rest[0] ?? "show";
-    if (sub === "show") {
-      const config = loadConfig(cwd);
-      const path = findConfigPath(cwd);
-      console.error(path
-        ? `# effective config: built-in lens.defaults.json + ${path}`
-        : "# effective config: built-in lens.defaults.json (no .lens.json found)");
-      console.log(JSON.stringify(config, null, 2));
-    } else if (sub === "init") {
-      const target = initConfig(cwd);
-      console.log(`created ${target} (a copy of the built-in defaults — edit away)`);
-    } else if (sub === "reset") {
-      const result = resetConfig(cwd);
-      if (result) {
-        console.log(`reset: moved ${result.reset} to ${result.backup}`);
-        console.log(`defaults apply again; rename the .bak back to undo`);
-      } else {
-        console.log("nothing to reset — no .lens.json found, defaults already apply");
-      }
-    } else {
-      console.error(`lens: unknown config subcommand "${sub}" (use show, init, or reset)`);
-      process.exit(1);
-    }
+    const path = findConfigPath(cwd);
+    console.error(path
+      ? `# effective config: built-in lens.defaults.json + ${path}`
+      : "# effective config: built-in lens.defaults.json (no .lens.json found)");
+    console.log(JSON.stringify(loadConfig(cwd), null, 2));
     return;
   }
 

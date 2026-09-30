@@ -3,8 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { existsSync } from "node:fs";
-import { DEFAULT_CONFIG, loadConfig, initConfig, resetConfig, findConfigPath } from "../src/config.ts";
+import { DEFAULT_CONFIG, loadConfig } from "../src/config.ts";
 import { analyzeSource } from "../src/classify/index.ts";
 import type { LensConfig } from "../src/model.ts";
 
@@ -98,30 +97,6 @@ console.log("processing");
   assert.ok(guard.score > DEFAULT_CONFIG.threshold, "directive must keep the guard visible");
   const logging = model.regions.find((r) => r.category === "logging");
   assert.ok(logging && logging.score <= DEFAULT_CONFIG.threshold, "unrelated regions still fold");
-});
-
-test("config init seeds a .lens.json from the defaults; reset moves it aside", () => {
-  const dir = mkdtempSync(join(tmpdir(), "lens-config-"));
-
-  // init creates a copy of the defaults
-  const created = initConfig(dir);
-  assert.equal(created, join(dir, ".lens.json"));
-  const config = loadConfig(dir);
-  assert.equal(config.callPatterns.length, DEFAULT_CONFIG.callPatterns.length);
-
-  // init refuses to clobber an existing config
-  assert.throws(() => initConfig(dir), /already exists/);
-
-  // reset moves it to .bak so defaults apply again and the custom file survives
-  const result = resetConfig(dir);
-  assert.ok(result);
-  assert.equal(result.reset, created);
-  assert.ok(existsSync(result.backup));
-  assert.equal(findConfigPath(dir), null);
-  assert.deepEqual(loadConfig(dir), loadConfig("/nonexistent-so-defaults-apply"));
-
-  // resetting again reports nothing to do
-  assert.equal(resetConfig(dir), null);
 });
 
 test("wrong value types in categories/scores are ignored", () => {

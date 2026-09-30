@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, existsSync, renameSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { CallPattern, LensConfig } from "./model.ts";
@@ -16,7 +16,6 @@ const EMPTY_CONFIG: LensConfig = {
   callPatterns: [],
   keepCommentMarkers: [],
   keepDirective: "lens:keep",
-  loggerNames: [],
   testFilePatterns: [],
   exclude: [],
 };
@@ -41,9 +40,6 @@ function sanitize(raw: unknown, from: string): Partial<LensConfig> & { base?: bo
   if (typeof r.keepDirective === "string") out.keepDirective = r.keepDirective;
   if (Array.isArray(r.keepCommentMarkers)) {
     out.keepCommentMarkers = r.keepCommentMarkers.filter((m) => typeof m === "string");
-  }
-  if (Array.isArray(r.loggerNames)) {
-    out.loggerNames = r.loggerNames.filter((n) => typeof n === "string");
   }
   if (Array.isArray(r.testFilePatterns)) {
     out.testFilePatterns = r.testFilePatterns.filter((p) => typeof p === "string");
@@ -73,7 +69,6 @@ function merge(base: LensConfig, over: Partial<LensConfig>): LensConfig {
     callPatterns: [...base.callPatterns, ...(over.callPatterns ?? [])],
     keepCommentMarkers: [...base.keepCommentMarkers, ...(over.keepCommentMarkers ?? [])],
     keepDirective: over.keepDirective ?? base.keepDirective,
-    loggerNames: [...base.loggerNames, ...(over.loggerNames ?? [])],
     testFilePatterns: [...base.testFilePatterns, ...(over.testFilePatterns ?? [])],
     exclude: [...base.exclude, ...(over.exclude ?? [])],
   };
@@ -114,38 +109,4 @@ export function loadConfig(from: string): LensConfig {
     console.error(`lens: ignoring invalid ${path}: ${(err as Error).message}`);
     return merge(EMPTY_CONFIG, DEFAULT_CONFIG);
   }
-}
-
-/**
- * Seeds <dir>/.lens.json with a standalone copy of the built-in defaults.
- * The copy sets "base": false — it IS the full rule set, not an extension —
- * otherwise its lists would double up with the base they duplicate.
- */
-export function initConfig(dir: string): string {
-  const target = join(dir, ".lens.json");
-  if (existsSync(target)) {
-    throw new Error(`${target} already exists — edit it, or run "lens config reset" to restore the defaults`);
-  }
-  const defaults = JSON.parse(readFileSync(defaultsPath, "utf8"));
-  delete defaults.$comment;
-  const seeded = {
-    $comment: "Standalone copy of lens's built-in rules (base: false = the full rule set, not an extension). Field docs: CONFIG.md in the lens repo. Run 'lens config reset' to restore the defaults.",
-    base: false,
-    ...defaults,
-  };
-  writeFileSync(target, JSON.stringify(seeded, null, 2) + "\n");
-  return target;
-}
-
-/**
- * Restores default behavior by moving the nearest .lens.json aside to
- * .lens.json.bak (overwriting any previous backup), so the custom config can
- * be brought back by renaming the backup.
- */
-export function resetConfig(from: string): { reset: string; backup: string } | null {
-  const path = findConfigPath(from);
-  if (path === null) return null;
-  const backup = path + ".bak";
-  renameSync(path, backup);
-  return { reset: path, backup };
 }

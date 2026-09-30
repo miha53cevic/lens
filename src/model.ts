@@ -79,8 +79,6 @@ export interface LensConfig {
   keepCommentMarkers: string[];
   /** A directive string; regions containing it (or starting right below it) never fold */
   keepDirective: string;
-  /** Legacy alias: extra receivers appended to the "logging" call pattern */
-  loggerNames: string[];
   /** Glob-ish path patterns the viewer's "hide tests" toggle matches against */
   testFilePatterns: string[];
   /** Glob-ish path patterns never read or tokenized in diff mode (lockfiles, minified) */
