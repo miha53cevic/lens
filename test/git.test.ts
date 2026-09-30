@@ -4,7 +4,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { parseDiff, parseRawShas, parseRawEntries, gitDiffTargets, readBlob } from "../src/git.ts";
+import { parseDiff, parseRawEntries, gitDiffTargets, readBlob } from "../src/git.ts";
 
 const SAMPLE = `diff --git a/src/api.ts b/src/api.ts
 index 111..222 100644
@@ -132,8 +132,8 @@ const RAW_SAMPLE = [
   " CLAUDE.md | 2 +-\n 5 files changed\n", // pass-through --stat noise after the records
 ].join("");
 
-test("parseRawShas maps new-side paths to blob SHAs", () => {
-  const shas = parseRawShas(RAW_SAMPLE);
+test("parseRawEntries maps new-side paths to blob SHAs", () => {
+  const shas = new Map(parseRawEntries(RAW_SAMPLE).filter((e) => e.newSha).map((e) => [e.path, e.newSha]));
   assert.equal(shas.get("src/api.ts"), SHA_B);
   assert.equal(shas.get("src/Widget.tsx"), SHA_C);
   assert.equal(shas.get("new-name.ts"), SHA_B, "renames map the NEW path");
@@ -166,8 +166,8 @@ test("parseRawEntries keeps old-side SHAs, including deletions", () => {
   assert.deepEqual(byPath.get("src/gone.ts"), { path: "src/gone.ts", oldSha: SHA_C, newSha: null, status: "D" });
 });
 
-test("parseRawShas handles an empty diff", () => {
-  assert.equal(parseRawShas("").size, 0);
+test("parseRawEntries handles an empty diff", () => {
+  assert.equal(parseRawEntries("").length, 0);
 });
 
 /** Runs `fn` in a fresh temp git repo (branch "main"), cleaned up afterwards. */

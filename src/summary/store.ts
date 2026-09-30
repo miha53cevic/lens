@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { parsePrRef } from "../pr.ts";
 import type { UnitKind, UnitStatus } from "./units.ts";
 
 // Everything summary mode writes lives in <repo root>/.lens/, which carries its
@@ -78,9 +79,13 @@ export function lensDir(root: string): string {
   return dir;
 }
 
-/** Readable, filesystem-safe key for a diff: "diff-staged", "pr-87", "diff" (worktree). */
+/**
+ * Readable, filesystem-safe key for a diff: "diff-staged", "pr-87", "diff"
+ * (worktree). PR keys use the number, so a URL and a bare number share one.
+ */
 export function summaryKey(command: "diff" | "pr", args: string[]): string {
-  const raw = [command, ...args].join(" ").toLowerCase();
+  const ref = command === "pr" ? parsePrRef(args[0] ?? "") : null;
+  const raw = [command, ...(ref ? [String(ref.number)] : args)].join(" ").toLowerCase();
   let slug = raw.replace(/[^a-z0-9._]+/g, "-").replace(/^-+|-+$/g, "");
   if (slug.length > 60) {
     slug = slug.slice(0, 48).replace(/-+$/, "") + "-" + createHash("sha256").update(raw).digest("hex").slice(0, 8);

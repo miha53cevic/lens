@@ -432,3 +432,26 @@ export function citeableLabels(unit: Unit): Set<string> {
   for (const b of unit.removals) b.lines.forEach((_, i) => labels.add(`O${b.oldStart + i}`));
   return labels;
 }
+
+/**
+ * Where each removed block shows: after the new-side line it's anchored to,
+ * snapped into the shown ranges — before the first range when anchored above
+ * it, after the last shown line at or before the anchor otherwise.
+ */
+export function removalAnchors(unit: Unit): Map<number, Unit["removals"]> {
+  const at = new Map<number, Unit["removals"]>();
+  const shown: number[] = [];
+  for (const r of unit.ranges) for (let l = r.start; l <= r.end; l++) shown.push(l);
+  for (const b of unit.removals) {
+    let anchor = 0;
+    if (shown.length > 0) {
+      if (b.afterLine < shown[0]) anchor = shown[0] - 1;
+      else anchor = shown.filter((l) => l <= b.afterLine).pop() ?? shown[0] - 1;
+      // exactly the line before a later range start: show it at that range's top
+      const next = unit.ranges.find((r) => r.start - 1 === b.afterLine);
+      if (next) anchor = b.afterLine;
+    }
+    at.set(anchor, [...(at.get(anchor) ?? []), b]);
+  }
+  return at;
+}

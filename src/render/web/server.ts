@@ -47,6 +47,26 @@ export interface ViewerOptions {
   themePinned: boolean;
 }
 
+/** What the page gets as DATA (viewer.js) — ViewerInput made serializable, plus tokens. */
+export interface ViewerPayload {
+  threshold: number;
+  theme: string;
+  themes: string[];
+  fg: string;
+  bg: string;
+  files: (ViewerFile & { tokens: ViewerToken[][] })[];
+  deleted: string[];
+  excluded: string[];
+  renamed: { from: string; to: string }[];
+  testFilePatterns: string[];
+  config: LensConfig;
+  configSource: string | null;
+  label: string | null;
+  summary: SummaryView | null;
+  themePinned: boolean;
+  canRefresh: boolean;
+}
+
 interface ThemeTokens {
   theme: string;
   fg: string;
@@ -55,7 +75,16 @@ interface ThemeTokens {
   tokens: ViewerToken[][][];
 }
 
-const templatePath = join(dirname(fileURLToPath(import.meta.url)), "viewer.html");
+const webDir = dirname(fileURLToPath(import.meta.url));
+
+/** viewer.html with its stylesheet and scripts inlined: one self-contained page. */
+function loadTemplate(): string {
+  const read = (name: string) => readFileSync(join(webDir, name), "utf8");
+  // Function replacements: plain strings would expand $-sequences in the code.
+  return read("viewer.html")
+    .replace("/*__LENS_CSS__*/", () => read("viewer.css"))
+    .replace("/*__LENS_JS__*/", () => read("viewer.js") + "\n" + read("summary.js"));
+}
 
 export async function serveViewer(
   input: ViewerInput,
@@ -86,7 +115,7 @@ export async function serveViewer(
     ? SUGGESTED_THEMES
     : [opts.theme, ...SUGGESTED_THEMES];
 
-  async function payloadFor(theme: string) {
+  async function payloadFor(theme: string): Promise<ViewerPayload> {
     const t = await tokensFor(theme);
     return {
       threshold: current.threshold,
@@ -110,7 +139,7 @@ export async function serveViewer(
 
   // Warm the initial theme before accepting requests.
   await tokensFor(opts.theme);
-  const template = readFileSync(templatePath, "utf8");
+  const template = loadTemplate();
 
   // Serialized pages are cached per theme — payloads can be MBs, and
   // stringifying them on every reload is waste. Cleared on refresh.

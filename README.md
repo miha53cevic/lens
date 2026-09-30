@@ -220,7 +220,10 @@ if (!input) {
 npm test            # typecheck + node --test
 ```
 
-Classifier rules live in `src/classify/typescript.ts` (shared by ts/tsx/js).
+Classifier rules live in `src/classify/typescript.ts` (shared by ts/tsx/js). The viewer
+is `src/render/web/`: `viewer.html`, `viewer.css`, `viewer.js` (Code view) and
+`summary.js` (Summary view), which the server inlines into one page. The scripts are
+plain JS type-checked through JSDoc (`tsconfig.viewer.json`, part of `npm test`).
 Fixture-driven tests are the main defense against a fold hiding a real bug — a rule
 change that suddenly folds more fails loudly.
 

@@ -1,7 +1,6 @@
 import { readFileSync } from "node:fs";
 import { relative } from "node:path";
-import { execFileSync } from "node:child_process";
-import { gitDiffTargets, readBlob, type DiffTarget, type RenamedFile } from "../git.ts";
+import { gitDiffTargets, gitRoot, readBlob, runGit, type DiffTarget, type RenamedFile } from "../git.ts";
 import { resolvePr } from "../pr.ts";
 import { compilePatterns, matchesAny } from "../glob.ts";
 import { extractUnits, checkCoverage, type Unit, type UnitFileInput } from "./units.ts";
@@ -22,10 +21,6 @@ export interface LoadedDiff {
   /** Absolute path → old blob SHA, for deleted files */
   deletedBlobs: Map<string, string>;
   renamed: RenamedFile[];
-}
-
-export function gitRoot(cwd: string): string {
-  return execFileSync("git", ["rev-parse", "--show-toplevel"], { cwd, encoding: "utf8" }).trim();
 }
 
 /**
@@ -59,7 +54,7 @@ export async function loadDiff(command: "diff" | "pr", args: string[], cwd: stri
 }
 
 /** New-side content of a changed file: from git for ref diffs, from disk for the working tree. */
-export function readNewSource(target: DiffTarget, cwd: string): string {
+export function readNewSource(target: Pick<DiffTarget, "file" | "newBlob">, cwd: string): string {
   return target.newBlob !== undefined ? readBlob(target.newBlob, cwd) : readFileSync(target.file, "utf8");
 }
 
@@ -123,9 +118,7 @@ export function commitLog(diffArgs: string[], cwd: string): string {
   else if (revs.length === 1) range = `${revs[0]}..HEAD`;
   if (!range) return "";
   try {
-    return execFileSync("git", ["log", "--no-merges", "--format=- %s%n%b", "--max-count=50", range], {
-      cwd, encoding: "utf8", maxBuffer: 16 * 1024 * 1024,
-    }).replace(/\n{3,}/g, "\n\n").trim();
+    return runGit(["log", "--no-merges", "--format=- %s%n%b", "--max-count=50", range], cwd).replace(/\n{3,}/g, "\n\n").trim();
   } catch {
     return "";
   }

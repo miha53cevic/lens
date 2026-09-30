@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
-import { readStored, summaryStamp, type ChangeRow, type Flow } from "./store.ts";
-import type { Unit } from "./units.ts";
+import { readStored, summaryKey, summaryStamp, type ChangeRow, type Flow } from "./store.ts";
+import { removalAnchors, type Unit } from "./units.ts";
 import type { RemovedBlock } from "../model.ts";
 
 // What the viewer's Summary tab renders: the diff's current units, each with
@@ -16,7 +16,11 @@ export interface CallerPeek {
   lines: { n: number; text: string }[];
 }
 
-export interface ViewUnit extends Unit {
+/** A removed block plus the shown line it displays after (see removalAnchors) */
+export type AnchoredRemoval = RemovedBlock & { anchor: number };
+
+export interface ViewUnit extends Omit<Unit, "removals"> {
+  removals: AnchoredRemoval[];
   /** Path as the viewer's file list shows it (relative to where lens runs) */
   displayFile: string;
   /** The code changed since the summary was written — it no longer applies */
@@ -47,11 +51,14 @@ export interface SummaryView {
 export function buildSummaryView(opts: {
   root: string;
   cwd: string;
-  key: string;
-  args: string;
+  command: "diff" | "pr";
+  args: string[];
   units: Unit[];
 }): SummaryView {
-  const stored = readStored(opts.root, opts.key);
+  const key = summaryKey(opts.command, opts.args);
+  // the arguments as the user passes them to /lens-review or `lens summary prepare`
+  const hint = (opts.command === "pr" ? ["pr", ...opts.args] : opts.args).join(" ");
+  const stored = readStored(opts.root, key);
   const byId = new Map(opts.units.map((u) => [u.id, u]));
   const hiddenDeleted = new Set<string>();
   const units: ViewUnit[] = opts.units.map((u) => {
@@ -59,8 +66,11 @@ export function buildSummaryView(opts: {
     const stale = !!s && s.hash !== u.hash;
     const renamed = s && !stale && s.renamedFrom ? byId.get(s.renamedFrom) : undefined;
     if (renamed) hiddenDeleted.add(renamed.id);
+    const anchored: AnchoredRemoval[] = [];
+    for (const [anchor, blocks] of removalAnchors(u)) for (const b of blocks) anchored.push({ ...b, anchor });
     return {
       ...u,
+      removals: anchored,
       displayFile: relative(opts.cwd, join(opts.root, u.file)) || u.file,
       stale,
       summary: s && !stale ? {
@@ -79,10 +89,10 @@ export function buildSummaryView(opts: {
     .map((f) => ({ ...f, units: Object.fromEntries(Object.entries(f.units).filter(([id]) => ids.has(id))) }))
     .filter((f) => Object.keys(f.units).length >= 2);
   return {
-    key: opts.key,
-    command: `/lens-review${opts.args ? " " + opts.args : ""}`,
-    cli: `lens summary prepare${opts.args ? " " + opts.args : ""}`,
-    stamp: summaryStamp(opts.root, opts.key),
+    key,
+    command: `/lens-review${hint ? " " + hint : ""}`,
+    cli: `lens summary prepare${hint ? " " + hint : ""}`,
+    stamp: summaryStamp(opts.root, key),
     units: visible,
     flows,
   };

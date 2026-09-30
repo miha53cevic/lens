@@ -5,7 +5,7 @@ import { mkdtempSync, writeFileSync, rmSync, mkdirSync, readFileSync, existsSync
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { parseDiff } from "../src/git.ts";
-import { extractUnits, checkCoverage, citeableLabels, type UnitFileInput } from "../src/summary/units.ts";
+import { extractUnits, checkCoverage, citeableLabels, removalAnchors, type UnitFileInput } from "../src/summary/units.ts";
 import { summaryKey, readStored, writeStored, type Bundle } from "../src/summary/store.ts";
 import { validateResult } from "../src/summary/validate.ts";
 import { prepareBundle, renderUnit } from "../src/summary/bundle.ts";
@@ -184,6 +184,7 @@ test("summaryKey is readable and filesystem-safe", () => {
   assert.equal(summaryKey("diff", []), "diff");
   assert.equal(summaryKey("diff", ["--staged"]), "diff-staged");
   assert.equal(summaryKey("pr", ["87"]), "pr-87");
+  assert.equal(summaryKey("pr", ["https://github.com/o/r/pull/87/files"]), "pr-87", "URL and number share a key");
   assert.equal(summaryKey("diff", ["main...feature/x"]), "diff-main...feature-x");
   assert.ok(summaryKey("diff", ["a".repeat(100)]).length <= 60);
 });
@@ -341,17 +342,24 @@ test("prepare → submit → view round trip, with re-prepare skipping done unit
     assert.equal(again.todo, units.length - 1);
     assert.doesNotMatch(readFileSync(join(again.dir, "tasks.md"), "utf8"), /## src\/repo.ts#findOrders/);
 
-    const view = buildSummaryView({ root: diff.root, cwd: dir, key: "diff-staged", args: "--staged", units });
+    const view = buildSummaryView({ root: diff.root, cwd: dir, command: "diff", args: ["--staged"], units });
     const v = view.units.find((u) => u.id === "src/repo.ts#findOrders")!;
     assert.equal(view.command, "/lens-review --staged");
     assert.equal(v.stale, false);
     assert.equal(v.summary?.breaks[0].callers[0].lines.find((l) => l.n === 2)?.text, "const o = await findOrders(u);");
+    // removed blocks arrive with the shown line they display after (removalAnchors)
+    const source = units.find((u) => u.id === v.id)!;
+    assert.ok(v.removals.length > 0);
+    assert.deepEqual(
+      v.removals.map((b) => [b.anchor, b.oldStart]),
+      [...removalAnchors(source)].flatMap(([anchor, blocks]) => blocks.map((b) => [anchor, b.oldStart])),
+    );
 
     // the code changes after the summary: the unit goes stale
     writeFileSync(join(dir, "src/repo.ts"), NEW_REPO.replace("50", "25"));
     git("add", "-A");
     const later = await collectUnits(await loadDiff("diff", ["--staged"], dir, DEFAULT_CONFIG), DEFAULT_CONFIG, dir);
-    const staleView = buildSummaryView({ root: diff.root, cwd: dir, key: "diff-staged", args: "--staged", units: later });
+    const staleView = buildSummaryView({ root: diff.root, cwd: dir, command: "diff", args: ["--staged"], units: later });
     const s = staleView.units.find((u) => u.id === "src/repo.ts#findOrders")!;
     assert.equal(s.stale, true);
     assert.equal(s.summary, null);

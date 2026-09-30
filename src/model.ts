@@ -7,6 +7,8 @@ export type FoldCategory = string;
 
 export type LanguageId = "typescript" | "tsx" | "javascript";
 
+export type DiffStatus = "added" | "modified";
+
 export interface FoldRegion {
   /** 1-based, inclusive */
   startLine: number;
@@ -31,7 +33,7 @@ export interface FileFoldModel {
   /** Diff mode: new-side line numbers touched by the diff */
   changedLines?: number[];
   /** Diff mode: how the diff produced this file */
-  status?: "added" | "modified";
+  status?: DiffStatus;
   /** Diff mode: old-side lines the diff removed, anchored to new-side positions */
   removals?: RemovedBlock[];
 }

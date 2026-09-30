@@ -20,6 +20,8 @@ const EMPTY_CONFIG: LensConfig = {
   exclude: [],
 };
 
+const strings = (v: unknown[]) => v.filter((x): x is string => typeof x === "string");
+
 function sanitize(raw: unknown, from: string): Partial<LensConfig> & { base?: boolean } {
   if (typeof raw !== "object" || raw === null) return {};
   const r = raw as Record<string, unknown>;
@@ -38,15 +40,9 @@ function sanitize(raw: unknown, from: string): Partial<LensConfig> & { base?: bo
     ) as Record<string, number>;
   }
   if (typeof r.keepDirective === "string") out.keepDirective = r.keepDirective;
-  if (Array.isArray(r.keepCommentMarkers)) {
-    out.keepCommentMarkers = r.keepCommentMarkers.filter((m) => typeof m === "string");
-  }
-  if (Array.isArray(r.testFilePatterns)) {
-    out.testFilePatterns = r.testFilePatterns.filter((p) => typeof p === "string");
-  }
-  if (Array.isArray(r.exclude)) {
-    out.exclude = r.exclude.filter((p) => typeof p === "string");
-  }
+  if (Array.isArray(r.keepCommentMarkers)) out.keepCommentMarkers = strings(r.keepCommentMarkers);
+  if (Array.isArray(r.testFilePatterns)) out.testFilePatterns = strings(r.testFilePatterns);
+  if (Array.isArray(r.exclude)) out.exclude = strings(r.exclude);
   if (Array.isArray(r.callPatterns)) {
     out.callPatterns = r.callPatterns.filter((p): p is CallPattern => {
       const ok = typeof p === "object" && p !== null &&

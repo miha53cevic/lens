@@ -1,9 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { isAbsolute, join } from "node:path";
 import { existsSync } from "node:fs";
-import type { RemovedBlock } from "./model.ts";
-
-export type DiffStatus = "added" | "modified";
+import type { DiffStatus, RemovedBlock } from "./model.ts";
 
 export interface DiffTarget {
   /** Absolute path to the new-side file */
@@ -150,18 +148,7 @@ export function parseRawEntries(output: string): RawEntry[] {
   return entries;
 }
 
-/**
- * New-side path → blob SHA. Entries whose new side is the working tree
- * (all-zero SHA) or a submodule commit (mode 160000) are omitted — those have
- * no blob to read.
- */
-export function parseRawShas(output: string): Map<string, string> {
-  const shas = new Map<string, string>();
-  for (const e of parseRawEntries(output)) if (e.newSha) shas.set(e.path, e.newSha);
-  return shas;
-}
-
-function runGit(args: string[], cwd: string): string {
+export function runGit(args: string[], cwd: string): string {
   return execFileSync("git", args, { cwd, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
 }
 
@@ -170,12 +157,16 @@ export function readBlob(sha: string, cwd: string): string {
   return runGit(["cat-file", "blob", sha], cwd);
 }
 
+export function gitRoot(cwd: string): string {
+  return runGit(["rev-parse", "--show-toplevel"], cwd).trim();
+}
+
 /**
  * Runs `git diff --unified=0` with the given passthrough args and returns the
  * supported changed files (with status and line numbers) plus deleted files.
  */
 export function gitDiffTargets(gitArgs: string[], cwd: string): DiffResult {
-  const root = runGit(["rev-parse", "--show-toplevel"], cwd).trim();
+  const root = gitRoot(cwd);
   const output = runGit(["diff", "--unified=0", "--no-color", ...gitArgs], cwd);
   // Second pass for new-side blob SHAs, so ref-to-ref diffs (qa...feature)
   // read content from git instead of the working tree — which may hold the

@@ -1,6 +1,6 @@
 import { writeFileSync, readdirSync, unlinkSync } from "node:fs";
 import { join, relative } from "node:path";
-import { citeableLabels, type Unit } from "./units.ts";
+import { citeableLabels, removalAnchors, type Unit } from "./units.ts";
 import { bundleDir, readStored, type Bundle, type BundleUnit } from "./store.ts";
 
 // `lens summary prepare` output: a folder the user's agent reads (tasks,
@@ -126,29 +126,6 @@ export function renderUnit(unit: Unit, source: string | undefined): string {
   if (unit.formattingOnly) meta.push("formatting only (whitespace)");
   const where = unit.ranges.length > 0 ? ` · lines ${unit.ranges[0].start}–${unit.ranges[unit.ranges.length - 1].end}` : "";
   return `## ${unit.id}\n${meta.join(" · ")}${where}\n\n\`\`\`\n${out.join("\n")}\n\`\`\`\n`;
-}
-
-/**
- * Where each removed block shows: after the new-side line it's anchored to,
- * snapped into the shown ranges — before the first range when anchored above
- * it, after the last shown line at or before the anchor otherwise.
- */
-export function removalAnchors(unit: Unit): Map<number, Unit["removals"]> {
-  const at = new Map<number, Unit["removals"]>();
-  const shown: number[] = [];
-  for (const r of unit.ranges) for (let l = r.start; l <= r.end; l++) shown.push(l);
-  for (const b of unit.removals) {
-    let anchor = 0;
-    if (shown.length > 0) {
-      if (b.afterLine < shown[0]) anchor = shown[0] - 1;
-      else anchor = shown.filter((l) => l <= b.afterLine).pop() ?? shown[0] - 1;
-      // exactly the line before a later range start: show it at that range's top
-      const next = unit.ranges.find((r) => r.start - 1 === b.afterLine);
-      if (next) anchor = b.afterLine;
-    }
-    at.set(anchor, [...(at.get(anchor) ?? []), b]);
-  }
-  return at;
 }
 
 function renderInstructions(input: PrepareInput, dir: string, taskFiles: string[], todo: number, done: number): string {

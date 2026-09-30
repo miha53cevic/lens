@@ -1,0 +1,19 @@
+{
+  // Type-checks the viewer's browser scripts (plain JS + JSDoc), which the
+  // server inlines into one page — so they share one global scope here too.
+  "compilerOptions": {
+    "target": "es2024",
+    "lib": ["es2024", "dom", "dom.iterable"],
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "strict": false,
+    "module": "preserve",
+    "moduleDetection": "legacy",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": ["src/render/web/*.js"]
+}
