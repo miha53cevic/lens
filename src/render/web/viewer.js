@@ -37,10 +37,10 @@ const CAT_COLORS = {
 function catColor(cat) { return CAT_COLORS[cat] || "#e9b04d"; }
 
 const state = {
-  active: DATA.files.length > 0 ? 0 : -1,
+  active: -1, // set at start-up by openFirstTreeFile
   // Open editor tabs, vscode-style: at most one is unpinned — the "preview"
   // tab, reused by the next single-click open. Double-click pins.
-  tabs: DATA.files.length > 0 ? [{ index: 0, pinned: false }] : [],
+  tabs: [],
   hiddenCategories: new Set(), // categories toggled to "show" (i.e. not folded)
   showRemoved: true,
   view: "code", // "code" | "summary" — Code is always the default
@@ -386,7 +386,7 @@ function render() {
   if (state.hideTests) {
     const active = DATA.files[state.active];
     if (active && isTestFile(active.file)) {
-      const firstVisible = DATA.files.findIndex((f) => !isTestFile(f.file));
+      const firstVisible = firstTreeFile();
       if (firstVisible >= 0) { ensureTab(firstVisible); state.active = firstVisible; }
     }
   }
@@ -838,7 +838,7 @@ refreshBtn.onclick = async () => {
       .map((t) => ({ index: DATA.files.findIndex((f) => f.file === t.path), pinned: t.pinned }))
       .filter((t) => t.index >= 0);
     let idx = DATA.files.findIndex((f) => f.file === activePath);
-    if (idx === -1) idx = state.tabs[0]?.index ?? (DATA.files.length > 0 ? 0 : -1);
+    if (idx === -1) idx = state.tabs[0]?.index ?? firstTreeFile();
     if (idx >= 0) ensureTab(idx);
     state.active = idx;
     applyThemeColors(DATA.fg, DATA.bg);
@@ -1017,6 +1017,8 @@ document.getElementById("search-btn").onclick = () => openSearch();
 // Show the target line: expand a hidden hunks-gap or a fold covering it,
 // scroll it centered, and flash it.
 function jumpToLine(fileIndex, line) {
+  // search hits and "code view ↗" can come from the Summary view
+  if (state.view !== "code") setView("code");
   // Pin the preview tab being read before a find-usages jump replaces it,
   // so the target opens beside it and the reader can come back.
   if (searchPinsOrigin && fileIndex !== state.active) {
@@ -1069,6 +1071,20 @@ codeEl.addEventListener("click", (ev) => {
 // ---- keyboard shortcuts ----
 const keysModal = /** @type {HTMLDialogElement} */ (document.getElementById("keys-modal"));
 document.getElementById("keys-btn").onclick = () => keysModal.showModal();
+
+/** The top file of the tree as displayed (dirs first, sorted); -1 when none. */
+function firstTreeFile() {
+  renderNav(); // rebuilds navOrder
+  if (navOrder.length > 0) return navOrder[0];
+  return DATA.files.findIndex((f) => visibleFile(f.file));
+}
+
+function openFirstTreeFile() {
+  const first = firstTreeFile();
+  if (first < 0) return;
+  state.tabs = [{ index: first, pinned: false }];
+  state.active = first;
+}
 
 function stepFile(direction) {
   // Walk the tree exactly as displayed (dirs-first, sorted, collapsed dirs

@@ -18,9 +18,13 @@ function syncViewSwitch() {
   if (!DATA.summary && state.view === "summary") setView("code");
 }
 
+// The tree and the summary list share the sidebar's scroller: each view keeps its own position.
+const navScroll = { code: 0, summary: 0 };
+
 function setView(view) {
   if (view === "summary" && !DATA.summary) return;
   if (state.view === "code") rememberScroll();
+  navScroll[state.view] = nav.scrollTop;
   state.view = view;
   viewCodeBtn.setAttribute("aria-pressed", String(view === "code"));
   viewSummaryBtn.setAttribute("aria-pressed", String(view === "summary"));
@@ -33,6 +37,7 @@ function setView(view) {
   treeEl.style.display = summary ? "none" : "";
   summaryListEl.style.display = summary ? "" : "none";
   statsEl.style.visibility = summary ? "hidden" : "";
+  nav.scrollTop = navScroll[view];
   if (summary && summaryDot.style.display !== "none") { loadSummary(); return; }
   render();
 }
@@ -113,7 +118,9 @@ function renderSummary() {
     html += '<div class="sum-section">' + (summary.flows.length > 0 ? '<div class="sum-section-title"><span class="t">Other changes</span></div>' : "") +
       others.map((u) => itemHtml(u, u.displayFile.split("/").pop())).join("") + "</div>";
   }
+  const scrolled = nav.scrollTop; // rebuilding the list must not move it
   summaryListEl.innerHTML = html;
+  nav.scrollTop = scrolled;
   /** @type {NodeListOf<HTMLElement>} */ (summaryListEl.querySelectorAll(".sum-item")).forEach((b) => {
     b.onclick = () => { state.summaryActive = b.dataset.id; summaryPaneEl.dataset.browsing = "1"; renderSummary(); };
   });
@@ -318,11 +325,11 @@ function openUnitInCode(u) {
   if (!u) return;
   const fileIndex = DATA.files.findIndex((f) => f.file === u.displayFile);
   if (fileIndex < 0 || u.ranges.length === 0) return;
-  setView("code");
   jumpToLine(fileIndex, u.changedLines[0] ?? u.ranges[0].start);
 }
 
 // Start-up: last, after both files' top-level declarations have run.
+openFirstTreeFile();
 syncViewSwitch();
 render();
 if (location.hash === "#summary" && DATA.summary) setView("summary");
