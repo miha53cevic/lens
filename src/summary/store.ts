@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { parsePrRef } from "../pr.ts";
 import type { UnitKind, UnitStatus } from "./units.ts";
@@ -108,7 +108,8 @@ export function readStored(root: string, key: string): StoredSummary | null {
   if (!existsSync(path)) return null;
   try {
     const parsed = JSON.parse(readFileSync(path, "utf8"));
-    return parsed?.version === 1 ? parsed as StoredSummary : null;
+    if (parsed?.version !== 1 || typeof parsed.units !== "object" || parsed.units === null) return null;
+    return { ...parsed, flows: Array.isArray(parsed.flows) ? parsed.flows : [] } as StoredSummary;
   } catch {
     return null;
   }
@@ -116,7 +117,10 @@ export function readStored(root: string, key: string): StoredSummary | null {
 
 export function writeStored(root: string, key: string, stored: StoredSummary): void {
   bundleDir(root, key);
-  writeFileSync(summaryPath(root, key), JSON.stringify(stored, null, 2) + "\n");
+  // write-then-rename: a viewer reading mid-submit never sees half a file
+  const path = summaryPath(root, key);
+  writeFileSync(path + ".tmp", JSON.stringify(stored, null, 2) + "\n");
+  renameSync(path + ".tmp", path);
 }
 
 /** mtime of summary.json, so the viewer can notice a new submit. */

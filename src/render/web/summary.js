@@ -84,15 +84,22 @@ function renderSummary() {
   syncNavVisibilitySummary();
   if (!summary) return;
   const units = summary.units;
-  const flowOf = new Map();
-  for (const f of summary.flows) for (const [id, layer] of Object.entries(f.units)) flowOf.set(id, { flow: f, layer });
 
-  // list order: flows, then needs-a-look, routine, not yet summarized / stale
+  // list order: flows, then needs-a-look, routine, not yet summarized / stale.
+  // A unit in several flows is listed once, under the first.
+  const listed = new Set();
+  const sections = summary.flows
+    .map((flow) => ({
+      flow,
+      members: Object.keys(flow.units).map(unitById).filter((u) => u && !listed.has(u.id) && listed.add(u.id)),
+    }))
+    .filter((section) => section.members.length > 0);
   const rank = (u) => !u.summary ? 3 : u.summary.needsLook ? 0 : 1;
-  const others = units.filter((u) => !flowOf.has(u.id)).sort((a, b) => rank(a) - rank(b));
-  summaryOrder = [];
+  const others = units.filter((u) => !listed.has(u.id)).sort((a, b) => rank(a) - rank(b));
+  summaryOrder = [...sections.flatMap((section) => section.members), ...others].map((u) => u.id);
+  // before building the list, so the default unit is highlighted too
+  if (!state.summaryActive || !unitById(state.summaryActive)) state.summaryActive = summaryOrder[0] || null;
   const itemHtml = (u, side) => {
-    summaryOrder.push(u.id);
     const s = u.summary;
     const cls = "sum-item" + (u.id === state.summaryActive ? " active" : "") +
       (!s ? " pending" : s.needsLook ? "" : " routine");
@@ -108,14 +115,13 @@ function renderSummary() {
   let html = '<div class="sum-head"><span class="title">' + units.length + (units.length === 1 ? " change" : " changes") + "</span>" +
     (summarized === 0 ? '<span class="legend">not summarized yet</span>'
       : '<span class="legend"><span class="attn-dot"></span>' + attention + " need a look</span>") + "</div>";
-  for (const f of summary.flows) {
-    const members = Object.keys(f.units).map(unitById).filter(Boolean);
-    html += '<div class="sum-section"><div class="sum-section-title"><span class="t">' + escapeHtml(f.title) +
-      '</span><span class="sub">' + escapeHtml(f.path) + "</span></div>" +
-      members.map((u) => itemHtml(u, f.units[u.id])).join("") + "</div>";
+  for (const { flow, members } of sections) {
+    html += '<div class="sum-section"><div class="sum-section-title"><span class="t">' + escapeHtml(flow.title) +
+      '</span><span class="sub">' + escapeHtml(flow.path) + "</span></div>" +
+      members.map((u) => itemHtml(u, flow.units[u.id])).join("") + "</div>";
   }
   if (others.length > 0) {
-    html += '<div class="sum-section">' + (summary.flows.length > 0 ? '<div class="sum-section-title"><span class="t">Other changes</span></div>' : "") +
+    html += '<div class="sum-section">' + (sections.length > 0 ? '<div class="sum-section-title"><span class="t">Other changes</span></div>' : "") +
       others.map((u) => itemHtml(u, u.displayFile.split("/").pop())).join("") + "</div>";
   }
   const scrolled = nav.scrollTop; // rebuilding the list must not move it
@@ -124,7 +130,6 @@ function renderSummary() {
   /** @type {NodeListOf<HTMLElement>} */ (summaryListEl.querySelectorAll(".sum-item")).forEach((b) => {
     b.onclick = () => { state.summaryActive = b.dataset.id; summaryPaneEl.dataset.browsing = "1"; renderSummary(); };
   });
-  if (!state.summaryActive || !unitById(state.summaryActive)) state.summaryActive = summaryOrder[0] || null;
   if (summarized === 0 && !summaryPaneEl.dataset.browsing) {
     renderSummaryEmpty(summary);
   } else {
@@ -316,7 +321,9 @@ function flashCited(container, label) {
 function stepSummary(direction) {
   if (summaryOrder.length === 0) return;
   const pos = summaryOrder.indexOf(state.summaryActive);
-  state.summaryActive = summaryOrder[(pos + direction + summaryOrder.length) % summaryOrder.length];
+  state.summaryActive = pos === -1
+    ? summaryOrder[direction > 0 ? 0 : summaryOrder.length - 1]
+    : summaryOrder[(pos + direction + summaryOrder.length) % summaryOrder.length];
   summaryPaneEl.dataset.browsing = "1";
   renderSummary();
 }

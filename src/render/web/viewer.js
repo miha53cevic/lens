@@ -5,8 +5,9 @@
 /** @type {import("./server.ts").ViewerPayload} */
 const DATA = /*__LENS_DATA__*/ null;
 
+// Quotes too: the result also goes into attributes (data-id="…", title="…").
 function escapeHtml(s) {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
 // Tokens come pre-computed from the backend (Shiki): per line, [text, color] pairs.
@@ -1072,11 +1073,16 @@ codeEl.addEventListener("click", (ev) => {
 const keysModal = /** @type {HTMLDialogElement} */ (document.getElementById("keys-modal"));
 document.getElementById("keys-btn").onclick = () => keysModal.showModal();
 
-/** The top file of the tree as displayed (dirs first, sorted); -1 when none. */
+/**
+ * The top file of the tree as displayed (dirs first, sorted). When the tree
+ * hides every file (all tests, "hide tests" on) it's still the first file, so
+ * the code pane can say why nothing shows; -1 only when there are no files.
+ */
 function firstTreeFile() {
   renderNav(); // rebuilds navOrder
   if (navOrder.length > 0) return navOrder[0];
-  return DATA.files.findIndex((f) => visibleFile(f.file));
+  const visible = DATA.files.findIndex((f) => visibleFile(f.file));
+  return visible >= 0 ? visible : DATA.files.length > 0 ? 0 : -1;
 }
 
 function openFirstTreeFile() {

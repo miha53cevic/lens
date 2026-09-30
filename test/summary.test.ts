@@ -6,7 +6,8 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { parseDiff } from "../src/git.ts";
 import { extractUnits, checkCoverage, citeableLabels, removalAnchors, type UnitFileInput } from "../src/summary/units.ts";
-import { summaryKey, readStored, writeStored, type Bundle } from "../src/summary/store.ts";
+import { summaryKey, summaryPath, readStored, writeStored, type Bundle } from "../src/summary/store.ts";
+import { runSummary } from "../src/summary/command.ts";
 import { validateResult } from "../src/summary/validate.ts";
 import { prepareBundle, renderUnit } from "../src/summary/bundle.ts";
 import { loadDiff, collectUnits, commitLog } from "../src/summary/collect.ts";
@@ -178,6 +179,48 @@ test("units: hashes change with the code; labels are the changed and removed lin
   const [other] = await unitsFor(inputFor("src/f.ts", "function a() {\n  return 1;\n}\n", "function a() {\n  return 3;\n}\n"));
   assert.notEqual(unit.hash, other.hash);
   assert.match(renderUnit(unit, input.newSource!), /O2 -   return 1;\n\s+N2 \+   return 2;/);
+});
+
+test("units: a trailing comment stays with its line, not the next declaration", async () => {
+  const old = "const a = 1; // note\nfunction b() {\n  return 1;\n}\n";
+  const [b] = await unitsFor(inputFor("src/f.ts", old, old.replace("return 1", "return 2")));
+  assert.equal(b.name, "b");
+  assert.equal(b.ranges[0].start, 2);
+});
+
+test("readStored tolerates a summary.json without flows", () => {
+  const root = mkdtempSync(join(tmpdir(), "lens-store-"));
+  try {
+    writeStored(root, "diff", { version: 1, updatedAt: "", units: {}, flows: [] });
+    writeFileSync(summaryPath(root, "diff"), JSON.stringify({ version: 1, units: {} }));
+    assert.deepEqual(readStored(root, "diff")?.flows, []);
+    writeFileSync(summaryPath(root, "diff"), JSON.stringify({ version: 1 }));
+    assert.equal(readStored(root, "diff"), null);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("submit finds a bundle whose key ends in .json", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "lens-submit-"));
+  const git = (...args: string[]) => execFileSync("git", args, { cwd: dir, encoding: "utf8" });
+  const log = console.log;
+  console.log = () => {};
+  try {
+    git("init", "-q");
+    writeFileSync(join(dir, "package.json"), "{}\n");
+    git("add", "-A");
+    await runSummary(["prepare", "--staged", "--", "package.json"], dir);
+    const bundle = join(dir, ".lens/summary/diff-staged-package.json");
+    writeFileSync(join(bundle, "result.json"), JSON.stringify({ units: {
+      "package.json#(file)": { headline: "Adds an empty package.json", gist: "new file", needsLook: false, changes: [], breaks: [] },
+    } }));
+    await runSummary(["submit", ".lens/summary/diff-staged-package.json"], dir);
+    assert.ok(readStored(dir, "diff-staged-package.json")?.units["package.json#(file)"]);
+  } finally {
+    console.log = log;
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test("summaryKey is readable and filesystem-safe", () => {

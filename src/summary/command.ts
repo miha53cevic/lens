@@ -1,4 +1,4 @@
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, statSync } from "node:fs";
 import { join, resolve, relative, dirname, basename } from "node:path";
 import { loadConfig } from "../config.ts";
 import { loadDiff, collectUnits, commitLog, readNewSource } from "./collect.ts";
@@ -40,8 +40,10 @@ export async function runSummary(rest: string[], cwd: string): Promise<void> {
     const target = args[0];
     if (!target) throw new Error("summary submit needs the bundle folder (or its result.json)");
     const abs = resolve(cwd, target);
-    const dir = abs.endsWith(".json") ? dirname(abs) : abs;
-    const resultFile = abs.endsWith(".json") ? abs : join(dir, "result.json");
+    // By what's on disk, not the name: a key can end in ".json" (`prepare -- package.json`).
+    const isDir = existsSync(abs) && statSync(abs).isDirectory();
+    const dir = isDir ? abs : dirname(abs);
+    const resultFile = isDir ? join(dir, "result.json") : abs;
     const bundlePath = join(dir, "bundle.json");
     if (!existsSync(bundlePath)) throw new Error(`no bundle.json in ${relative(cwd, dir) || dir} — run \`lens summary prepare\` first`);
     if (!existsSync(resultFile)) throw new Error(`no ${relative(cwd, resultFile)} — write the result there first`);

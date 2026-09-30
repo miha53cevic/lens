@@ -99,6 +99,20 @@ console.log("processing");
   assert.ok(logging && logging.score <= DEFAULT_CONFIG.threshold, "unrelated regions still fold");
 });
 
+test("unknown fields (typos) are reported, not silently ignored", () => {
+  const dir = configDir({ threshhold: 2 });
+  const errors: string[] = [];
+  const error = console.error;
+  console.error = (msg: string) => { errors.push(msg); };
+  try {
+    loadConfig(dir);
+  } finally {
+    console.error = error;
+  }
+  assert.equal(errors.length, 1);
+  assert.match(errors[0], /unknown field "threshhold"/);
+});
+
 test("wrong value types in categories/scores are ignored", () => {
   const dir = configDir({
     categories: { logging: "yes", guard: false },

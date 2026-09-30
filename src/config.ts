@@ -22,9 +22,14 @@ const EMPTY_CONFIG: LensConfig = {
 
 const strings = (v: unknown[]) => v.filter((x): x is string => typeof x === "string");
 
+const KNOWN_FIELDS = new Set([...Object.keys(EMPTY_CONFIG), "base", "$comment"]);
+
 function sanitize(raw: unknown, from: string): Partial<LensConfig> & { base?: boolean } {
   if (typeof raw !== "object" || raw === null) return {};
   const r = raw as Record<string, unknown>;
+  for (const field of Object.keys(r)) {
+    if (!KNOWN_FIELDS.has(field)) console.error(`lens: ignoring unknown field "${field}" in ${from}`);
+  }
   const out: Partial<LensConfig> & { base?: boolean } = {};
   if (typeof r.base === "boolean") out.base = r.base;
   if (typeof r.threshold === "number") out.threshold = r.threshold;

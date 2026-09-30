@@ -256,13 +256,19 @@ type AddDecl = (name: string, kind: UnitKind, start: number, node: Node, contain
 /**
  * Calls fn for every non-comment named child, with the start line extended
  * over the comments directly above it (no blank line between), so doc
- * comment edits belong to the declaration they document.
+ * comment edits belong to the declaration they document. A trailing comment
+ * (`foo(); // note`) belongs to the line it ends, not to what follows.
  */
 function forEachWithComments(parent: Node, fn: (node: Node, start: number) => void): void {
   let comments: Node[] = [];
+  let previousEnd = -1; // row where the last non-comment child ended
   for (const child of parent.namedChildren) {
     if (!child) continue;
-    if (child.type === "comment") { comments.push(child); continue; }
+    if (child.type === "comment") {
+      if (child.startPosition.row !== previousEnd) comments.push(child);
+      continue;
+    }
+    previousEnd = child.endPosition.row;
     let start = child.startPosition.row + 1;
     for (let i = comments.length - 1; i >= 0; i--) {
       if (comments[i].endPosition.row + 1 < start - 1) break;
