@@ -44,18 +44,6 @@ export interface RemovedBlock {
   lines: string[];
 }
 
-export interface FoldModel {
-  version: 1;
-  threshold: number;
-  files: FileFoldModel[];
-  /** Diff mode: supported files the diff deleted (no content to analyze) */
-  deleted?: string[];
-  /** Diff mode: changed files skipped via the exclude patterns */
-  excluded?: string[];
-  /** Diff mode: pure renames (content unchanged) */
-  renamed?: { from: string; to: string }[];
-}
-
 /**
  * One fire-and-forget call rule: expression statements calling
  * `<receiver>.<method>(...)` fold under `category`. Receivers are glob-ish
@@ -97,12 +85,4 @@ export interface LensConfig {
   testFilePatterns: string[];
   /** Glob-ish path patterns never read or tokenized in diff mode (lockfiles, minified) */
   exclude: string[];
-}
-
-export function foldedLineCount(model: FileFoldModel, threshold: number): number {
-  let folded = 0;
-  for (const r of model.regions) {
-    if (r.score <= threshold) folded += r.endLine - r.startLine; // each fold still shows 1 pill line
-  }
-  return folded;
 }

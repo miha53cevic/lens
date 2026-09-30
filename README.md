@@ -40,17 +40,12 @@ lens diff HEAD~1       # any git diff args pass through
 lens pr https://github.com/owner/repo/pull/123
 lens pr 123            # against the origin remote
 
-# other outputs
-lens src/ --term       # folded view in the terminal
-lens diff --term --hunks  # terminal, changed hunks only (PR-style)
-lens src/ --json       # the fold model as JSON, for other tools
+lens diff --json       # the fold model as JSON, for debugging
 ```
 
 Viewer flags: `--port <n>` (default 5326), `--no-open`, `--threshold <n>`,
 `--theme <name>` (any [Shiki theme](https://shiki.style/themes), default `vesper`).
 The viewer also has a live theme dropdown — switching re-tokenizes on the server.
-`--term` output uses the same theme as 24-bit ANSI color when stdout is a terminal
-(plain text when piped, or with `NO_COLOR` set).
 
 **PR mode** (`lens pr <url|N>`) shows a GitHub pull request as a diff, with
 git alone — no GitHub API, no gh CLI, so private repos just use your normal
@@ -149,10 +144,10 @@ file | directory | git diff
    classify + score  ←  .lens.json (optional)
         │
         ▼
-   fold model (plain JSON: regions with category, score, summary)
+   fold model (regions with category, score, summary)
         │
-        ├── web viewer (default)
-        └── terminal printer (--term)
+        ▼
+   web viewer
 ```
 
 Each region gets a category and an importance score; regions scoring at or
@@ -243,5 +238,4 @@ bug — a rule change that suddenly folds more fails loudly.
 
 lens itself calls no AI/LLM (summary mode hands the writing to your own agent). No
 semantic analysis or type checking. No
-editing — lens is read-only. No editor plugin yet, though the fold model JSON is
-designed so one can exist later.
+editing — lens is read-only. No terminal output — the viewer is the only interface (plus `--json` for debugging).

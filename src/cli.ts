@@ -6,11 +6,10 @@ import { loadConfig, findConfigPath, initConfig, resetConfig } from "./config.ts
 import { readBlob, type DiffTarget } from "./git.ts";
 import { parsePrRef } from "./pr.ts";
 import { languageForFile } from "./parse/parser.ts";
-import { renderTerm, colorEnabled } from "./render/term.ts";
-import { highlightSource, isBundledTheme, shikiLangForFile } from "./render/highlight.ts";
+import { isBundledTheme } from "./render/highlight.ts";
 import { serveViewer, type ViewerInput } from "./render/web/server.ts";
 import { compilePatterns, matchesAny } from "./glob.ts";
-import type { FileFoldModel, FoldModel, LensConfig } from "./model.ts";
+import type { FileFoldModel, LensConfig } from "./model.ts";
 import { loadDiff, collectUnits, commitLog, readNewSource, type LoadedDiff } from "./summary/collect.ts";
 import { prepareBundle } from "./summary/bundle.ts";
 import { validateResult } from "./summary/validate.ts";
@@ -35,33 +34,29 @@ summary mode (written by your own coding agent — see skills/lens-review):
                               validate the agent's result.json and store it for the viewer
 
 output (default: local web viewer):
-  --term            print folded files to the terminal
-  --json            print the fold model as JSON
+  --json            print the fold model as JSON (for debugging)
   --port <n>        web viewer port (default 5326)
   --no-open         don't open the browser
   --summary         open the browser on the Summary tab (diff/PR mode)
   --threshold <n>   fold regions with score <= n (default 1; from .lens.json)
   --theme <name>    any Shiki theme for the viewer (default vesper; from .lens.json)
-  --hunks           with --term in diff mode: only changed hunks (±3 context), PR-style
 `;
 
 const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "build", "out", "coverage"]);
 
 interface CliOptions {
   json: boolean;
-  term: boolean;
   open: boolean;
   openSummary: boolean;
   port: number;
   threshold: number | null;
   theme: string | null;
-  hunks: boolean;
 }
 
 type Command = "paths" | "diff" | "pr" | "config" | "summary";
 
 function parseCli(argv: string[]): { command: Command; rest: string[]; opts: CliOptions } {
-  const opts: CliOptions = { json: false, term: false, open: true, openSummary: false, port: 5326, threshold: null, theme: null, hunks: false };
+  const opts: CliOptions = { json: false, open: true, openSummary: false, port: 5326, threshold: null, theme: null };
   const rest: string[] = [];
   let command: Command = "paths";
   const args = [...argv];
@@ -72,10 +67,8 @@ function parseCli(argv: string[]): { command: Command; rest: string[]; opts: Cli
   while (args.length > 0) {
     const arg = args.shift()!;
     if (arg === "--json") opts.json = true;
-    else if (arg === "--term") opts.term = true;
     else if (arg === "--no-open") opts.open = false;
     else if (arg === "--summary") opts.openSummary = true;
-    else if (arg === "--hunks") opts.hunks = true;
     else if (arg === "--port") opts.port = Number(args.shift());
     else if (arg === "--threshold") opts.threshold = Number(args.shift());
     else if (arg === "--theme") opts.theme = args.shift() ?? null;
@@ -174,7 +167,7 @@ async function main(): Promise<void> {
   }
 
   interface Analysis {
-    model: FoldModel;
+    files: FileFoldModel[];
     sources: Map<string, string>;
     deleted: string[];
     excluded: string[];
@@ -190,8 +183,8 @@ async function main(): Promise<void> {
 
   // Re-runnable so the viewer's refresh button can pick up new file contents
   // (and, in diff mode, a fresh git diff) without restarting the server.
-  // withSummary: only the viewer needs summary units (--json / --term skip the work)
-  const runAnalysis = async (withSummary: boolean): Promise<Analysis> => {
+  // withSummary: only the viewer needs summary units (--json skips the work)
+  const runAnalysis = async (withSummary = true): Promise<Analysis> => {
     const config = resolveConfig();
     // Path mode carries only `file`; diff mode fills in the rest.
     let targets: (Partial<DiffTarget> & { file: string })[];
@@ -226,7 +219,7 @@ async function main(): Promise<void> {
 
     const sources = new Map<string, string>();
     const sourcesByPath = new Map<string, string>();
-    const model: FoldModel = { version: 1, threshold: config.threshold, files: [] };
+    const files: FileFoldModel[] = [];
     for (const target of targets) {
       const source = target.newBlob !== undefined ? readBlob(target.newBlob, cwd) : readFileSync(target.file, "utf8");
       sourcesByPath.set(target.file, source);
@@ -240,11 +233,8 @@ async function main(): Promise<void> {
       if (target.status) fileModel.status = target.status;
       if (target.removals?.length) fileModel.removals = target.removals;
       sources.set(display, source);
-      model.files.push(fileModel);
+      files.push(fileModel);
     }
-    if (deleted.length > 0) model.deleted = deleted;
-    if (excluded.length > 0) model.excluded = excluded;
-    if (renamed.length > 0) model.renamed = renamed;
 
     let summary: SummaryView | null = null;
     let reloadSummary: (() => SummaryView | null) | null = null;
@@ -261,7 +251,7 @@ async function main(): Promise<void> {
         console.error(`lens: summary mode unavailable: ${(err as Error).message}`);
       }
     }
-    return { model, sources, deleted, excluded, renamed, config, label, summary, reloadSummary, summaryStamp: stamp };
+    return { files, sources, deleted, excluded, renamed, config, label, summary, reloadSummary, summaryStamp: stamp };
   };
 
   if (command === "pr" && rest.length !== 1) {
@@ -269,9 +259,9 @@ async function main(): Promise<void> {
     process.exit(1);
   }
   if (command !== "diff" && command !== "pr" && rest.length === 0) { console.log(HELP); process.exit(1); }
-  const initial = await runAnalysis(!opts.json && !opts.term);
-  const { model, sources, deleted, excluded, renamed } = initial;
-  if (model.files.length === 0 && deleted.length === 0 && excluded.length === 0 && renamed.length === 0) {
+  const initial = await runAnalysis(!opts.json);
+  const { files, deleted, excluded, renamed } = initial;
+  if (files.length === 0 && deleted.length === 0 && excluded.length === 0 && renamed.length === 0) {
     console.error(
       command === "diff" ? "lens: no changed supported files in this diff"
       : command === "pr" ? "lens: no changed supported files in this PR"
@@ -281,33 +271,19 @@ async function main(): Promise<void> {
   }
 
   if (opts.json) {
+    const model = {
+      threshold: initial.config.threshold,
+      files,
+      ...(deleted.length > 0 ? { deleted } : {}),
+      ...(excluded.length > 0 ? { excluded } : {}),
+      ...(renamed.length > 0 ? { renamed } : {}),
+    };
     console.log(JSON.stringify(model, null, 2));
     return;
   }
-  if (opts.term) {
-    for (const file of model.files) {
-      const source = sources.get(file.file) ?? "";
-      // Same Shiki theme as the web viewer, as 24-bit ANSI. Skipped when piped.
-      const tokens = colorEnabled
-        ? (await highlightSource(source, file.language ?? shikiLangForFile(file.file), initial.config.theme)).tokens
-        : undefined;
-      console.log(renderTerm(file, source, model.threshold, tokens, opts.hunks));
-      console.log();
-    }
-    for (const path of deleted) {
-      console.log(colorEnabled ? `\x1b[31m✗ ${path} (deleted)\x1b[0m` : `✗ ${path} (deleted)`);
-    }
-    for (const path of excluded) {
-      console.log(colorEnabled ? `\x1b[2m⊘ ${path} (excluded)\x1b[0m` : `⊘ ${path} (excluded)`);
-    }
-    for (const r of renamed) {
-      console.log(colorEnabled ? `\x1b[2m↷ ${r.from} → ${r.to} (renamed)\x1b[0m` : `↷ ${r.from} → ${r.to} (renamed)`);
-    }
-    return;
-  }
   const toViewerInput = (a: Analysis): ViewerInput => ({
-    threshold: a.model.threshold,
-    files: a.model.files.map((f) => ({ ...f, source: a.sources.get(f.file) ?? "" })),
+    threshold: a.config.threshold,
+    files: a.files.map((f) => ({ ...f, source: a.sources.get(f.file) ?? "" })),
     deleted: a.deleted,
     excluded: a.excluded,
     renamed: a.renamed,
@@ -322,7 +298,7 @@ async function main(): Promise<void> {
   await serveViewer(
     toViewerInput(initial),
     { port: opts.port, open: opts.open, openSummary: opts.openSummary, theme: initial.config.theme, themePinned: opts.theme !== null },
-    async () => toViewerInput(await runAnalysis(true)),
+    async () => toViewerInput(await runAnalysis()),
   );
 }
 
