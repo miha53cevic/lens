@@ -6,7 +6,7 @@ import { bundleDir, readStored, unitSetHash, type Bundle, type BundleUnit, type 
 // `lens summary prepare` output: a folder the user's agent reads (tasks,
 // instructions, schema) plus bundle.json, which `submit` validates against.
 
-export const LIMITS = { headline: 80, gist: 40, cell: 60, breakSummary: 80, flowTitle: 40, flowPath: 60, layer: 12, overview: 400 };
+export const LIMITS = { headline: 80, gist: 40, cell: 60, breakSummary: 80, flowTitle: 40, flowPath: 60, layer: 12, overview: 2000 };
 
 /** Rendered lines per tasks file before splitting into tasks-2.md, … */
 const TASK_FILE_BUDGET = 1500;
@@ -200,9 +200,11 @@ Keep everything terse: the viewer shows it in a small table next to the code.
 `;
 }
 
-const OVERVIEW_RULE = `\`overview\`: {what (≤${LIMITS.overview} chars)} — 2–3 sentences on what the whole diff
-does and why, for a reviewer seeing it for the first time. Name the main behavior
-changes, not the files.`;
+const OVERVIEW_RULE = `\`overview\`: {what (≤${LIMITS.overview} chars)} — what the whole diff does and why, for a
+reviewer seeing it for the first time. Size it to what the diff does, not to its
+line count: a sentence or two for one focused change; a short paragraph per distinct
+change when it does several things (blank line between paragraphs). Name behavior,
+not files; don't repeat unit headlines or walk through the diff file by file.`;
 
 function renderOverviewInstructions(input: PrepareInput, dir: string, tasks: string): string {
   const rel = (p: string) => relative(input.cwd, p) || p;

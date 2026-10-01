@@ -68,8 +68,12 @@ explicitly is always analyzed.
 - **↻ refresh** re-runs the analysis — new file contents, a fresh `git diff`, edits
   to `.lens.json` — without restarting the server. The ⚙ modal shows the effective
   config.
+- **Viewed marks**: tick a file in the tree (or press `m`) once you've read it; it dims.
+  Marks live in the browser and clear themselves when the file's content changes.
+  Summary changes have their own marks.
 - **Keys** (`?` lists them): j/k files, e/c folds, [/] threshold, h hunks, x removed
-  lines, t hide tests, / filter, s sidebar, r refresh, v Code/Summary.
+  lines, t hide tests, / filter, m viewed, s sidebar, r refresh, v Code/Summary; in
+  Summary, g overview and j/k changes.
 
 **PR mode** uses git alone — no GitHub API or gh CLI, so private repos just use your
 normal git auth. It fetches `refs/pull/N/head` (fork PRs work) from a matching local
@@ -85,7 +89,7 @@ one changed unit at a time (function, component, hook, method, type, …) with a
 one-line headline, a **When / Before / Now** table of what behaves differently (each
 row links to the line that causes it), callers outside the diff it may break (click
 one to peek at the call), and the unit's code with the usual folds and removed lines.
-It opens on an **Overview** (<kbd>g</kbd>): counts, the agent's 2–3 sentence account of
+It opens on an **Overview** (<kbd>g</kbd>): counts, the agent's account of
 the whole diff, and each flow laid out by layer.
 
 The summary is written by your coding agent, on your existing subscription:

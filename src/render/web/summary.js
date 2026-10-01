@@ -33,7 +33,7 @@ function setView(view) {
   tabbarWrap.style.display = summary ? "none" : "";
   mainEl.style.display = summary ? "none" : "";
   summaryPaneEl.style.display = summary ? "" : "none";
-  /** @type {HTMLElement} */ (document.querySelector(".nav-filter")).style.display = summary ? "none" : "";
+  filterInput.parentElement.style.display = summary ? "none" : "";
   sumFilterEl.style.display = summary ? "" : "none";
   treeEl.style.display = summary ? "none" : "";
   summaryListEl.style.display = summary ? "" : "none";
@@ -78,15 +78,11 @@ function currentUnit() { return state.summaryOverview ? null : unitById(state.su
 function unitViewKey(u) { return u.id + "@" + u.hash; }
 function isUnitViewed(u) { return !!u && viewed.units.has(unitViewKey(u)); }
 
-// Updates the marks in place: rebuilding the pane would lose its scroll position.
+// Rebuilds the list but patches the pane: re-rendering it would lose its scroll position.
 function toggleUnitViewed(u) {
   if (!u) return;
   toggleViewed("units", unitViewKey(u));
-  /** @type {NodeListOf<HTMLElement>} */ (summaryListEl.querySelectorAll(".sum-item")).forEach((b) => {
-    const on = isUnitViewed(unitById(b.dataset.id));
-    b.classList.toggle("viewed", on);
-    b.querySelector(".viewed-box").setAttribute("aria-checked", String(on));
-  });
+  renderSummaryList();
   const box = /** @type {HTMLInputElement | null} */ (summaryPaneEl.querySelector("#sum-viewed"));
   if (box) box.checked = isUnitViewed(currentUnit());
   /** @type {NodeListOf<HTMLElement>} */ (summaryPaneEl.querySelectorAll(".ov-chip")).forEach((c) => {
@@ -100,55 +96,21 @@ function unitLabel(u) {
   return u.name;
 }
 
-// ---- list filter: text over name / file / gist, plus chips ----
+// ---- list filter: text over name / file / gist ----
 const sumFilterEl = document.getElementById("sum-filter");
-const sumFilterInput = /** @type {HTMLInputElement} */ (document.getElementById("sum-filter-input"));
-const sumFilterClear = document.getElementById("sum-filter-clear");
-const sumChipsEl = document.getElementById("sum-chips");
-// A unit must match every ticked chip.
-const SUM_CHIPS = [
-  { key: "deleted", label: "deleted", color: "var(--removed)", test: (u) => u.status === "deleted" },
-];
-const sumFilter = { text: "", chips: new Set() }; // transient, like the file filter
-
-function sumFilterActive() { return sumFilter.text !== "" || sumFilter.chips.size > 0; }
+const sumFilterInput = /** @type {HTMLInputElement} */ (sumFilterEl.querySelector("input"));
+const sumFilterClear = /** @type {HTMLElement} */ (sumFilterEl.querySelector("button"));
+let sumFilterText = ""; // transient, like the file filter
 
 function matchesSumFilter(u) {
-  if (sumFilter.text !== "") {
-    const haystack = (unitLabel(u) + "\n" + u.displayFile + "\n" + (u.summary ? u.summary.gist : "")).toLowerCase();
-    if (!haystack.includes(sumFilter.text)) return false;
-  }
-  return SUM_CHIPS.every((c) => !sumFilter.chips.has(c.key) || c.test(u));
-}
-
-function renderSumChips(units) {
-  sumChipsEl.innerHTML = "";
-  for (const chip of SUM_CHIPS) {
-    const count = units.filter(chip.test).length;
-    if (count === 0 && !sumFilter.chips.has(chip.key)) continue; // nothing to narrow to
-    const label = document.createElement("label");
-    label.className = "chip";
-    label.style.setProperty("--cat", chip.color);
-    const box = document.createElement("input");
-    box.type = "checkbox";
-    box.checked = sumFilter.chips.has(chip.key);
-    box.onchange = () => {
-      if (box.checked) sumFilter.chips.add(chip.key); else sumFilter.chips.delete(chip.key);
-      renderSummaryList();
-    };
-    const dot = document.createElement("span");
-    dot.className = "dot";
-    const n = document.createElement("span");
-    n.className = "n";
-    n.textContent = String(count);
-    label.append(box, dot, chip.label, n);
-    sumChipsEl.appendChild(label);
-  }
+  if (sumFilterText === "") return true;
+  const haystack = unitLabel(u) + "\n" + u.displayFile + "\n" + (u.summary ? u.summary.gist : "");
+  return haystack.toLowerCase().includes(sumFilterText);
 }
 
 function applySumFilter() {
-  sumFilter.text = sumFilterInput.value.trim().toLowerCase();
-  sumFilterClear.style.display = sumFilter.text === "" ? "none" : "";
+  sumFilterText = sumFilterInput.value.trim().toLowerCase();
+  sumFilterClear.style.display = sumFilterText === "" ? "none" : "";
   renderSummaryList();
 }
 sumFilterInput.oninput = applySumFilter;
@@ -192,7 +154,6 @@ function groupUnits(summary, shown) {
 function renderSummaryList() {
   const summary = DATA.summary;
   const units = summary.units;
-  renderSumChips(units);
   const { sections, others } = groupUnits(summary, matchesSumFilter);
   summaryOrder = [...sections.flatMap((section) => section.members), ...others].map((u) => u.id);
   // before building the list, so the default unit is highlighted too. A unit
@@ -213,7 +174,7 @@ function renderSummaryList() {
   };
   const summarized = units.filter((u) => u.summary).length;
   const attention = units.filter((u) => u.summary && u.summary.needsLook).length;
-  const title = sumFilterActive()
+  const title = sumFilterText !== ""
     ? summaryOrder.length + " of " + units.length + " changes"
     : units.length + (units.length === 1 ? " change" : " changes");
   let html = '<div class="sum-head"><span class="title">' + title + "</span>" +
@@ -281,14 +242,19 @@ function renderSummaryEmpty(summary) {
   document.getElementById("browse-units").onclick = () => openSummaryUnit(state.summaryActive);
 }
 
-// What the red dot means — the agent's call, worded as bundle.ts asks for it.
-const NEEDS_LOOK_INFO =
-  '<span class="info" aria-label="what needs a look means">&#9432;<span class="tip">' +
-  '<div class="tip-title">needs a look</div>' +
-  "The agent flags a change (red dot) when a reviewer should look closely: it changes behavior, " +
-  "may be a bug, may break callers, or is otherwise risky. Routine changes (renames, types, " +
-  "formatting, tests) aren't flagged." +
-  '<div class="tip-note">The agent\'s judgement — lens doesn\'t verify it.</div></span></span>';
+// ⓘ with a hover tip, the same widget as the fold-level help in the toolbar
+function infoHtml(title, text) {
+  return '<span class="info" aria-label="' + title + '">&#9432;<span class="tip"><div class="tip-title">' + title + "</div>" + text + "</span></span>";
+}
+const STAT_INFO = {
+  // worded as bundle.ts asks the agent for needsLook
+  look: infoHtml("needs a look", "The agent flags a change (red dot) when a reviewer should look closely: it changes behavior, " +
+    "may be a bug, may break callers, or is otherwise risky. Routine changes (renames, types, formatting, tests) aren't flagged." +
+    '<div class="tip-note">The agent\'s judgement — lens doesn\'t verify it.</div>'),
+  callers: infoHtml("callers outside the diff", "Call sites the diff didn't touch that the agent found may break. " +
+    "Each one is checked: the line exists and mentions the changed unit."),
+  stale: infoHtml("stale", "Changes whose code moved on since they were summarized. Run the summary again to update them."),
+};
 
 // The whole diff at a glance: counts, the agent's overview, each flow by layer.
 function renderSummaryOverview(summary) {
@@ -299,21 +265,21 @@ function renderSummaryOverview(summary) {
     ? u.summary.breaks.flatMap((b) => b.callers.map((c) => c.file + ":" + c.line)) : [])).size;
   const stale = units.filter((u) => u.stale).length;
   const { sections, others } = groupUnits(summary, () => true);
-  const stat = (value, label, tone, title) =>
-    '<div class="ov-stat' + (value > 0 && tone ? " " + tone : "") + '"' + (title ? ' title="' + title + '"' : "") + ">" +
-    '<div class="v">' + value + '</div><div class="l">' + label + "</div></div>";
+  const stat = (value, label, tone) =>
+    '<div class="ov-stat' + (value > 0 && tone ? " " + tone : "") + '"><div class="v">' + value + '</div><div class="l">' + label + "</div></div>";
 
   let html = '<div class="ov-stats">' +
-    stat(units.length, (units.length === 1 ? "change" : "changes") + " in " + files + (files === 1 ? " file" : " files"), "", "") +
-    stat(sections.length, sections.length === 1 ? "flow" : "flows", "", "") +
-    stat(look, "need a look " + NEEDS_LOOK_INFO, "red", "") +
-    stat(callers, "callers outside the diff", "amber", "callers the diff didn't touch that the agent found may break") +
-    stat(stale, "stale", "amber", "the code changed since these were summarized") +
+    stat(units.length, (units.length === 1 ? "change" : "changes") + " in " + files + (files === 1 ? " file" : " files"), "") +
+    stat(sections.length, sections.length === 1 ? "flow" : "flows", "") +
+    stat(look, "need a look " + STAT_INFO.look, "red") +
+    stat(callers, "callers outside the diff " + STAT_INFO.callers, "amber") +
+    stat(stale, "stale " + STAT_INFO.stale, "amber") +
     "</div>";
 
   const o = summary.overview;
   if (o) {
-    html += '<div class="ov-what"><div class="ov-what-label">Agent summary</div><p>' + escapeHtml(o.what) + "</p></div>";
+    html += '<div class="ov-what"><div class="ov-what-label">Agent summary</div>' +
+      o.what.split("\n\n").map((p) => "<p>" + escapeHtml(p) + "</p>").join("") + "</div>";
     if (o.stale) {
       html += '<div class="sum-note stale">The diff changed since this overview was written. Run <code>' +
         escapeHtml(summary.command) + "</code> again to update it.</div>";

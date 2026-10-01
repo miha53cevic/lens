@@ -63,7 +63,7 @@ export function validateResult(
   }
   let acceptedOverview = false;
   if (raw.overview !== undefined) {
-    const what = text((raw.overview as { what?: unknown } | null)?.what, LIMITS.overview);
+    const what = paragraphs((raw.overview as { what?: unknown } | null)?.what, LIMITS.overview);
     if (!what) dropped.push(`overview: what ${describe((raw.overview as { what?: unknown } | null)?.what, LIMITS.overview)}`);
     else {
       stored.overview = { what, hash: unitSetHash(bundle.units) };
@@ -72,6 +72,13 @@ export function validateResult(
   }
   stored.updatedAt = new Date().toISOString();
   return { stored, accepted, acceptedFlows, acceptedOverview, dropped };
+}
+
+/** Like text(), but keeps blank-line paragraph breaks. */
+function paragraphs(value: unknown, max: number): string | null {
+  if (typeof value !== "string") return null;
+  const t = value.split(/\n\s*\n/).map((p) => p.replace(/\s+/g, " ").trim()).filter(Boolean).join("\n\n");
+  return t.length > 0 && t.length <= max ? t : null;
 }
 
 function text(value: unknown, max: number): string | null {

@@ -188,12 +188,14 @@ test("units: a trailing comment stays with its line, not the next declaration", 
   assert.equal(b.ranges[0].start, 2);
 });
 
-test("readStored tolerates a summary.json without flows", () => {
+test("readStored tolerates a summary.json without flows, or with a malformed overview", () => {
   const root = mkdtempSync(join(tmpdir(), "lens-store-"));
   try {
     writeStored(root, "diff", { version: 1, updatedAt: "", units: {}, flows: [] });
     writeFileSync(summaryPath(root, "diff"), JSON.stringify({ version: 1, units: {} }));
     assert.deepEqual(readStored(root, "diff")?.flows, []);
+    writeFileSync(summaryPath(root, "diff"), JSON.stringify({ version: 1, units: {}, overview: { what: 42 } }));
+    assert.equal(readStored(root, "diff")?.overview, undefined);
     writeFileSync(summaryPath(root, "diff"), JSON.stringify({ version: 1 }));
     assert.equal(readStored(root, "diff"), null);
   } finally {
@@ -345,11 +347,13 @@ test("validate: the overview is stored with the diff's hash; an over-long one is
   const good = validateResult(BUNDLE, { units: {}, overview: { what: "  Pages   orders by default.  " } }, "/nonexistent", null);
   assert.equal(good.acceptedOverview, true);
   assert.deepEqual(good.stored.overview, { what: "Pages orders by default.", hash: unitSetHash(BUNDLE.units) });
-  const bad = validateResult(BUNDLE, { units: {}, overview: { what: "x".repeat(401) } }, "/nonexistent", good.stored);
+  const bad = validateResult(BUNDLE, { units: {}, overview: { what: "x".repeat(2001) } }, "/nonexistent", good.stored);
   assert.equal(bad.acceptedOverview, false);
   assert.match(bad.dropped[0], /^overview: what/);
   assert.equal(bad.stored.overview?.what, "Pages orders by default.", "a rejected overview keeps the earlier one");
   assert.notEqual(unitSetHash(BUNDLE.units), unitSetHash(BUNDLE.units.slice(1)));
+  const multi = validateResult(BUNDLE, { units: {}, overview: { what: "Adds  paging.\n\n\n Drops the\nold export. " } }, "/nonexistent", null);
+  assert.equal(multi.stored.overview?.what, "Adds paging.\n\nDrops the old export.", "paragraphs survive, lines inside them join");
 });
 
 test("prepare → submit → view round trip, with re-prepare skipping done units and stale marks", async () => {

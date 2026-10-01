@@ -382,18 +382,8 @@
   .new-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
 
   /* ---- summary: list ---- */
-  #summary-list { font-family: ui-sans-serif, system-ui, sans-serif; margin: 0 -0.45rem; }
-  .sum-filter {
-    position: sticky; top: -0.6rem; z-index: 5;
-    margin: -0.6rem -0.45rem 0; padding-bottom: 0.55rem;
-    background: var(--panel); border-bottom: 1px solid var(--border-soft);
-  }
-  .sum-filter .nav-filter { position: static; margin: 0; border-bottom: 0; padding-bottom: 0.45rem; }
-  .sum-chips { display: flex; flex-wrap: wrap; gap: 0.3rem; padding: 0 0.55rem; }
-  .sum-chips:empty { display: none; }
-  .sum-filter:has(.sum-chips:empty) { padding-bottom: 0; }
-  .sum-chips .chip { height: 22px; padding: 0 0.55rem; gap: 0.35rem; font-size: 11px; }
-  .sum-chips .chip .n { opacity: 0.6; font-variant-numeric: tabular-nums; }
+  /* flush under the filter box (it ends in a 0.4rem margin) */
+  #summary-list { font-family: ui-sans-serif, system-ui, sans-serif; margin: -0.4rem -0.45rem 0; }
   .sum-head {
     display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem;
     padding: 0.8rem 0.9rem 0.6rem; border-bottom: 1px solid var(--border-soft);
@@ -458,13 +448,16 @@
   .ov-stat.red .v { color: var(--removed); }
   .ov-stat .info { font-size: 11px; }
   .ov-stat .info .tip { right: auto; left: -10px; width: 300px; }
+  /* the right-hand stats open their tip leftwards, inside the pane */
+  .ov-stat:nth-last-child(-n+2) .info .tip { left: auto; right: -10px; }
   .ov-stat.amber .v { color: var(--modified); }
   .ov-what { border-left: 3px solid var(--accent); padding: 0.1rem 0 0.1rem 0.9rem; }
   .ov-what-label {
     font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em;
     color: var(--accent); font-weight: 600; margin-bottom: 0.3rem;
   }
-  .ov-what p { font-size: 16px; line-height: 1.55; margin: 0; color: var(--text); text-wrap: pretty; }
+  .ov-what p { font-size: 16px; line-height: 1.55; margin: 0; color: var(--text); text-wrap: pretty; max-width: 75ch; }
+  .ov-what p + p { margin-top: 0.65rem; }
   .ov-h {
     font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted);
     font-weight: 600; margin-bottom: 0.55rem;

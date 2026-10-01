@@ -41,7 +41,7 @@ export interface Flow {
 }
 
 export interface Overview {
-  /** 2–3 sentences: what the whole diff does */
+  /** What the whole diff does, sized to it; paragraphs split by blank lines */
   what: string;
   /** unitSetHash of the diff it was written for; another one makes it stale */
   hash: string;
@@ -124,7 +124,12 @@ export function readStored(root: string, key: string): StoredSummary | null {
   try {
     const parsed = JSON.parse(readFileSync(path, "utf8"));
     if (parsed?.version !== 1 || typeof parsed.units !== "object" || parsed.units === null) return null;
-    return { ...parsed, flows: Array.isArray(parsed.flows) ? parsed.flows : [] } as StoredSummary;
+    const o = parsed.overview;
+    return {
+      ...parsed,
+      flows: Array.isArray(parsed.flows) ? parsed.flows : [],
+      overview: typeof o?.what === "string" && typeof o?.hash === "string" ? o : undefined,
+    } as StoredSummary;
   } catch {
     return null;
   }
