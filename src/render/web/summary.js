@@ -34,6 +34,7 @@ function setView(view) {
   mainEl.style.display = summary ? "none" : "";
   summaryPaneEl.style.display = summary ? "" : "none";
   /** @type {HTMLElement} */ (document.querySelector(".nav-filter")).style.display = summary ? "none" : "";
+  sumFilterEl.style.display = summary ? "" : "none";
   treeEl.style.display = summary ? "none" : "";
   summaryListEl.style.display = summary ? "" : "none";
   statsEl.style.visibility = summary ? "hidden" : "";
@@ -95,11 +96,85 @@ function unitLabel(u) {
   return u.name;
 }
 
+// ---- list filter: text over name / file / gist, plus chips ----
+const sumFilterEl = document.getElementById("sum-filter");
+const sumFilterInput = /** @type {HTMLInputElement} */ (document.getElementById("sum-filter-input"));
+const sumFilterClear = document.getElementById("sum-filter-clear");
+const sumChipsEl = document.getElementById("sum-chips");
+// A unit must match every ticked chip.
+const SUM_CHIPS = [
+  { key: "look", label: "needs a look", color: "var(--removed)", test: (u) => !!u.summary?.needsLook },
+  { key: "deleted", label: "deleted", color: "var(--removed)", test: (u) => u.status === "deleted" },
+  { key: "stale", label: "stale", color: "var(--modified)", test: (u) => u.stale },
+];
+const sumFilter = { text: "", chips: new Set() }; // transient, like the file filter
+
+function sumFilterActive() { return sumFilter.text !== "" || sumFilter.chips.size > 0; }
+
+function matchesSumFilter(u) {
+  if (sumFilter.text !== "") {
+    const haystack = (unitLabel(u) + "\n" + u.displayFile + "\n" + (u.summary ? u.summary.gist : "")).toLowerCase();
+    if (!haystack.includes(sumFilter.text)) return false;
+  }
+  return SUM_CHIPS.every((c) => !sumFilter.chips.has(c.key) || c.test(u));
+}
+
+function renderSumChips(units) {
+  sumChipsEl.innerHTML = "";
+  for (const chip of SUM_CHIPS) {
+    const count = units.filter(chip.test).length;
+    if (count === 0 && !sumFilter.chips.has(chip.key)) continue; // nothing to narrow to
+    const label = document.createElement("label");
+    label.className = "chip";
+    label.style.setProperty("--cat", chip.color);
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.checked = sumFilter.chips.has(chip.key);
+    box.onchange = () => {
+      if (box.checked) sumFilter.chips.add(chip.key); else sumFilter.chips.delete(chip.key);
+      renderSummaryList();
+    };
+    const dot = document.createElement("span");
+    dot.className = "dot";
+    const n = document.createElement("span");
+    n.className = "n";
+    n.textContent = String(count);
+    label.append(box, dot, chip.label, n);
+    sumChipsEl.appendChild(label);
+  }
+}
+
+function applySumFilter() {
+  sumFilter.text = sumFilterInput.value.trim().toLowerCase();
+  sumFilterClear.style.display = sumFilter.text === "" ? "none" : "";
+  renderSummaryList();
+}
+sumFilterInput.oninput = applySumFilter;
+sumFilterInput.onkeydown = (ev) => {
+  if (ev.key === "Escape") { sumFilterInput.value = ""; applySumFilter(); sumFilterInput.blur(); }
+};
+sumFilterClear.onclick = () => { sumFilterInput.value = ""; applySumFilter(); };
+
 function renderSummary() {
   const summary = DATA.summary;
   syncNavVisibilitySummary();
   if (!summary) return;
+  const summarized = renderSummaryList();
+  if (summarized === 0 && !summaryPaneEl.dataset.browsing) {
+    renderSummaryEmpty(summary);
+  } else {
+    renderSummaryUnit(currentUnit());
+  }
+  summaryListEl.querySelector(".sum-item.active")?.scrollIntoView({ block: "nearest" });
+}
+
+// The list alone — filtering must not rebuild the pane (and lose its scroll).
+// Returns how many units have a summary.
+function renderSummaryList() {
+  const summary = DATA.summary;
   const units = summary.units;
+  renderSumChips(units);
+  const shown = (u) => matchesSumFilter(u);
 
   // list order: flows, then needs-a-look, routine, not yet summarized / stale.
   // A unit in several flows is listed once, under the first.
@@ -107,22 +182,23 @@ function renderSummary() {
   const sections = summary.flows
     .map((flow) => ({
       flow,
-      members: Object.keys(flow.units).map(unitById).filter((u) => u && !listed.has(u.id) && listed.add(u.id)),
+      members: Object.keys(flow.units).map(unitById).filter((u) => u && !listed.has(u.id) && listed.add(u.id)).filter(shown),
     }))
     .filter((section) => section.members.length > 0);
   const rank = (u) => !u.summary ? 3 : u.summary.needsLook ? 0 : 1;
-  const others = units.filter((u) => !listed.has(u.id)).sort((a, b) => rank(a) - rank(b));
+  const others = units.filter((u) => !listed.has(u.id)).filter(shown).sort((a, b) => rank(a) - rank(b));
   summaryOrder = [...sections.flatMap((section) => section.members), ...others].map((u) => u.id);
-  // before building the list, so the default unit is highlighted too
+  // before building the list, so the default unit is highlighted too. A unit
+  // the filter hides stays open in the pane.
   if (!state.summaryActive || !unitById(state.summaryActive)) state.summaryActive = summaryOrder[0] || null;
   const itemHtml = (u, side) => {
     const s = u.summary;
     const isViewed = isUnitViewed(u);
     const cls = "sum-item" + (u.id === state.summaryActive ? " active" : "") +
-      (!s ? " pending" : s.needsLook ? "" : " routine") + (isViewed ? " viewed" : "");
+      (!s ? " pending" : s.needsLook ? "" : " routine") + (isViewed ? " viewed" : "") + " st-" + u.status;
     const gist = u.stale ? '<span class="gist stale">code changed — re-run</span>'
       : '<span class="gist">' + escapeHtml(s ? s.gist : u.kind + " · " + u.status) + "</span>";
-    return '<button class="' + cls + '" data-id="' + escapeHtml(u.id) + '" title="' + escapeHtml(u.id) + '">' +
+    return '<button class="' + cls + '" data-id="' + escapeHtml(u.id) + '" title="' + escapeHtml(u.id + " — " + u.status) + '">' +
       viewedBoxHtml(isViewed, "mark viewed") +
       (s && s.needsLook ? '<span class="attn-dot" title="needs a look"></span>' : "<span></span>") +
       '<span class="name">' + escapeHtml(unitLabel(u)) + '</span><span class="side">' + escapeHtml(side || "") + "</span>" +
@@ -130,7 +206,10 @@ function renderSummary() {
   };
   const summarized = units.filter((u) => u.summary).length;
   const attention = units.filter((u) => u.summary && u.summary.needsLook).length;
-  let html = '<div class="sum-head"><span class="title">' + units.length + (units.length === 1 ? " change" : " changes") + "</span>" +
+  const title = sumFilterActive()
+    ? summaryOrder.length + " of " + units.length + " changes"
+    : units.length + (units.length === 1 ? " change" : " changes");
+  let html = '<div class="sum-head"><span class="title">' + title + "</span>" +
     (summarized === 0 ? '<span class="legend">not summarized yet</span>'
       : '<span class="legend"><span class="attn-dot"></span>' + attention + " need a look</span>") + "</div>";
   for (const { flow, members } of sections) {
@@ -142,6 +221,7 @@ function renderSummary() {
     html += '<div class="sum-section">' + (sections.length > 0 ? '<div class="sum-section-title"><span class="t">Other changes</span></div>' : "") +
       others.map((u) => itemHtml(u, u.displayFile.split("/").pop())).join("") + "</div>";
   }
+  if (summaryOrder.length === 0) html += '<div class="no-match">no changes match the filter</div>';
   const scrolled = nav.scrollTop; // rebuilding the list must not move it
   summaryListEl.innerHTML = html;
   nav.scrollTop = scrolled;
@@ -152,12 +232,7 @@ function renderSummary() {
       toggleUnitViewed(unitById(b.dataset.id));
     };
   });
-  if (summarized === 0 && !summaryPaneEl.dataset.browsing) {
-    renderSummaryEmpty(summary);
-  } else {
-    renderSummaryUnit(currentUnit());
-  }
-  summaryListEl.querySelector(".sum-item.active")?.scrollIntoView({ block: "nearest" });
+  return summarized;
 }
 
 function syncNavVisibilitySummary() {

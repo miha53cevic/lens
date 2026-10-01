@@ -382,7 +382,18 @@
   .new-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
 
   /* ---- summary: list ---- */
-  #summary-list { font-family: ui-sans-serif, system-ui, sans-serif; margin: -0.6rem -0.45rem 0; }
+  #summary-list { font-family: ui-sans-serif, system-ui, sans-serif; margin: 0 -0.45rem; }
+  .sum-filter {
+    position: sticky; top: -0.6rem; z-index: 5;
+    margin: -0.6rem -0.45rem 0; padding-bottom: 0.55rem;
+    background: var(--panel); border-bottom: 1px solid var(--border-soft);
+  }
+  .sum-filter .nav-filter { position: static; margin: 0; border-bottom: 0; padding-bottom: 0.45rem; }
+  .sum-chips { display: flex; flex-wrap: wrap; gap: 0.3rem; padding: 0 0.55rem; }
+  .sum-chips:empty { display: none; }
+  .sum-filter:has(.sum-chips:empty) { padding-bottom: 0; }
+  .sum-chips .chip { height: 22px; padding: 0 0.55rem; gap: 0.35rem; font-size: 11px; }
+  .sum-chips .chip .n { opacity: 0.6; font-variant-numeric: tabular-nums; }
   .sum-head {
     display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem;
     padding: 0.8rem 0.9rem 0.6rem; border-bottom: 1px solid var(--border-soft);
@@ -411,7 +422,11 @@
     color: var(--muted); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap;
     overflow: hidden; text-overflow: ellipsis; text-align: right; min-width: 0;
   }
-  .sum-item.routine .name { color: var(--muted); }
+  /* status colors match the file tree; deleted isn't struck through — that's the viewed mark here */
+  .sum-item.st-new .name { color: var(--added); }
+  .sum-item.st-modified .name { color: var(--modified); }
+  .sum-item.st-deleted .name { color: var(--removed); }
+  .sum-item.routine .name { opacity: 0.7; }
   .sum-item.pending .name, .sum-item.pending .gist { opacity: 0.6; }
   .sum-item .gist.stale { color: var(--modified); }
   .attn-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--removed); align-self: center; }

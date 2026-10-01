@@ -1198,6 +1198,12 @@ document.addEventListener("keydown", (ev) => {
     if (ev.key === "k") { stepSummary(-1); return; }
     if (ev.key === "o") { openUnitInCode(currentUnit()); return; }
     if (ev.key === "m") { toggleUnitViewed(currentUnit()); return; }
+    if (ev.key === "/") {
+      if (state.navCollapsed) navToggle.click();
+      sumFilterInput.focus();
+      ev.preventDefault();
+      return;
+    }
     if (!["?", "x", "s", "r"].includes(ev.key)) return; // code-view keys don't apply here
   }
   switch (ev.key) {
