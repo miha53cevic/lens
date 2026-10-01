@@ -57,6 +57,10 @@
     <div class="vdivider"></div>
     <button id="expand-all">expand all</button>
     <button id="collapse-all">collapse all</button>
+    <div class="vdivider" id="viewed-divider"></div>
+    <label class="control" id="viewed-wrap" title="mark this file as viewed (m)">
+      <input type="checkbox" id="viewed"> viewed
+    </label>
   </div>
 </header>
 <dialog id="settings-modal">
@@ -79,6 +83,7 @@
       <tr><td><kbd>j</kbd> / <kbd>k</kbd></td><td>next / previous file</td></tr>
       <tr><td><kbd>w</kbd></td><td>close the active tab</td></tr>
       <tr><td><kbd>o</kbd></td><td>keep the preview tab open (pin it)</td></tr>
+      <tr><td><kbd>m</kbd></td><td>mark the file / change as viewed</td></tr>
       <tr><td><kbd>⌘P</kbd> / <kbd>Ctrl P</kbd></td><td>search in files</td></tr>
       <tr><td><kbd>⌥ click</kbd></td><td>find usages of the clicked identifier</td></tr>
       <tr><td><kbd>/</kbd></td><td>focus the file filter</td></tr>

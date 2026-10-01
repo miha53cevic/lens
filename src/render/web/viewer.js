@@ -167,6 +167,52 @@ const closedDirs = new Set(); // survives re-renders (theme/file switches)
 function readPref(key) { try { return localStorage.getItem(key); } catch { return null; } }
 function writePref(key, value) { try { localStorage.setItem(key, value); } catch {} }
 
+// ---- viewed marks ----
+// What the reader ticked as viewed, per browser. Keyed by content, so a file
+// or unit that changes after it was ticked comes back unticked.
+const VIEWED_CAP = 2000;
+const VIEWED_PREF = { files: "lens.viewedFiles", units: "lens.viewedUnits" };
+function loadViewed(kind) {
+  try { return new Set(JSON.parse(readPref(VIEWED_PREF[kind]) || "[]")); } catch { return new Set(); }
+}
+const viewed = { files: loadViewed("files"), units: loadViewed("units") };
+function toggleViewed(kind, key) {
+  const set = viewed[kind];
+  if (!set.delete(key)) set.add(key);
+  // Sets keep insertion order: the oldest marks drop first
+  writePref(VIEWED_PREF[kind], JSON.stringify([...set].slice(-VIEWED_CAP)));
+}
+
+const fileViewKeys = new WeakMap(); // file object -> key; a refresh brings new objects
+function fileViewKey(file) {
+  let key = fileViewKeys.get(file);
+  if (!key) {
+    // FNV-1a over the source and the removed lines
+    const text = file.source + "\0" + JSON.stringify(file.removals || []);
+    let h = 0x811c9dc5;
+    for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193);
+    key = file.file + "@" + (h >>> 0).toString(36);
+    fileViewKeys.set(file, key);
+  }
+  return key;
+}
+function isFileViewed(index) {
+  const file = DATA.files[index];
+  return !!file && viewed.files.has(fileViewKey(file));
+}
+function toggleFileViewed(index) {
+  const file = DATA.files[index];
+  if (!file) return;
+  toggleViewed("files", fileViewKey(file));
+  renderNav();
+  syncViewedControl();
+}
+
+// The tick box in tree and summary list rows: a span, since the rows are buttons.
+function viewedBoxHtml(on, title) {
+  return '<span class="viewed-box" role="checkbox" aria-checked="' + on + '" title="' + title + '"></span>';
+}
+
 const expandedGaps = new Set(); // "path:gapStart" — gaps the reviewer opened
 
 // Glob-ish test-file matcher: "*" = within a path segment, "**" = across
@@ -324,20 +370,26 @@ function renderTreeNode(node, path, depth, container) {
   };
   for (const entry of [...node.files].sort((a, b) => a.name.localeCompare(b.name))) {
     const letter = STATUS_LETTER[entry.status];
+    const isViewed = entry.index !== null && isFileViewed(entry.index);
     const b = document.createElement("button");
     b.className = "file" + (entry.status ? " " + entry.status : "") +
-      (entry.index !== null && entry.index === state.active ? " active" : "");
+      (entry.index !== null && entry.index === state.active ? " active" : "") + (isViewed ? " viewed" : "");
     b.style.paddingLeft = (indent + 13) + "px";
     b.title = entry.status === "renamed"
       ? entry.renamedFrom + " → " + entry.path + " — " + STATUS_TITLE.renamed
       : entry.path + (entry.status ? " — " + STATUS_TITLE[entry.status] : "");
     b.innerHTML =
+      // files that can't be opened keep the box's width, so names stay aligned
+      (entry.index !== null ? viewedBoxHtml(isViewed, "mark viewed") : '<span class="viewed-box placeholder"></span>') +
       '<span class="fname">' + highlightName(entry.name) + "</span>" +
       (letter ? '<span class="status st-' + letter + '">' + letter + "</span>" : "");
     if (entry.index !== null) {
       navOrder.push(entry.index);
       b.onclick = () => openFile(entry.index);
       b.ondblclick = () => openFile(entry.index, true);
+      const box = /** @type {HTMLElement} */ (b.querySelector(".viewed-box"));
+      box.onclick = (ev) => { ev.stopPropagation(); toggleFileViewed(entry.index); };
+      box.ondblclick = (ev) => ev.stopPropagation();
     } else {
       b.disabled = true;
     }
@@ -394,6 +446,7 @@ function render() {
   const file = DATA.files[state.active];
   renderNav();
   renderTabs();
+  syncViewedControl();
   lastHiddenTotal = 0;
   if (!file) {
     codeEl.innerHTML = '<div class="empty">' + (DATA.files.length > 0
@@ -750,6 +803,18 @@ function syncDiffControls() {
 }
 showRemovedBox.onchange = () => { state.showRemoved = showRemovedBox.checked; render(); };
 syncDiffControls();
+
+// ---- viewed toggle (the active file) ----
+const viewedWrap = document.getElementById("viewed-wrap");
+const viewedDivider = document.getElementById("viewed-divider");
+const viewedBox = /** @type {HTMLInputElement} */ (document.getElementById("viewed"));
+function syncViewedControl() {
+  const open = !!DATA.files[state.active];
+  viewedWrap.style.display = open ? "" : "none";
+  viewedDivider.style.display = open ? "" : "none";
+  viewedBox.checked = isFileViewed(state.active);
+}
+viewedBox.onchange = () => toggleFileViewed(state.active);
 
 // ---- settings modal ----
 const settingsModal = /** @type {HTMLDialogElement} */ (document.getElementById("settings-modal"));
@@ -1132,6 +1197,7 @@ document.addEventListener("keydown", (ev) => {
     if (ev.key === "j") { stepSummary(1); return; }
     if (ev.key === "k") { stepSummary(-1); return; }
     if (ev.key === "o") { openUnitInCode(currentUnit()); return; }
+    if (ev.key === "m") { toggleUnitViewed(currentUnit()); return; }
     if (!["?", "x", "s", "r"].includes(ev.key)) return; // code-view keys don't apply here
   }
   switch (ev.key) {
@@ -1139,6 +1205,7 @@ document.addEventListener("keydown", (ev) => {
     case "j": stepFile(1); break;
     case "k": stepFile(-1); break;
     case "w": if (state.active >= 0) closeTab(state.active); break;
+    case "m": toggleFileViewed(state.active); break;
     case "o": {
       const tab = state.tabs.find((t) => t.index === state.active);
       if (tab && !tab.pinned) { tab.pinned = true; renderTabs(); }

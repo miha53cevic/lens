@@ -73,6 +73,22 @@ window.addEventListener("focus", async () => {
 function unitById(id) { return (DATA.summary?.units || []).find((u) => u.id === id) || null; }
 function currentUnit() { return unitById(state.summaryActive); }
 
+function unitViewKey(u) { return u.id + "@" + u.hash; }
+function isUnitViewed(u) { return !!u && viewed.units.has(unitViewKey(u)); }
+
+// Updates the marks in place: rebuilding the pane would lose its scroll position.
+function toggleUnitViewed(u) {
+  if (!u) return;
+  toggleViewed("units", unitViewKey(u));
+  /** @type {NodeListOf<HTMLElement>} */ (summaryListEl.querySelectorAll(".sum-item")).forEach((b) => {
+    const on = isUnitViewed(unitById(b.dataset.id));
+    b.classList.toggle("viewed", on);
+    b.querySelector(".viewed-box").setAttribute("aria-checked", String(on));
+  });
+  const box = /** @type {HTMLInputElement | null} */ (summaryPaneEl.querySelector("#sum-viewed"));
+  if (box) box.checked = isUnitViewed(currentUnit());
+}
+
 function unitLabel(u) {
   if (u.name === "(module)") return "imports & module-level";
   if (u.name === "(file)") return u.displayFile.split("/").pop();
@@ -101,11 +117,13 @@ function renderSummary() {
   if (!state.summaryActive || !unitById(state.summaryActive)) state.summaryActive = summaryOrder[0] || null;
   const itemHtml = (u, side) => {
     const s = u.summary;
+    const isViewed = isUnitViewed(u);
     const cls = "sum-item" + (u.id === state.summaryActive ? " active" : "") +
-      (!s ? " pending" : s.needsLook ? "" : " routine");
+      (!s ? " pending" : s.needsLook ? "" : " routine") + (isViewed ? " viewed" : "");
     const gist = u.stale ? '<span class="gist stale">code changed — re-run</span>'
       : '<span class="gist">' + escapeHtml(s ? s.gist : u.kind + " · " + u.status) + "</span>";
     return '<button class="' + cls + '" data-id="' + escapeHtml(u.id) + '" title="' + escapeHtml(u.id) + '">' +
+      viewedBoxHtml(isViewed, "mark viewed") +
       (s && s.needsLook ? '<span class="attn-dot" title="needs a look"></span>' : "<span></span>") +
       '<span class="name">' + escapeHtml(unitLabel(u)) + '</span><span class="side">' + escapeHtml(side || "") + "</span>" +
       gist + "</button>";
@@ -129,6 +147,10 @@ function renderSummary() {
   nav.scrollTop = scrolled;
   /** @type {NodeListOf<HTMLElement>} */ (summaryListEl.querySelectorAll(".sum-item")).forEach((b) => {
     b.onclick = () => { state.summaryActive = b.dataset.id; summaryPaneEl.dataset.browsing = "1"; renderSummary(); };
+    /** @type {HTMLElement} */ (b.querySelector(".viewed-box")).onclick = (ev) => {
+      ev.stopPropagation();
+      toggleUnitViewed(unitById(b.dataset.id));
+    };
   });
   if (summarized === 0 && !summaryPaneEl.dataset.browsing) {
     renderSummaryEmpty(summary);
@@ -202,6 +224,8 @@ function renderSummaryUnit(u) {
   const fileIndex = DATA.files.findIndex((f) => f.file === u.displayFile);
   html += '<div class="unit-head"><span class="path" title="' + escapeHtml(u.id) + '">' + escapeHtml(u.displayFile) + "</span>" +
     '<span class="status ' + u.status + '">' + u.status + (u.formattingOnly ? " · formatting only" : "") + "</span>" +
+    '<label class="control" title="mark this change as viewed (m)"><input type="checkbox" id="sum-viewed"' +
+    (isUnitViewed(u) ? " checked" : "") + "> viewed</label>" +
     '<label class="control"><input type="checkbox" id="sum-removed"' + (state.showRemoved ? " checked" : "") + "> removed lines</label>" +
     (fileIndex >= 0 && u.ranges.length > 0 ? '<button id="open-in-code" title="open in the code view (o)">code view ↗</button>' : "") +
     "</div>";
@@ -231,6 +255,7 @@ function renderSummaryUnit(u) {
     showRemovedBox.checked = state.showRemoved = removedBox.checked; // keep the Code view's toggle in sync
     render();
   };
+  /** @type {HTMLInputElement} */ (one("#sum-viewed")).onchange = () => toggleUnitViewed(u);
   const openBtn = one("#open-in-code");
   if (openBtn) openBtn.onclick = () => openUnitInCode(u);
   summaryPaneEl.scrollTop = 0;
