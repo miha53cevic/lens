@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { parseDiff } from "../src/git.ts";
 import { extractUnits, checkCoverage, citeableLabels, removalAnchors, type UnitFileInput } from "../src/summary/units.ts";
-import { summaryKey, summaryPath, readStored, writeStored, type Bundle } from "../src/summary/store.ts";
+import { summaryKey, summaryPath, readStored, writeStored, unitSetHash, type Bundle } from "../src/summary/store.ts";
 import { runSummary } from "../src/summary/command.ts";
 import { validateResult } from "../src/summary/validate.ts";
 import { prepareBundle, renderUnit } from "../src/summary/bundle.ts";
@@ -341,6 +341,17 @@ test("validate: submits merge with earlier ones and flows merge by title", () =>
   assert.deepEqual(second.stored.flows.map((f) => f.path), ["b"]);
 });
 
+test("validate: the overview is stored with the diff's hash; an over-long one is dropped", () => {
+  const good = validateResult(BUNDLE, { units: {}, overview: { what: "  Pages   orders by default.  " } }, "/nonexistent", null);
+  assert.equal(good.acceptedOverview, true);
+  assert.deepEqual(good.stored.overview, { what: "Pages orders by default.", hash: unitSetHash(BUNDLE.units) });
+  const bad = validateResult(BUNDLE, { units: {}, overview: { what: "x".repeat(401) } }, "/nonexistent", good.stored);
+  assert.equal(bad.acceptedOverview, false);
+  assert.match(bad.dropped[0], /^overview: what/);
+  assert.equal(bad.stored.overview?.what, "Pages orders by default.", "a rejected overview keeps the earlier one");
+  assert.notEqual(unitSetHash(BUNDLE.units), unitSetHash(BUNDLE.units.slice(1)));
+});
+
 test("prepare → submit → view round trip, with re-prepare skipping done units and stale marks", async () => {
   const dir = mkdtempSync(join(tmpdir(), "lens-summary-"));
   const git = (...args: string[]) => execFileSync("git", args, { cwd: dir, encoding: "utf8" });
@@ -376,7 +387,7 @@ test("prepare → submit → view round trip, with re-prepare skipping done unit
         changes: [{ when: "No limit", before: "all", now: "first 50", line: find.labels.find((l) => l.startsWith("N"))! }],
         breaks: [{ summary: "job gets 50", callers: ["src/jobs.ts:2"] }],
       }),
-    } }, diff.root, null);
+    }, overview: { what: "Pages orders by default." } }, diff.root, null);
     assert.deepEqual(outcome.dropped, []);
     writeStored(diff.root, "diff-staged", outcome.stored);
 
@@ -388,6 +399,7 @@ test("prepare → submit → view round trip, with re-prepare skipping done unit
     const view = buildSummaryView({ root: diff.root, cwd: dir, command: "diff", args: ["--staged"], units });
     const v = view.units.find((u) => u.id === "src/repo.ts#findOrders")!;
     assert.equal(view.command, "/lens-review --staged");
+    assert.deepEqual(view.overview, { what: "Pages orders by default.", stale: false });
     assert.equal(v.stale, false);
     assert.equal(v.summary?.breaks[0].callers[0].lines.find((l) => l.n === 2)?.text, "const o = await findOrders(u);");
     // removed blocks arrive with the shown line they display after (removalAnchors)
@@ -406,7 +418,20 @@ test("prepare → submit → view round trip, with re-prepare skipping done unit
     const s = staleView.units.find((u) => u.id === "src/repo.ts#findOrders")!;
     assert.equal(s.stale, true);
     assert.equal(s.summary, null);
+    assert.equal(staleView.overview?.stale, true);
     assert.ok(readStored(diff.root, "diff-staged"));
+
+    // every unit summarized, only the overview out of date: prepare asks for it alone
+    const laterPrep = { ...prep, units: later, sources: new Map([["src/repo.ts", NEW_REPO.replace("50", "25")]]) };
+    const laterBundle = JSON.parse(readFileSync(join(prepareBundle(laterPrep).dir, "bundle.json"), "utf8")) as Bundle;
+    const all = validateResult(laterBundle, { units: Object.fromEntries(later.map((u) => [u.id, ok()])) },
+      diff.root, readStored(diff.root, "diff-staged"));
+    assert.deepEqual(all.dropped, []);
+    writeStored(diff.root, "diff-staged", all.stored);
+    const onlyOverview = prepareBundle(laterPrep);
+    assert.equal(onlyOverview.todo, 0);
+    assert.match(onlyOverview.instructions, /only the overview/);
+    assert.match(readFileSync(join(onlyOverview.dir, "tasks.md"), "utf8"), /Does a thing/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

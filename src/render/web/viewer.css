@@ -431,6 +431,88 @@
   .sum-item .gist.stale { color: var(--modified); }
   .attn-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--removed); align-self: center; }
 
+  .sum-overview-item {
+    display: flex; align-items: center; gap: 0.55rem; width: 100%; height: auto; text-align: left;
+    padding: 0.5rem 0.8rem; border: 0; border-left: 2px solid transparent; border-radius: 0;
+    border-bottom: 1px solid var(--border-soft); background: none;
+    color: var(--text); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+  }
+  .sum-overview-item:hover { background: var(--panel-2); border-color: var(--border-soft); border-left-color: transparent; color: var(--text); }
+  .sum-overview-item.active, .sum-overview-item.active:hover { background: var(--panel-2); border-left-color: var(--accent); }
+  .sum-overview-item .ico {
+    width: 13px; height: 13px; border-radius: 50%; flex: none;
+    border: 1.5px solid var(--accent); display: inline-grid; place-items: center;
+  }
+  .sum-overview-item .ico::after { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
+  .sum-overview-item .key { margin-left: auto; color: var(--muted); font-weight: 400; font-size: 10.5px; }
+
+  /* ---- summary: overview ---- */
+  .ov-stats {
+    display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
+    background: var(--panel); border: 1px solid var(--border); border-radius: 9px;
+  }
+  .ov-stat { padding: 0.7rem 0.9rem; border-right: 1px solid var(--border-soft); min-width: 0; }
+  .ov-stat:last-child { border-right: 0; }
+  .ov-stat .v { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .ov-stat .l { color: var(--muted); font-size: 11px; }
+  .ov-stat.red .v { color: var(--removed); }
+  .ov-stat .info { font-size: 11px; }
+  .ov-stat .info .tip { right: auto; left: -10px; width: 300px; }
+  .ov-stat.amber .v { color: var(--modified); }
+  .ov-what { border-left: 3px solid var(--accent); padding: 0.1rem 0 0.1rem 0.9rem; }
+  .ov-what-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--accent); font-weight: 600; margin-bottom: 0.3rem;
+  }
+  .ov-what p { font-size: 16px; line-height: 1.55; margin: 0; color: var(--text); text-wrap: pretty; }
+  .ov-h {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted);
+    font-weight: 600; margin-bottom: 0.55rem;
+  }
+  /* each flow its own card, so one ends visibly before the next begins */
+  .ov-lanes { display: flex; flex-direction: column; gap: 0.7rem; }
+  .ov-lane { background: var(--panel); border: 1px solid var(--border); border-radius: 9px; padding: 0 0.9rem 0.9rem; }
+  .ov-lane-h {
+    display: flex; align-items: baseline; gap: 0.6rem;
+    margin: 0 -0.9rem 0.7rem; padding: 0.6rem 0.9rem; border-bottom: 1px solid var(--border-soft);
+  }
+  .ov-lane-h .t { font-weight: 600; font-size: 13px; }
+  .ov-lane-h .t.muted { color: var(--muted); }
+  .ov-lane-h .n { color: var(--muted); font-size: 11.5px; margin-left: auto; }
+  .ov-layers { display: flex; align-items: flex-start; overflow-x: auto; }
+  .ov-layers.files { flex-wrap: wrap; row-gap: 0.8rem; overflow-x: visible; }
+  .ov-layer { flex: 1 1 0; min-width: 150px; display: flex; flex-direction: column; gap: 0.35rem; }
+  .ov-layer-l {
+    position: relative; margin-right: 1.4rem; padding-bottom: 0.25rem;
+    border-bottom: 1px dashed var(--border-strong);
+    font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted);
+    white-space: nowrap;
+  }
+  .ov-layers:not(.files) .ov-layer:not(:last-child) .ov-layer-l::after {
+    content: "→"; position: absolute; right: -1.15rem; top: -2px;
+    color: var(--muted); font-size: 12px; letter-spacing: 0;
+  }
+  .ov-layers.files .ov-layer-l { overflow: hidden; text-overflow: ellipsis; text-transform: none; letter-spacing: 0; font-family: ui-monospace, Menlo, monospace; font-size: 10.5px; }
+  .ov-chip {
+    --st: var(--modified);
+    display: flex; align-items: center; gap: 0.45rem; height: auto; margin-right: 1.4rem;
+    padding: 0.35rem 0.55rem; border-radius: 7px; border: 1px solid var(--border); background: var(--panel-2);
+    font-family: ui-monospace, Menlo, monospace; font-size: 11.5px; color: var(--text); text-align: left;
+  }
+  .ov-chip:hover { border-color: var(--border-strong); color: var(--text); }
+  .ov-chip.st-new { --st: var(--added); }
+  .ov-chip.st-deleted { --st: var(--removed); }
+  .ov-chip .st-bar { width: 3px; align-self: stretch; border-radius: 2px; flex: none; background: var(--st); }
+  .ov-chip .cn { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ov-chip .attn-dot { flex: none; }
+  .ov-chip.look {
+    border-color: color-mix(in srgb, var(--removed) 55%, transparent);
+    background: color-mix(in srgb, var(--removed) 9%, var(--panel-2));
+  }
+  .ov-chip.look .attn-dot { box-shadow: 0 0 0 3px color-mix(in srgb, var(--removed) 20%, transparent); }
+  .ov-chip.viewed { opacity: 0.5; }
+  .ov-chip.viewed .cn { text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--muted) 70%, transparent); }
+
   /* ---- summary: focus pane ---- */
   .summary-pane { flex: 1; overflow: auto; min-width: 0; background: var(--bg); }
   .sum-inner { max-width: 1000px; margin: 0 auto; padding: 1.6rem 1.5rem 4rem; display: flex; flex-direction: column; gap: 1.1rem; }

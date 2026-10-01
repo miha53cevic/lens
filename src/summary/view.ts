@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
-import { readStored, summaryKey, summaryStamp, type ChangeRow, type Flow } from "./store.ts";
+import { readStored, summaryKey, summaryStamp, unitSetHash, type ChangeRow, type Flow } from "./store.ts";
 import { removalAnchors, type Unit } from "./units.ts";
 import type { RemovedBlock } from "../model.ts";
 
@@ -46,6 +46,8 @@ export interface SummaryView {
   stamp: number | null;
   units: ViewUnit[];
   flows: Flow[];
+  /** stale: written for other code — the diff changed since */
+  overview: { what: string; stale: boolean } | null;
 }
 
 export function buildSummaryView(opts: {
@@ -95,6 +97,9 @@ export function buildSummaryView(opts: {
     stamp: summaryStamp(opts.root, key),
     units: visible,
     flows,
+    overview: stored?.overview
+      ? { what: stored.overview.what, stale: stored.overview.hash !== unitSetHash(opts.units) }
+      : null,
   };
 }
 

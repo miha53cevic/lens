@@ -72,7 +72,8 @@ window.addEventListener("focus", async () => {
 });
 
 function unitById(id) { return (DATA.summary?.units || []).find((u) => u.id === id) || null; }
-function currentUnit() { return unitById(state.summaryActive); }
+// null on the overview: unit keys (o, m) do nothing there
+function currentUnit() { return state.summaryOverview ? null : unitById(state.summaryActive); }
 
 function unitViewKey(u) { return u.id + "@" + u.hash; }
 function isUnitViewed(u) { return !!u && viewed.units.has(unitViewKey(u)); }
@@ -88,6 +89,9 @@ function toggleUnitViewed(u) {
   });
   const box = /** @type {HTMLInputElement | null} */ (summaryPaneEl.querySelector("#sum-viewed"));
   if (box) box.checked = isUnitViewed(currentUnit());
+  /** @type {NodeListOf<HTMLElement>} */ (summaryPaneEl.querySelectorAll(".ov-chip")).forEach((c) => {
+    c.classList.toggle("viewed", isUnitViewed(unitById(c.dataset.id)));
+  });
 }
 
 function unitLabel(u) {
@@ -103,9 +107,7 @@ const sumFilterClear = document.getElementById("sum-filter-clear");
 const sumChipsEl = document.getElementById("sum-chips");
 // A unit must match every ticked chip.
 const SUM_CHIPS = [
-  { key: "look", label: "needs a look", color: "var(--removed)", test: (u) => !!u.summary?.needsLook },
   { key: "deleted", label: "deleted", color: "var(--removed)", test: (u) => u.status === "deleted" },
-  { key: "stale", label: "stale", color: "var(--modified)", test: (u) => u.stale },
 ];
 const sumFilter = { text: "", chips: new Set() }; // transient, like the file filter
 
@@ -162,22 +164,17 @@ function renderSummary() {
   const summarized = renderSummaryList();
   if (summarized === 0 && !summaryPaneEl.dataset.browsing) {
     renderSummaryEmpty(summary);
+  } else if (state.summaryOverview) {
+    renderSummaryOverview(summary);
   } else {
     renderSummaryUnit(currentUnit());
   }
   summaryListEl.querySelector(".sum-item.active")?.scrollIntoView({ block: "nearest" });
 }
 
-// The list alone — filtering must not rebuild the pane (and lose its scroll).
-// Returns how many units have a summary.
-function renderSummaryList() {
-  const summary = DATA.summary;
-  const units = summary.units;
-  renderSumChips(units);
-  const shown = (u) => matchesSumFilter(u);
-
-  // list order: flows, then needs-a-look, routine, not yet summarized / stale.
-  // A unit in several flows is listed once, under the first.
+// List order: flows, then needs-a-look, routine, not yet summarized / stale.
+// A unit in several flows is listed once, under the first.
+function groupUnits(summary, shown) {
   const listed = new Set();
   const sections = summary.flows
     .map((flow) => ({
@@ -186,7 +183,17 @@ function renderSummaryList() {
     }))
     .filter((section) => section.members.length > 0);
   const rank = (u) => !u.summary ? 3 : u.summary.needsLook ? 0 : 1;
-  const others = units.filter((u) => !listed.has(u.id)).filter(shown).sort((a, b) => rank(a) - rank(b));
+  const others = summary.units.filter((u) => !listed.has(u.id)).filter(shown).sort((a, b) => rank(a) - rank(b));
+  return { sections, others };
+}
+
+// The list alone — filtering must not rebuild the pane (and lose its scroll).
+// Returns how many units have a summary.
+function renderSummaryList() {
+  const summary = DATA.summary;
+  const units = summary.units;
+  renderSumChips(units);
+  const { sections, others } = groupUnits(summary, matchesSumFilter);
   summaryOrder = [...sections.flatMap((section) => section.members), ...others].map((u) => u.id);
   // before building the list, so the default unit is highlighted too. A unit
   // the filter hides stays open in the pane.
@@ -194,7 +201,7 @@ function renderSummaryList() {
   const itemHtml = (u, side) => {
     const s = u.summary;
     const isViewed = isUnitViewed(u);
-    const cls = "sum-item" + (u.id === state.summaryActive ? " active" : "") +
+    const cls = "sum-item" + (!state.summaryOverview && u.id === state.summaryActive ? " active" : "") +
       (!s ? " pending" : s.needsLook ? "" : " routine") + (isViewed ? " viewed" : "") + " st-" + u.status;
     const gist = u.stale ? '<span class="gist stale">code changed — re-run</span>'
       : '<span class="gist">' + escapeHtml(s ? s.gist : u.kind + " · " + u.status) + "</span>";
@@ -211,7 +218,9 @@ function renderSummaryList() {
     : units.length + (units.length === 1 ? " change" : " changes");
   let html = '<div class="sum-head"><span class="title">' + title + "</span>" +
     (summarized === 0 ? '<span class="legend">not summarized yet</span>'
-      : '<span class="legend"><span class="attn-dot"></span>' + attention + " need a look</span>") + "</div>";
+      : '<span class="legend"><span class="attn-dot"></span>' + attention + " need a look</span>") + "</div>" +
+    '<button class="sum-overview-item' + (state.summaryOverview ? " active" : "") + '" title="the whole diff at a glance (g)">' +
+    '<span class="ico"></span>Overview<span class="key">g</span></button>';
   for (const { flow, members } of sections) {
     html += '<div class="sum-section"><div class="sum-section-title"><span class="t">' + escapeHtml(flow.title) +
       '</span><span class="sub">' + escapeHtml(flow.path) + "</span></div>" +
@@ -226,13 +235,27 @@ function renderSummaryList() {
   summaryListEl.innerHTML = html;
   nav.scrollTop = scrolled;
   /** @type {NodeListOf<HTMLElement>} */ (summaryListEl.querySelectorAll(".sum-item")).forEach((b) => {
-    b.onclick = () => { state.summaryActive = b.dataset.id; summaryPaneEl.dataset.browsing = "1"; renderSummary(); };
+    b.onclick = () => openSummaryUnit(b.dataset.id);
     /** @type {HTMLElement} */ (b.querySelector(".viewed-box")).onclick = (ev) => {
       ev.stopPropagation();
       toggleUnitViewed(unitById(b.dataset.id));
     };
   });
+  /** @type {HTMLElement} */ (summaryListEl.querySelector(".sum-overview-item")).onclick = showOverview;
   return summarized;
+}
+
+function openSummaryUnit(id) {
+  state.summaryOverview = false;
+  state.summaryActive = id;
+  summaryPaneEl.dataset.browsing = "1";
+  renderSummary();
+}
+
+function showOverview() {
+  state.summaryOverview = true;
+  summaryPaneEl.dataset.browsing = "1";
+  renderSummary();
 }
 
 function syncNavVisibilitySummary() {
@@ -255,7 +278,84 @@ function renderSummaryEmpty(summary) {
     try { await navigator.clipboard.writeText(summary.command); btn.textContent = "copied"; }
     catch { btn.textContent = "select + copy"; }
   };
-  document.getElementById("browse-units").onclick = () => { summaryPaneEl.dataset.browsing = "1"; renderSummary(); };
+  document.getElementById("browse-units").onclick = () => openSummaryUnit(state.summaryActive);
+}
+
+// What the red dot means — the agent's call, worded as bundle.ts asks for it.
+const NEEDS_LOOK_INFO =
+  '<span class="info" aria-label="what needs a look means">&#9432;<span class="tip">' +
+  '<div class="tip-title">needs a look</div>' +
+  "The agent flags a change (red dot) when a reviewer should look closely: it changes behavior, " +
+  "may be a bug, may break callers, or is otherwise risky. Routine changes (renames, types, " +
+  "formatting, tests) aren't flagged." +
+  '<div class="tip-note">The agent\'s judgement — lens doesn\'t verify it.</div></span></span>';
+
+// The whole diff at a glance: counts, the agent's overview, each flow by layer.
+function renderSummaryOverview(summary) {
+  const units = summary.units;
+  const files = new Set(units.map((u) => u.displayFile)).size;
+  const look = units.filter((u) => u.summary && u.summary.needsLook).length;
+  const callers = new Set(units.flatMap((u) => u.summary
+    ? u.summary.breaks.flatMap((b) => b.callers.map((c) => c.file + ":" + c.line)) : [])).size;
+  const stale = units.filter((u) => u.stale).length;
+  const { sections, others } = groupUnits(summary, () => true);
+  const stat = (value, label, tone, title) =>
+    '<div class="ov-stat' + (value > 0 && tone ? " " + tone : "") + '"' + (title ? ' title="' + title + '"' : "") + ">" +
+    '<div class="v">' + value + '</div><div class="l">' + label + "</div></div>";
+
+  let html = '<div class="ov-stats">' +
+    stat(units.length, (units.length === 1 ? "change" : "changes") + " in " + files + (files === 1 ? " file" : " files"), "", "") +
+    stat(sections.length, sections.length === 1 ? "flow" : "flows", "", "") +
+    stat(look, "need a look " + NEEDS_LOOK_INFO, "red", "") +
+    stat(callers, "callers outside the diff", "amber", "callers the diff didn't touch that the agent found may break") +
+    stat(stale, "stale", "amber", "the code changed since these were summarized") +
+    "</div>";
+
+  const o = summary.overview;
+  if (o) {
+    html += '<div class="ov-what"><div class="ov-what-label">Agent summary</div><p>' + escapeHtml(o.what) + "</p></div>";
+    if (o.stale) {
+      html += '<div class="sum-note stale">The diff changed since this overview was written. Run <code>' +
+        escapeHtml(summary.command) + "</code> again to update it.</div>";
+    }
+  } else {
+    html += '<div class="sum-note">No overview yet — run <code>' + escapeHtml(summary.command) + "</code> again to add one.</div>";
+  }
+
+  const chip = (u) =>
+    '<button class="ov-chip st-' + u.status + (u.summary && u.summary.needsLook ? " look" : "") + (isUnitViewed(u) ? " viewed" : "") + '" data-id="' + escapeHtml(u.id) +
+    '" title="' + escapeHtml(u.summary ? u.summary.headline : u.id) + '">' +
+    '<span class="st-bar"></span><span class="cn">' + escapeHtml(unitLabel(u)) + "</span>" +
+    (u.summary && u.summary.needsLook ? '<span class="attn-dot"></span>' : "") + "</button>";
+  const layerHtml = (label, members, title) =>
+    '<div class="ov-layer"><div class="ov-layer-l"' + (title ? ' title="' + escapeHtml(title) + '"' : "") + ">" +
+    escapeHtml(label) + "</div>" + members.map(chip).join("") + "</div>";
+  const laneHead = (title, count, muted) =>
+    '<div class="ov-lane-h"><span class="t' + (muted ? " muted" : "") + '">' + escapeHtml(title) + '</span><span class="n">' +
+    count + (count === 1 ? " change" : " changes") + "</span></div>";
+
+  let lanes = "";
+  for (const { flow, members } of sections) {
+    // the path's steps in order, then any layer the path doesn't name
+    const layers = flow.path.split("→").map((l) => l.trim()).filter(Boolean);
+    for (const u of members) if (!layers.includes(flow.units[u.id])) layers.push(flow.units[u.id]);
+    lanes += '<div class="ov-lane">' + laneHead(flow.title, members.length, false) + '<div class="ov-layers">' +
+      layers.map((l) => layerHtml(l, members.filter((u) => flow.units[u.id] === l), "")).join("") + "</div></div>";
+  }
+  if (others.length > 0) {
+    const byFile = new Map();
+    for (const u of others) byFile.set(u.displayFile, [...(byFile.get(u.displayFile) || []), u]);
+    lanes += '<div class="ov-lane">' + laneHead(sections.length > 0 ? "Other changes" : "Changes", others.length, sections.length > 0) +
+      '<div class="ov-layers files">' +
+      [...byFile].map(([file, members]) => layerHtml(file.split("/").pop(), members, file)).join("") + "</div></div>";
+  }
+  html += '<div><div class="ov-h">Flows</div><div class="ov-lanes">' + lanes + "</div></div>";
+
+  summaryPaneEl.innerHTML = '<div class="sum-inner">' + html + "</div>";
+  /** @type {NodeListOf<HTMLElement>} */ (summaryPaneEl.querySelectorAll(".ov-chip")).forEach((b) => {
+    b.onclick = () => openSummaryUnit(b.dataset.id);
+  });
+  summaryPaneEl.scrollTop = 0;
 }
 
 function renderSummaryUnit(u) {
@@ -420,7 +520,9 @@ function flashCited(container, label) {
 
 function stepSummary(direction) {
   if (summaryOrder.length === 0) return;
-  const pos = summaryOrder.indexOf(state.summaryActive);
+  // from the overview, j starts at the top of the list and k at the bottom
+  const pos = state.summaryOverview ? -1 : summaryOrder.indexOf(state.summaryActive);
+  state.summaryOverview = false;
   state.summaryActive = pos === -1
     ? summaryOrder[direction > 0 ? 0 : summaryOrder.length - 1]
     : summaryOrder[(pos + direction + summaryOrder.length) % summaryOrder.length];

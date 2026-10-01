@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { isAbsolute, join, normalize, sep } from "node:path";
 import { LIMITS } from "./bundle.ts";
-import type { Break, Bundle, BundleUnit, ChangeRow, Flow, StoredSummary, UnitSummary } from "./store.ts";
+import { unitSetHash, type Break, type Bundle, type BundleUnit, type ChangeRow, type Flow, type StoredSummary, type UnitSummary } from "./store.ts";
 
 // `lens summary submit`: every claim in the agent's result must point at real
 // code — a changed/removed line of the unit, or a caller line that exists and
@@ -11,6 +11,7 @@ export interface SubmitOutcome {
   stored: StoredSummary;
   accepted: string[];
   acceptedFlows: number;
+  acceptedOverview: boolean;
   dropped: string[];
 }
 
@@ -36,9 +37,9 @@ export function validateResult(
   const fileCache = new Map<string, string[] | null>();
 
   if (typeof result !== "object" || result === null || typeof (result as { units?: unknown }).units !== "object") {
-    return { stored, accepted, acceptedFlows: 0, dropped: ['result must be an object with a "units" object'] };
+    return { stored, accepted, acceptedFlows: 0, acceptedOverview: false, dropped: ['result must be an object with a "units" object'] };
   }
-  const raw = result as { units: Record<string, unknown>; flows?: unknown };
+  const raw = result as { units: Record<string, unknown>; flows?: unknown; overview?: unknown };
 
   for (const [id, entry] of Object.entries(raw.units ?? {})) {
     const unit = byId.get(id);
@@ -60,8 +61,17 @@ export function validateResult(
       acceptedFlows++;
     });
   }
+  let acceptedOverview = false;
+  if (raw.overview !== undefined) {
+    const what = text((raw.overview as { what?: unknown } | null)?.what, LIMITS.overview);
+    if (!what) dropped.push(`overview: what ${describe((raw.overview as { what?: unknown } | null)?.what, LIMITS.overview)}`);
+    else {
+      stored.overview = { what, hash: unitSetHash(bundle.units) };
+      acceptedOverview = true;
+    }
+  }
   stored.updatedAt = new Date().toISOString();
-  return { stored, accepted, acceptedFlows, dropped };
+  return { stored, accepted, acceptedFlows, acceptedOverview, dropped };
 }
 
 function text(value: unknown, max: number): string | null {

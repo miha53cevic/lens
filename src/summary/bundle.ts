@@ -1,12 +1,12 @@
 import { writeFileSync, readdirSync, unlinkSync } from "node:fs";
 import { join, relative } from "node:path";
 import { citeableLabels, removalAnchors, type Unit } from "./units.ts";
-import { bundleDir, readStored, type Bundle, type BundleUnit } from "./store.ts";
+import { bundleDir, readStored, unitSetHash, type Bundle, type BundleUnit, type StoredSummary } from "./store.ts";
 
 // `lens summary prepare` output: a folder the user's agent reads (tasks,
 // instructions, schema) plus bundle.json, which `submit` validates against.
 
-export const LIMITS = { headline: 80, gist: 40, cell: 60, breakSummary: 80, flowTitle: 40, flowPath: 60, layer: 12 };
+export const LIMITS = { headline: 80, gist: 40, cell: 60, breakSummary: 80, flowTitle: 40, flowPath: 60, layer: 12, overview: 400 };
 
 /** Rendered lines per tasks file before splitting into tasks-2.md, … */
 const TASK_FILE_BUDGET = 1500;
@@ -72,6 +72,15 @@ export function prepareBundle(input: PrepareInput): PrepareResult {
     used += size;
   }
   const taskFiles: string[] = [];
+  // every unit is done but the overview is missing or was written for other code:
+  // ask for the overview alone, from the headlines already stored
+  const overviewOnly = todo.length === 0 && stored !== null &&
+    stored.overview?.hash !== unitSetHash(bundleUnits);
+  if (overviewOnly) {
+    const name = join(dir, "tasks.md");
+    writeFileSync(name, `# lens summary tasks (overview only)\n\n${header}\n${renderHeadlines(input.units, stored)}`);
+    taskFiles.push(name);
+  }
   if (todo.length > 0) {
     chunks.forEach((chunk, i) => {
       const name = chunks.length === 1 ? "tasks.md" : `tasks-${i + 1}.md`;
@@ -84,9 +93,18 @@ export function prepareBundle(input: PrepareInput): PrepareResult {
   writeFileSync(join(dir, "bundle.json"), JSON.stringify(bundle, null, 2) + "\n");
   writeFileSync(join(dir, "schema.json"), JSON.stringify(RESULT_SCHEMA, null, 2) + "\n");
   const doneCount = bundleUnits.filter((u) => u.done).length;
-  const instructions = renderInstructions(input, dir, taskFiles, todo.length, doneCount);
+  const instructions = overviewOnly
+    ? renderOverviewInstructions(input, dir, taskFiles[0])
+    : renderInstructions(input, dir, taskFiles, todo.length, doneCount);
   writeFileSync(join(dir, "instructions.md"), instructions);
   return { dir, taskFiles, todo: todo.length, done: doneCount, instructions };
+}
+
+function renderHeadlines(units: Unit[], stored: StoredSummary): string {
+  return units.map((u) => {
+    const s = stored.units[u.id];
+    return `- \`${u.id}\` (${u.status}): ${s ? s.headline : "no summary"}`;
+  }).join("\n") + "\n";
 }
 
 function contextHeader(input: PrepareInput): string {
@@ -174,7 +192,30 @@ the code — reviewing your own work hides its blind spots.
 Group units that form one change across layers: {title (≤${LIMITS.flowTitle}), path (≤${LIMITS.flowPath}),
 e.g. "repo → route → client", units: {"<unit id>": "<layer ≤${LIMITS.layer}>"}}. Only for 2+ units.
 
+## Overview
+${OVERVIEW_RULE}
+With several task files, write it in your last submit, once you've seen every unit.
+
 Keep everything terse: the viewer shows it in a small table next to the code.
+`;
+}
+
+const OVERVIEW_RULE = `\`overview\`: {what (≤${LIMITS.overview} chars)} — 2–3 sentences on what the whole diff
+does and why, for a reviewer seeing it for the first time. Name the main behavior
+changes, not the files.`;
+
+function renderOverviewInstructions(input: PrepareInput, dir: string, tasks: string): string {
+  const rel = (p: string) => relative(input.cwd, p) || p;
+  return `# lens summary — instructions for the agent
+
+Every unit of this diff already has a summary; only the overview of the whole diff
+is missing or out of date. Tasks: \`${rel(tasks)}\` lists each unit with its headline.
+
+1. Read the task file. Look at the diff itself if the headlines aren't enough.
+2. Write \`${rel(join(dir, "result.json"))}\` as \`{"units": {}, "overview": {"what": "…"}}\`.
+3. Run \`lens summary submit ${rel(dir)}\`.
+
+${OVERVIEW_RULE}
 `;
 }
 
@@ -221,6 +262,11 @@ export const RESULT_SCHEMA = {
           renamedFrom: { type: "string" },
         },
       },
+    },
+    overview: {
+      type: "object",
+      required: ["what"],
+      properties: { what: { type: "string", maxLength: LIMITS.overview } },
     },
     flows: {
       type: "array",

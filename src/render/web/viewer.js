@@ -52,6 +52,7 @@ const state = {
   navFilter: "", // sidebar filter query (transient, not persisted)
   /** @type {string | null} */
   summaryActive: null, // the Summary view's open unit id
+  summaryOverview: true, // the Summary view shows the overview instead (it opens there)
 };
 
 // PR mode: "owner/repo#N — title" in the header and the tab title
@@ -1198,6 +1199,7 @@ document.addEventListener("keydown", (ev) => {
     if (ev.key === "k") { stepSummary(-1); return; }
     if (ev.key === "o") { openUnitInCode(currentUnit()); return; }
     if (ev.key === "m") { toggleUnitViewed(currentUnit()); return; }
+    if (ev.key === "g") { showOverview(); return; }
     if (ev.key === "/") {
       if (state.navCollapsed) navToggle.click();
       sumFilterInput.focus();

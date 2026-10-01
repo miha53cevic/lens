@@ -85,6 +85,8 @@ one changed unit at a time (function, component, hook, method, type, …) with a
 one-line headline, a **When / Before / Now** table of what behaves differently (each
 row links to the line that causes it), callers outside the diff it may break (click
 one to peek at the call), and the unit's code with the usual folds and removed lines.
+It opens on an **Overview** (<kbd>g</kbd>): counts, the agent's 2–3 sentence account of
+the whole diff, and each flow laid out by layer.
 
 The summary is written by your coding agent, on your existing subscription:
 
@@ -119,7 +121,8 @@ must cite one of the unit's changed (`N18`) or removed (`O16`) lines; a caller m
 a `path:line` that exists and mentions the unit; flows need 2+ known units; text over
 the length limits is rejected. Summaries remember the unit's hash: when the code
 changes, the unit shows "code changed — re-run", and the next `prepare` only asks
-about units that changed.
+about units that changed. The overview remembers the whole diff the same way; when only
+it is out of date, `prepare` asks for just the overview.
 
 `.lens/` carries its own `*` `.gitignore`, so nothing needs adding to your repo and
 nothing is written into `.git`.
