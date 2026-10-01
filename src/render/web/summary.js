@@ -239,7 +239,8 @@ function renderSummaryEmpty(summary) {
     try { await navigator.clipboard.writeText(summary.command); btn.textContent = "copied"; }
     catch { btn.textContent = "select + copy"; }
   };
-  document.getElementById("browse-units").onclick = () => openSummaryUnit(state.summaryActive);
+  // the overview's map and by-file lanes need no summary, so browsing starts there
+  document.getElementById("browse-units").onclick = showOverview;
 }
 
 // ⓘ with a hover tip, the same widget as the fold-level help in the toolbar
@@ -269,7 +270,7 @@ function renderSummaryOverview(summary) {
     '<div class="ov-stat' + (value > 0 && tone ? " " + tone : "") + '"><div class="v">' + value + '</div><div class="l">' + label + "</div></div>";
 
   let html = '<div class="ov-stats">' +
-    stat(units.length, (units.length === 1 ? "change" : "changes") + " in " + files + (files === 1 ? " file" : " files"), "") +
+    stat(units.length, (units.length === 1 ? "change" : "changes") + " in " + plural(files, "file"), "") +
     stat(sections.length, sections.length === 1 ? "flow" : "flows", "") +
     stat(look, "need a look " + STAT_INFO.look, "red") +
     stat(callers, "callers outside the diff " + STAT_INFO.callers, "amber") +
@@ -284,44 +285,95 @@ function renderSummaryOverview(summary) {
       html += '<div class="sum-note stale">The diff changed since this overview was written. Run <code>' +
         escapeHtml(summary.command) + "</code> again to update it.</div>";
     }
-  } else {
+  } else if (units.some((u) => u.summary)) {
     html += '<div class="sum-note">No overview yet — run <code>' + escapeHtml(summary.command) + "</code> again to add one.</div>";
+  } else {
+    html += '<div class="sum-note">Not summarized yet — run <code>' + escapeHtml(summary.command) + "</code> in your agent.</div>";
   }
 
-  const chip = (u) =>
-    '<button class="ov-chip st-' + u.status + (u.summary && u.summary.needsLook ? " look" : "") + (isUnitViewed(u) ? " viewed" : "") + '" data-id="' + escapeHtml(u.id) +
-    '" title="' + escapeHtml(u.summary ? u.summary.headline : u.id) + '">' +
-    '<span class="st-bar"></span><span class="cn">' + escapeHtml(unitLabel(u)) + "</span>" +
-    (u.summary && u.summary.needsLook ? '<span class="attn-dot"></span>' : "") + "</button>";
-  const layerHtml = (label, members, title) =>
-    '<div class="ov-layer"><div class="ov-layer-l"' + (title ? ' title="' + escapeHtml(title) + '"' : "") + ">" +
-    escapeHtml(label) + "</div>" + members.map(chip).join("") + "</div>";
-  const laneHead = (title, count, muted) =>
-    '<div class="ov-lane-h"><span class="t' + (muted ? " muted" : "") + '">' + escapeHtml(title) + '</span><span class="n">' +
-    count + (count === 1 ? " change" : " changes") + "</span></div>";
-
-  let lanes = "";
-  for (const { flow, members } of sections) {
-    // the path's steps in order, then any layer the path doesn't name
-    const layers = flow.path.split("→").map((l) => l.trim()).filter(Boolean);
-    for (const u of members) if (!layers.includes(flow.units[u.id])) layers.push(flow.units[u.id]);
-    lanes += '<div class="ov-lane">' + laneHead(flow.title, members.length, false) + '<div class="ov-layers">' +
-      layers.map((l) => layerHtml(l, members.filter((u) => flow.units[u.id] === l), "")).join("") + "</div></div>";
-  }
-  if (others.length > 0) {
-    const byFile = new Map();
-    for (const u of others) byFile.set(u.displayFile, [...(byFile.get(u.displayFile) || []), u]);
-    lanes += '<div class="ov-lane">' + laneHead(sections.length > 0 ? "Other changes" : "Changes", others.length, sections.length > 0) +
-      '<div class="ov-layers files">' +
-      [...byFile].map(([file, members]) => layerHtml(file.split("/").pop(), members, file)).join("") + "</div></div>";
-  }
-  html += '<div><div class="ov-h">Flows</div><div class="ov-lanes">' + lanes + "</div></div>";
+  // the lower half flips between the flows and the map
+  const lower = state.overviewTab === "map" ? mapHtml(summary) : flowsHtml(sections, others);
+  const tab = (id, label) => '<button class="ov-tab" role="tab" data-tab="' + id + '" aria-selected="' + (state.overviewTab === id) + '">' + label + "</button>";
+  html += '<div><div class="ov-tabs" role="tablist">' + tab("flows", "Flows") + tab("map", "Map") +
+    '<span class="ov-tabs-note">' + lower.note + '</span></div><div class="ov-lanes">' + lower.lanes + "</div></div>";
 
   summaryPaneEl.innerHTML = '<div class="sum-inner">' + html + "</div>";
   /** @type {NodeListOf<HTMLElement>} */ (summaryPaneEl.querySelectorAll(".ov-chip")).forEach((b) => {
     b.onclick = () => openSummaryUnit(b.dataset.id);
   });
+  /** @type {NodeListOf<HTMLElement>} */ (summaryPaneEl.querySelectorAll(".ov-tab")).forEach((b) => {
+    b.onclick = () => {
+      const top = summaryPaneEl.scrollTop; // flipping tabs keeps the page where it is
+      state.overviewTab = b.dataset.tab;
+      writePref("lens.overviewTab", state.overviewTab);
+      renderSummaryOverview(summary);
+      summaryPaneEl.scrollTop = top;
+    };
+  });
   summaryPaneEl.scrollTop = 0;
+}
+
+// Each flow laid out by layer, then the units outside any flow by file.
+function flowsHtml(sections, others) {
+  let lanes = "";
+  for (const { flow, members } of sections) {
+    // the path's steps in order, then any layer the path doesn't name
+    const layers = flow.path.split("→").map((l) => l.trim()).filter(Boolean);
+    for (const u of members) if (!layers.includes(flow.units[u.id])) layers.push(flow.units[u.id]);
+    lanes += '<div class="ov-lane">' + ovLaneHeadHtml(flow.title, plural(members.length, "change")) + '<div class="ov-layers">' +
+      layers.map((l) => ovColumnHtml(l, members.filter((u) => flow.units[u.id] === l), "")).join("") + "</div></div>";
+  }
+  if (others.length > 0) {
+    lanes += '<div class="ov-lane">' + ovLaneHeadHtml(sections.length > 0 ? "Other changes" : "Changes", plural(others.length, "change"), sections.length > 0) +
+      '<div class="ov-layers files">' +
+      [...byFile(others)].map(([file, units]) => ovColumnHtml(file.split("/").pop(), units, file)).join("") + "</div></div>";
+  }
+  return { note: plural(sections.length, "flow"), lanes };
+}
+
+// Every change where it lives: a card per folder, a column per file, its units in file order.
+function mapHtml(summary) {
+  const startOf = (u) => u.ranges.length > 0 ? u.ranges[0].start : (u.removals[0]?.anchor ?? 0);
+  const files = byFile([...summary.units].sort((a, b) => a.displayFile.localeCompare(b.displayFile) || startOf(a) - startOf(b)));
+  const dirs = new Map(); // folder -> its [file, units] entries, in path order
+  for (const entry of files) {
+    const dir = entry[0].slice(0, entry[0].lastIndexOf("/") + 1);
+    dirs.set(dir, [...(dirs.get(dir) || []), entry]);
+  }
+  const lanes = [...dirs].map(([dir, entries]) => {
+    const count = entries.reduce((n, [, units]) => n + units.length, 0);
+    return '<div class="ov-lane">' + ovLaneHeadHtml(dir || "./", plural(count, "change") + " · " + plural(entries.length, "file"), false, true) +
+      '<div class="ov-layers files">' + entries.map(([file, units]) => ovColumnHtml(file.slice(dir.length), units, file)).join("") + "</div></div>";
+  }).join("");
+  return { note: plural(files.size, "file") + " across " + plural(dirs.size, "folder"), lanes };
+}
+
+/** @returns {Map<string, any[]>} file -> its units, in the order given */
+function byFile(units) {
+  const files = new Map();
+  for (const u of units) files.set(u.displayFile, [...(files.get(u.displayFile) || []), u]);
+  return files;
+}
+
+function plural(n, word) { return n + " " + word + (n === 1 ? "" : "s"); }
+
+// A unit as a tag (overview and map): status stripe, needs-a-look tint, dimmed once viewed.
+function ovChipHtml(u) {
+  const look = !!(u.summary && u.summary.needsLook);
+  return '<button class="ov-chip st-' + u.status + (look ? " look" : "") + (isUnitViewed(u) ? " viewed" : "") + '" data-id="' + escapeHtml(u.id) +
+    '" title="' + escapeHtml(u.summary ? u.summary.headline : u.id) + '">' +
+    '<span class="st-bar"></span><span class="cn">' + escapeHtml(unitLabel(u)) + "</span>" +
+    (look ? '<span class="attn-dot"></span>' : "") + "</button>";
+}
+
+function ovColumnHtml(label, units, title) {
+  return '<div class="ov-layer"><div class="ov-layer-l"' + (title ? ' title="' + escapeHtml(title) + '"' : "") + ">" +
+    escapeHtml(label) + "</div>" + units.map(ovChipHtml).join("") + "</div>";
+}
+
+function ovLaneHeadHtml(title, count, muted, mono) {
+  return '<div class="ov-lane-h"><span class="t' + (muted ? " muted" : "") + (mono ? " mono" : "") + '">' + escapeHtml(title) +
+    '</span><span class="n">' + count + "</span></div>";
 }
 
 function renderSummaryUnit(u) {

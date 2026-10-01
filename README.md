@@ -90,7 +90,8 @@ one-line headline, a **When / Before / Now** table of what behaves differently (
 row links to the line that causes it), callers outside the diff it may break (click
 one to peek at the call), and the unit's code with the usual folds and removed lines.
 It opens on an **Overview** (<kbd>g</kbd>): counts, the agent's account of
-the whole diff, and each flow laid out by layer.
+the whole diff, and each flow laid out by layer — or, flipped to the **Map** tab, every
+change where it lives: a card per folder, a column per file, units in file order.
 
 The summary is written by your coding agent, on your existing subscription:
 

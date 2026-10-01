@@ -53,6 +53,7 @@ const state = {
   /** @type {string | null} */
   summaryActive: null, // the Summary view's open unit id
   summaryOverview: true, // the Summary view shows the overview instead (it opens there)
+  overviewTab: readPref("lens.overviewTab") === "map" ? "map" : "flows", // its lower half: flows or map
 };
 
 // PR mode: "owner/repo#N — title" in the header and the tab title
