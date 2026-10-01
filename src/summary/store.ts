@@ -40,12 +40,27 @@ export interface Flow {
   units: Record<string, string>;
 }
 
+export interface Overview {
+  /** What the whole diff does, sized to it; paragraphs split by blank lines */
+  what: string;
+  /** unitSetHash of the diff it was written for; another one makes it stale */
+  hash: string;
+}
+
 export interface StoredSummary {
   version: 1;
   updatedAt: string;
   /** Each summary remembers the unit hash it was written for */
   units: Record<string, UnitSummary & { hash: string }>;
   flows: Flow[];
+  overview?: Overview;
+}
+
+/** One hash for the whole diff: any unit added, dropped or changed moves it. */
+export function unitSetHash(units: { id: string; hash: string }[]): string {
+  return createHash("sha256")
+    .update(units.map((u) => u.id + ":" + u.hash).sort().join("\n"))
+    .digest("hex").slice(0, 16);
 }
 
 export interface BundleUnit {
@@ -109,7 +124,12 @@ export function readStored(root: string, key: string): StoredSummary | null {
   try {
     const parsed = JSON.parse(readFileSync(path, "utf8"));
     if (parsed?.version !== 1 || typeof parsed.units !== "object" || parsed.units === null) return null;
-    return { ...parsed, flows: Array.isArray(parsed.flows) ? parsed.flows : [] } as StoredSummary;
+    const o = parsed.overview;
+    return {
+      ...parsed,
+      flows: Array.isArray(parsed.flows) ? parsed.flows : [],
+      overview: typeof o?.what === "string" && typeof o?.hash === "string" ? o : undefined,
+    } as StoredSummary;
   } catch {
     return null;
   }

@@ -33,7 +33,8 @@ function setView(view) {
   tabbarWrap.style.display = summary ? "none" : "";
   mainEl.style.display = summary ? "none" : "";
   summaryPaneEl.style.display = summary ? "" : "none";
-  /** @type {HTMLElement} */ (document.querySelector(".nav-filter")).style.display = summary ? "none" : "";
+  filterInput.parentElement.style.display = summary ? "none" : "";
+  sumFilterEl.style.display = summary ? "" : "none";
   treeEl.style.display = summary ? "none" : "";
   summaryListEl.style.display = summary ? "" : "none";
   statsEl.style.visibility = summary ? "hidden" : "";
@@ -71,7 +72,23 @@ window.addEventListener("focus", async () => {
 });
 
 function unitById(id) { return (DATA.summary?.units || []).find((u) => u.id === id) || null; }
-function currentUnit() { return unitById(state.summaryActive); }
+// null on the overview: unit keys (o, m) do nothing there
+function currentUnit() { return state.summaryOverview ? null : unitById(state.summaryActive); }
+
+function unitViewKey(u) { return u.id + "@" + u.hash; }
+function isUnitViewed(u) { return !!u && viewed.units.has(unitViewKey(u)); }
+
+// Rebuilds the list but patches the pane: re-rendering it would lose its scroll position.
+function toggleUnitViewed(u) {
+  if (!u) return;
+  toggleViewed("units", unitViewKey(u));
+  renderSummaryList();
+  const box = /** @type {HTMLInputElement | null} */ (summaryPaneEl.querySelector("#sum-viewed"));
+  if (box) box.checked = isUnitViewed(currentUnit());
+  /** @type {NodeListOf<HTMLElement>} */ (summaryPaneEl.querySelectorAll(".ov-chip")).forEach((c) => {
+    c.classList.toggle("viewed", isUnitViewed(unitById(c.dataset.id)));
+  });
+}
 
 function unitLabel(u) {
   if (u.name === "(module)") return "imports & module-level";
@@ -79,42 +96,92 @@ function unitLabel(u) {
   return u.name;
 }
 
+// ---- list filter: text over name / file / gist ----
+const sumFilterEl = document.getElementById("sum-filter");
+const sumFilterInput = /** @type {HTMLInputElement} */ (sumFilterEl.querySelector("input"));
+const sumFilterClear = /** @type {HTMLElement} */ (sumFilterEl.querySelector("button"));
+let sumFilterText = ""; // transient, like the file filter
+
+function matchesSumFilter(u) {
+  if (sumFilterText === "") return true;
+  const haystack = unitLabel(u) + "\n" + u.displayFile + "\n" + (u.summary ? u.summary.gist : "");
+  return haystack.toLowerCase().includes(sumFilterText);
+}
+
+function applySumFilter() {
+  sumFilterText = sumFilterInput.value.trim().toLowerCase();
+  sumFilterClear.style.display = sumFilterText === "" ? "none" : "";
+  renderSummaryList();
+}
+sumFilterInput.oninput = applySumFilter;
+sumFilterInput.onkeydown = (ev) => {
+  if (ev.key === "Escape") { sumFilterInput.value = ""; applySumFilter(); sumFilterInput.blur(); }
+};
+sumFilterClear.onclick = () => { sumFilterInput.value = ""; applySumFilter(); };
+
 function renderSummary() {
   const summary = DATA.summary;
   syncNavVisibilitySummary();
   if (!summary) return;
-  const units = summary.units;
+  const summarized = renderSummaryList();
+  if (summarized === 0 && !summaryPaneEl.dataset.browsing) {
+    renderSummaryEmpty(summary);
+  } else if (state.summaryOverview) {
+    renderSummaryOverview(summary);
+  } else {
+    renderSummaryUnit(currentUnit());
+  }
+  summaryListEl.querySelector(".sum-item.active")?.scrollIntoView({ block: "nearest" });
+}
 
-  // list order: flows, then needs-a-look, routine, not yet summarized / stale.
-  // A unit in several flows is listed once, under the first.
+// List order: flows, then needs-a-look, routine, not yet summarized / stale.
+// A unit in several flows is listed once, under the first.
+function groupUnits(summary, shown) {
   const listed = new Set();
   const sections = summary.flows
     .map((flow) => ({
       flow,
-      members: Object.keys(flow.units).map(unitById).filter((u) => u && !listed.has(u.id) && listed.add(u.id)),
+      members: Object.keys(flow.units).map(unitById).filter((u) => u && !listed.has(u.id) && listed.add(u.id)).filter(shown),
     }))
     .filter((section) => section.members.length > 0);
   const rank = (u) => !u.summary ? 3 : u.summary.needsLook ? 0 : 1;
-  const others = units.filter((u) => !listed.has(u.id)).sort((a, b) => rank(a) - rank(b));
+  const others = summary.units.filter((u) => !listed.has(u.id)).filter(shown).sort((a, b) => rank(a) - rank(b));
+  return { sections, others };
+}
+
+// The list alone — filtering must not rebuild the pane (and lose its scroll).
+// Returns how many units have a summary.
+function renderSummaryList() {
+  const summary = DATA.summary;
+  const units = summary.units;
+  const { sections, others } = groupUnits(summary, matchesSumFilter);
   summaryOrder = [...sections.flatMap((section) => section.members), ...others].map((u) => u.id);
-  // before building the list, so the default unit is highlighted too
+  // before building the list, so the default unit is highlighted too. A unit
+  // the filter hides stays open in the pane.
   if (!state.summaryActive || !unitById(state.summaryActive)) state.summaryActive = summaryOrder[0] || null;
   const itemHtml = (u, side) => {
     const s = u.summary;
-    const cls = "sum-item" + (u.id === state.summaryActive ? " active" : "") +
-      (!s ? " pending" : s.needsLook ? "" : " routine");
+    const isViewed = isUnitViewed(u);
+    const cls = "sum-item" + (!state.summaryOverview && u.id === state.summaryActive ? " active" : "") +
+      (!s ? " pending" : s.needsLook ? "" : " routine") + (isViewed ? " viewed" : "") + " st-" + u.status;
     const gist = u.stale ? '<span class="gist stale">code changed — re-run</span>'
       : '<span class="gist">' + escapeHtml(s ? s.gist : u.kind + " · " + u.status) + "</span>";
-    return '<button class="' + cls + '" data-id="' + escapeHtml(u.id) + '" title="' + escapeHtml(u.id) + '">' +
+    return '<button class="' + cls + '" data-id="' + escapeHtml(u.id) + '" title="' + escapeHtml(u.id + " — " + u.status) + '">' +
+      viewedBoxHtml(isViewed, "mark viewed") +
       (s && s.needsLook ? '<span class="attn-dot" title="needs a look"></span>' : "<span></span>") +
       '<span class="name">' + escapeHtml(unitLabel(u)) + '</span><span class="side">' + escapeHtml(side || "") + "</span>" +
       gist + "</button>";
   };
   const summarized = units.filter((u) => u.summary).length;
   const attention = units.filter((u) => u.summary && u.summary.needsLook).length;
-  let html = '<div class="sum-head"><span class="title">' + units.length + (units.length === 1 ? " change" : " changes") + "</span>" +
+  const title = sumFilterText !== ""
+    ? summaryOrder.length + " of " + units.length + " changes"
+    : units.length + (units.length === 1 ? " change" : " changes");
+  let html = '<div class="sum-head"><span class="title">' + title + "</span>" +
     (summarized === 0 ? '<span class="legend">not summarized yet</span>'
-      : '<span class="legend"><span class="attn-dot"></span>' + attention + " need a look</span>") + "</div>";
+      : '<span class="legend"><span class="attn-dot"></span>' + attention + " need a look</span>") + "</div>" +
+    '<button class="sum-overview-item' + (state.summaryOverview ? " active" : "") + '" title="the whole diff at a glance (g)">' +
+    '<span class="ico"></span>Overview<span class="key">g</span></button>';
   for (const { flow, members } of sections) {
     html += '<div class="sum-section"><div class="sum-section-title"><span class="t">' + escapeHtml(flow.title) +
       '</span><span class="sub">' + escapeHtml(flow.path) + "</span></div>" +
@@ -124,18 +191,32 @@ function renderSummary() {
     html += '<div class="sum-section">' + (sections.length > 0 ? '<div class="sum-section-title"><span class="t">Other changes</span></div>' : "") +
       others.map((u) => itemHtml(u, u.displayFile.split("/").pop())).join("") + "</div>";
   }
+  if (summaryOrder.length === 0) html += '<div class="no-match">no changes match the filter</div>';
   const scrolled = nav.scrollTop; // rebuilding the list must not move it
   summaryListEl.innerHTML = html;
   nav.scrollTop = scrolled;
   /** @type {NodeListOf<HTMLElement>} */ (summaryListEl.querySelectorAll(".sum-item")).forEach((b) => {
-    b.onclick = () => { state.summaryActive = b.dataset.id; summaryPaneEl.dataset.browsing = "1"; renderSummary(); };
+    b.onclick = () => openSummaryUnit(b.dataset.id);
+    /** @type {HTMLElement} */ (b.querySelector(".viewed-box")).onclick = (ev) => {
+      ev.stopPropagation();
+      toggleUnitViewed(unitById(b.dataset.id));
+    };
   });
-  if (summarized === 0 && !summaryPaneEl.dataset.browsing) {
-    renderSummaryEmpty(summary);
-  } else {
-    renderSummaryUnit(currentUnit());
-  }
-  summaryListEl.querySelector(".sum-item.active")?.scrollIntoView({ block: "nearest" });
+  /** @type {HTMLElement} */ (summaryListEl.querySelector(".sum-overview-item")).onclick = showOverview;
+  return summarized;
+}
+
+function openSummaryUnit(id) {
+  state.summaryOverview = false;
+  state.summaryActive = id;
+  summaryPaneEl.dataset.browsing = "1";
+  renderSummary();
+}
+
+function showOverview() {
+  state.summaryOverview = true;
+  summaryPaneEl.dataset.browsing = "1";
+  renderSummary();
 }
 
 function syncNavVisibilitySummary() {
@@ -158,7 +239,141 @@ function renderSummaryEmpty(summary) {
     try { await navigator.clipboard.writeText(summary.command); btn.textContent = "copied"; }
     catch { btn.textContent = "select + copy"; }
   };
-  document.getElementById("browse-units").onclick = () => { summaryPaneEl.dataset.browsing = "1"; renderSummary(); };
+  // the overview's map and by-file lanes need no summary, so browsing starts there
+  document.getElementById("browse-units").onclick = showOverview;
+}
+
+// ⓘ with a hover tip, the same widget as the fold-level help in the toolbar
+function infoHtml(title, text) {
+  return '<span class="info" aria-label="' + title + '">&#9432;<span class="tip"><div class="tip-title">' + title + "</div>" + text + "</span></span>";
+}
+const STAT_INFO = {
+  // worded as bundle.ts asks the agent for needsLook
+  look: infoHtml("needs a look", "The agent flags a change (red dot) when a reviewer should look closely: it changes behavior, " +
+    "may be a bug, may break callers, or is otherwise risky. Routine changes (renames, types, formatting, tests) aren't flagged." +
+    '<div class="tip-note">The agent\'s judgement — lens doesn\'t verify it.</div>'),
+  callers: infoHtml("callers outside the diff", "Call sites the diff didn't touch that the agent found may break. " +
+    "Each one is checked: the line exists and mentions the changed unit."),
+  stale: infoHtml("stale", "Changes whose code moved on since they were summarized. Run the summary again to update them."),
+};
+
+// The whole diff at a glance: counts, the agent's overview, each flow by layer.
+function renderSummaryOverview(summary) {
+  const units = summary.units;
+  const files = new Set(units.map((u) => u.displayFile)).size;
+  const look = units.filter((u) => u.summary && u.summary.needsLook).length;
+  const callers = new Set(units.flatMap((u) => u.summary
+    ? u.summary.breaks.flatMap((b) => b.callers.map((c) => c.file + ":" + c.line)) : [])).size;
+  const stale = units.filter((u) => u.stale).length;
+  const { sections, others } = groupUnits(summary, () => true);
+  const stat = (value, label, tone) =>
+    '<div class="ov-stat' + (value > 0 && tone ? " " + tone : "") + '"><div class="v">' + value + '</div><div class="l">' + label + "</div></div>";
+
+  let html = '<div class="ov-stats">' +
+    stat(units.length, (units.length === 1 ? "change" : "changes") + " in " + plural(files, "file"), "") +
+    stat(sections.length, sections.length === 1 ? "flow" : "flows", "") +
+    stat(look, "need a look " + STAT_INFO.look, "red") +
+    stat(callers, "callers outside the diff " + STAT_INFO.callers, "amber") +
+    stat(stale, "stale " + STAT_INFO.stale, "amber") +
+    "</div>";
+
+  const o = summary.overview;
+  if (o) {
+    html += '<div class="ov-what"><div class="ov-what-label">Agent summary</div>' +
+      o.what.split("\n\n").map((p) => "<p>" + escapeHtml(p) + "</p>").join("") + "</div>";
+    if (o.stale) {
+      html += '<div class="sum-note stale">The diff changed since this overview was written. Run <code>' +
+        escapeHtml(summary.command) + "</code> again to update it.</div>";
+    }
+  } else if (units.some((u) => u.summary)) {
+    html += '<div class="sum-note">No overview yet — run <code>' + escapeHtml(summary.command) + "</code> again to add one.</div>";
+  } else {
+    html += '<div class="sum-note">Not summarized yet — run <code>' + escapeHtml(summary.command) + "</code> in your agent.</div>";
+  }
+
+  // the lower half flips between the flows and the map
+  const lower = state.overviewTab === "map" ? mapHtml(summary) : flowsHtml(sections, others);
+  const tab = (id, label) => '<button class="ov-tab" role="tab" data-tab="' + id + '" aria-selected="' + (state.overviewTab === id) + '">' + label + "</button>";
+  html += '<div><div class="ov-tabs" role="tablist">' + tab("flows", "Flows") + tab("map", "Map") +
+    '<span class="ov-tabs-note">' + lower.note + '</span></div><div class="ov-lanes">' + lower.lanes + "</div></div>";
+
+  summaryPaneEl.innerHTML = '<div class="sum-inner">' + html + "</div>";
+  /** @type {NodeListOf<HTMLElement>} */ (summaryPaneEl.querySelectorAll(".ov-chip")).forEach((b) => {
+    b.onclick = () => openSummaryUnit(b.dataset.id);
+  });
+  /** @type {NodeListOf<HTMLElement>} */ (summaryPaneEl.querySelectorAll(".ov-tab")).forEach((b) => {
+    b.onclick = () => {
+      const top = summaryPaneEl.scrollTop; // flipping tabs keeps the page where it is
+      state.overviewTab = b.dataset.tab;
+      writePref("lens.overviewTab", state.overviewTab);
+      renderSummaryOverview(summary);
+      summaryPaneEl.scrollTop = top;
+    };
+  });
+  summaryPaneEl.scrollTop = 0;
+}
+
+// Each flow laid out by layer, then the units outside any flow by file.
+function flowsHtml(sections, others) {
+  let lanes = "";
+  for (const { flow, members } of sections) {
+    // the path's steps in order, then any layer the path doesn't name
+    const layers = flow.path.split("→").map((l) => l.trim()).filter(Boolean);
+    for (const u of members) if (!layers.includes(flow.units[u.id])) layers.push(flow.units[u.id]);
+    lanes += '<div class="ov-lane">' + ovLaneHeadHtml(flow.title, plural(members.length, "change")) + '<div class="ov-layers">' +
+      layers.map((l) => ovColumnHtml(l, members.filter((u) => flow.units[u.id] === l), "")).join("") + "</div></div>";
+  }
+  if (others.length > 0) {
+    lanes += '<div class="ov-lane">' + ovLaneHeadHtml(sections.length > 0 ? "Other changes" : "Changes", plural(others.length, "change"), sections.length > 0) +
+      '<div class="ov-layers files">' +
+      [...byFile(others)].map(([file, units]) => ovColumnHtml(file.split("/").pop(), units, file)).join("") + "</div></div>";
+  }
+  return { note: plural(sections.length, "flow"), lanes };
+}
+
+// Every change where it lives: a card per folder, a column per file, its units in file order.
+function mapHtml(summary) {
+  const startOf = (u) => u.ranges.length > 0 ? u.ranges[0].start : (u.removals[0]?.anchor ?? 0);
+  const files = byFile([...summary.units].sort((a, b) => a.displayFile.localeCompare(b.displayFile) || startOf(a) - startOf(b)));
+  const dirs = new Map(); // folder -> its [file, units] entries, in path order
+  for (const entry of files) {
+    const dir = entry[0].slice(0, entry[0].lastIndexOf("/") + 1);
+    dirs.set(dir, [...(dirs.get(dir) || []), entry]);
+  }
+  const lanes = [...dirs].map(([dir, entries]) => {
+    const count = entries.reduce((n, [, units]) => n + units.length, 0);
+    return '<div class="ov-lane">' + ovLaneHeadHtml(dir || "./", plural(count, "change") + " · " + plural(entries.length, "file"), false, true) +
+      '<div class="ov-layers files">' + entries.map(([file, units]) => ovColumnHtml(file.slice(dir.length), units, file)).join("") + "</div></div>";
+  }).join("");
+  return { note: plural(files.size, "file") + " across " + plural(dirs.size, "folder"), lanes };
+}
+
+/** @returns {Map<string, any[]>} file -> its units, in the order given */
+function byFile(units) {
+  const files = new Map();
+  for (const u of units) files.set(u.displayFile, [...(files.get(u.displayFile) || []), u]);
+  return files;
+}
+
+function plural(n, word) { return n + " " + word + (n === 1 ? "" : "s"); }
+
+// A unit as a tag (overview and map): status stripe, needs-a-look tint, dimmed once viewed.
+function ovChipHtml(u) {
+  const look = !!(u.summary && u.summary.needsLook);
+  return '<button class="ov-chip st-' + u.status + (look ? " look" : "") + (isUnitViewed(u) ? " viewed" : "") + '" data-id="' + escapeHtml(u.id) +
+    '" title="' + escapeHtml(u.summary ? u.summary.headline : u.id) + '">' +
+    '<span class="st-bar"></span><span class="cn">' + escapeHtml(unitLabel(u)) + "</span>" +
+    (look ? '<span class="attn-dot"></span>' : "") + "</button>";
+}
+
+function ovColumnHtml(label, units, title) {
+  return '<div class="ov-layer"><div class="ov-layer-l"' + (title ? ' title="' + escapeHtml(title) + '"' : "") + ">" +
+    escapeHtml(label) + "</div>" + units.map(ovChipHtml).join("") + "</div>";
+}
+
+function ovLaneHeadHtml(title, count, muted, mono) {
+  return '<div class="ov-lane-h"><span class="t' + (muted ? " muted" : "") + (mono ? " mono" : "") + '">' + escapeHtml(title) +
+    '</span><span class="n">' + count + "</span></div>";
 }
 
 function renderSummaryUnit(u) {
@@ -202,6 +417,8 @@ function renderSummaryUnit(u) {
   const fileIndex = DATA.files.findIndex((f) => f.file === u.displayFile);
   html += '<div class="unit-head"><span class="path" title="' + escapeHtml(u.id) + '">' + escapeHtml(u.displayFile) + "</span>" +
     '<span class="status ' + u.status + '">' + u.status + (u.formattingOnly ? " · formatting only" : "") + "</span>" +
+    '<label class="control" title="mark this change as viewed (m)"><input type="checkbox" id="sum-viewed"' +
+    (isUnitViewed(u) ? " checked" : "") + "> viewed</label>" +
     '<label class="control"><input type="checkbox" id="sum-removed"' + (state.showRemoved ? " checked" : "") + "> removed lines</label>" +
     (fileIndex >= 0 && u.ranges.length > 0 ? '<button id="open-in-code" title="open in the code view (o)">code view ↗</button>' : "") +
     "</div>";
@@ -231,6 +448,7 @@ function renderSummaryUnit(u) {
     showRemovedBox.checked = state.showRemoved = removedBox.checked; // keep the Code view's toggle in sync
     render();
   };
+  /** @type {HTMLInputElement} */ (one("#sum-viewed")).onchange = () => toggleUnitViewed(u);
   const openBtn = one("#open-in-code");
   if (openBtn) openBtn.onclick = () => openUnitInCode(u);
   summaryPaneEl.scrollTop = 0;
@@ -320,7 +538,9 @@ function flashCited(container, label) {
 
 function stepSummary(direction) {
   if (summaryOrder.length === 0) return;
-  const pos = summaryOrder.indexOf(state.summaryActive);
+  // from the overview, j starts at the top of the list and k at the bottom
+  const pos = state.summaryOverview ? -1 : summaryOrder.indexOf(state.summaryActive);
+  state.summaryOverview = false;
   state.summaryActive = pos === -1
     ? summaryOrder[direction > 0 ? 0 : summaryOrder.length - 1]
     : summaryOrder[(pos + direction + summaryOrder.length) % summaryOrder.length];

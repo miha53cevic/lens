@@ -60,7 +60,8 @@ export async function runSummary(rest: string[], cwd: string): Promise<void> {
     writeStored(root, bundle.key, outcome.stored);
     const missing = bundle.units.filter((u) => !outcome.stored.units[u.id] || outcome.stored.units[u.id].hash !== u.hash);
     console.log(`lens: accepted ${outcome.accepted.length} unit${outcome.accepted.length === 1 ? "" : "s"}` +
-      (outcome.acceptedFlows ? `, ${outcome.acceptedFlows} flow${outcome.acceptedFlows === 1 ? "" : "s"}` : ""));
+      (outcome.acceptedFlows ? `, ${outcome.acceptedFlows} flow${outcome.acceptedFlows === 1 ? "" : "s"}` : "") +
+      (outcome.acceptedOverview ? ", the overview" : ""));
     if (outcome.dropped.length > 0) {
       console.log(`\nrejected ${outcome.dropped.length} — fix these entries in ${basename(resultFile)} and submit again:`);
       for (const d of outcome.dropped) console.log(`  - ${d}`);
@@ -73,7 +74,7 @@ export async function runSummary(rest: string[], cwd: string): Promise<void> {
     console.log(`\nsummary saved — refresh the lens viewer (↻) and open the Summary tab`);
     const submitted = typeof result === "object" && result !== null && typeof (result as { units?: unknown }).units === "object"
       ? Object.keys((result as { units: object }).units).length : 0;
-    if (outcome.accepted.length === 0 && (submitted > 0 || outcome.dropped.length > 0)) process.exitCode = 1;
+    if (outcome.accepted.length === 0 && !outcome.acceptedOverview && (submitted > 0 || outcome.dropped.length > 0)) process.exitCode = 1;
     return;
   }
   throw new Error(`unknown summary subcommand "${sub ?? ""}" — use prepare or submit`);

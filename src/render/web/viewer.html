@@ -57,6 +57,10 @@
     <div class="vdivider"></div>
     <button id="expand-all">expand all</button>
     <button id="collapse-all">collapse all</button>
+    <div class="vdivider" id="viewed-divider"></div>
+    <label class="control" id="viewed-wrap" title="mark this file as viewed (m)">
+      <input type="checkbox" id="viewed"> viewed
+    </label>
   </div>
 </header>
 <dialog id="settings-modal">
@@ -79,6 +83,7 @@
       <tr><td><kbd>j</kbd> / <kbd>k</kbd></td><td>next / previous file</td></tr>
       <tr><td><kbd>w</kbd></td><td>close the active tab</td></tr>
       <tr><td><kbd>o</kbd></td><td>keep the preview tab open (pin it)</td></tr>
+      <tr><td><kbd>m</kbd></td><td>mark the file / change as viewed</td></tr>
       <tr><td><kbd>⌘P</kbd> / <kbd>Ctrl P</kbd></td><td>search in files</td></tr>
       <tr><td><kbd>⌥ click</kbd></td><td>find usages of the clicked identifier</td></tr>
       <tr><td><kbd>/</kbd></td><td>focus the file filter</td></tr>
@@ -90,7 +95,7 @@
       <tr><td><kbd>t</kbd></td><td>toggle hide tests</td></tr>
       <tr><td><kbd>r</kbd></td><td>refresh the analysis</td></tr>
       <tr><td><kbd>v</kbd></td><td>switch Code / Summary <span class="set-source">(diff mode)</span></td></tr>
-      <tr><td colspan="2" class="set-source">in Summary: <kbd>j</kbd> / <kbd>k</kbd> next / previous change · <kbd>o</kbd> open it in the code view · <kbd>x</kbd> removed lines</td></tr>
+      <tr><td colspan="2" class="set-source">in Summary: <kbd>g</kbd> overview · <kbd>j</kbd> / <kbd>k</kbd> next / previous change · <kbd>o</kbd> open it in the code view · <kbd>/</kbd> filter the changes · <kbd>x</kbd> removed lines</td></tr>
       <tr><td><kbd>?</kbd></td><td>this help</td></tr>
       <tr><td><kbd>Esc</kbd></td><td>close dialogs · clear the filter</td></tr>
     </table>
@@ -120,6 +125,10 @@
       <button id="filter-clear" title="clear filter (Esc)" style="display:none">✕</button>
     </div>
     <div id="tree"></div>
+    <div class="nav-filter" id="sum-filter" style="display:none">
+      <input type="text" placeholder="filter changes…" spellcheck="false" autocomplete="off">
+      <button title="clear filter (Esc)" style="display:none">✕</button>
+    </div>
     <div id="summary-list" style="display:none"></div>
   </nav>
   <div class="resizer" id="resizer" title="drag to resize the file tree"></div>
