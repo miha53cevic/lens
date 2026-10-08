@@ -253,6 +253,7 @@ test("lens ask: listen gets the viewer's question, reply answers it, server.json
       });
       const base = `http://127.0.0.1:${port}`;
       assert.ok(existsSync(join(dir, ".lens", "server.json")), "the viewer says where it runs");
+      assert.ok(existsSync(join(dir, ".lens", ".gitignore")), "and .lens/ keeps itself out of git");
 
       // listen first: it waits for a question (found via .lens/server.json, no --port)
       const listening = lens(join(dir), "ask", "listen");

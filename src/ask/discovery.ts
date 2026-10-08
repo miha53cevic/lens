@@ -1,5 +1,6 @@
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { lensDir } from "../summary/store.ts";
 
 // How `lens ask` finds the running viewer: the server writes its port to
 // <root>/.lens/server.json and removes it when it stops.
@@ -14,9 +15,7 @@ export function serverInfoPath(root: string): string {
 }
 
 export function writeServerInfo(root: string, port: number): void {
-  const file = serverInfoPath(root);
-  mkdirSync(dirname(file), { recursive: true });
-  writeFileSync(file, JSON.stringify({ port, pid: process.pid } satisfies ServerInfo) + "\n");
+  writeFileSync(join(lensDir(root), "server.json"), JSON.stringify({ port, pid: process.pid } satisfies ServerInfo) + "\n");
 }
 
 /** Removes the file only if this process wrote it — another lens may have taken over since. */
