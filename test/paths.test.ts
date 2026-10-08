@@ -1,7 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { relPath, toPosix } from "../src/paths.ts";
+import { relPath, resolveLineRef, toPosix } from "../src/paths.ts";
 import { summaryArgs } from "../src/summary/store.ts";
 
 test("relPath is /-separated on every OS, and falls back to the path itself", () => {
@@ -17,4 +19,19 @@ test("summaryArgs prints the diff's arguments as a shell takes them", () => {
   assert.equal(summaryArgs("pr", ["87"]), "pr 87");
   assert.equal(summaryArgs("diff", ["main...feature", "--", "my dir/a.ts"]), 'main...feature -- "my dir/a.ts"');
   assert.equal(summaryArgs("diff", ['say "hi"']), '"say \\"hi\\""');
+});
+
+test("resolveLineRef points at a real line under the root, or says why not", () => {
+  const root = mkdtempSync(join(tmpdir(), "lens-ref-"));
+  mkdirSync(join(root, "src"));
+  writeFileSync(join(root, "src", "a.ts"), "one\ntwo\nthree");
+  const cache = new Map<string, string[] | null>();
+  assert.deepEqual(resolveLineRef(root, "src/a.ts:2", cache), { file: "src/a.ts", line: 2, text: "two" });
+  assert.deepEqual(resolveLineRef(root, " src/a.ts:3 ", cache), { file: "src/a.ts", line: 3, text: "three" });
+  assert.deepEqual(resolveLineRef(root, "src/a.ts:4", cache), { error: "— the file has only 3 lines" });
+  assert.deepEqual(resolveLineRef(root, "src/a.ts:0", cache), { error: "— the file has only 3 lines" });
+  assert.deepEqual(resolveLineRef(root, "src/b.ts:1", cache), { error: "— file not found" });
+  assert.deepEqual(resolveLineRef(root, "src:1", cache), { error: "— file not found" });
+  assert.deepEqual(resolveLineRef(root, "../a.ts:1", cache), { error: "must be a path relative to the repository root" });
+  assert.deepEqual(resolveLineRef(root, "src/a.ts", cache), { error: "must look like \"path/to/file.ts:31\"" });
 });
