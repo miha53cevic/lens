@@ -22,7 +22,7 @@ Requires Node >= 23.6 (runs TypeScript directly via type stripping).
 npm install
 npm run install-cli     # npm-links a global `lens` command (live-updates with the source)
 npm run uninstall-cli
-npm run install-skill   # links the /lens-review and /lens-build-review skills into ~/.claude/skills
+npm run install-skill   # links the /lens-review, /lens-build-review and /lens-ask skills into ~/.claude/skills
 npm run uninstall-skill
 ```
 
@@ -72,9 +72,11 @@ explicitly is always analyzed.
 - **Viewed marks**: tick a file in the tree (or press `m`) once you've read it; it dims.
   Marks live in the browser and clear themselves when the file's content changes.
   Summary changes have their own marks.
+- **Ask** (`a`): a rail on the right where you ask your agent about the code you're
+  reading — see [Ask mode](#ask-mode).
 - **Keys** (`?` lists them): j/k files, e/c folds, [/] threshold, h hunks, x removed
-  lines, t hide tests, / filter, m viewed, s sidebar, r refresh, v Code/Summary; in
-  Summary, g overview and j/k changes.
+  lines, t hide tests, / filter, m viewed, s sidebar, r refresh, v Code/Summary,
+  a ask, \ hide the Ask rail; in Summary, g overview and j/k changes.
 
 **PR mode** uses git alone — no GitHub API or gh CLI, so private repos just use your
 normal git auth. It fetches `refs/pull/N/head` (fork PRs work) from a matching local
@@ -147,6 +149,41 @@ it is out of date, `prepare` asks for just the overview.
 
 `.lens/` carries its own `*` `.gitignore`, so nothing needs adding to your repo and
 nothing is written into `.git`.
+
+## Ask mode
+
+Press `a` (or the **Ask** button) to open a rail on the right and ask your agent about
+the code while you review: "why is this check needed?", "what calls this?". Each question
+carries the change you have open — the Summary tab's unit, or the Code tab's file —
+plus the code you have selected, if any. Select across removed and added lines to send
+both sides. The selection stays while you type; a plain click in the code drops it.
+
+There is one chat for the whole lens session: moving to another change, flow, file or
+tab keeps it, and each question is labeled with the change it was about (click the
+label to go back). Answers cite code as `path:line`; lens checks each one, and a valid
+cite flashes that line when clicked. After ↻ refresh, questions whose code changed are
+dimmed and their cites stop linking. The chat lives in the running viewer and ends with
+it. Drag the rail's edge to resize it; `\` hides it, `Esc` leaves the input.
+
+Answers come from your own agent, the same way summaries do:
+
+```bash
+# in your agent (Claude Code: after npm run install-skill)
+/lens-ask
+```
+
+which loops on
+
+```bash
+lens ask listen                # waits for the next question, prints it with the rules
+lens ask reply q3 answer.md    # posts the answer (a file, or - for stdin)
+```
+
+`listen` finds the viewer through `.lens/server.json` (pass `--port` if you started
+it on another port). The agent is told to **only read and answer** — never edit files
+or run commands that change the repo — and to answer from a read-only subagent when it
+has one. With no agent listening, the button turns into **Copy as prompt**: the
+question, file, lines and code as markdown, ready for any chat.
 
 ## How folding works
 
@@ -245,14 +282,14 @@ npm test            # typecheck + node --test
 ```
 
 Classifier rules live in `src/classify/typescript.ts` (shared by ts/tsx/js). The viewer
-is `src/render/web/`: `viewer.html`, `viewer.css`, `viewer.js` (Code view) and
-`summary.js` (Summary view), which the server inlines into one page. The scripts are
+is `src/render/web/`: `viewer.html`, `viewer.css`, `viewer.js` (Code view),
+`summary.js` (Summary view) and `ask.js` (the Ask rail), which the server inlines into one page. The scripts are
 plain JS type-checked through JSDoc (`tsconfig.viewer.json`, part of `npm test`).
 Fixture-driven tests are the main defense against a fold hiding a real bug — a rule
 change that suddenly folds more fails loudly.
 
 ## Non-goals
 
-lens itself calls no AI (summary mode hands the writing to your own agent). No
+lens itself calls no AI (summary and ask mode hand the writing to your own agent). No
 semantic analysis or type checking. No editing — lens is read-only. No terminal
 output — the viewer is the only interface (plus `--json` for debugging).
