@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { createServer, type Server } from "node:http";
-import { mkdtempSync, mkdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -210,6 +210,83 @@ test("ask routes: ask, listen, answer, and stale after the code changes", async 
     } finally {
       server.closeAllConnections();
       await new Promise((r) => server.close(r));
+    }
+  });
+});
+
+const CLI = join(import.meta.dirname, "..", "src", "cli.ts");
+
+function freePort(): Promise<number> {
+  return new Promise((resolve) => {
+    const s = createServer().listen(0, "127.0.0.1", () => {
+      const { port } = s.address() as AddressInfo;
+      s.close(() => resolve(port));
+    });
+  });
+}
+
+/** Runs the lens CLI to completion. */
+function lens(cwd: string, ...args: string[]): Promise<{ code: number; stdout: string; stderr: string }> {
+  return new Promise((resolve) => {
+    const child = spawn(process.execPath, [CLI, ...args], { cwd });
+    let stdout = "", stderr = "";
+    child.stdout.on("data", (d) => { stdout += d; });
+    child.stderr.on("data", (d) => { stderr += d; });
+    child.on("close", (code) => resolve({ code: code ?? -1, stdout, stderr }));
+  });
+}
+
+test("lens ask: listen gets the viewer's question, reply answers it, server.json comes and goes", { timeout: 60_000 }, async () => {
+  await withRepo(async (dir, git) => {
+    writeFileSync(join(dir, "calc.ts"), OLD);
+    git("add", "-A");
+    git("commit", "-qm", "base");
+    writeFileSync(join(dir, "calc.ts"), NEW);
+
+    const port = await freePort();
+    const viewer = spawn(process.execPath, [CLI, "diff", "--no-open", "--port", String(port)], { cwd: dir });
+    const exited = new Promise((r) => viewer.on("close", r));
+    try {
+      await new Promise<void>((resolve, reject) => {
+        viewer.stdout.on("data", (d) => { if (String(d).includes("lens viewer on")) resolve(); });
+        viewer.on("close", () => reject(new Error("the viewer exited")));
+      });
+      const base = `http://127.0.0.1:${port}`;
+      assert.ok(existsSync(join(dir, ".lens", "server.json")), "the viewer says where it runs");
+
+      // listen first: it waits for a question (found via .lens/server.json, no --port)
+      const listening = lens(join(dir), "ask", "listen");
+      const asked = await fetch(base + "/api/ask", {
+        method: "POST",
+        body: JSON.stringify({ text: "why reduce?", file: "calc.ts", unitId: "calc.ts#total", label: "total" }),
+      });
+      assert.equal(asked.status, 200);
+      const heard = await listening;
+      assert.equal(heard.code, 0, heard.stderr);
+      assert.ok(heard.stdout.startsWith("lens ask · q1 · total (calc.ts)"));
+      assert.ok(heard.stdout.includes("why reduce?"));
+
+      writeFileSync(join(dir, "answer.md"), "It replaces the loop at calc.ts:2.\n");
+      const replied = await lens(dir, "ask", "reply", "q1", "answer.md");
+      assert.equal(replied.code, 0, replied.stderr);
+      assert.equal(replied.stdout.trim(), "lens: answered q1 (1 cite linked)");
+      const state = await (await fetch(base + "/api/ask")).json();
+      assert.equal(state.questions[0].answer.markdown, "It replaces the loop at calc.ts:2.");
+
+      const unknown = await lens(dir, "ask", "reply", "q5", "answer.md");
+      assert.equal(unknown.code, 1);
+      assert.match(unknown.stderr, /no question q5/);
+
+      await fetch(base + "/api/shutdown", { method: "POST" });
+      await exited;
+      assert.ok(!existsSync(join(dir, ".lens", "server.json")), "removed when the viewer stops");
+
+      const orphan = await lens(dir, "ask", "listen", "--port", String(port));
+      assert.equal(orphan.code, 1);
+      assert.match(orphan.stderr, /no lens viewer is answering on port/);
+    } finally {
+      viewer.kill();
+      await exited; // Windows keeps the temp dir busy while the process lives
     }
   });
 });

@@ -4,6 +4,7 @@ import { isBundledTheme } from "./render/highlight.ts";
 import { serveViewer } from "./render/web/server.ts";
 import { analyze } from "./analyze.ts";
 import { runSummary } from "./summary/command.ts";
+import { runAsk } from "./ask/command.ts";
 import type { LensConfig } from "./model.ts";
 
 const HELP = `lens — a reading lens for AI-generated code (static analysis, no AI)
@@ -21,6 +22,11 @@ summary mode (written by your own coding agent — see skills/lens-review):
   lens summary submit <bundle-dir | result.json>
                               validate the agent's result.json and store it for the viewer
 
+ask mode (the viewer's Ask rail, answered by your own agent — see skills/lens-ask):
+  lens ask listen             wait for the next question asked in the viewer and print it
+  lens ask reply <id> <answer.md | ->
+                              post the answer to that question
+
 output (default: local web viewer):
   --json            print the fold model as JSON (for debugging)
   --port <n>        web viewer port (default 5326)
@@ -35,14 +41,16 @@ interface CliOptions {
   open: boolean;
   openSummary: boolean;
   port: number;
+  /** --port was given explicitly */
+  portSet: boolean;
   threshold: number | null;
   theme: string | null;
 }
 
-type Command = "paths" | "diff" | "pr" | "config" | "summary";
+type Command = "paths" | "diff" | "pr" | "config" | "summary" | "ask";
 
 function parseCli(argv: string[]): { command: Command; rest: string[]; opts: CliOptions } {
-  const opts: CliOptions = { json: false, open: true, openSummary: false, port: 5326, threshold: null, theme: null };
+  const opts: CliOptions = { json: false, open: true, openSummary: false, port: 5326, portSet: false, threshold: null, theme: null };
   const rest: string[] = [];
   let command: Command = "paths";
   const args = [...argv];
@@ -50,12 +58,13 @@ function parseCli(argv: string[]): { command: Command; rest: string[]; opts: Cli
   else if (args[0] === "pr") { command = "pr"; args.shift(); }
   else if (args[0] === "config") { command = "config"; args.shift(); }
   else if (args[0] === "summary") { command = "summary"; args.shift(); }
+  else if (args[0] === "ask") { command = "ask"; args.shift(); }
   while (args.length > 0) {
     const arg = args.shift()!;
     if (arg === "--json") opts.json = true;
     else if (arg === "--no-open") opts.open = false;
     else if (arg === "--summary") opts.openSummary = true;
-    else if (arg === "--port") opts.port = Number(args.shift());
+    else if (arg === "--port") { opts.port = Number(args.shift()); opts.portSet = true; }
     else if (arg === "--threshold") opts.threshold = Number(args.shift());
     else if (arg === "--theme") opts.theme = args.shift() ?? null;
     else if (arg === "--help" || arg === "-h") { console.log(HELP); process.exit(0); }
@@ -77,6 +86,7 @@ async function main(): Promise<void> {
     return;
   }
   if (command === "summary") return runSummary(rest, cwd);
+  if (command === "ask") return runAsk(rest, cwd, opts.portSet ? opts.port : null);
 
   if (!Number.isInteger(opts.port) || opts.port < 1 || opts.port > 65535) {
     throw new Error("--port needs a number between 1 and 65535");

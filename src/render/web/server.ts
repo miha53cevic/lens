@@ -241,8 +241,8 @@ export async function serveViewer(
   });
   server.listen(opts.port, "127.0.0.1", () => {
     const url = `http://127.0.0.1:${opts.port}/`;
+    writeServerInfo(infoRoot, opts.port); // before the banner: whoever waits for it can `lens ask` right away
     console.log(`lens viewer on ${url}  (ctrl-c to stop)`);
-    writeServerInfo(infoRoot, opts.port);
     process.on("SIGINT", stop);
     process.on("SIGTERM", stop);
     if (opts.open) {
