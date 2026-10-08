@@ -60,7 +60,8 @@ explicitly is always analyzed.
 - **Diff mode** shows every text file the diff touched. Unsupported types (json, md,
   yaml, …) get change markers and syntax colors, just no folding. Removed lines show
   inline, struck through, where they were deleted (`x` hides them). **Hunks only**
-  (`h`) shows just the changes with 3 lines of context, PR-style. Lockfiles and
+  (`h`, on by default) shows just the changes with 3 lines of context, PR-style;
+  click a `⋯` row to show what it hides. **Hide tests** (`t`) is on by default too. Lockfiles and
   minified files (`exclude`) are listed as dimmed `⊘` rows without being read; pure
   renames show as `R` rows.
 - **Search**: ⌘P (Ctrl+P) searches across all loaded files; ⌥-click an identifier to
@@ -86,12 +87,22 @@ pushes appear without restarting.
 
 In diff and PR mode the viewer has two tabs: **Code** (the default) and **Summary** —
 one changed unit at a time (function, component, hook, method, type, …) with a
-one-line headline, a **When / Before / Now** table of what behaves differently (each
-row links to the line that causes it), callers outside the diff it may break (click
-one to peek at the call), and the unit's code with the usual folds and removed lines.
-It opens on an **Overview** (<kbd>g</kbd>): counts, the agent's account of
-the whole diff, and each flow laid out by layer — or, flipped to the **Map** tab, every
-change where it lives: a card per folder, a column per file, units in file order.
+one-line headline, the agent's **concerns** (possible bugs, risks and questions, each on
+the line it's about and repeated as a note under that line in the code — you mark each
+one *real* or *dismiss* it), **what behaves differently** as scenarios (*when* … with
+the old result struck out and the new one below, each linked to the line that causes
+it), callers outside the diff it may break (click one to peek at the call), and the
+unit's code with the usual folds and removed lines.
+
+The list on the left is organized by **flows**: one story each (a feature end to end,
+a fix and the places it touches), ranked by the agent from P1 (review first) to P3
+(mechanical, folded until you open it). A unit is **flagged** only for a reason on
+record, each with its own mark: ⚠ possible bug, ! risk, ? question, ↗ may break callers
+(dismissed concerns don't count). Chips at the top of the list filter by them.
+It opens on an **Overview** (<kbd>g</kbd>): counts (click *possible bugs* or *flagged*
+to list just those), the agent's account of the whole diff, and each flow laid out by layer — or,
+flipped to the **Map** tab, every change where it lives: a card per folder, a column
+per file, units in file order.
 
 The summary is written by your coding agent, on your existing subscription:
 
@@ -108,6 +119,11 @@ lens summary prepare --staged  # splits the diff into units → .lens/summary/<k
 lens summary submit .lens/summary/diff-staged
                                # validates the agent's result.json and stores it
 ```
+
+A big diff is split into several task files; once every part is submitted, running
+`prepare` again asks for a **final pass**: flows and the overview, written from every
+unit's summary at once, so flows can span the whole diff. `submit` reports how many
+units the flows cover and which units with a concern or break are in none.
 
 Any agent with a shell can follow `prepare`'s printed instructions; the skill is only
 a thin pointer to them. After a submit, the Summary tab shows a dot when you return to

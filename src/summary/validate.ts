@@ -1,7 +1,10 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { isAbsolute, join, normalize, sep } from "node:path";
 import { LIMITS } from "./bundle.ts";
-import { unitSetHash, type Break, type Bundle, type BundleUnit, type ChangeRow, type Flow, type StoredSummary, type UnitSummary } from "./store.ts";
+import {
+  unitSetHash, type Break, type Bundle, type BundleUnit, type ChangeRow, type Concern, type ConcernKind, type Flow,
+  type StoredSummary, type UnitSummary,
+} from "./store.ts";
 
 // `lens summary submit`: every claim in the agent's result must point at real
 // code — a changed/removed line of the unit, or a caller line that exists and
@@ -13,7 +16,20 @@ export interface SubmitOutcome {
   acceptedFlows: number;
   acceptedOverview: boolean;
   dropped: string[];
+  coverage: Coverage;
 }
+
+/** How much of the diff the stored flows cover — reported, never enforced. */
+export interface Coverage {
+  /** units of this bundle with a current summary */
+  summarized: number;
+  /** of those, how many sit in at least one flow */
+  inFlows: number;
+  /** flagged units (a concern or a break) in no flow: the ones a reviewer reading by flow would miss */
+  flaggedOutside: string[];
+}
+
+const CONCERN_KINDS: ConcernKind[] = ["bug", "risk", "question"];
 
 /** Names that can't be checked against a caller line (call statements, leftovers, default exports). */
 function callerName(unit: BundleUnit): string | null {
@@ -37,7 +53,10 @@ export function validateResult(
   const fileCache = new Map<string, string[] | null>();
 
   if (typeof result !== "object" || result === null || typeof (result as { units?: unknown }).units !== "object") {
-    return { stored, accepted, acceptedFlows: 0, acceptedOverview: false, dropped: ['result must be an object with a "units" object'] };
+    return {
+      stored, accepted, acceptedFlows: 0, acceptedOverview: false,
+      dropped: ['result must be an object with a "units" object'], coverage: coverageOf(bundle, stored),
+    };
   }
   const raw = result as { units: Record<string, unknown>; flows?: unknown; overview?: unknown };
 
@@ -53,13 +72,21 @@ export function validateResult(
   let acceptedFlows = 0;
   if (raw.flows !== undefined) {
     if (!Array.isArray(raw.flows)) dropped.push("flows: must be an array");
-    else raw.flows.forEach((f, i) => {
-      const flow = checkFlow(f, i, byId, dropped);
-      if (!flow) return;
-      stored.flows = stored.flows.filter((existing) => existing.title !== flow.title);
-      stored.flows.push(flow);
-      acceptedFlows++;
-    });
+    else {
+      const valid = raw.flows.map((f, i) => checkFlow(f, i, byId, dropped)).filter((f): f is Flow => f !== null);
+      // written with every unit in view: the earlier flows (other code, other parts) go —
+      // once per pass, so resubmitting a fix or an added flow keeps the rest, and only
+      // for valid replacements, so a fully rejected submit can't leave none
+      if (bundle.wholeDiff && stored.flowsPass !== bundle.createdAt && valid.length > 0) {
+        stored.flows = [];
+        stored.flowsPass = bundle.createdAt;
+      }
+      for (const flow of valid) {
+        stored.flows = stored.flows.filter((existing) => existing.title !== flow.title);
+        stored.flows.push(flow);
+        acceptedFlows++;
+      }
+    }
   }
   let acceptedOverview = false;
   if (raw.overview !== undefined) {
@@ -71,7 +98,17 @@ export function validateResult(
     }
   }
   stored.updatedAt = new Date().toISOString();
-  return { stored, accepted, acceptedFlows, acceptedOverview, dropped };
+  return { stored, accepted, acceptedFlows, acceptedOverview, dropped, coverage: coverageOf(bundle, stored) };
+}
+
+function coverageOf(bundle: Bundle, stored: StoredSummary): Coverage {
+  const flowed = new Set(stored.flows.flatMap((f) => Object.keys(f.units)));
+  const current = bundle.units.filter((u) => stored.units[u.id]?.hash === u.hash);
+  return {
+    summarized: current.length,
+    inFlows: current.filter((u) => flowed.has(u.id)).length,
+    flaggedOutside: current.filter((u) => stored.units[u.id].needsLook && !flowed.has(u.id)).map((u) => u.id),
+  };
 }
 
 /** Like text(), but keeps blank-line paragraph breaks. */
@@ -145,7 +182,25 @@ function checkUnit(
     breaks.push({ summary, callers });
   });
 
-  const out: UnitSummary = { headline, gist, needsLook: e.needsLook === true, changes, breaks };
+  const concerns: Concern[] = [];
+  (Array.isArray(e.concerns) ? e.concerns : []).forEach((c: unknown, i: number) => {
+    const where = `${id} concerns[${i}]`;
+    const r = (c ?? {}) as Record<string, unknown>;
+    const kind = typeof r.kind === "string" ? r.kind.trim().toLowerCase() as ConcernKind : null;
+    if (!kind || !CONCERN_KINDS.includes(kind)) { dropped.push(`${where}: kind must be one of ${CONCERN_KINDS.join(", ")}`); return; }
+    const t = text(r.text, LIMITS.concern);
+    if (!t) { dropped.push(`${where}: text ${describe(r.text, LIMITS.concern)}`); return; }
+    const line = typeof r.line === "string" ? r.line.trim().toUpperCase() : "";
+    if (!isShownLine(unit, line)) {
+      dropped.push(`${where}: line "${r.line}" is not a line of this unit (N… for a shown line, O… for a removed one)`);
+      return;
+    }
+    concerns.push({ kind, text: t, line });
+  });
+
+  // not the agent's call: a unit needs a look exactly when there's a reason on record
+  const needsLook = concerns.length > 0 || breaks.length > 0;
+  const out: UnitSummary = { headline, gist, needsLook, changes, breaks, concerns };
   if (e.renamedFrom !== undefined) {
     const from = typeof e.renamedFrom === "string" ? byId.get(e.renamedFrom) : undefined;
     if (!from || from.status !== "deleted") dropped.push(`${id}: renamedFrom must be the id of a deleted unit`);
@@ -153,6 +208,15 @@ function checkUnit(
     else out.renamedFrom = from.id;
   }
   return out;
+}
+
+/** Any line the viewer shows for the unit — changed, removed, or unchanged context. */
+function isShownLine(unit: BundleUnit, label: string): boolean {
+  if (unit.labels.includes(label)) return true;
+  const m = /^N(\d+)$/.exec(label);
+  if (!m || !unit.ranges) return false;
+  const n = Number(m[1]);
+  return unit.ranges.some((r) => n >= r.start && n <= r.end);
 }
 
 function normalizeCaller(raw: string): string {
@@ -201,5 +265,15 @@ function checkFlow(f: unknown, i: number, byId: Map<string, BundleUnit>, dropped
     units[id] = label ?? "";
   }
   if (Object.keys(units).length < 2) { dropped.push(`${where} "${title}": a flow needs 2+ known units — dropped`); return null; }
-  return { title, path, units };
+  const flow: Flow = { title, path, units };
+  if (r.priority !== undefined) {
+    if (r.priority === 1 || r.priority === 2 || r.priority === 3) flow.priority = r.priority;
+    else dropped.push(`${where} "${title}": priority must be 1, 2 or 3 — left unset`);
+  }
+  if (r.why !== undefined) {
+    const why = text(r.why, LIMITS.why);
+    if (why) flow.why = why;
+    else dropped.push(`${where} "${title}": why ${describe(r.why, LIMITS.why)} — left out`);
+  }
+  return flow;
 }
