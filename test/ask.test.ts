@@ -147,7 +147,11 @@ test("questionText: rules, the question, the selection and the unit's code, then
     assert.ok(text.includes("THE CHANGE  total"));
     assert.ok(text.includes("  2+   return items.reduce((a, b) => a + b, 0);"), "changed lines are marked +");
     assert.ok(text.includes("−   for (const i of items) sum += i;"), "removed lines are in the change");
-    assert.match(text, /lens ask reply q1 ".*\/\.lens\/ask\/answer\.md" --port 5326/);
+    assert.match(text, /lens ask reply q1 ".*\/\.lens\/answer\.md" --port 5326/, "the answer goes in .lens/, which exists while the viewer runs");
+
+    const wholeFileUnit = { ...q, label: "calc.ts" };
+    assert.ok(questionText(wholeFileUnit, { ...changeContext(input, q), label: "calc.ts" }, { root: dir, cwd: dir, port: 5326 })
+      .startsWith("lens ask · q1 · calc.ts\n"), "a whole-file unit (json, md, …) isn't named twice");
 
     const copy = questionText(q, changeContext(input, q), { forCopy: true, root: dir, cwd: dir, port: 5326 });
     assert.ok(!copy.includes("RULES"), "a chat paste carries no agent rules");

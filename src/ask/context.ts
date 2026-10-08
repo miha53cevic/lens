@@ -109,8 +109,8 @@ export function questionText(
   opts: QuestionTextOptions,
 ): string {
   const out: string[] = [];
-  // a whole-file question's label is just the file's name
-  const about = change.rows ? `${change.label} (${change.file})` : change.file;
+  // a whole-file question (or a whole-file unit: json, md, …) is labeled with the file's name
+  const about = change.rows && change.label !== change.file.split("/").pop() ? `${change.label} (${change.file})` : change.file;
   out.push(opts.forCopy
     ? `Question about ${about}, from the lens code viewer:`
     : `lens ask · ${q.id} · ${about}\nrepo: ${toPosix(opts.root)} — paths below are relative to it`);
@@ -141,7 +141,8 @@ export function questionText(
   }
 
   if (!opts.forCopy) {
-    const answerFile = toPosix(join(opts.root, ".lens", "ask", "answer.md"));
+    // straight in .lens/, which the server already made (it holds server.json)
+    const answerFile = toPosix(join(opts.root, ".lens", "answer.md"));
     out.push(`ANSWER
 Lead with the answer; about 120 words unless more is needed. Markdown. Cite code as
 path:line (repo-relative) — lens turns valid ones into links.

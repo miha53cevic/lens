@@ -484,12 +484,14 @@ function render() {
   if (state.showRemoved) {
     for (const block of file.removals || []) {
       const existing = removedAfter.get(block.afterLine) || [];
-      removedAfter.set(block.afterLine, existing.concat(block.lines));
+      removedAfter.set(block.afterLine, existing.concat(block.lines.map((text, i) => ({ text, old: block.oldStart + i }))));
     }
   }
   const emitRemoved = (afterLine, container, gutter) => {
-    for (const text of removedAfter.get(afterLine) || []) {
-      container.appendChild(removedRowEl(text, gutter));
+    for (const { text, old } of removedAfter.get(afterLine) || []) {
+      const row = removedRowEl(text, gutter);
+      row.dataset.old = old; // its old-side line, as in the Summary view (the Ask rail sends it)
+      container.appendChild(row);
     }
   };
 

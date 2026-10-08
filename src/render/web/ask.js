@@ -13,10 +13,12 @@ const askChipsEl = document.getElementById("ask-chips");
 const askInput = /** @type {HTMLTextAreaElement} */ (document.getElementById("ask-input"));
 const askSendBtn = /** @type {HTMLButtonElement} */ (document.getElementById("ask-send"));
 const askStatusEl = document.getElementById("ask-status");
+const askHintEl = document.getElementById("ask-hint");
 
 const ASK_POLL_MS = 1000;
 const ASK_MAX_LINES = 400;
 const ASK_MAX_INPUT_ROWS = 8;
+const ASK_GONE = "the lens viewer isn't running anymore";
 
 const askState = {
   open: readPref("lens.askOpen") === "1",
@@ -30,6 +32,9 @@ const askState = {
   timer: null,
   busy: false, // a send or copy in flight
   copied: false,
+  /** The last send failed (or the server is gone): shown in the hint line until the reader types again */
+  /** @type {string | null} */
+  error: null,
 };
 
 // ---- what a question is about ----
@@ -164,6 +169,7 @@ async function askPoll() {
   try {
     const res = await fetch("/api/ask");
     if (res.ok) {
+      if (askState.error === ASK_GONE) askState.error = null; // it's back (restarted on the same port)
       const json = await res.text();
       if (json !== askState.dataJson) {
         askState.dataJson = json;
@@ -171,7 +177,11 @@ async function askPoll() {
         askRenderThread();
       }
     }
-  } catch { /* server gone: the status says so below */ }
+  } catch {
+    // the server is gone (ctrl-c): no agent can answer, and sending would fail
+    askState.data = { ...askState.data, listening: false };
+    askState.error = ASK_GONE;
+  }
   askRenderWaitTimes();
   askRenderComposer();
   if (askState.open || askWaiting()) askState.timer = setTimeout(askPoll, ASK_POLL_MS);
@@ -192,6 +202,7 @@ async function askSend() {
       const res = await fetch("/api/ask", { method: "POST", body: JSON.stringify(askBody()) });
       if (!res.ok) throw new Error((await res.json()).error || "http " + res.status);
       askInput.value = "";
+      askState.error = null;
       askGrow();
       askState.sel = null;
       askPaintSel();
@@ -203,7 +214,7 @@ async function askSend() {
       setTimeout(() => { askState.copied = false; askRenderComposer(); }, 1500);
     }
   } catch (err) {
-    askStatusEl.textContent = "couldn't send: " + err.message;
+    askState.error = "couldn't send: " + err.message;
   } finally {
     askState.busy = false;
   }
@@ -219,7 +230,7 @@ askInput.addEventListener("keydown", (ev) => {
     askInput.blur(); // back to the code: j/k and the toolbar keys work again
   }
 });
-askInput.addEventListener("input", () => { askGrow(); askRenderComposer(); });
+askInput.addEventListener("input", () => { askState.error = null; askGrow(); askRenderComposer(); });
 
 /** The textarea grows with its text, up to ASK_MAX_INPUT_ROWS lines. */
 function askGrow() {
@@ -243,6 +254,8 @@ function askRenderComposer() {
     : "";
   askInput.disabled = !ctx;
   askInput.placeholder = ctx ? "Ask about " + ctx.label + "…" : "Open a change to ask about it";
+  askHintEl.textContent = askState.error || "↵ ask · ⇧↵ newline · Esc back to the code";
+  askHintEl.classList.toggle("error", !!askState.error);
   askSendBtn.textContent = askState.copied ? "Copied ✓" : listening || waiting ? "Ask" : "Copy as prompt";
   askSendBtn.disabled = !ctx || !askInput.value.trim() || !!waiting || askState.busy;
 }
@@ -299,7 +312,8 @@ function askMarkdown(md, cites) {
     let h = escapeHtml(s)
       .replace(/`([^`]+)`/g, "<code>$1</code>")
       .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
-    for (const c of cites) {
+    // a cite into a file the viewer doesn't have (outside the diff) has nowhere to go: it stays text
+    for (const c of cites.filter((x) => DATA.files.some((f) => f.file === x.file))) {
       // refs are plain path characters, so the escaped text holds them as is
       const ref = c.ref.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       h = h.replace(new RegExp("(?<![\\w./-])" + ref + "(?!\\d)", "g"),

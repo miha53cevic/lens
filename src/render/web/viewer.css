@@ -790,6 +790,7 @@
   #ask-input:disabled { opacity: 0.6; }
   .ask-row { display: flex; align-items: center; gap: 0.5rem; }
   .ask-hint { color: var(--muted); font-size: 11px; }
+  .ask-hint.error { color: var(--removed); }
   #ask-send { background: var(--accent); border-color: var(--accent); color: var(--bg); font-weight: 700; }
   #ask-send:hover:not(:disabled) { filter: brightness(1.08); color: var(--bg); background: var(--accent); }
   .row.ask-sel { background: color-mix(in srgb, var(--sig-question) 18%, transparent); }
