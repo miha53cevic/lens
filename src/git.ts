@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { isAbsolute, join } from "node:path";
 import { existsSync } from "node:fs";
 import type { DiffStatus, RemovedBlock } from "./model.ts";
+import { toPosix } from "./paths.ts";
 
 export interface DiffTarget {
   /** Absolute path to the new-side file */
@@ -180,7 +181,7 @@ export function gitDiffTargets(gitArgs: string[], cwd: string): DiffResult {
     if (e.newSha) newBlobs.set(e.path, e.newSha);
     if (e.oldSha) oldBlobs.set(e.path, e.oldSha);
   }
-  const abs = (p: string) => (isAbsolute(p) ? p : join(root, p));
+  const abs = (p: string) => toPosix(isAbsolute(p) ? p : join(root, p));
   // Unsupported file types are kept — the viewer shows their changes without
   // folding. Binary files never reach here: their diffs carry no hunks.
   return {

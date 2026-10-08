@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
-import { relative } from "node:path";
 import { gitDiffTargets, gitRoot, readBlob, runGit, type DiffTarget, type RenamedFile } from "../git.ts";
 import { resolvePr } from "../pr.ts";
 import { compilePatterns, matchesAny } from "../glob.ts";
+import { relPath } from "../paths.ts";
 import { extractUnits, checkCoverage, type Unit, type UnitFileInput } from "./units.ts";
 import type { LensConfig } from "../model.ts";
 
@@ -41,7 +41,7 @@ export async function loadDiff(command: "diff" | "pr", args: string[], cwd: stri
   const excludeRegexes = compilePatterns(config.exclude);
   const excluded: string[] = [];
   const targets = result.targets.filter((t) => {
-    const display = relative(cwd, t.file) || t.file;
+    const display = relPath(cwd, t.file);
     if (matchesAny(display, excludeRegexes)) { excluded.push(display); return false; }
     return true;
   });
@@ -73,9 +73,9 @@ export async function collectUnits(
   const inputs: UnitFileInput[] = [];
   // Patterns match the path as lens shows it (relative to where it runs),
   // like loadDiff's exclude check and the viewer's "hide tests".
-  const shown = (abs: string) => relative(cwd, abs) || abs;
+  const shown = (abs: string) => relPath(cwd, abs);
   for (const t of diff.targets) {
-    const file = relative(diff.root, t.file);
+    const file = relPath(diff.root, t.file);
     inputs.push({
       file,
       newSource: sources?.get(t.file) ?? readNewSource(t, cwd),
@@ -86,7 +86,7 @@ export async function collectUnits(
     });
   }
   for (const abs of diff.deleted) {
-    const file = relative(diff.root, abs);
+    const file = relPath(diff.root, abs);
     if (matchesAny(shown(abs), excludeRegexes)) continue;
     const blob = diff.deletedBlobs.get(abs);
     inputs.push({

@@ -1,11 +1,12 @@
 import { readdirSync, statSync, existsSync } from "node:fs";
-import { join, resolve, relative } from "node:path";
+import { join, resolve } from "node:path";
 import { analyzeSource } from "./classify/index.ts";
 import { findConfigPath } from "./config.ts";
 import type { DiffTarget } from "./git.ts";
 import { languageForFile } from "./parse/parser.ts";
 import type { ViewerInput } from "./render/web/server.ts";
 import { compilePatterns, matchesAny } from "./glob.ts";
+import { relPath } from "./paths.ts";
 import type { FileFoldModel, LensConfig } from "./model.ts";
 import { loadDiff, collectUnits, readNewSource, type LoadedDiff } from "./summary/collect.ts";
 import { summaryKey, summaryStamp } from "./summary/store.ts";
@@ -28,7 +29,7 @@ export async function analyze(
   config: LensConfig,
   withSummary = true,
 ): Promise<ViewerInput> {
-  const shown = (abs: string) => relative(cwd, abs) || abs;
+  const shown = (abs: string) => relPath(cwd, abs);
   // Path mode carries only `file`; diff mode fills in the rest.
   let targets: (Partial<DiffTarget> & { file: string })[];
   let diff: LoadedDiff | null = null;
