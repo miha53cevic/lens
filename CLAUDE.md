@@ -8,7 +8,7 @@
 - Node >= 23.6 runs the `.ts` sources directly (type stripping). There's no build step, and `npm run install-cli` links `lens` to the live source.
 - `npm test` runs both typechecks (`tsconfig.json` for src/test, `tsconfig.viewer.json` for the browser scripts) and then `node --test test/*.test.ts`. Run it before calling a change done.
 - To see a change, run `node src/cli.ts diff` (or `<path>`, `pr N`) and open the viewer. Add `--no-open` to skip the browser and `--json` to dump the fold model.
-- `install-skill` / `uninstall-skill` are sh scripts, so on Windows run them from Git Bash.
+- `install-skill` / `uninstall-skill` run `scripts/skills.ts`, which links each folder in `skills/` into `~/.claude/skills` (junctions on Windows). Keep npm scripts shell-free: npm runs them with cmd.exe on Windows, even from Git Bash.
 
 ## Paths (Windows too)
 
