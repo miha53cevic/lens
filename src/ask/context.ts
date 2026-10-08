@@ -109,9 +109,11 @@ export function questionText(
   opts: QuestionTextOptions,
 ): string {
   const out: string[] = [];
+  // a whole-file question's label is just the file's name
+  const about = change.rows ? `${change.label} (${change.file})` : change.file;
   out.push(opts.forCopy
-    ? `Question about ${change.label} (${change.file}), from the lens code viewer:`
-    : `lens ask · ${q.id} · ${change.label} (${change.file})\nrepo: ${toPosix(opts.root)} — paths below are relative to it`);
+    ? `Question about ${about}, from the lens code viewer:`
+    : `lens ask · ${q.id} · ${about}\nrepo: ${toPosix(opts.root)} — paths below are relative to it`);
   if (!opts.forCopy) out.push(RULES);
   out.push("QUESTION\n" + q.text.trim());
 

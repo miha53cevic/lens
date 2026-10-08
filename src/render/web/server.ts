@@ -89,7 +89,7 @@ function loadTemplate(): string {
   // Function replacements: plain strings would expand $-sequences in the code.
   return read("viewer.html")
     .replace("/*__LENS_CSS__*/", () => read("viewer.css"))
-    .replace("/*__LENS_JS__*/", () => read("viewer.js") + "\n" + read("summary.js"));
+    .replace("/*__LENS_JS__*/", () => read("viewer.js") + "\n" + read("summary.js") + "\n" + read("ask.js"));
 }
 
 export async function serveViewer(

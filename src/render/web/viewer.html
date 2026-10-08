@@ -22,6 +22,7 @@
     </div>
     <span class="stats" id="stats"></span>
     <span class="spacer"></span>
+    <button id="ask-btn" aria-pressed="false" title="ask your agent about the code (a · hide with \)">Ask</button>
     <button id="search-btn" class="icon" title="search in files (⌘P)">⌕</button>
     <select id="theme-select" title="color theme"></select>
     <button id="settings-btn" class="icon" title="current settings">⚙</button>
@@ -95,9 +96,11 @@
       <tr><td><kbd>t</kbd></td><td>toggle hide tests</td></tr>
       <tr><td><kbd>r</kbd></td><td>refresh the analysis</td></tr>
       <tr><td><kbd>v</kbd></td><td>switch Code / Summary <span class="set-source">(diff mode)</span></td></tr>
-      <tr><td colspan="2" class="set-source">in Summary: <kbd>g</kbd> overview · <kbd>j</kbd> / <kbd>k</kbd> next / previous change · <kbd>o</kbd> open it in the code view · <kbd>/</kbd> filter the changes · the toolbar's keys (<kbd>e</kbd> <kbd>c</kbd> <kbd>[</kbd> <kbd>]</kbd> <kbd>h</kbd> <kbd>x</kbd> <kbd>t</kbd>) act on the open change</td></tr>
+      <tr><td><kbd>a</kbd></td><td>ask your agent about the open change (and your selection)</td></tr>
+      <tr><td><kbd>\</kbd></td><td>show / hide the Ask rail</td></tr>
+      <tr><td colspan="2" class="set-source">in Summary: <kbd>g</kbd> overview · <kbd>j</kbd> / <kbd>k</kbd> next / previous change · <kbd>o</kbd> open it in the code view · <kbd>/</kbd> filter the changes · the toolbar's keys (<kbd>e</kbd> <kbd>c</kbd> <kbd>[</kbd> <kbd>]</kbd> <kbd>h</kbd> <kbd>x</kbd> <kbd>t</kbd>) act on the open change · <kbd>a</kbd> <kbd>\</kbd> work as in the code view</td></tr>
       <tr><td><kbd>?</kbd></td><td>this help</td></tr>
-      <tr><td><kbd>Esc</kbd></td><td>close dialogs · clear the filter</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>close dialogs · clear the filter · leave the Ask input</td></tr>
     </table>
   </div>
 </dialog>
@@ -137,6 +140,25 @@
     <main><div class="code" id="code"></div></main>
     <div class="summary-pane" id="summary-pane" style="display:none"></div>
   </div>
+  <div class="resizer" id="ask-resizer" title="drag to resize the Ask rail" style="display:none"></div>
+  <aside id="ask-rail" style="display:none">
+    <div class="ask-head">
+      <span class="ask-title">Ask</span>
+      <span class="spacer"></span>
+      <span class="ask-status" id="ask-status"></span>
+      <button id="ask-close" class="icon" title="hide the Ask rail (\)">✕</button>
+    </div>
+    <div class="ask-thread" id="ask-thread"></div>
+    <div class="ask-composer">
+      <div class="ask-chips" id="ask-chips"></div>
+      <textarea id="ask-input" rows="2" spellcheck="false"></textarea>
+      <div class="ask-row">
+        <span class="ask-hint">↵ ask · ⇧↵ newline · Esc back to the code</span>
+        <span class="spacer"></span>
+        <button id="ask-send">Ask</button>
+      </div>
+    </div>
+  </aside>
 </div>
 
 <script>
