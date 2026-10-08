@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { parsePrRef } from "../pr.ts";
-import type { UnitKind, UnitStatus } from "./units.ts";
+import type { LineRange, UnitKind, UnitStatus } from "./units.ts";
 
 // Everything summary mode writes lives in <repo root>/.lens/, which carries its
 // own `*` .gitignore: nothing to add to the repo's .gitignore, nothing in .git.
@@ -22,12 +22,25 @@ export interface Break {
   callers: string[];
 }
 
+export type ConcernKind = "bug" | "risk" | "question";
+
+/** Something the agent suspects is wrong — the reviewer decides whether it is. */
+export interface Concern {
+  kind: ConcernKind;
+  text: string;
+  /** "N31" (any shown new-side line, changed or not) or "O16" (removed line) */
+  line: string;
+}
+
 export interface UnitSummary {
   headline: string;
   gist: string;
+  /** true when the unit has a concern or a break. Older summaries: the agent's own unexplained flag */
   needsLook: boolean;
   changes: ChangeRow[];
   breaks: Break[];
+  /** absent in summaries written before concerns existed */
+  concerns?: Concern[];
   /** id of a deleted unit this one replaces (rename / move) */
   renamedFrom?: string;
 }
@@ -38,7 +51,13 @@ export interface Flow {
   path: string;
   /** unit id → layer label ("repo", "route", …) */
   units: Record<string, string>;
+  /** 1 = review first … 3 = mechanical; absent reads as 2 */
+  priority?: FlowPriority;
+  /** why the flow matters, one line */
+  why?: string;
 }
+
+export type FlowPriority = 1 | 2 | 3;
 
 export interface Overview {
   /** What the whole diff does, sized to it; paragraphs split by blank lines */
@@ -53,6 +72,8 @@ export interface StoredSummary {
   /** Each summary remembers the unit hash it was written for */
   units: Record<string, UnitSummary & { hash: string }>;
   flows: Flow[];
+  /** createdAt of the whole-diff bundle whose submit last replaced the flows; its later submits merge */
+  flowsPass?: string;
   overview?: Overview;
 }
 
@@ -72,6 +93,8 @@ export interface BundleUnit {
   hash: string;
   /** Lines a summary may cite: N<line> changed, O<line> removed */
   labels: string[];
+  /** New-side lines shown for the unit; a concern may cite any of them. Absent in older bundles */
+  ranges?: LineRange[];
   formattingOnly?: boolean;
   /** Already summarized for this exact hash by an earlier submit */
   done: boolean;
@@ -84,6 +107,8 @@ export interface Bundle {
   args: string[];
   createdAt: string;
   units: BundleUnit[];
+  /** This pass sees every unit (a fresh single-part run or the final pass): its flows replace the stored ones */
+  wholeDiff?: boolean;
 }
 
 export function lensDir(root: string): string {
@@ -106,6 +131,16 @@ export function summaryKey(command: "diff" | "pr", args: string[]): string {
     slug = slug.slice(0, 48).replace(/-+$/, "") + "-" + createHash("sha256").update(raw).digest("hex").slice(0, 8);
   }
   return slug;
+}
+
+/**
+ * The diff's arguments as the user types them after `/lens-review` or
+ * `lens summary prepare`: "--staged", "pr 87", quoted where a shell needs it.
+ */
+export function summaryArgs(command: "diff" | "pr", args: string[]): string {
+  return [...(command === "pr" ? ["pr"] : []), ...args]
+    .map((a) => (/^[\w@%+=:,./~^-]+$/.test(a) ? a : '"' + a.replace(/(["\\$`])/g, "\\$1") + '"'))
+    .join(" ");
 }
 
 export function bundleDir(root: string, key: string): string {

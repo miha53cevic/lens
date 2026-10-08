@@ -47,8 +47,8 @@ const state = {
   view: "code", // "code" | "summary" — Code is always the default
   // reader preferences (the persisted ones are restored from localStorage)
   navCollapsed: readPref("lens.navCollapsed") === "1",
-  hideTests: readPref("lens.hideTests") === "1",
-  hunksOnly: readPref("lens.hunksOnly") === "1",
+  hideTests: readPref("lens.hideTests") !== "0", // on by default
+  hunksOnly: readPref("lens.hunksOnly") !== "0", // on by default
   navFilter: "", // sidebar filter query (transient, not persisted)
   /** @type {string | null} */
   summaryActive: null, // the Summary view's open unit id
@@ -409,6 +409,12 @@ function highlightName(name) {
     escapeHtml(name.slice(at + state.navFilter.length));
 }
 
+/** Where the folds on screen live: the code view's file or the summary's unit. */
+function foldScope() {
+  return state.view === "summary" ? document.getElementById("summary-pane") : codeEl;
+}
+
+/** @param {{ regions: { category: string }[] }} file  a file, or a summary unit's share of one */
 function renderToggles(file) {
   const categories = [...new Set(file.regions.map(r => r.category))];
   togglesEl.innerHTML = categories.length ? '<span class="show-label">FOLDS</span>' : "";
@@ -422,7 +428,7 @@ function renderToggles(file) {
     box.checked = state.hiddenCategories.has(cat);
     box.onchange = () => {
       if (box.checked) state.hiddenCategories.add(cat); else state.hiddenCategories.delete(cat);
-      document.querySelectorAll('.region[data-cat="' + cat + '"]').forEach(el =>
+      foldScope().querySelectorAll('.region[data-cat="' + cat + '"]').forEach(el =>
         el.classList.toggle("open", box.checked));
     };
     const dot = document.createElement("span");
@@ -527,10 +533,12 @@ function render() {
   mainEl.scrollLeft = saved ? saved.left : 0;
 }
 
-// Hunks-only windows: ±CONTEXT lines around every change/removal anchor, merged;
+/** Lines of context around each change in hunks-only mode (code view and summary) */
+const HUNK_CONTEXT = 3;
+
+// Hunks-only windows: ±HUNK_CONTEXT lines around every change/removal anchor, merged;
 // hiddenGaps are the non-expanded stretches in between (ids stable across expansion).
 function computeHunks(file) {
-  const CONTEXT = 3;
   const hasAnchors = (file.changedLines || []).length > 0 || (file.removals || []).length > 0;
   if (!state.hunksOnly || !hasAnchors) return { windows: null, hiddenGaps: [] };
 
@@ -541,8 +549,8 @@ function computeHunks(file) {
   }
   const windows = [];
   for (const line of [...anchors].sort((a, b) => a - b)) {
-    const start = Math.max(1, line - CONTEXT);
-    const end = Math.min(file.lineCount, line + CONTEXT);
+    const start = Math.max(1, line - HUNK_CONTEXT);
+    const end = Math.min(file.lineCount, line + HUNK_CONTEXT);
     const last = windows[windows.length - 1];
     if (last && start <= last.end + 1) last.end = Math.max(last.end, end);
     else windows.push({ start, end });
@@ -935,17 +943,22 @@ document.getElementById("end-session").onclick = async (ev) => {
     '<div class="ended">session ended — the lens server has stopped, you can close this tab</div>';
 };
 
-// expand/collapse all keep the category chips in sync with the regions
+// expand/collapse all keep the category chips in sync with the regions — the
+// folds on screen, in the code view or a summary unit alike
 document.getElementById("expand-all").onclick = () => {
-  const file = DATA.files[state.active];
+  // the code view's whole file, folds inside collapsed hunk gaps included; a summary unit's folds on screen
+  const file = state.view === "code" ? DATA.files[state.active] : null;
   if (file) for (const r of file.regions) state.hiddenCategories.add(r.category);
+  /** @type {NodeListOf<HTMLElement>} */ (foldScope().querySelectorAll(".region")).forEach((el) => {
+    state.hiddenCategories.add(el.dataset.cat);
+    el.classList.add("open");
+  });
   togglesEl.querySelectorAll("input").forEach(b => (b.checked = true));
-  document.querySelectorAll(".region").forEach(el => el.classList.add("open"));
 };
 document.getElementById("collapse-all").onclick = () => {
   state.hiddenCategories.clear();
   togglesEl.querySelectorAll("input").forEach(b => (b.checked = false));
-  document.querySelectorAll(".region").forEach(el => el.classList.remove("open"));
+  foldScope().querySelectorAll(".region").forEach(el => el.classList.remove("open"));
 };
 
 // ---- global search (⌘P) ----
@@ -1207,7 +1220,8 @@ document.addEventListener("keydown", (ev) => {
       ev.preventDefault();
       return;
     }
-    if (!["?", "x", "s", "r"].includes(ev.key)) return; // code-view keys don't apply here
+    // the toolbar's keys act on the open unit's code; file and tab keys don't apply here
+    if (!["?", "x", "s", "r", "e", "c", "[", "]", "h", "t"].includes(ev.key)) return;
   }
   switch (ev.key) {
     case "?": keysModal.showModal(); ev.preventDefault(); break;

@@ -1,12 +1,16 @@
 import { writeFileSync, readdirSync, unlinkSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join } from "node:path";
+import { relPath } from "../paths.ts";
 import { citeableLabels, removalAnchors, type Unit } from "./units.ts";
-import { bundleDir, readStored, unitSetHash, type Bundle, type BundleUnit, type StoredSummary } from "./store.ts";
+import { bundleDir, readStored, summaryArgs, unitSetHash, type Bundle, type BundleUnit, type StoredSummary } from "./store.ts";
 
 // `lens summary prepare` output: a folder the user's agent reads (tasks,
 // instructions, schema) plus bundle.json, which `submit` validates against.
 
-export const LIMITS = { headline: 80, gist: 40, cell: 60, breakSummary: 80, flowTitle: 40, flowPath: 60, layer: 12, overview: 2000 };
+export const LIMITS = {
+  headline: 80, gist: 40, cell: 60, breakSummary: 80, concern: 200,
+  flowTitle: 40, flowPath: 60, layer: 12, why: 100, overview: 2000,
+};
 
 /** Rendered lines per tasks file before splitting into tasks-2.md, … */
 const TASK_FILE_BUDGET = 1500;
@@ -43,6 +47,7 @@ export function prepareBundle(input: PrepareInput): PrepareResult {
     status: u.status,
     hash: u.hash,
     labels: [...citeableLabels(u)],
+    ranges: u.ranges,
     ...(u.formattingOnly ? { formattingOnly: true } : {}),
     done: stored?.units[u.id]?.hash === u.hash,
   }));
@@ -73,12 +78,15 @@ export function prepareBundle(input: PrepareInput): PrepareResult {
   }
   const taskFiles: string[] = [];
   // every unit is done but the overview is missing or was written for other code:
-  // ask for the overview alone, from the headlines already stored
-  const overviewOnly = todo.length === 0 && stored !== null &&
-    stored.overview?.hash !== unitSetHash(bundleUnits);
-  if (overviewOnly) {
+  // the final pass — flows and the overview, from every unit's stored summary.
+  // A diff split into parts gets its flows here, where one context sees all units.
+  // the whole-diff work is done once the overview fits this diff and flows exist (a flow needs 2+ units)
+  const wholeDone = stored?.overview?.hash === unitSetHash(bundleUnits) &&
+    (stored.flows.length > 0 || bundleUnits.length < 2);
+  const finalPass = todo.length === 0 && stored !== null && !wholeDone;
+  if (finalPass) {
     const name = join(dir, "tasks.md");
-    writeFileSync(name, `# lens summary tasks (overview only)\n\n${header}\n${renderHeadlines(input.units, stored)}`);
+    writeFileSync(name, `# lens summary tasks (final pass: flows and overview)\n\n${header}\n${renderHeadlines(input.units, stored)}`);
     taskFiles.push(name);
   }
   if (todo.length > 0) {
@@ -90,20 +98,25 @@ export function prepareBundle(input: PrepareInput): PrepareResult {
     });
   }
 
+  if (finalPass || (todo.length === input.units.length && taskFiles.length === 1)) bundle.wholeDiff = true;
   writeFileSync(join(dir, "bundle.json"), JSON.stringify(bundle, null, 2) + "\n");
   writeFileSync(join(dir, "schema.json"), JSON.stringify(RESULT_SCHEMA, null, 2) + "\n");
   const doneCount = bundleUnits.filter((u) => u.done).length;
-  const instructions = overviewOnly
-    ? renderOverviewInstructions(input, dir, taskFiles[0])
-    : renderInstructions(input, dir, taskFiles, todo.length, doneCount);
+  const instructions = finalPass
+    ? renderFinalPassInstructions(input, dir, taskFiles[0])
+    : renderInstructions(input, dir, taskFiles, todo.length, doneCount, wholeDone);
   writeFileSync(join(dir, "instructions.md"), instructions);
   return { dir, taskFiles, todo: todo.length, done: doneCount, instructions };
 }
 
+/** One line per unit for the final pass: enough to group units into flows and rank them. */
 function renderHeadlines(units: Unit[], stored: StoredSummary): string {
   return units.map((u) => {
     const s = stored.units[u.id];
-    return `- \`${u.id}\` (${u.status}): ${s ? s.headline : "no summary"}`;
+    if (!s) return `- \`${u.id}\` (${u.status}): no summary`;
+    const marks = [u.status, ...(s.breaks.length > 0 ? ["may break callers"] : [])];
+    const concerns = (s.concerns ?? []).map((c) => `\n  - ${c.kind}: ${c.text}`).join("");
+    return `- \`${u.id}\` (${marks.join(", ")}): ${s.headline} — ${s.gist}${concerns}`;
   }).join("\n") + "\n";
 }
 
@@ -146,14 +159,19 @@ export function renderUnit(unit: Unit, source: string | undefined): string {
   return `## ${unit.id}\n${meta.join(" · ")}${where}\n\n\`\`\`\n${out.join("\n")}\n\`\`\`\n`;
 }
 
-function renderInstructions(input: PrepareInput, dir: string, taskFiles: string[], todo: number, done: number): string {
-  const rel = (p: string) => relative(input.cwd, p) || p;
+function renderInstructions(
+  input: PrepareInput, dir: string, taskFiles: string[], todo: number, done: number, wholeDone: boolean,
+): string {
+  const rel = (p: string) => relPath(input.cwd, p);
   const resultPath = rel(join(dir, "result.json"));
   const files = taskFiles.map((f) => `\`${rel(f)}\``).join(", ");
   if (todo === 0) {
     return `# lens summary\n\nNothing to do: all ${done} units already have a summary for their current code.\n` +
       `Tell the user to open the Summary tab in the lens viewer (refresh with ↻).\n`;
   }
+  // flows need every unit in view: split or partial runs leave them to the final pass —
+  // unless this diff's flows and overview are already written (units left over from a rejected submit)
+  const deferred = !wholeDone && (taskFiles.length > 1 || done > 0);
   return `# lens summary — instructions for the agent
 
 You are writing a review summary of a code diff for the lens viewer. Lens split the
@@ -172,33 +190,59 @@ the code — reviewing your own work hides its blind spots.
 4. Run \`lens summary submit ${rel(dir)}\`. It prints what it rejected and why: fix those
    entries and submit once more. Submits merge, so for multi-part tasks you may submit
    after each part.
-
+${deferred ? `5. Once every unit is submitted, run \`${prepareCommand(input)}\` again: it writes the final
+   pass — flows and the overview, from all units at once.
+` : ""}
 ## Per unit
 - \`headline\` (≤${LIMITS.headline} chars): what the unit does now, in plain words.
 - \`gist\` (≤${LIMITS.gist} chars): the key change, e.g. "returns max 50 by default".
-- \`needsLook\`: true if a reviewer should look closely (behavior change, possible bug,
-  breaks callers, risky); false for routine changes (renames, types, formatting, tests).
 - \`changes\`: behavior differences as rows {when, before, now, line}, each ≤${LIMITS.cell} chars:
   "Called without a limit" | "returns all orders" | "returns the first 50" | "N18".
-  \`line\` must be one of the unit's changed (N…) or removed (O…) labels — the line that
-  causes the difference. \`before\` is null for new behavior. An empty list is fine:
-  don't invent differences.
+  \`when\` is a situation (an input, a state, a caller); \`before\` and \`now\` are what
+  observably happens in it. \`line\` must be one of the unit's changed (N…) or removed (O…)
+  labels — the line that causes the difference. \`before\` is null for new behavior. An
+  empty list is fine: don't invent differences.
+- \`concerns\`: what you suspect is wrong, as {kind, text (≤${LIMITS.concern}), line}. \`kind\` is "bug"
+  (likely wrong behavior), "risk" (works, but fragile or surprising: an edge case, data
+  loss, security, performance) or "question" (the intent is unclear). \`line\` may be any
+  line shown for the unit — N… (changed or not) or O…. Every problem you notice goes here:
+  the reviewer reads the viewer, not your chat reply, and decides what is real, so flag it
+  even when unsure. Concerns and breaks are the only way to mark a unit for a close look:
+  if one deserves it, say why. Routine changes (renames, types, formatting) get neither.
 - \`breaks\`: callers outside the diff that the change may break: {summary (≤${LIMITS.breakSummary}),
   callers: ["path/from/repo/root.ts:31", …]}. Each caller line must exist and contain
   the unit's name. Only list callers you actually found.
 - \`renamedFrom\`: for a new unit that is a renamed/moved deleted unit, the deleted unit's id.
 
-## Flows (optional)
-Group units that form one change across layers: {title (≤${LIMITS.flowTitle}), path (≤${LIMITS.flowPath}),
-e.g. "repo → route → client", units: {"<unit id>": "<layer ≤${LIMITS.layer}>"}}. Only for 2+ units.
+${wholeDone
+    ? `## Flows and overview
+Already written for this diff — leave them out.
+`
+    : deferred
+    ? `## Flows and overview
+Not in this pass — the final pass (step 5) asks for them, once every unit is summarized.
+`
+    : `## Flows
+${FLOWS_RULE}
 
 ## Overview
 ${OVERVIEW_RULE}
-With several task files, write it in your last submit, once you've seen every unit.
-
+`}
 Keep everything terse: the viewer shows it in a small table next to the code.
 `;
 }
+
+const FLOWS_RULE = `Flows are how the reviewer reads the diff: they open a flow and walk its units in order.
+Put as much of the diff into flows as you can.
+- A flow is one story across 2+ units: a feature end to end, a fix and the places it
+  touches, one refactor applied in several spots. Not a file or folder — the viewer's map
+  already groups by those.
+- {title (≤${LIMITS.flowTitle}), path (≤${LIMITS.flowPath}) e.g. "repo → route → client",
+  units: {"<unit id>": "<layer ≤${LIMITS.layer}>"}, priority, why (≤${LIMITS.why})}.
+- \`priority\`: 1 = review first (behavior changes, risks, possible bugs), 2 = normal,
+  3 = mechanical (renames, moves, types, tests). The viewer sorts by it and folds the 3s.
+- \`why\`: why a reviewer should care, e.g. "default page size changes every caller".
+- Every unit with a concern or a break belongs in a flow; a unit may be in several.`;
 
 const OVERVIEW_RULE = `\`overview\`: {what (≤${LIMITS.overview} chars)} — what the whole diff does and why, for a
 reviewer seeing it for the first time. Size it to what the diff does, not to its
@@ -206,19 +250,32 @@ line count: a sentence or two for one focused change; a short paragraph per dist
 change when it does several things (blank line between paragraphs). Name behavior,
 not files; don't repeat unit headlines or walk through the diff file by file.`;
 
-function renderOverviewInstructions(input: PrepareInput, dir: string, tasks: string): string {
-  const rel = (p: string) => relative(input.cwd, p) || p;
+function renderFinalPassInstructions(input: PrepareInput, dir: string, tasks: string): string {
+  const rel = (p: string) => relPath(input.cwd, p);
   return `# lens summary — instructions for the agent
 
-Every unit of this diff already has a summary; only the overview of the whole diff
-is missing or out of date. Tasks: \`${rel(tasks)}\` lists each unit with its headline.
+Every unit of this diff already has a summary. This is the final pass: the flows and
+the overview of the whole diff. Tasks: \`${rel(tasks)}\` lists each unit with its headline,
+gist, and any concerns.
 
 1. Read the task file. Look at the diff itself if the headlines aren't enough.
-2. Write \`${rel(join(dir, "result.json"))}\` as \`{"units": {}, "overview": {"what": "…"}}\`.
-3. Run \`lens summary submit ${rel(dir)}\`.
+2. Write \`${rel(join(dir, "result.json"))}\` as
+   \`{"units": {}, "flows": [ … ], "overview": {"what": "…"}}\`, following \`${rel(join(dir, "schema.json"))}\`.
+3. Run \`lens summary submit ${rel(dir)}\`. It reports how many units your flows cover and
+   which units with a concern or break are in none: add flows for those and submit again.
 
+## Flows
+${FLOWS_RULE}
+
+## Overview
 ${OVERVIEW_RULE}
 `;
+}
+
+/** The prepare command for this diff, as the agent runs it. */
+export function prepareCommand(input: { command: "diff" | "pr"; args: string[] }): string {
+  const args = summaryArgs(input.command, input.args);
+  return "lens summary prepare" + (args ? " " + args : "");
 }
 
 export const RESULT_SCHEMA = {
@@ -232,11 +289,10 @@ export const RESULT_SCHEMA = {
       description: "unit id (from the tasks) → summary",
       additionalProperties: {
         type: "object",
-        required: ["headline", "gist", "needsLook", "changes", "breaks"],
+        required: ["headline", "gist", "changes", "breaks", "concerns"],
         properties: {
           headline: { type: "string", maxLength: LIMITS.headline },
           gist: { type: "string", maxLength: LIMITS.gist },
-          needsLook: { type: "boolean" },
           changes: {
             type: "array",
             items: {
@@ -261,6 +317,18 @@ export const RESULT_SCHEMA = {
               },
             },
           },
+          concerns: {
+            type: "array",
+            items: {
+              type: "object",
+              required: ["kind", "text", "line"],
+              properties: {
+                kind: { enum: ["bug", "risk", "question"] },
+                text: { type: "string", maxLength: LIMITS.concern },
+                line: { type: "string", pattern: "^[NO][0-9]+$" },
+              },
+            },
+          },
           renamedFrom: { type: "string" },
         },
       },
@@ -274,11 +342,13 @@ export const RESULT_SCHEMA = {
       type: "array",
       items: {
         type: "object",
-        required: ["title", "path", "units"],
+        required: ["title", "path", "units", "priority", "why"],
         properties: {
           title: { type: "string", maxLength: LIMITS.flowTitle },
           path: { type: "string", maxLength: LIMITS.flowPath },
           units: { type: "object", additionalProperties: { type: "string", maxLength: LIMITS.layer } },
+          priority: { enum: [1, 2, 3] },
+          why: { type: "string", maxLength: LIMITS.why },
         },
       },
     },

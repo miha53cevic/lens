@@ -2,9 +2,10 @@ import { readFileSync, existsSync, statSync } from "node:fs";
 import { join, resolve, relative, dirname, basename } from "node:path";
 import { loadConfig } from "../config.ts";
 import { loadDiff, collectUnits, commitLog, readNewSource } from "./collect.ts";
-import { prepareBundle } from "./bundle.ts";
+import { prepareBundle, prepareCommand } from "./bundle.ts";
 import { validateResult } from "./validate.ts";
-import { summaryKey, readStored, writeStored, type Bundle } from "./store.ts";
+import { summaryKey, readStored, writeStored, unitSetHash, type Bundle } from "./store.ts";
+import { relPath } from "../paths.ts";
 
 /** `lens summary prepare|submit` — the agent's side of summary mode. */
 export async function runSummary(rest: string[], cwd: string): Promise<void> {
@@ -31,7 +32,7 @@ export async function runSummary(rest: string[], cwd: string): Promise<void> {
       label: diff.label,
       commits: commitLog(diff.diffArgs, cwd),
       units,
-      sources: new Map([...sourcesByPath].map(([abs, src]) => [relative(diff.root, abs), src])),
+      sources: new Map([...sourcesByPath].map(([abs, src]) => [relPath(diff.root, abs), src])),
     });
     console.log(result.instructions);
     return;
@@ -70,6 +71,21 @@ export async function runSummary(rest: string[], cwd: string): Promise<void> {
       console.log(`\n${missing.length} unit${missing.length === 1 ? " has" : "s have"} no summary yet:`);
       for (const u of missing.slice(0, 20)) console.log(`  - ${u.id}`);
       if (missing.length > 20) console.log(`  - … and ${missing.length - 20} more`);
+    }
+    const { coverage } = outcome;
+    // coverage only once there are flows to cover with: before the final pass it's all zeros
+    if (missing.length === 0 && outcome.stored.flows.length > 0) {
+      console.log(`\nflows cover ${coverage.inFlows} of ${coverage.summarized} units`);
+      const outside = coverage.flaggedOutside;
+      if (outside.length > 0) {
+        console.log(`${outside.length} unit${outside.length === 1 ? "" : "s"} with a concern or break ${outside.length === 1 ? "is" : "are"} in no flow — put ${outside.length === 1 ? "it" : "them"} in one:`);
+        for (const id of outside.slice(0, 20)) console.log(`  - ${id}`);
+        if (outside.length > 20) console.log(`  - … and ${outside.length - 20} more`);
+      }
+    }
+    const flowsMissing = outcome.stored.flows.length === 0 && bundle.units.length >= 2;
+    if (missing.length === 0 && (outcome.stored.overview?.hash !== unitSetHash(bundle.units) || flowsMissing)) {
+      console.log(`\nevery unit is summarized — run \`${prepareCommand(bundle)}\` for the final pass (flows and the overview)`);
     }
     console.log(`\nsummary saved — refresh the lens viewer (↻) and open the Summary tab`);
     const submitted = typeof result === "object" && result !== null && typeof (result as { units?: unknown }).units === "object"

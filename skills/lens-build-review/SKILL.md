@@ -27,11 +27,14 @@ reviewer doesn't share your blind spots) with this task:
 
 > Run `lens summary prepare <diff>` in `<repo root>` and follow the instructions it
 > prints exactly: read the tasks, research callers in the repo, write result.json, run
-> `lens summary submit`, fix anything it rejects and submit once more.
-> [If there is a plan file: "The build implemented `<plan file>`. Mark a unit
-> needsLook when it does something the plan didn't ask for."]
-> Reply with only: the ids and gists of the units with needsLook = true, and anything
-> submit still rejected.
+> `lens summary submit`, fix anything it rejects and submit once more. If the tasks come
+> in parts, finish with the final pass (flows and the overview) the instructions describe.
+> Every bug or risk you notice goes into the unit's `concerns` — the user reads the
+> viewer, not your reply.
+> [If there is a plan file: "The build implemented `<plan file>`. When a unit does
+> something the plan didn't ask for, add a question concern saying so."]
+> Reply with only: the concerns you recorded (unit id, kind and one line each), and
+> anything submit still rejected.
 
 If your agent can't spawn subagents, do it yourself, following the same printed
 instructions.
@@ -43,7 +46,7 @@ use, a viewer is already running: tell the user to press ↻ refresh in it inste
 
 ## 4. Hand over to the user
 In a few lines: the build is summarized in lens (give the URL it printed), how many
-units there are, and the ones that need a look with their gists — those are where to
-start reading. Don't repeat the summary itself; the viewer shows it next to the code.
+units there are, and the concerns the subagent recorded, bugs first — those are where
+to start reading; the user confirms or dismisses each one in the viewer. Don't repeat the summary itself; the viewer shows it next to the code.
 
 If `lens` isn't on the PATH, ask the user to run `npm run install-cli` in the lens repo.

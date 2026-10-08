@@ -224,9 +224,14 @@ export async function serveViewer(
     const url = `http://127.0.0.1:${opts.port}/`;
     console.log(`lens viewer on ${url}  (ctrl-c to stop)`);
     if (opts.open) {
-      const opener = process.platform === "darwin" ? "open"
-        : process.platform === "win32" ? "start" : "xdg-open";
-      spawn(opener, [url + (opts.openSummary ? "#summary" : "")], { stdio: "ignore", detached: true }).unref();
+      const target = url + (opts.openSummary ? "#summary" : "");
+      // `start` is a cmd builtin, not a program; its first quoted argument is a window title
+      const [opener, args] = process.platform === "darwin" ? ["open", [target]]
+        : process.platform === "win32" ? ["cmd", ["/c", "start", "", target]] : ["xdg-open", [target]];
+      const child = spawn(opener, args, { stdio: "ignore", detached: true, windowsHide: true });
+      // no browser opener (e.g. a headless box): the URL is printed above, keep serving
+      child.on("error", () => console.log(`lens: couldn't open a browser — open ${target} yourself`));
+      child.unref();
     }
   });
 }

@@ -1,6 +1,8 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
-import { join, relative } from "node:path";
-import { readStored, summaryKey, summaryStamp, unitSetHash, type ChangeRow, type Flow } from "./store.ts";
+import { join } from "node:path";
+import { relPath } from "../paths.ts";
+import { prepareCommand } from "./bundle.ts";
+import { readStored, summaryArgs, summaryKey, summaryStamp, unitSetHash, type ChangeRow, type Concern, type Flow } from "./store.ts";
 import { removalAnchors, type Unit } from "./units.ts";
 import type { RemovedBlock } from "../model.ts";
 
@@ -28,9 +30,11 @@ export interface ViewUnit extends Omit<Unit, "removals"> {
   summary: {
     headline: string;
     gist: string;
-    needsLook: boolean;
+    /** an older summary's needsLook with no concerns behind it: flagged, reason unknown */
+    unexplainedLook: boolean;
     changes: ChangeRow[];
     breaks: { summary: string; callers: CallerPeek[] }[];
+    concerns: Concern[];
   } | null;
   /** A deleted unit this one was renamed/moved from: its removed code */
   renamedFrom: { id: string; removals: RemovedBlock[] } | null;
@@ -59,7 +63,7 @@ export function buildSummaryView(opts: {
 }): SummaryView {
   const key = summaryKey(opts.command, opts.args);
   // the arguments as the user passes them to /lens-review or `lens summary prepare`
-  const hint = (opts.command === "pr" ? ["pr", ...opts.args] : opts.args).join(" ");
+  const hint = summaryArgs(opts.command, opts.args);
   const stored = readStored(opts.root, key);
   const byId = new Map(opts.units.map((u) => [u.id, u]));
   const hiddenDeleted = new Set<string>();
@@ -73,14 +77,15 @@ export function buildSummaryView(opts: {
     return {
       ...u,
       removals: anchored,
-      displayFile: relative(opts.cwd, join(opts.root, u.file)) || u.file,
+      displayFile: relPath(opts.cwd, join(opts.root, u.file)),
       stale,
       summary: s && !stale ? {
         headline: s.headline,
         gist: s.gist,
-        needsLook: s.needsLook,
+        unexplainedLook: s.needsLook && s.concerns === undefined && s.breaks.length === 0,
         changes: s.changes,
         breaks: s.breaks.map((b) => ({ summary: b.summary, callers: b.callers.map((c) => peek(opts.root, c)) })),
+        concerns: s.concerns ?? [],
       } : null,
       renamedFrom: renamed ? { id: renamed.id, removals: renamed.removals } : null,
     };
@@ -93,7 +98,7 @@ export function buildSummaryView(opts: {
   return {
     key,
     command: `/lens-review${hint ? " " + hint : ""}`,
-    cli: `lens summary prepare${hint ? " " + hint : ""}`,
+    cli: prepareCommand(opts),
     stamp: summaryStamp(opts.root, key),
     units: visible,
     flows,
