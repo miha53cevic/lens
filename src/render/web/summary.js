@@ -207,6 +207,7 @@ function renderSummary() {
     renderSummaryUnit(currentUnit());
   }
   summaryListEl.querySelector(".sum-item.active")?.scrollIntoView({ block: "nearest" });
+  askSync(); // the overview has no unit: the rail's input waits for one
 }
 
 // List order: flows by priority (then by how many of their units are flagged),
@@ -627,6 +628,7 @@ function renderSummaryUnit(u) {
   const regions = [...inner.querySelectorAll(".unit-code .region")].map((el) => ({ category: /** @type {HTMLElement} */ (el).dataset.cat }));
   renderToggles({ regions });
   summaryPaneEl.scrollTop = top;
+  askSync(); // the rows were rebuilt: repaint the kept selection
 }
 
 function unitCodeEl(u, fileIndex, s) {
@@ -807,9 +809,3 @@ function openUnitInCode(u) {
   if (fileIndex < 0 || u.ranges.length === 0) return;
   jumpToLine(fileIndex, u.changedLines[0] ?? u.ranges[0].start);
 }
-
-// Start-up: last, after both files' top-level declarations have run.
-openFirstTreeFile();
-syncViewSwitch();
-render();
-if (location.hash === "#summary" && DATA.summary) setView("summary");

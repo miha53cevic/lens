@@ -16,8 +16,8 @@
     "uninstall-cli": "npm unlink -g lens",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.viewer.json",
     "test": "npm run typecheck && node --test test/*.test.ts",
-    "install-skill": "mkdir -p ~/.claude/skills && for s in skills/*/; do n=$(basename \"$s\"); ln -sfn \"$PWD/skills/$n\" ~/.claude/skills/$n && echo \"linked ~/.claude/skills/$n \u2192 $PWD/skills/$n\"; done",
-    "uninstall-skill": "for s in skills/*/; do n=$(basename \"$s\"); t=~/.claude/skills/$n; if [ -L \"$t\" ] && [ \"$(readlink \"$t\")\" = \"$PWD/skills/$n\" ]; then rm \"$t\" && echo \"removed $t\"; elif [ -e \"$t\" ]; then echo \"left $t alone (not a link to this repo)\"; else echo \"not installed: $n\"; fi; done"
+    "install-skill": "node scripts/skills.ts install",
+    "uninstall-skill": "node scripts/skills.ts uninstall"
   },
   "devDependencies": {
     "@types/node": "^26.2.0",

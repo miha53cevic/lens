@@ -1,5 +1,5 @@
-import { existsSync, readFileSync, statSync } from "node:fs";
-import { isAbsolute, join, normalize, sep } from "node:path";
+import { normalize, sep } from "node:path";
+import { resolveLineRef } from "../paths.ts";
 import { LIMITS } from "./bundle.ts";
 import {
   unitSetHash, type Break, type Bundle, type BundleUnit, type ChangeRow, type Concern, type ConcernKind, type Flow,
@@ -228,22 +228,10 @@ function normalizeCaller(raw: string): string {
 /** null when the caller reference is valid, else why not. */
 function checkCaller(c: unknown, unit: BundleUnit, root: string, fileCache: Map<string, string[] | null>): string | null {
   if (typeof c !== "string") return "must be a \"path:line\" string";
-  const m = /^(.+):(\d+)$/.exec(c.trim());
-  if (!m) return "must look like \"path/to/file.ts:31\"";
-  const rel = normalize(m[1]);
-  if (isAbsolute(rel) || rel.startsWith("..")) return "must be a path relative to the repository root";
-  let lines = fileCache.get(rel);
-  if (lines === undefined) {
-    const abs = join(root, rel);
-    lines = existsSync(abs) && statSync(abs).isFile() ? readFileSync(abs, "utf8").split("\n") : null;
-    fileCache.set(rel, lines);
-  }
-  if (!lines) return "— file not found";
-  const lineNo = Number(m[2]);
-  const line = lines[lineNo - 1];
-  if (line === undefined || lineNo < 1) return `— the file has only ${lines.length} lines`;
+  const ref = resolveLineRef(root, c, fileCache);
+  if ("error" in ref) return ref.error;
   const name = callerName(unit);
-  if (name && !new RegExp(`(^|[^\\w$])${name.replace(/[$]/g, "\\$")}([^\\w$]|$)`).test(line)) {
+  if (name && !new RegExp(`(^|[^\\w$])${name.replace(/[$]/g, "\\$")}([^\\w$]|$)`).test(ref.text)) {
     return `— that line doesn't mention ${name}`;
   }
   return null;

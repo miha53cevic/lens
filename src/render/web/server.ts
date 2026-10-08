@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url";
 import { join, dirname } from "node:path";
 import type { FileFoldModel, LensConfig } from "../../model.ts";
 import type { SummaryView } from "../../summary/view.ts";
+import { removeServerInfo, writeServerInfo } from "../../ask/discovery.ts";
+import { createAskRoutes } from "../../ask/routes.ts";
 import {
   highlightSource,
   isBundledTheme,
@@ -16,6 +18,10 @@ import {
 export type ViewerFile = FileFoldModel & { source: string };
 
 export interface ViewerInput {
+  /** Repo root in diff/PR mode, else where lens runs: .lens/ lives here */
+  root: string;
+  /** Where lens runs: file paths are relative to it */
+  cwd: string;
   threshold: number;
   files: ViewerFile[];
   deleted: string[];
@@ -83,7 +89,7 @@ function loadTemplate(): string {
   // Function replacements: plain strings would expand $-sequences in the code.
   return read("viewer.html")
     .replace("/*__LENS_CSS__*/", () => read("viewer.css"))
-    .replace("/*__LENS_JS__*/", () => read("viewer.js") + "\n" + read("summary.js"));
+    .replace("/*__LENS_JS__*/", () => read("viewer.js") + "\n" + read("summary.js") + "\n" + read("ask.js"));
 }
 
 export async function serveViewer(
@@ -93,6 +99,13 @@ export async function serveViewer(
 ): Promise<void> {
   let current = input;
   const themeCache = new Map<string, ThemeTokens>();
+  const ask = createAskRoutes(() => current, opts.port);
+  // the root of the analysis that wrote server.json — a refresh can't move it
+  const infoRoot = input.root;
+  const stop = () => {
+    removeServerInfo(infoRoot);
+    process.exit(0);
+  };
 
   async function tokensFor(theme: string): Promise<ThemeTokens> {
     const cached = themeCache.get(theme);
@@ -178,6 +191,7 @@ export async function serveViewer(
           return;
         }
         current = await reanalyze();
+        ask.refresh();
         themeCache.clear();
         htmlCache.clear();
         res.writeHead(200, { "content-type": "application/json" });
@@ -199,9 +213,14 @@ export async function serveViewer(
         res.writeHead(200, { "content-type": "application/json" });
         res.end(JSON.stringify({ ok: true }), () => {
           console.log("lens viewer stopped from the viewer");
-          server.close(() => process.exit(0));
+          server.close(stop);
           server.closeAllConnections();
         });
+      } else if (url.pathname.startsWith("/api/ask/") || url.pathname === "/api/ask") {
+        if (!(await ask.handle(req, res, url))) {
+          res.writeHead(404);
+          res.end("not found");
+        }
       } else {
         res.writeHead(404);
         res.end("not found");
@@ -222,7 +241,10 @@ export async function serveViewer(
   });
   server.listen(opts.port, "127.0.0.1", () => {
     const url = `http://127.0.0.1:${opts.port}/`;
+    writeServerInfo(infoRoot, opts.port); // before the banner: whoever waits for it can `lens ask` right away
     console.log(`lens viewer on ${url}  (ctrl-c to stop)`);
+    process.on("SIGINT", stop);
+    process.on("SIGTERM", stop);
     if (opts.open) {
       const target = url + (opts.openSummary ? "#summary" : "");
       // `start` is a cmd builtin, not a program; its first quoted argument is a window title

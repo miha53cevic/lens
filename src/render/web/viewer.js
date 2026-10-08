@@ -1,6 +1,6 @@
 // lens viewer: the Code view (tree, tabs, folds, search, settings, keys).
-// Served inlined into viewer.html together with summary.js — one script, so
-// the two files share top-level names.
+// Served inlined into viewer.html together with summary.js and ask.js — one
+// script, so the three files share top-level names. Start-up runs at the end of ask.js.
 
 /** @type {import("./server.ts").ViewerPayload} */
 const DATA = /*__LENS_DATA__*/ null;
@@ -464,6 +464,7 @@ function render() {
         : "no supported files found") + "</div>";
     togglesEl.innerHTML = "";
     updateStats();
+    askSync();
     return;
   }
   renderToggles(file);
@@ -483,12 +484,14 @@ function render() {
   if (state.showRemoved) {
     for (const block of file.removals || []) {
       const existing = removedAfter.get(block.afterLine) || [];
-      removedAfter.set(block.afterLine, existing.concat(block.lines));
+      removedAfter.set(block.afterLine, existing.concat(block.lines.map((text, i) => ({ text, old: block.oldStart + i }))));
     }
   }
   const emitRemoved = (afterLine, container, gutter) => {
-    for (const text of removedAfter.get(afterLine) || []) {
-      container.appendChild(removedRowEl(text, gutter));
+    for (const { text, old } of removedAfter.get(afterLine) || []) {
+      const row = removedRowEl(text, gutter);
+      row.dataset.old = old; // its old-side line, as in the Summary view (the Ask rail sends it)
+      container.appendChild(row);
     }
   };
 
@@ -531,6 +534,7 @@ function render() {
   const saved = scrollMemory.get(file.file);
   mainEl.scrollTop = saved ? saved.top : 0;
   mainEl.scrollLeft = saved ? saved.left : 0;
+  askSync(); // the rows were rebuilt: repaint the kept selection (or drop it for another file)
 }
 
 /** Lines of context around each change in hunks-only mode (code view and summary) */
@@ -1221,7 +1225,7 @@ document.addEventListener("keydown", (ev) => {
       return;
     }
     // the toolbar's keys act on the open unit's code; file and tab keys don't apply here
-    if (!["?", "x", "s", "r", "e", "c", "[", "]", "h", "t"].includes(ev.key)) return;
+    if (!["?", "x", "s", "r", "e", "c", "[", "]", "h", "t", "a", "\\"].includes(ev.key)) return;
   }
   switch (ev.key) {
     case "?": keysModal.showModal(); ev.preventDefault(); break;
@@ -1250,5 +1254,7 @@ document.addEventListener("keydown", (ev) => {
     case "x": if (removedWrap.style.display !== "none") showRemovedBox.click(); break;
     case "t": if (testsWrap.style.display !== "none") hideTestsBox.click(); break;
     case "r": if (refreshBtn.style.display !== "none") refreshBtn.click(); break;
+    case "a": askOpenAndFocus(); ev.preventDefault(); break; // the "a" mustn't land in the textarea
+    case "\\": askSetOpen(!askState.open); break;
   }
 });

@@ -81,6 +81,8 @@ export async function analyze(
   }
 
   return {
+    root: diff ? diff.root : cwd,
+    cwd,
     threshold: config.threshold,
     files,
     deleted: diff ? diff.deleted.map(shown) : [],

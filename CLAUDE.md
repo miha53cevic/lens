@@ -8,7 +8,7 @@
 - Node >= 23.6 runs the `.ts` sources directly (type stripping). There's no build step, and `npm run install-cli` links `lens` to the live source.
 - `npm test` runs both typechecks (`tsconfig.json` for src/test, `tsconfig.viewer.json` for the browser scripts) and then `node --test test/*.test.ts`. Run it before calling a change done.
 - To see a change, run `node src/cli.ts diff` (or `<path>`, `pr N`) and open the viewer. Add `--no-open` to skip the browser and `--json` to dump the fold model.
-- `install-skill` / `uninstall-skill` are sh scripts, so on Windows run them from Git Bash.
+- `install-skill` / `uninstall-skill` run `scripts/skills.ts`, which links each folder in `skills/` into `~/.claude/skills` (junctions on Windows). Keep npm scripts shell-free: npm runs them with cmd.exe on Windows, even from Git Bash.
 
 ## Paths (Windows too)
 
@@ -32,6 +32,7 @@ classify/         fold rules → FoldRegion[] (model.ts has the shapes)
 render/highlight.ts   Shiki tokens, computed server-side
 render/web/       server.ts + the viewer page (see below)
 summary/          summary mode (see below)
+ask/              ask mode: the viewer's Ask rail and `lens ask listen|reply` (see below)
 ```
 
 ### Folding rules
@@ -43,9 +44,9 @@ summary/          summary mode (see below)
 
 ### Viewer (`src/render/web/`)
 
-- `server.ts` inlines `viewer.css`, `viewer.js` and `summary.js` (in that order) into `viewer.html`, and injects the payload at `/*__LENS_DATA__*/ null`. Both scripts run as one script, so they share top-level names. `summary.js` can use anything `viewer.js` defines, and a name declared twice is a collision.
+- `server.ts` inlines `viewer.css`, then `viewer.js`, `summary.js` and `ask.js` (in that order) into `viewer.html`, and injects the payload at `/*__LENS_DATA__*/ null`. The three scripts run as one script, so they share top-level names. A later file can use anything an earlier one defines, and a name declared twice is a collision. Start-up runs at the end of `ask.js`, after every file's top-level declarations.
 - The scripts are plain browser JS, type-checked through JSDoc (`tsconfig.viewer.json`, non-strict). They have no imports and no bundler.
-- Server endpoints: `/api/tokens` (theme switch), `/api/refresh`, `/api/summary`, `/api/summary/stamp` (polled on window focus), `/api/shutdown`.
+- Server endpoints: `/api/tokens` (theme switch), `/api/refresh`, `/api/summary`, `/api/summary/stamp` (polled on window focus), `/api/shutdown`, and the Ask rail's `/api/ask*` (in `src/ask/routes.ts`).
 - Browser-only state, such as viewed marks, lives in `localStorage`.
 
 ## Viewer: the Summary view extends the Code view
@@ -68,6 +69,16 @@ lens never calls an AI. The user's agent writes `result.json`, and lens checks i
 - Changing the result's shape touches all of these: `RESULT_SCHEMA` and the instructions (`bundle.ts`), `validate.ts`, the types in `store.ts`, `view.ts`, `summary.js`, and `test/summary.test.ts`. The stored format is `version: 1`, and `readStored` ignores files of any other version.
 - Summaries are keyed by unit hash, so a code change marks a unit stale instead of showing an outdated summary.
 - Tests build real diffs with `git diff --no-index` and real temp repos (see the helpers at the top of `test/summary.test.ts` and `test/git.test.ts`). Follow that pattern rather than hand-writing diff text.
+
+## Ask mode (`src/ask/`)
+
+The Ask rail (`ask.js`) asks the user's agent about the open change. As in summary mode, lens never answers anything itself.
+
+- Flow: the viewer posts a question (`routes.ts`) → `session.ts` holds the chat in memory, one per server → `lens ask listen` (`command.ts`) long-polls `/api/ask/next` and prints the agent text → `lens ask reply` posts the answer → `cites.ts` keeps the `path:line` cites that resolve.
+- The agent text, including the read-only rules, is generated in `context.ts` and is the source of truth. `skills/lens-ask` only points at it.
+- Context is the open change (the Summary tab's unit, or the Code tab's file) plus the user's current selection. Nothing else, such as summary items, goes along.
+- A question stores its unit's hash (or the file's content hash). ↻ refresh marks it stale when that changes.
+- The server writes `.lens/server.json` (port, pid) so `lens ask` can find it, and removes it on exit.
 
 ## Non-goals
 
