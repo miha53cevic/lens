@@ -37,7 +37,6 @@ export interface ViewerInput {
   excluded: string[];
   /** Pure renames — listed, nothing to analyze */
   renamed: { from: string; to: string }[];
-  testFilePatterns: string[];
   /** The effective merged config, shown in the viewer's settings modal */
   config: LensConfig;
   configSource: string | null;
@@ -61,9 +60,8 @@ export interface ViewerOptions {
   themePinned: boolean;
 }
 
-/** What the page gets as DATA (client/shared.ts) — ViewerInput made serializable, plus tokens. */
-export interface ViewerPayload {
-  threshold: number;
+/** What the page gets as DATA (client/shared.ts): ViewerInput made serializable, plus one theme's tokens. */
+export type ViewerPayload = Omit<ViewerInput, "root" | "cwd" | "files" | "reloadSummary" | "summaryStamp"> & {
   theme: string;
   /** The theme menu's themes, each with its colors */
   themes: ThemeSwatch[];
@@ -72,17 +70,9 @@ export interface ViewerPayload {
   /** The theme's function-name color: the viewer's accent */
   accent: string;
   files: (ViewerFile & { tokens: ViewerToken[][] })[];
-  deleted: string[];
-  excluded: string[];
-  renamed: { from: string; to: string }[];
-  testFilePatterns: string[];
-  config: LensConfig;
-  configSource: string | null;
-  label: string | null;
-  summary: SummaryView | null;
   themePinned: boolean;
   canRefresh: boolean;
-}
+};
 
 export interface ThemeTokens {
   theme: string;
@@ -113,24 +103,16 @@ export async function highlightFiles(files: ViewerFile[], theme: string): Promis
 export function viewerPayload(
   input: ViewerInput, t: ThemeTokens, themes: ThemeSwatch[], opts: { themePinned: boolean; canRefresh: boolean },
 ): ViewerPayload {
+  const { root: _root, cwd: _cwd, reloadSummary: _reload, summaryStamp: _stamp, ...data } = input;
   return {
-    threshold: input.threshold,
+    ...data,
     theme: t.theme,
     themes,
     fg: t.fg,
     bg: t.bg,
     accent: t.accent,
     files: input.files.map((f, i) => ({ ...f, tokens: t.tokens[i] })),
-    deleted: input.deleted,
-    excluded: input.excluded,
-    renamed: input.renamed,
-    testFilePatterns: input.testFilePatterns,
-    config: input.config,
-    configSource: input.configSource,
-    label: input.label,
-    summary: input.summary,
-    themePinned: opts.themePinned,
-    canRefresh: opts.canRefresh,
+    ...opts,
   };
 }
 
