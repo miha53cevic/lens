@@ -87,12 +87,19 @@ export async function extractUnits(input: UnitFileInput): Promise<Unit[]> {
   if (newIndex === null || oldIndex === null) return wholeFile();
 
   const oldLines = oldSource === null ? [] : oldSource.split("\n");
-  // A blank line between declarations joins its neighbour instead of making
-  // a "module-level" unit of its own.
-  const withBlanks = (lookup: (line: number) => string | null, lines: string[]) => (line: number) =>
-    lookup(line) ?? ((lines[line - 1] ?? "").trim() === "" ? lookup(line + 1) ?? lookup(line - 1) : null);
-  const ownerNew = withBlanks(ownerLookup(newIndex), newLines);
-  const ownerOld = withBlanks(ownerLookup(oldIndex), oldLines);
+  // Owners for one hunk's consecutive lines. A blank line between declarations
+  // joins a neighbour instead of making a "module-level" unit of its own: one
+  // in the same hunk first (removing `b` and the blank after it mustn't touch
+  // an unchanged `c`), else the declaration right below or above.
+  const ownersOf = (run: number[], lookup: (line: number) => string | null, lines: string[]): string[] => {
+    const own = run.map((l) => lookup(l) ?? ((lines[l - 1] ?? "").trim() === "" ? null : MODULE_NAME));
+    return own.map((o, i) => o
+      ?? own.slice(0, i).reverse().find((x) => x !== null)
+      ?? own.slice(i + 1).find((x) => x !== null)
+      ?? lookup(run[i] + 1) ?? lookup(run[i] - 1) ?? MODULE_NAME);
+  };
+  const lookupNew = ownerLookup(newIndex);
+  const lookupOld = ownerLookup(oldIndex);
   const touched = new Map<string, { changed: number[]; removals: RemovedBlock[] }>();
   const slot = (name: string) => {
     let s = touched.get(name);
@@ -100,14 +107,22 @@ export async function extractUnits(input: UnitFileInput): Promise<Unit[]> {
     return s;
   };
 
-  for (const line of input.changedLines) slot(ownerNew(line) ?? MODULE_NAME).changed.push(line);
+  const changed = [...input.changedLines].sort((a, b) => a - b);
+  for (let i = 0; i < changed.length;) {
+    let j = i + 1;
+    while (j < changed.length && changed[j] === changed[j - 1] + 1) j++;
+    const run = changed.slice(i, j);
+    ownersOf(run, lookupNew, newLines).forEach((owner, k) => slot(owner).changed.push(run[k]));
+    i = j;
+  }
   for (const block of input.removals) {
     // A removed block can span several old declarations: split it so each
     // piece goes to the declaration it was removed from.
+    const owners = ownersOf(block.lines.map((_, i) => block.oldStart + i), lookupOld, oldLines);
     let piece: RemovedBlock | null = null;
     let pieceOwner = "";
     for (let i = 0; i < block.lines.length; i++) {
-      const owner = ownerOld(block.oldStart + i) ?? MODULE_NAME;
+      const owner = owners[i];
       if (!piece || owner !== pieceOwner) {
         piece = { afterLine: block.afterLine, oldStart: block.oldStart + i, lines: [] };
         pieceOwner = owner;
@@ -258,14 +273,16 @@ type AddDecl = (name: string, kind: UnitKind, start: number, node: Node, contain
  * Calls fn for every non-comment named child, with the start line extended
  * over the comments directly above it (no blank line between), so doc
  * comment edits belong to the declaration they document. A trailing comment
- * (`foo(); // note`) belongs to the line it ends, not to what follows.
+ * (`foo(); // note`) belongs to the line it ends, not to what follows. A
+ * method's decorators (`@Get("/list")`) are siblings in the class body: they
+ * join the method the same way.
  */
 function forEachWithComments(parent: Node, fn: (node: Node, start: number) => void): void {
   let comments: Node[] = [];
   let previousEnd = -1; // row where the last non-comment child ended
   for (const child of parent.namedChildren) {
     if (!child) continue;
-    if (child.type === "comment") {
+    if (child.type === "comment" || child.type === "decorator") {
       if (child.startPosition.row !== previousEnd) comments.push(child);
       continue;
     }

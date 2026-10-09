@@ -196,6 +196,18 @@ test("units: a blank line added between declarations is shown with the one it jo
   assert.deepEqual(units[0].ranges, [{ start: 4, end: 7 }]);
 });
 
+test("units: deleting a function and the blank after it leaves the next one alone", async () => {
+  const old = "function a() {\n  return 1;\n}\n\nfunction b() {\n  return 2;\n}\n\nfunction c() {\n  return 3;\n}\n";
+  const units = await unitsFor(inputFor("src/f.ts", old, old.replace("function b() {\n  return 2;\n}\n\n", "")));
+  assert.deepEqual(units.map((u) => [u.name, u.status]), [["b", "deleted"]]);
+});
+
+test("units: a method's decorator belongs to the method", async () => {
+  const old = `export class Orders {\n  @Get("/list")\n  list() {\n    return 1;\n  }\n}\n`;
+  const units = await unitsFor(inputFor("src/f.ts", old, old.replace(`@Get("/list")`, `@Get("/all")`)));
+  assert.deepEqual(units.map((u) => [u.name, u.changedLines]), [["Orders.list", [2]]]);
+});
+
 test("readStored tolerates a summary.json without flows, or with a malformed overview", () => {
   const root = mkdtempSync(join(tmpdir(), "lens-store-"));
   try {
