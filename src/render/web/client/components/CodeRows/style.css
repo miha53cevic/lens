@@ -171,15 +171,11 @@
 /* a slight pop, then it settles into the landed mark (a color change, not motion: it plays even with reduced motion) */
 @keyframes line-flash {
   0%,
-  10%,
-  30% {
+  25% {
     background: color-mix(in oklab, var(--accent) 34%, transparent);
     box-shadow:
       inset 3px 0 0 var(--accent),
       inset 0 0 0 1px var(--selected-ring);
-  }
-  20% {
-    background: color-mix(in oklab, var(--accent) 16%, transparent);
   }
   100% {
     background: color-mix(in oklab, var(--accent) 10%, transparent);
