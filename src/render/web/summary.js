@@ -8,7 +8,6 @@ const viewSummaryBtn = document.getElementById("view-summary");
 const summaryDot = document.getElementById("summary-dot");
 const summaryListEl = document.getElementById("summary-list");
 const summaryPaneEl = document.getElementById("summary-pane");
-const tabbarWrap = tabbarEl;
 let summaryOrder = []; // unit ids in list order (j/k walk this)
 
 function syncViewSwitch() {
@@ -22,7 +21,11 @@ const navScroll = { code: 0, summary: 0 };
 
 function setView(view) {
   if (view === "summary" && !DATA.summary) return;
-  if (state.view === "code") rememberScroll();
+  if (state.view === "code") {
+    rememberScroll();
+    // hidden, <main> forgets its scroll: the next render mustn't save that 0 over this
+    renderedPath = null;
+  }
   navScroll[state.view] = nav.scrollTop;
   state.view = view;
   viewCodeBtn.setAttribute("aria-pressed", String(view === "code"));
@@ -31,7 +34,7 @@ function setView(view) {
   // the toolbar stays: its folds, hunks, removed lines and hide-tests act on the open unit.
   // Only the file's viewed box goes — a unit has its own. The code view's render restores it.
   if (summary) viewedWrap.style.display = viewedDivider.style.display = "none";
-  tabbarWrap.style.display = summary ? "none" : "";
+  tabbarEl.style.display = summary ? "none" : "";
   mainEl.style.display = summary ? "none" : "";
   summaryPaneEl.style.display = summary ? "" : "none";
   filterInput.parentElement.style.display = summary ? "none" : "";
@@ -42,6 +45,7 @@ function setView(view) {
   nav.scrollTop = navScroll[view];
   if (summary && summaryDot.style.display !== "none") { loadSummary(); return; }
   render();
+  if (summary) checkSummaryStamp(); // a submit while the window kept its focus
 }
 viewCodeBtn.onclick = () => setView("code");
 viewSummaryBtn.onclick = () => setView("summary");
@@ -52,15 +56,16 @@ async function loadSummary() {
     if (!res.ok) throw new Error("http " + res.status);
     const summary = await res.json();
     if (summary) DATA.summary = summary;
+    summaryDot.style.display = "none"; // only once it's loaded: a failed load is tried again
   } catch (err) {
     console.error("loading the summary failed:", err);
   }
-  summaryDot.style.display = "none";
   render();
 }
 
-// A submit from the agent lands in summary.json; notice it when the reader comes back.
-window.addEventListener("focus", async () => {
+// A submit from the agent lands in summary.json; notice it when the reader comes back
+// to the window, or opens the Summary tab.
+async function checkSummaryStamp() {
   if (!DATA.summary) return;
   try {
     const res = await fetch("/api/summary/stamp");
@@ -70,7 +75,8 @@ window.addEventListener("focus", async () => {
       else summaryDot.style.display = "";
     }
   } catch { /* server gone — nothing to do */ }
-});
+}
+window.addEventListener("focus", checkSummaryStamp);
 
 function unitById(id) { return (DATA.summary?.units || []).find((u) => u.id === id) || null; }
 // null on the overview: unit keys (o, m) do nothing there
@@ -640,9 +646,11 @@ function unitCodeEl(u, fileIndex, s) {
   const file = fileIndex >= 0 ? DATA.files[fileIndex] : null;
   const cited = new Set((s ? s.changes : []).map((c) => c.line));
   const gutter = String(Math.max(file ? file.lineCount : 0, ...u.removals.map((b) => b.oldStart + b.lines.length))).length;
+  // a deleted unit is nothing but removed lines: they show even with removed lines hidden
+  const showRemoved = state.showRemoved || !file || u.ranges.length === 0;
   // each removed block carries its display anchor (computed by the server)
   const emitRemoved = (after, container) => {
-    if (!state.showRemoved) return;
+    if (!showRemoved) return;
     for (const b of u.removals.filter((r) => r.anchor === after)) {
       b.lines.forEach((text, i) => {
         const row = removedRowEl(text, gutter);
@@ -653,16 +661,13 @@ function unitCodeEl(u, fileIndex, s) {
     }
   };
   if (!file || u.ranges.length === 0) {
-    const was = state.showRemoved;
-    state.showRemoved = true; // a deleted unit is nothing but removed lines
     emitRemoved(0, code);
-    state.showRemoved = was;
   } else {
     const lines = linesFromTokens(file);
     const changed = new Set(u.changedLines);
     const regionAt = new Map();
     for (const r of file.regions) regionAt.set(r.startLine, r);
-    const { ranges, gaps } = unitHunks(u);
+    const { ranges, gaps } = unitHunks(u, file.regions);
     // a hidden stretch (hunks only) is a row that expands on click; where the unit's own
     // ranges break, a plain ⋯
     // shown ranges and hidden stretches in line order; a jump between them is a plain ⋯
@@ -746,7 +751,7 @@ function citedRow(container, label) {
 
 // Hunks only: the unit's lines within HUNK_CONTEXT of a change or a removed block, as in the
 // code view, plus the hidden stretches in between — each expands on click (expandedGaps).
-function unitHunks(u) {
+function unitHunks(u, regions) {
   if (!state.hunksOnly) return { ranges: u.ranges, gaps: [] };
   const near = new Set();
   const around = (from, to) => { for (let l = from; l <= to; l++) near.add(l); };
@@ -757,6 +762,10 @@ function unitHunks(u) {
   const s = u.summary;
   for (const c of s ? [...s.concerns, ...s.changes] : []) {
     if (c.line.startsWith("N")) { const l = Number(c.line.slice(1)); around(l - 1, l + 1); }
+  }
+  // as in the code view, a fold region is never cut by a hidden stretch
+  for (const r of regions) {
+    for (let l = r.startLine; l <= r.endLine; l++) if (near.has(l)) { around(r.startLine, r.endLine); break; }
   }
   // runs of hidden lines within each of the unit's ranges; an expanded one shows again
   const gaps = [];

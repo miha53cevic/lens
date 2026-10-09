@@ -110,9 +110,19 @@ function ensureTab(index, pin) {
 }
 
 function openFile(index, pin) {
+  revealIfTest(index);
   ensureTab(index, pin);
   state.active = index;
   render();
+}
+
+// A test file opened by name (a tab, a cite, a search hit) shows: "hide tests" goes off for
+// this page instead of render() swapping in another file. The saved preference stays.
+function revealIfTest(index) {
+  const file = DATA.files[index];
+  if (!state.hideTests || !file || !isTestFile(file.file)) return;
+  state.hideTests = false;
+  hideTestsBox.checked = false;
 }
 
 function closeTab(index) {
@@ -546,15 +556,25 @@ function computeHunks(file) {
   const hasAnchors = (file.changedLines || []).length > 0 || (file.removals || []).length > 0;
   if (!state.hunksOnly || !hasAnchors) return { windows: null, hiddenGaps: [] };
 
-  const anchors = new Set(file.changedLines || []);
+  const raw = (file.changedLines || []).map((l) => ({ start: l - HUNK_CONTEXT, end: l + HUNK_CONTEXT }));
+  // a removed block shows after its anchor line: HUNK_CONTEXT lines on each side, as in the Summary
   for (const block of file.removals || []) {
-    anchors.add(Math.max(1, block.afterLine));
-    anchors.add(Math.min(file.lineCount, block.afterLine + 1));
+    raw.push({ start: block.afterLine - HUNK_CONTEXT + 1, end: block.afterLine + HUNK_CONTEXT });
+  }
+  // a fold region is never cut by a hidden stretch: a window takes in every region it touches
+  // (regions don't overlap, so one pass is enough)
+  for (const w of raw) {
+    for (const r of file.regions) {
+      if (r.startLine <= w.end && w.start <= r.endLine) {
+        w.start = Math.min(w.start, r.startLine);
+        w.end = Math.max(w.end, r.endLine);
+      }
+    }
   }
   const windows = [];
-  for (const line of [...anchors].sort((a, b) => a - b)) {
-    const start = Math.max(1, line - HUNK_CONTEXT);
-    const end = Math.min(file.lineCount, line + HUNK_CONTEXT);
+  for (const w of raw.sort((a, b) => a.start - b.start)) {
+    const start = Math.max(1, w.start);
+    const end = Math.min(file.lineCount, w.end);
     const last = windows[windows.length - 1];
     if (last && start <= last.end + 1) last.end = Math.max(last.end, end);
     else windows.push({ start, end });
@@ -1065,7 +1085,7 @@ function renderSearchResults() {
       '<span class="preview">' + escapeHtml(before) +
       '<span class="match">' + escapeHtml(text.substr(hit.col, hit.len)) + "</span>" +
       escapeHtml(after) + "</span>";
-    row.onclick = () => { searchModal.close(); jumpToLine(hit.fileIndex, hit.line); };
+    row.onclick = () => { searchModal.close(); jumpToLine(hit.fileIndex, hit.line, searchPinsOrigin); };
     searchResultsEl.appendChild(row);
   });
   if (searchHits.length >= SEARCH_LIMIT) {
@@ -1094,22 +1114,23 @@ searchInput.onkeydown = (ev) => {
   else if (ev.key === "ArrowUp") { moveSearchSel(-1); ev.preventDefault(); }
   else if (ev.key === "Enter") {
     const hit = searchHits[searchSel];
-    if (hit) { searchModal.close(); jumpToLine(hit.fileIndex, hit.line); }
+    if (hit) { searchModal.close(); jumpToLine(hit.fileIndex, hit.line, searchPinsOrigin); }
   }
 };
 document.getElementById("search-btn").onclick = () => openSearch();
 
 // Show the target line: expand a hidden hunks-gap or a fold covering it,
 // scroll it centered, and flash it.
-function jumpToLine(fileIndex, line) {
+function jumpToLine(fileIndex, line, pinOrigin) {
   // search hits and "code view ↗" can come from the Summary view
   if (state.view !== "code") setView("code");
   // Pin the preview tab being read before a find-usages jump replaces it,
   // so the target opens beside it and the reader can come back.
-  if (searchPinsOrigin && fileIndex !== state.active) {
+  if (pinOrigin && fileIndex !== state.active) {
     const current = state.tabs.find((t) => t.index === state.active);
     if (current && !current.pinned) current.pinned = true;
   }
+  revealIfTest(fileIndex);
   ensureTab(fileIndex);
   state.active = fileIndex;
   const file = DATA.files[fileIndex];
@@ -1207,8 +1228,10 @@ document.addEventListener("keydown", (ev) => {
     return;
   }
   if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
-  const tag = ev.target instanceof Element ? ev.target.tagName : "";
-  if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
+  // keys go to text fields and selects; a clicked checkbox (viewed, a fold chip) keeps focus but takes no letters
+  const target = ev.target;
+  if (target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return;
+  if (target instanceof HTMLInputElement && target.type !== "checkbox") return;
   if (document.querySelector("dialog[open]")) return; // Esc closes natively
 
   if (ev.key === "v" && DATA.summary) { setView(state.view === "summary" ? "code" : "summary"); return; }

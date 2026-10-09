@@ -61,7 +61,8 @@ explicitly is always analyzed.
   yaml, …) get change markers and syntax colors, just no folding. Removed lines show
   inline, struck through, where they were deleted (`x` hides them). **Hunks only**
   (`h`, on by default) shows just the changes with 3 lines of context, PR-style;
-  click a `⋯` row to show what it hides. **Hide tests** (`t`) is on by default too. Lockfiles and
+  click a `⋯` row to show what it hides. **Hide tests** (`t`) is on by default too; opening a
+  test file anyway (a tab, a search hit, an Ask cite) turns it off for that page. Lockfiles and
   minified files (`exclude`) are listed as dimmed `⊘` rows without being read; pure
   renames show as `R` rows.
 - **Search**: ⌘P (Ctrl+P) searches across all loaded files; ⌥-click an identifier to
