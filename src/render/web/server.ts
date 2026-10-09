@@ -79,12 +79,49 @@ export interface ViewerPayload {
   canRefresh: boolean;
 }
 
-interface ThemeTokens {
+export interface ThemeTokens {
   theme: string;
   fg: string;
   bg: string;
   /** tokens[fileIndex] — aligned with the files array */
   tokens: ViewerToken[][][];
+}
+
+/** Every file's Shiki tokens in one theme. */
+export async function highlightFiles(files: ViewerFile[], theme: string): Promise<ThemeTokens> {
+  const results = await Promise.all(
+    files.map((f) => highlightSource(f.source, f.language ?? shikiLangForFile(f.file), theme)),
+  );
+  return {
+    theme,
+    fg: results[0]?.fg ?? "#ffffff",
+    bg: results[0]?.bg ?? "#000000",
+    tokens: results.map((r) => r.tokens),
+  };
+}
+
+/** The page's payload: the analysis, made serializable, with one theme's tokens. */
+export function viewerPayload(
+  input: ViewerInput, t: ThemeTokens, themes: string[], opts: { themePinned: boolean; canRefresh: boolean },
+): ViewerPayload {
+  return {
+    threshold: input.threshold,
+    theme: t.theme,
+    themes,
+    fg: t.fg,
+    bg: t.bg,
+    files: input.files.map((f, i) => ({ ...f, tokens: t.tokens[i] })),
+    deleted: input.deleted,
+    excluded: input.excluded,
+    renamed: input.renamed,
+    testFilePatterns: input.testFilePatterns,
+    config: input.config,
+    configSource: input.configSource,
+    label: input.label,
+    summary: input.summary,
+    themePinned: opts.themePinned,
+    canRefresh: opts.canRefresh,
+  };
 }
 
 const webDir = dirname(fileURLToPath(import.meta.url));
@@ -118,16 +155,7 @@ export async function serveViewer(
     const cached = themeCache.get(theme);
     if (cached) return cached;
     const files = current.files;
-    const results = await Promise.all(
-      files.map((f) =>
-        highlightSource(f.source, f.language ?? shikiLangForFile(f.file), theme)),
-    );
-    const entry: ThemeTokens = {
-      theme,
-      fg: results[0]?.fg ?? "#ffffff",
-      bg: results[0]?.bg ?? "#000000",
-      tokens: results.map((r) => r.tokens),
-    };
+    const entry = await highlightFiles(files, theme);
     // a ↻ refresh while Shiki ran: these tokens are the old files', don't keep them
     if (files === current.files) themeCache.set(theme, entry);
     return entry;
@@ -141,24 +169,7 @@ export async function serveViewer(
     // tokensFor highlights the files current now; a ↻ refresh during the await mustn't mix them
     const cur = current;
     const t = await tokensFor(theme);
-    return {
-      threshold: cur.threshold,
-      theme,
-      themes,
-      fg: t.fg,
-      bg: t.bg,
-      files: cur.files.map((f, i) => ({ ...f, tokens: t.tokens[i] })),
-      deleted: cur.deleted,
-      excluded: cur.excluded,
-      renamed: cur.renamed,
-      testFilePatterns: cur.testFilePatterns,
-      config: cur.config,
-      configSource: cur.configSource,
-      label: cur.label,
-      summary: cur.summary,
-      themePinned: opts.themePinned,
-      canRefresh: reanalyze !== undefined,
-    };
+    return viewerPayload(cur, t, themes, { themePinned: opts.themePinned, canRefresh: reanalyze !== undefined });
   }
 
   // Warm the initial theme before accepting requests.

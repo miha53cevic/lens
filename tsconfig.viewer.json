@@ -1,6 +1,6 @@
 {
   // Type-checks the viewer's browser code (client/), which bundle.ts bundles
-  // with esbuild when the server starts.
+  // with esbuild when the server starts, and the page tests, which need the DOM types.
   "compilerOptions": {
     "target": "es2022",
     "lib": ["es2024", "dom", "dom.iterable"],
@@ -17,5 +17,5 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["src/render/web/client/**/*"]
+  "include": ["src/render/web/client/**/*", "test/viewer-page.test.ts"]
 }

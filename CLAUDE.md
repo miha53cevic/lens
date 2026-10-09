@@ -6,7 +6,7 @@
 ## Running and testing
 
 - Node >= 23.6 runs the `.ts` sources directly (type stripping). There's no build step, and `npm run install-cli` links `lens` to the live source.
-- `npm test` runs both typechecks (`tsconfig.json` for src/test, `tsconfig.viewer.json` for the viewer's browser code in `src/render/web/client/`) and then `node --test test/*.test.ts`. Run it before calling a change done.
+- `npm test` runs both typechecks (`tsconfig.json` for src/test, `tsconfig.viewer.json` for the viewer's browser code in `src/render/web/client/` and the page tests) and then `node --test test/*.test.ts`. Run it before calling a change done.
 - To see a change, run `node src/cli.ts diff` (or `<path>`, `pr N`) and open the viewer. Add `--no-open` to skip the browser and `--json` to dump the fold model.
 - `install-skill` / `uninstall-skill` run `scripts/skills.ts`, which links each folder in `skills/` into `~/.claude/skills` (junctions on Windows). Keep npm scripts shell-free: npm runs them with cmd.exe on Windows, even from Git Bash.
 
@@ -47,6 +47,7 @@ ask/              ask mode: the viewer's Ask rail and `lens ask listen|reply` (s
 - The viewer is a React app in `client/`, written in strict TypeScript (`main.tsx` is the entry). `bundle.ts` bundles it with esbuild when the server starts, so there's still no build step. `server.ts` inlines `viewer.css` and the bundle into `viewer.html` (a `#root` element and nothing else), and puts the payload in the `lens-data` JSON script, which `client/shared.ts` reads as `INITIAL_DATA`.
 - State lives in `client/store.ts`: one immutable `LensState`, replaced on every change. Components read it with `useLens()`. `model.ts` derives what they show from it (the tree, the code plans, the summary list, the Ask context), as pure functions. `actions.ts` changes it. Use `commit()` instead of `update()` when the DOM must show the new state before you touch it, e.g. scrolling to a row.
 - `components/` has one file per area: `Header` (top bar and toolbar), `Nav` (tree and summary list), `CodePane` (tabs and the file), `SummaryPane`, `AskRail`, `Dialogs` (settings, `?` help, search), and `CodeRows`, which both views use for code.
+- `test/viewer-page.test.ts` runs the real bundle in happy-dom (`@happy-dom/global-registrator`) on a real analysis of a fixture repo (`test/fixtures/viewerRepo.ts`), with `fetch` stubbed, and drives it with keys, clicks and typing (`@testing-library/dom`'s `fireEvent`). A change to how the viewer behaves gets a test there. Assert on what the reader sees: the rows, the tree, classes like `open` and `pinned`. `settle()` after each action lets React render.
 - Keep the markup and class names `viewer.css` expects. Rows are memoized and their highlighted lines are prebuilt HTML strings, so a toggle re-renders only the rows it changes. Keep it that way on big files.
 - Browser code imports server-side types with `import type` (e.g. `ViewerPayload` from `server.ts`, `SummaryView` from `summary/view.ts`), so a shape change breaks the viewer's typecheck instead of the page.
 - Server endpoints: `/api/tokens` (theme switch), `/api/refresh`, `/api/summary`, `/api/summary/stamp` (polled on window focus), `/api/shutdown`, and the Ask rail's `/api/ask*` (in `src/ask/routes.ts`).
