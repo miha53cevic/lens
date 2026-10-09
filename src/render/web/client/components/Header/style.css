@@ -98,14 +98,3 @@
   color: var(--accent);
   vertical-align: -2px;
 }
-
-/* ⋯ shows a dot while a view setting is away from its default */
-.trigger-dot {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--accent);
-}

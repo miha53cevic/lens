@@ -1,4 +1,5 @@
 import type { SummaryView } from '../../../../../../summary/view.ts';
+import { CopyCommand } from '../../../ui/CopyCommand.tsx';
 
 interface AgentOverviewProps {
   summary: SummaryView;
@@ -11,11 +12,11 @@ export function AgentOverview({ summary, anySummarized }: AgentOverviewProps) {
   if (!overview) {
     return anySummarized ? (
       <div className='sum-note'>
-        No overview yet — run <code>{summary.command}</code> again to add one.
+        No overview yet — run <CopyCommand command={summary.command} /> again to add one.
       </div>
     ) : (
       <div className='sum-note'>
-        Not summarized yet — run <code>{summary.command}</code> in your agent.
+        Not summarized yet — run <CopyCommand command={summary.command} /> in your agent.
       </div>
     );
   }
@@ -29,7 +30,8 @@ export function AgentOverview({ summary, anySummarized }: AgentOverviewProps) {
       </div>
       {overview.stale && (
         <div className='sum-note stale'>
-          The diff changed since this overview was written. Run <code>{summary.command}</code> again to update it.
+          The diff changed since this overview was written. Run <CopyCommand command={summary.command} /> again to
+          update it.
         </div>
       )}
     </>

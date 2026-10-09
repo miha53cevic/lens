@@ -68,7 +68,7 @@ explicitly is always analyzed.
 - **The header** keeps four buttons in sight: search, Ask, the code theme and reload.
   Everything else is in the **⋯** menu: the fold level, expand / collapse all, hunks
   only, removed lines and hide tests (each with its key), then the keyboard shortcuts,
-  the settings and *End session*. A dot on ⋯ means a view setting isn't at its default.
+  the settings and *End session*.
 - **The code theme** colors the whole page, not just the code: the panels, lines and text
   are mixed from the theme's background and foreground, and the accent is the color the
   theme gives function names. A light theme turns the page light.
@@ -148,7 +148,8 @@ units the flows cover and which units with a concern or break are in none.
 
 Any agent with a shell can follow `prepare`'s printed instructions; the skill is only
 a thin pointer to them. After a submit, the Summary tab shows a dot when you return to
-the viewer (or press reload, `r`).
+the viewer (or press reload, `r`). Wherever the viewer tells you to run a command
+(`/lens-review …`, `/lens-ask`), click it to copy it.
 
 **As the review step of a plan → build workflow**, `/lens-build-review [base-commit]
 [plan-file]` has the agent do everything: pick the build's diff (making new files

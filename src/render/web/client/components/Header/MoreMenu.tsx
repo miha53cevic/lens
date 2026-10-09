@@ -8,7 +8,7 @@ import { endSession } from '../../actions/session.ts';
 import { isDiffMode } from '../../shared.ts';
 import { Menu, MenuItem, MenuSection, MenuSeparator, MenuSwitch } from '../../ui/Menu.tsx';
 import { Segmented } from '../../ui/Segmented.tsx';
-import { foldLevelHint, viewSettingsChanged } from './util.ts';
+import { foldLevelHint } from './util.ts';
 
 const LEVELS = [
   { value: -1, label: 'off', title: 'nothing folds' },
@@ -31,20 +31,10 @@ export function MoreMenu() {
     hunksOnly: state.hunksOnly,
     showRemoved: state.showRemoved,
     hideTests: state.hideTests,
-    changed: viewSettingsChanged(state),
   }));
 
   return (
-    <Menu
-      id='more-btn'
-      label='View settings and more'
-      trigger={
-        <>
-          <MoreHorizontal size={17} />
-          {more.changed && <span className='trigger-dot' />}
-        </>
-      }
-    >
+    <Menu id='more-btn' label='View settings and more' trigger={<MoreHorizontal size={17} />}>
       <MenuSection title='Folding'>
         <div className='menu-row'>
           <span className='menu-label'>Fold level</span>

@@ -1,10 +1,11 @@
+import type { ReactNode } from 'react';
 import { useLens } from '../store.ts';
 import { catColor } from '../shared.ts';
 import { ModalHead } from './ModalHead.tsx';
 import './SettingsDialog.css';
 
 function CodeList({ items }: { items: readonly (string | number)[] | undefined }) {
-  if (!items || items.length === 0) return <span className='set-source'>none</span>;
+  if (!items || items.length === 0) return <span className='set-none'>none</span>;
   return (
     <span className='set-list'>
       {items.map((item, itemIndex) => (
@@ -23,6 +24,24 @@ function CategoryName({ category, disabled }: { category: string; disabled?: boo
   );
 }
 
+/** A titled section of label · value rows; every section lines its values up at the same column. */
+function Section({ title, hint, rows }: { title: string; hint?: string; rows: [ReactNode, ReactNode][] }) {
+  return (
+    <section className='set-section'>
+      <h3>{title}</h3>
+      {hint && <p className='set-hint'>{hint}</p>}
+      <dl className='set-rows'>
+        {rows.map(([label, value], rowIndex) => (
+          <div key={rowIndex}>
+            <dt>{label}</dt>
+            <dd>{value}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
+
 /** The settings in effect: where they come from, this session's choices, every rule. */
 export function SettingsDialog() {
   const { data, threshold, hideTests, hunksOnly } = useLens((state) => ({
@@ -36,114 +55,84 @@ export function SettingsDialog() {
   for (const pattern of config.callPatterns || []) {
     if (!categories.includes(pattern.category)) categories.push(pattern.category);
   }
+  const onOff = (on: boolean) => (on ? 'on' : 'off');
 
   return (
     <dialog id='settings-modal'>
       <ModalHead title='Settings' />
       <div className='modal-body' id='settings-body'>
-        <div className='set-section'>
-          <h3>config source</h3>
-          <div className='set-source'>
-            {data.configSource ? (
+        <Section
+          title='This session'
+          rows={[
+            [
+              'Fold level',
               <>
-                built-in lens.defaults.json + <code>{data.configSource}</code>
-              </>
-            ) : (
-              'built-in lens.defaults.json (no .lens.json found)'
-            )}
-          </div>
-        </div>
-        <div className='set-section'>
-          <h3>this session</h3>
-          <table className='set-table'>
-            <tbody>
-              <tr>
-                <td>fold threshold</td>
-                <td>
-                  {(threshold < 0 ? 'off' : threshold) +
-                    (threshold !== config.threshold ? ' (config: ' + config.threshold + ')' : '')}
-                </td>
-              </tr>
-              <tr>
-                <td>theme</td>
-                <td>{data.theme}</td>
-              </tr>
-              <tr>
-                <td>hide tests</td>
-                <td>{hideTests ? 'on' : 'off'}</td>
-              </tr>
-              <tr>
-                <td>hunks only</td>
-                <td>{hunksOnly ? 'on' : 'off'}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div className='set-section'>
-          <h3>categories</h3>
-          <table className='set-table'>
-            <tbody>
-              {categories.map((category) => {
-                const enabled = (config.categories || {})[category] !== false;
-                const score = (config.scores || {})[category] ?? 1;
-                return (
-                  <tr key={category}>
-                    <td>
-                      <CategoryName category={category} disabled={!enabled} />
-                    </td>
-                    <td>
-                      {enabled
-                        ? 'score ' + score + (score <= threshold ? ' — folds now' : ' — visible now')
-                        : 'disabled'}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-        <div className='set-section'>
-          <h3>call patterns</h3>
-          <table className='set-table'>
-            <tbody>
-              {(config.callPatterns || []).map((pattern, patternIndex) => (
-                <tr key={patternIndex}>
-                  <td>
-                    <CategoryName category={pattern.category} />
-                  </td>
-                  <td>
-                    <CodeList items={pattern.receivers} />
-                    <br />
-                    {pattern.methods ? (
-                      <>
-                        methods: <CodeList items={pattern.methods} />
-                      </>
-                    ) : (
-                      'methods: any'
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className='set-section'>
-          <h3>keep visible</h3>
-          markers: <CodeList items={config.keepCommentMarkers} />
-          <br />
-          directive: <CodeList items={[config.keepDirective]} />
-        </div>
-        <div className='set-section'>
-          <h3>test file patterns</h3>
-          <CodeList items={config.testFilePatterns} />
-        </div>
-        <div className='set-section'>
-          <h3>excluded from analysis</h3>
-          <CodeList items={config.exclude} />
-        </div>
-        <div className='set-note'>
-          Edit .lens.json and press reload (r) to apply changes without restarting. The lens README lists every field.
-        </div>
+                {threshold < 0 ? 'off' : threshold}
+                {threshold !== config.threshold && <span className='set-aside'>config: {config.threshold}</span>}
+              </>,
+            ],
+            ['Theme', data.theme],
+            ['Hunks only', onOff(hunksOnly)],
+            ['Hide tests', onOff(hideTests)],
+          ]}
+        />
+        <Section
+          title='Categories'
+          hint={
+            threshold < 0
+              ? 'The fold level is off: nothing folds.'
+              : 'A category folds when its score is at or below the fold level (' + threshold + ').'
+          }
+          rows={categories.map((category) => {
+            const enabled = (config.categories || {})[category] !== false;
+            const score = (config.scores || {})[category] ?? 1;
+            return [
+              <CategoryName category={category} disabled={!enabled} />,
+              enabled ? (
+                <span className='set-score'>
+                  <span className='set-num'>score {score}</span>
+                  <span className={score <= threshold ? 'set-state folds' : 'set-state'}>
+                    {score <= threshold ? 'folds' : 'shown'}
+                  </span>
+                </span>
+              ) : (
+                <span className='set-none'>disabled</span>
+              ),
+            ];
+          })}
+        />
+        <Section
+          title='Call patterns'
+          hint="Calls on these receivers count as the category's code."
+          rows={(config.callPatterns || []).map((pattern) => [
+            <CategoryName category={pattern.category} />,
+            <div className='set-pattern'>
+              <span className='set-key'>receivers</span>
+              <CodeList items={pattern.receivers} />
+              <span className='set-key'>methods</span>
+              {pattern.methods ? <CodeList items={pattern.methods} /> : <span className='set-none'>any</span>}
+            </div>,
+          ])}
+        />
+        <Section
+          title='Files and markers'
+          rows={[
+            ['Never fold', <CodeList items={config.keepCommentMarkers} />],
+            ['Keep directive', <CodeList items={[config.keepDirective]} />],
+            ['Test files', <CodeList items={config.testFilePatterns} />],
+            ['Excluded', <CodeList items={config.exclude} />],
+          ]}
+        />
+      </div>
+      <div className='set-foot'>
+        {data.configSource ? (
+          <>
+            Built-in defaults + <code>{data.configSource}</code>.
+          </>
+        ) : (
+          'Built-in defaults (no .lens.json found).'
+        )}{' '}
+        Edit .lens.json and press reload (r) to apply it. The README lists every field.
       </div>
     </dialog>
   );

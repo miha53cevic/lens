@@ -22,7 +22,7 @@ export function Overview() {
   const flagged = SHOWN_SIGNALS.filter((signal) => list.counts[signal] > 0);
 
   return (
-    <div className='sum-inner'>
+    <div className='sum-inner ov-page'>
       <div className='kicker'>
         {plural(units.length, 'change') + ' in ' + plural(fileCount, 'file')}
         {stale > 0 && <span className='stale-count'>{' · ' + stale + ' stale'}</span>}
