@@ -59,7 +59,7 @@ export async function analyze(
     if (target.changedLines) fileModel.changedLines = target.changedLines;
     if (target.status) fileModel.status = target.status;
     if (target.removals?.length) fileModel.removals = target.removals;
-    files.push({ ...fileModel, source });
+    files.push({ ...fileModel, source, ...(target.newBlob ? { blob: target.newBlob } : {}) });
   }
 
   let summary: SummaryView | null = null;

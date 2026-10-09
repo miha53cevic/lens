@@ -16,7 +16,11 @@ import {
   type ViewerToken,
 } from "../highlight.ts";
 
-export type ViewerFile = FileFoldModel & { source: string };
+export type ViewerFile = FileFoldModel & {
+  source: string;
+  /** The new side's git blob when that's what's shown (PR, ref ranges) — the working tree may differ */
+  blob?: string;
+};
 
 export interface ViewerInput {
   /** Repo root in diff/PR mode, else where lens runs: .lens/ lives here */

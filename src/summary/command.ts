@@ -1,5 +1,5 @@
 import { readFileSync, existsSync, statSync } from "node:fs";
-import { join, resolve, relative, dirname, basename } from "node:path";
+import { join, resolve, dirname, basename } from "node:path";
 import { loadConfig } from "../config.ts";
 import { loadDiff, collectUnits, commitLog, readNewSource } from "./collect.ts";
 import { prepareBundle, prepareCommand } from "./bundle.ts";
@@ -46,14 +46,14 @@ export async function runSummary(rest: string[], cwd: string): Promise<void> {
     const dir = isDir ? abs : dirname(abs);
     const resultFile = isDir ? join(dir, "result.json") : abs;
     const bundlePath = join(dir, "bundle.json");
-    if (!existsSync(bundlePath)) throw new Error(`no bundle.json in ${relative(cwd, dir) || dir} — run \`lens summary prepare\` first`);
-    if (!existsSync(resultFile)) throw new Error(`no ${relative(cwd, resultFile)} — write the result there first`);
+    if (!existsSync(bundlePath)) throw new Error(`no bundle.json in ${relPath(cwd, dir)} — run \`lens summary prepare\` first`);
+    if (!existsSync(resultFile)) throw new Error(`no ${relPath(cwd, resultFile)} — write the result there first`);
     const bundle = JSON.parse(readFileSync(bundlePath, "utf8")) as Bundle;
     let result: unknown;
     try {
       result = JSON.parse(readFileSync(resultFile, "utf8"));
     } catch (err) {
-      throw new Error(`${relative(cwd, resultFile)} is not valid JSON: ${(err as Error).message}`);
+      throw new Error(`${relPath(cwd, resultFile)} is not valid JSON: ${(err as Error).message}`);
     }
     // <root>/.lens/summary/<key>
     const root = resolve(dir, "..", "..", "..");

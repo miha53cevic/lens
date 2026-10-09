@@ -37,10 +37,13 @@ function stripGit(repo: string): string {
   return repo.endsWith(".git") ? repo.slice(0, -4) : repo;
 }
 
-/** Extracts owner/repo from a GitHub remote URL (https, ssh, or scp-like). */
+/**
+ * Extracts owner/repo from a GitHub remote URL (https, ssh, or scp-like) —
+ * ssh ones may name a port, or ssh.github.com (GitHub's ssh over port 443).
+ */
 export function githubRepoFromRemoteUrl(url: string): { owner: string; repo: string } | null {
   const m =
-    /^(?:https?:\/\/(?:[^@/]+@)?|ssh:\/\/(?:[^@/]+@)?|git@)(?:www\.)?github\.com[/:]([^/]+)\/(.+?)(?:\.git)?\/?$/.exec(
+    /^(?:(?:https?|ssh):\/\/(?:[^@/]+@)?(?:www\.|ssh\.)?github\.com(?::\d+)?\/|git@(?:ssh\.)?github\.com:)([^/]+)\/(.+?)(?:\.git)?\/?$/.exec(
       url.trim(),
     );
   return m ? { owner: m[1], repo: m[2] } : null;
@@ -63,7 +66,8 @@ export function matchRemote(
     if (gh) remotes.push({ name: m[1], ...gh });
   }
   if (ref.owner === "") {
-    const origin = remotes.find((r) => r.name === "origin") ?? remotes[0];
+    // no origin: a lone GitHub remote is the one; among several, which is a guess
+    const origin = remotes.find((r) => r.name === "origin") ?? (remotes.length === 1 ? remotes[0] : undefined);
     return origin
       ? { remote: origin.name, ref: { ...ref, owner: origin.owner, repo: origin.repo } }
       : null;
@@ -124,7 +128,7 @@ export async function resolvePr(arg: string, cwd: string): Promise<ResolvedPr> {
   if (!match) {
     throw new Error(
       parsed.owner === ""
-        ? "no GitHub remote found here — pass the full PR URL from inside a clone of its repository"
+        ? "no origin GitHub remote here — pass the full PR URL from inside a clone of its repository"
         : `no remote for ${parsed.owner}/${parsed.repo} found here — cd into a clone of it`,
     );
   }

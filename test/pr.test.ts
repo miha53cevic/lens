@@ -35,6 +35,8 @@ test("githubRepoFromRemoteUrl handles https, ssh, and scp-like remotes", () => {
   assert.deepEqual(githubRepoFromRemoteUrl("git@github.com:a/b.git"), { owner: "a", repo: "b" });
   assert.deepEqual(githubRepoFromRemoteUrl("ssh://git@github.com/a/b.git"), { owner: "a", repo: "b" });
   assert.deepEqual(githubRepoFromRemoteUrl("https://user@github.com/a/b.git"), { owner: "a", repo: "b" });
+  assert.deepEqual(githubRepoFromRemoteUrl("ssh://git@github.com:22/a/b.git"), { owner: "a", repo: "b" });
+  assert.deepEqual(githubRepoFromRemoteUrl("ssh://git@ssh.github.com:443/a/b.git"), { owner: "a", repo: "b" });
   assert.equal(githubRepoFromRemoteUrl("https://gitlab.com/a/b.git"), null);
   assert.equal(githubRepoFromRemoteUrl("git@github.com"), null);
 });
@@ -62,6 +64,10 @@ test("matchRemote resolves a bare PR number against origin", () => {
   const hit = matchRemote(REMOTES, { owner: "", repo: "", number: 9 });
   assert.deepEqual(hit, { remote: "origin", ref: { owner: "me", repo: "fork", number: 9 } });
   assert.equal(matchRemote("remote.x.url https://example.com/a/b.git", { owner: "", repo: "", number: 1 }), null);
+  // no origin: one GitHub remote is it; with several, guessing would be wrong half the time
+  assert.equal(matchRemote("remote.up.url https://github.com/a/b.git", { owner: "", repo: "", number: 1 })?.remote, "up");
+  assert.equal(matchRemote("remote.up.url https://github.com/a/b.git\nremote.fork.url https://github.com/c/b.git",
+    { owner: "", repo: "", number: 1 }), null);
 });
 
 test("parseRemoteRefs reads head, merge, and default branch from ls-remote", () => {

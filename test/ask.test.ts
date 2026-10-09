@@ -161,7 +161,9 @@ test("questionText: rules, the question, the selection and the unit's code, then
 
     const whole = { ...q, unitId: null, label: "calc.ts", selection: null };
     const fileText = questionText(whole, changeContext(input, whole), { root: dir, cwd: dir, port: 5326 });
-    assert.ok(fileText.includes("THE FILE  calc.ts — changed lines 2\n"), "a Code-tab question names the file, not its code");
+    assert.ok(fileText.includes("THE FILE  calc.ts — changed lines 2\n  (read it from disk)"), "a Code-tab question names the file, not its code");
+    const prText = questionText(whole, { ...changeContext(input, whole), blob: "abc123" }, { root: dir, cwd: dir, port: 5326 });
+    assert.ok(prText.includes("(read it with `git show abc123` — not from disk"), "a PR's code is the blob, not the working tree");
   });
 });
 
