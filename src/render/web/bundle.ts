@@ -2,7 +2,7 @@ import { build } from "esbuild";
 import { fileURLToPath } from "node:url";
 import { join, dirname } from "node:path";
 
-const entry = join(dirname(fileURLToPath(import.meta.url)), "client", "main.ts");
+const entry = join(dirname(fileURLToPath(import.meta.url)), "client", "main.tsx");
 
 /**
  * The viewer's browser code (client/), bundled into one script when the server
@@ -17,6 +17,7 @@ export async function bundleViewer(): Promise<string> {
     target: "es2022",
     charset: "utf8",
     legalComments: "none",
+    jsx: "automatic",
     logLevel: "silent",
     define: { "process.env.NODE_ENV": '"production"' },
   });

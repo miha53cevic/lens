@@ -9,7 +9,7 @@ import {
   CONCERN_PREF, VIEWED_CAP, VIEWED_PREF, commit, getState, toggled, update,
   type ConcernMark, type LensState, type SignalFilter, type Tab, type View,
 } from "./store.ts";
-import { fileViewKey, flashRow, isTestFile, writePref, type ViewFile } from "./util.ts";
+import { fileViewKey, flashRow, isTestFile, writePref, type ViewFile } from "./shared.ts";
 import { fileSpans } from "./rows.ts";
 import {
   activeFile, concernKey, currentUnit, firstTreeFile, isRegionOpen, listModel, planRegions, regionKey, treeModel, unitPlan,

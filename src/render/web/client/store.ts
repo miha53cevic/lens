@@ -6,7 +6,7 @@ import { useSyncExternalStore } from "react";
 import { flushSync } from "react-dom";
 import type { ViewerPayload } from "../server.ts";
 import type { AskSelection, AskState } from "../../../ask/session.ts";
-import { INITIAL_DATA, readPref } from "./util.ts";
+import { INITIAL_DATA, readPref } from "./shared.ts";
 
 export type View = "code" | "summary";
 export type ConcernMark = "real" | "dismissed";

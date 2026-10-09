@@ -5,7 +5,7 @@ import type { FoldRegion } from "../../../model.ts";
 import type { Concern, Flow } from "../../../summary/store.ts";
 import type { SummaryView, ViewUnit } from "../../../summary/view.ts";
 import type { ConcernMark, LensState, SignalFilter, SignalId } from "./store.ts";
-import { baseName, isTestFile, type ViewFile } from "./util.ts";
+import { baseName, isTestFile, type ViewFile } from "./shared.ts";
 import { fileSpans, hiddenCount, planCode, unitSpans, type CodeItem, type RemovedLine } from "./rows.ts";
 
 /** Remember the last result while the inputs stay the same (by identity). */
@@ -101,6 +101,11 @@ function sortTree(node: TreeDir) {
   node.dirs = new Map([...node.dirs].sort(([a], [b]) => a.localeCompare(b)));
   node.files.sort((a, b) => a.name.localeCompare(b.name));
   for (const d of node.dirs.values()) sortTree(d);
+}
+
+/** The sidebar shows: the Summary tab's list always (unless collapsed), the tree when it has files. */
+export function navShown(s: LensState): boolean {
+  return !s.navCollapsed && (s.view === "summary" || treeModel(s).hasTree);
 }
 
 /**

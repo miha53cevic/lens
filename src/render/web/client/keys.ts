@@ -1,17 +1,25 @@
-// lens viewer: keyboard shortcuts (listed in the ? help in viewer.html).
+// lens viewer: keyboard shortcuts (listed in the ? help, components/Dialogs.tsx).
 
-import { DATA, byId, state } from "./shared.ts";
+import { commit, getState, update } from "./store.ts";
+import { activeFile, currentUnit, treeModel } from "./model.ts";
+import { isDiffMode } from "./shared.ts";
 import {
-  closeTab, collapseAll, expandAll, filterInput, hideTestsBox, hunksBox, hunksWrap, navToggle, openSearch, pinActiveTab,
-  refreshBtn, removedWrap, showRemovedBox, stepFile, stepThreshold, testsWrap, toggleFileViewed, treeShown,
-} from "./code.ts";
-import { currentUnit, openUnitInCode, setView, showOverview, stepSummary, sumFilterInput, toggleUnitViewed } from "./summary.ts";
-import { askOpenAndFocus, askSetOpen, askState } from "./ask.ts";
+  closeTab, collapseAll, expandAll, openSearch, openUnitInCode, pinTab, refresh, setHideTests, setHunksOnly,
+  setShowRemoved, setView, showOverview, stepFile, stepSummary, stepThreshold, toggleFileViewed, toggleNav,
+  toggleUnitViewed,
+} from "./actions.ts";
+import { askOpenAndFocus, askSetOpen } from "./ask.ts";
 
-const keysModal = byId<HTMLDialogElement>("keys-modal");
-byId("keys-btn").onclick = () => keysModal.showModal();
+/** The keys that also work on the Summary tab: the toolbar's act on the open unit's code. */
+const SUMMARY_KEYS = ["?", "x", "s", "r", "e", "c", "[", "]", "h", "t", "a", "\\"];
 
-document.addEventListener("keydown", (ev) => {
+/** Shows the nav (if it's collapsed) and focuses one of its filters. */
+function focusFilter(selector: string) {
+  if (getState().navCollapsed) commit((s) => ({ navCollapsed: !s.navCollapsed }));
+  document.querySelector<HTMLInputElement>(selector)?.focus();
+}
+
+export function onKeyDown(ev: KeyboardEvent): void {
   // ⌘P / Ctrl+P opens the search palette from anywhere (and suppresses print)
   if ((ev.metaKey || ev.ctrlKey) && !ev.altKey && !ev.shiftKey && ev.key.toLowerCase() === "p") {
     ev.preventDefault();
@@ -25,46 +33,38 @@ document.addEventListener("keydown", (ev) => {
   if (target instanceof HTMLInputElement && target.type !== "checkbox") return;
   if (document.querySelector("dialog[open]")) return; // Esc closes natively
 
-  if (ev.key === "v" && DATA.summary) { setView(state.view === "summary" ? "code" : "summary"); return; }
-  if (state.view === "summary") {
+  const s = getState();
+  if (ev.key === "v" && s.data.summary) { setView(s.view === "summary" ? "code" : "summary"); return; }
+  if (s.view === "summary") {
     if (ev.key === "j") { stepSummary(1); return; }
     if (ev.key === "k") { stepSummary(-1); return; }
-    if (ev.key === "o") { openUnitInCode(currentUnit()); return; }
-    if (ev.key === "m") { toggleUnitViewed(currentUnit()); return; }
+    if (ev.key === "o") { openUnitInCode(currentUnit(s)); return; }
+    if (ev.key === "m") { toggleUnitViewed(currentUnit(s)); return; }
     if (ev.key === "g") { showOverview(); return; }
-    if (ev.key === "/") {
-      if (state.navCollapsed) navToggle.click();
-      sumFilterInput.focus();
-      ev.preventDefault();
-      return;
-    }
-    // the toolbar's keys act on the open unit's code; file and tab keys don't apply here
-    if (!["?", "x", "s", "r", "e", "c", "[", "]", "h", "t", "a", "\\"].includes(ev.key)) return;
+    if (ev.key === "/") { focusFilter("#sum-filter input"); ev.preventDefault(); return; }
+    if (!SUMMARY_KEYS.includes(ev.key)) return;
   }
+  // the file tree's keys only when there's a tree (the Summary tab always has its list)
+  const hasNav = s.view === "summary" || treeModel(s).hasTree;
+  const diff = isDiffMode(s.data);
   switch (ev.key) {
-    case "?": keysModal.showModal(); ev.preventDefault(); break;
+    case "?": update({ keysOpen: true }); ev.preventDefault(); break;
     case "j": stepFile(1); break;
     case "k": stepFile(-1); break;
-    case "w": if (state.active >= 0) closeTab(state.active); break;
-    case "m": toggleFileViewed(state.active); break;
-    case "o": pinActiveTab(); break;
-    case "/":
-      if (treeShown()) {
-        if (state.navCollapsed) navToggle.click();
-        filterInput.focus();
-        ev.preventDefault();
-      }
-      break;
-    case "s": if (treeShown()) navToggle.click(); break;
+    case "w": if (s.active >= 0) closeTab(s.active); break;
+    case "m": toggleFileViewed(s.active); break;
+    case "o": if (activeFile(s)) pinTab(s.active); break;
+    case "/": if (hasNav) { focusFilter("#file-filter"); ev.preventDefault(); } break;
+    case "s": if (hasNav) toggleNav(); break;
     case "e": expandAll(); break;
     case "c": collapseAll(); break;
     case "[": stepThreshold(-1); break;
     case "]": stepThreshold(1); break;
-    case "h": if (hunksWrap.style.display !== "none") hunksBox.click(); break;
-    case "x": if (removedWrap.style.display !== "none") showRemovedBox.click(); break;
-    case "t": if (testsWrap.style.display !== "none") hideTestsBox.click(); break;
-    case "r": if (refreshBtn.style.display !== "none") refreshBtn.click(); break;
+    case "h": if (diff) setHunksOnly(!s.hunksOnly); break;
+    case "x": if (diff) setShowRemoved(!s.showRemoved); break;
+    case "t": if (treeModel(s).testsPresent) setHideTests(!s.hideTests); break;
+    case "r": if (s.data.canRefresh && !s.refreshing) refresh(); break;
     case "a": askOpenAndFocus(); ev.preventDefault(); break; // the "a" mustn't land in the textarea
-    case "\\": askSetOpen(!askState.open); break;
+    case "\\": askSetOpen(!s.ask.open); break;
   }
-});
+}
