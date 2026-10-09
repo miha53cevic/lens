@@ -76,17 +76,15 @@ export async function extractUnits(input: UnitFileInput): Promise<Unit[]> {
     const removals = oldSource === null ? [] : [{ afterLine: 0, oldStart: 1, lines: oldSource.split("\n") }];
     return [finish(fileUnit(input, "deleted", [], removals), newLines)];
   }
+  const wholeFile = () =>
+    [finish(fileUnit(input, oldSource === null ? "new" : "modified", input.changedLines, input.removals), newLines)];
   const lang = languageForFile(file);
-  if (!lang || input.isTest) {
-    return [finish(fileUnit(input, oldSource === null ? "new" : "modified", input.changedLines, input.removals), newLines)];
-  }
+  if (!lang || input.isTest) return wholeFile();
 
   const newIndex = await indexSource(newSource, lang);
   const oldIndex = oldSource === null ? new Map<string, Decl>() : await indexSource(oldSource, lang);
   // A side that doesn't parse cleanly can't be split reliably.
-  if (newIndex === null || oldIndex === null) {
-    return [finish(fileUnit(input, oldSource === null ? "new" : "modified", input.changedLines, input.removals), newLines)];
-  }
+  if (newIndex === null || oldIndex === null) return wholeFile();
 
   const oldLines = oldSource === null ? [] : oldSource.split("\n");
   // A blank line between declarations joins its neighbour instead of making
@@ -132,7 +130,10 @@ export async function extractUnits(input: UnitFileInput): Promise<Unit[]> {
     if (status === "deleted") ranges = [];
     else if (!newDecl || newDecl.container || span(newDecl.ranges) > MAX_FULL_UNIT_LINES) {
       ranges = windowsAround(t.changed, t.removals, lineCount);
-    } else ranges = mergeRanges(newDecl.ranges);
+    } else {
+      // with its changed lines: a blank line added next to it joined it, but isn't in its ranges
+      ranges = mergeRanges([...newDecl.ranges, ...t.changed.map((l) => ({ start: l, end: l }))]);
+    }
     const unit: Unit = {
       id: `${file}#${name}`,
       file,
@@ -421,13 +422,11 @@ export function checkCoverage(input: UnitFileInput, units: Unit[]): string[] {
     const n = changed.get(l) ?? 0;
     if (n !== 1) problems.push(`${input.file}: changed line ${l} is in ${n} units`);
   }
-  if (input.newSource !== null) {
-    for (const b of input.removals) {
-      b.lines.forEach((_, i) => {
-        const n = removed.get(b.oldStart + i) ?? 0;
-        if (n !== 1) problems.push(`${input.file}: removed old line ${b.oldStart + i} is in ${n} units`);
-      });
-    }
+  for (const b of input.removals) {
+    b.lines.forEach((_, i) => {
+      const n = removed.get(b.oldStart + i) ?? 0;
+      if (n !== 1) problems.push(`${input.file}: removed old line ${b.oldStart + i} is in ${n} units`);
+    });
   }
   return problems;
 }

@@ -3,7 +3,7 @@ import { join, resolve, relative, dirname, basename } from "node:path";
 import { loadConfig } from "../config.ts";
 import { loadDiff, collectUnits, commitLog, readNewSource } from "./collect.ts";
 import { prepareBundle, prepareCommand } from "./bundle.ts";
-import { validateResult } from "./validate.ts";
+import { hasUnits, validateResult } from "./validate.ts";
 import { summaryKey, readStored, writeStored, unitSetHash, type Bundle } from "./store.ts";
 import { relPath } from "../paths.ts";
 
@@ -88,8 +88,7 @@ export async function runSummary(rest: string[], cwd: string): Promise<void> {
       console.log(`\nevery unit is summarized — run \`${prepareCommand(bundle)}\` for the final pass (flows and the overview)`);
     }
     console.log(`\nsummary saved — refresh the lens viewer (↻) and open the Summary tab`);
-    const submitted = typeof result === "object" && result !== null && typeof (result as { units?: unknown }).units === "object"
-      ? Object.keys((result as { units: object }).units).length : 0;
+    const submitted = hasUnits(result) ? Object.keys(result.units).length : 0;
     if (outcome.accepted.length === 0 && !outcome.acceptedOverview && (submitted > 0 || outcome.dropped.length > 0)) process.exitCode = 1;
     return;
   }
