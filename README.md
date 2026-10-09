@@ -208,7 +208,7 @@ viewer's slider switches the threshold live.
 | `import`            | contiguous imports and `export … from` re-exports |
 | `comment`           | whole-line comments and doc blocks — work markers and suppressions (`eslint-disable`, `@ts-ignore`, …) stay visible |
 | `guard`             | an else-less `if` whose body only exits (throw/return/continue/break), optionally with a log line |
-| `logging`           | `console.*` / `logger.*` calls whose result is unused |
+| `logging`           | `console.*` / `logger.*` calls whose result is unused and whose arguments do no work (no `await`, `=`, `++`) |
 | `telemetry`         | fire-and-forget `metrics.*` / `telemetry.*` / `analytics.*` calls |
 | `error-boilerplate` | catch blocks that only log and/or rethrow |
 | `accessor`          | getters/setters that only return or store a value, and one-statement delegation methods |
@@ -247,7 +247,7 @@ reaches 2, and **adds** an `audit` category next to the built-in call patterns.
 | `categories` | all `true` | per-category switch; `false` never folds it |
 | `scores` | 0 for import/comment/barrel, 1 otherwise | importance per category, 0–3 (4 is reserved for never-fold) |
 | `callPatterns` | logging, telemetry | fire-and-forget calls to fold, see below |
-| `keepCommentMarkers` | TODO, FIXME, HACK, XXX, lint/type suppressions | comments containing these never fold |
+| `keepCommentMarkers` | TODO, FIXME, HACK, XXX, lint/type/format suppressions, `@ts-check`, `/// <reference` | comments containing these never fold, nor does a region holding one |
 | `keepDirective` | `"lens:keep"` | a region containing it, or right below it, never folds |
 | `testFilePatterns` | `*.spec.*`, `*.test.*`, `__tests__/**` | what the viewer's **hide tests** toggle hides, and which files summary mode treats as tests |
 | `exclude` | lockfiles, `*.min.js`, `*.min.css`, `*.map` | diff mode lists these as `⊘` without reading them; directory walks skip them (a file passed explicitly is always analyzed) |

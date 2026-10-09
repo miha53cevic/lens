@@ -130,6 +130,17 @@ function ownsWholeLines(n: Node, lines: string[]): boolean {
   return before.trim() === "" && after.trim() === "";
 }
 
+/** The expression does work beyond computing a value: await, assignment, ++/--, yield. */
+function hasEffects(n: Node): boolean {
+  let found = false;
+  walk(n, (c) => {
+    if (c.type === "await_expression" || c.type === "assignment_expression" ||
+        c.type === "augmented_assignment_expression" || c.type === "update_expression" ||
+        c.type === "yield_expression") found = true;
+  });
+  return found;
+}
+
 function onlyBlankBetween(a: Node, b: Node, lines: string[]): boolean {
   for (let row = a.endPosition.row + 1; row < b.startPosition.row; row++) {
     if ((lines[row] ?? "").trim() !== "") return false;
@@ -165,9 +176,11 @@ function escapeRegExp(s: string): string {
 function importRegions(root: Node, ctx: RuleContext): FoldRegion[] {
   // Re-exports (`export { x } from "y"`) group with imports rather than
   // breaking up the run; whole-file barrels are handled by the barrel rule.
+  // only ones alone on their lines: `import "./polyfill"; main();` keeps main() in view
   const importish = namedChildren(root).filter((c) =>
-    c.type === "import_statement" ||
-    (c.type === "export_statement" && c.childForFieldName("source") !== null),
+    (c.type === "import_statement" ||
+      (c.type === "export_statement" && c.childForFieldName("source") !== null)) &&
+    ownsWholeLines(c, ctx.lines),
   );
   const groups: Node[][] = [];
   for (const stmt of importish) {
@@ -279,7 +292,8 @@ function guardRegions(root: Node, ctx: RuleContext): FoldRegion[] {
 
     for (const stmt of namedChildren(node)) {
       if (stmt.type === "comment") {
-        pendingComments.push(stmt);
+        // a trailing comment (`const a = f(x); // why`) belongs to its line, not to the guard below
+        if (ownsWholeLines(stmt, ctx.lines)) pendingComments.push(stmt);
         continue;
       }
       const guard = asGuard(stmt, ctx);
@@ -323,6 +337,8 @@ function asGuard(stmt: Node, ctx: RuleContext): { exits: string[]; logged: boole
 }
 
 function exitDescription(s: Node): string | null {
+  // `throw await rollback(tx)`, `return (cache = load())`: the exit does real work
+  if ((s.type === "throw_statement" || s.type === "return_statement") && hasEffects(s)) return null;
   if (s.type === "throw_statement") {
     const arg = namedChildren(s)[0];
     if (arg?.type === "new_expression") {
@@ -421,6 +437,8 @@ function asCallTo(stmt: Node, receiverPattern: RegExp, methods: Set<string> | nu
 
   let firstStringArg: string | null = null;
   const args = expr.childForFieldName("arguments");
+  // `logger.info(await save())`, `console.log(i++)`: the arguments do the work
+  if (args && hasEffects(args)) return null;
   const firstArg = args ? namedChildren(args)[0] : undefined;
   if (firstArg) {
     // Use the first string literal in the first argument, so previews survive
@@ -721,8 +739,13 @@ function barrelRegions(root: Node, ctx: RuleContext): FoldRegion[] {
 
   let reexports = 0;
   const names: string[] = [];
+  const sideEffects: string[] = [];
   for (const stmt of statements) {
-    if (stmt.type === "import_statement") continue;
+    if (stmt.type === "import_statement") {
+      // a side-effect import (`import "reflect-metadata"`) runs code: the pill names it
+      if (!namedChildren(stmt).some((c) => c.type === "import_clause")) sideEffects.push(shortModuleName(stmt));
+      continue;
+    }
     if (stmt.type === "export_statement" && stmt.childForFieldName("source")) {
       reexports++;
       const name = shortModuleName(stmt);
@@ -738,6 +761,7 @@ function barrelRegions(root: Node, ctx: RuleContext): FoldRegion[] {
     endLine: endLine(all[all.length - 1]),
     category: "barrel",
     score: ctx.score("barrel"),
-    summary: `barrel file — re-exports ${plural(reexports, "module")}: ${listNames(names, 5)}`,
+    summary: `barrel file — re-exports ${plural(reexports, "module")}: ${listNames(names, 5)}` +
+      (sideEffects.length > 0 ? `; runs ${listNames(sideEffects, 3)}` : ""),
   }];
 }

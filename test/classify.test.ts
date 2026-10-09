@@ -299,6 +299,57 @@ function f(user: User | null, input: string) {
   for (const r of regions) assert.equal(r.score, 4, `${r.category} ${r.startLine}-${r.endLine} must stay open`);
 });
 
+test("a trailing comment above a guard doesn't pull its statement into the fold", async () => {
+  const regions = await regionsOf(`
+function f(x: number) {
+  const a = compute(x); // needed below
+  if (!a) return null;
+  return a;
+}
+`.trim());
+  const guard = regions.find((r) => r.category === "guard");
+  assert.deepEqual([guard?.startLine, guard?.endLine], [3, 3]);
+});
+
+test("calls, guards and catches whose arguments or exits do work stay visible", async () => {
+  const regions = await regionsOf(`
+async function run(i: number, tx: Tx, user: User | null) {
+  console.log(i++);
+  logger.info(await save());
+  if (!user) {
+    logger.warn(await audit.record(user));
+    return null;
+  }
+  if (!tx.ok) throw await rollback(tx);
+  try {
+    await go();
+  } catch (e) {
+    logger.error(await undo(e));
+    throw e;
+  }
+  console.log("done", i);
+  return i;
+}
+`.trim());
+  assert.deepEqual(regions.map((r) => [r.category, r.startLine, r.endLine]), [["logging", 15, 15]]);
+});
+
+test("code sharing an import's line isn't folded with it", async () => {
+  const sameLine = await regionsOf(`import "./polyfill"; main();\nfunction main() { return 1; }`);
+  assert.equal(sameLine.filter((r) => r.category === "import").length, 0);
+});
+
+test("directive comments stay visible", async () => {
+  const regions = await regionsOf(`
+/// <reference types="node" />
+// @ts-check
+import fs from "fs";
+export const x = fs;
+`.trim());
+  const comment = regions.find((r) => r.category === "comment");
+  assert.ok(comment && comment.score > DEFAULT_CONFIG.threshold);
+});
+
 test("getters and setters with real logic are not accessors", async () => {
   const regions = await regionsOf(`
 class Temp {
@@ -406,7 +457,7 @@ import "./side-effect";
   assert.ok(barrel);
   assert.equal(barrel.regions.length, 1);
   assert.equal(barrel.regions[0].category, "barrel");
-  assert.match(barrel.regions[0].summary, /barrel file — re-exports 3 modules: api, UserCard, config/);
+  assert.match(barrel.regions[0].summary, /barrel file — re-exports 3 modules: api, UserCard, config; runs side-effect$/);
 
   const notBarrel = await analyzeSource("index.ts", `
 export * from "./api";
