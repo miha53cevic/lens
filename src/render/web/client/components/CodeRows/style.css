@@ -162,26 +162,41 @@
   font-weight: 700;
 }
 .row.flash {
-  animation: line-flash 2.2s ease-out;
+  animation: line-flash 1.5s;
 }
+/* a smooth scroll is still moving: the blink waits for it to land */
+.row.flash.late {
+  animation-delay: 0.3s;
+}
+/* three hard blinks the eye catches at once, then it settles into the landed mark (a color
+   change, not motion, at under 3 per second: it plays even with reduced motion) */
 @keyframes line-flash {
   0%,
-  10%,
-  30% {
-    background: color-mix(in oklab, var(--accent) 34%, transparent);
+  26% {
+    animation-timing-function: step-end;
+    background: color-mix(in oklab, var(--accent) 45%, transparent);
     box-shadow:
       inset 3px 0 0 var(--accent),
-      inset 0 0 0 1px var(--selected-ring);
+      inset 0 0 0 1px var(--accent);
   }
-  20% {
-    background: color-mix(in oklab, var(--accent) 16%, transparent);
+  13%,
+  39% {
+    animation-timing-function: step-end;
+    background: transparent;
+    box-shadow: none;
+  }
+  52% {
+    animation-timing-function: ease-out;
+    background: color-mix(in oklab, var(--accent) 45%, transparent);
+    box-shadow:
+      inset 3px 0 0 var(--accent),
+      inset 0 0 0 1px var(--accent);
   }
   100% {
     background: color-mix(in oklab, var(--accent) 10%, transparent);
     box-shadow: inset 3px 0 0 var(--accent);
   }
 }
-
 /* the reader's selection, kept for the Ask rail */
 .row.ask-sel {
   background: color-mix(in oklab, var(--question) 18%, transparent);

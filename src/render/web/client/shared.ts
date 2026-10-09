@@ -147,12 +147,16 @@ export function baseName(path: string): string {
   return path.split('/').pop()!;
 }
 
-/** Restart the flash animation on a row (repeated jumps to the same line flash again). */
+/**
+ * Restart the flash animation on a row (repeated jumps to the same line flash again). After a
+ * smooth scroll the blink starts late, once the row has arrived.
+ */
 export function flashRow(row: HTMLElement, smooth?: boolean): void {
   row.scrollIntoView({ block: 'center', behavior: smooth ? 'smooth' : 'auto' });
-  row.classList.remove('flash');
+  row.classList.remove('flash', 'late');
   void row.offsetWidth;
   row.classList.add('flash');
+  if (smooth) row.classList.add('late');
 }
 
 /** Remember the last result while the inputs stay the same (by identity): the
