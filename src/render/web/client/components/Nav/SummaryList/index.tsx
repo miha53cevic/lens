@@ -40,12 +40,16 @@ export function SummaryList() {
               className='sum-section-title flow'
               data-flow={flow.title}
               aria-expanded={!folded}
+              title={flow.title + ' — ' + flow.path + (flow.why ? '\n' + flow.why : '')}
               onClick={() => toggleFlow(flow.title, folded)}
             >
               <span className='caret'>{folded ? '▸' : '▾'}</span>
               <FlowPriority flow={flow} />
-              <span className='t'>{flow.title}</span>
-              <span className='sub'>{folded ? plural(members.length, 'change') : flow.path}</span>
+              {/* the whole title, wrapped, with the path under it: a cut-off title says nothing */}
+              <span className='flow-name'>
+                <span className='t'>{flow.title}</span>
+                <span className='sub'>{folded ? plural(members.length, 'change') : flow.path}</span>
+              </span>
             </button>
             {flow.why && !folded && <div className='sum-why'>{flow.why}</div>}
             {!folded &&

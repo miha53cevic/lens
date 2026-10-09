@@ -414,6 +414,8 @@
   .sum-section-title .caret { color: var(--muted); font-size: 9px; width: 0.6rem; flex: none; }
   .sum-section-title .t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
   .sum-section-title .sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .sum-section-title .flow-name { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .sum-section-title .flow-name .t, .sum-section-title .flow-name .sub { white-space: normal; overflow-wrap: anywhere; }
   .sum-section.folded { padding-bottom: 0.3rem; }
   .sum-section.folded .t { color: var(--muted); }
   .sum-why { padding: 0 0.9rem 0.4rem 1.75rem; margin-top: -0.15rem; color: var(--muted); font-size: 11px; line-height: 1.35; }
