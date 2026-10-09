@@ -934,6 +934,7 @@ refreshBtn.onclick = async () => {
     Object.assign(DATA, payload);
     DATA.threshold = userThreshold;
     sourceLineCache.clear(); // sources may have changed
+    expandedGaps.clear(); // keyed by line numbers, which an edit moves
     state.tabs = tabPaths
       .map((t) => ({ index: DATA.files.findIndex((f) => f.file === t.path), pinned: t.pinned }))
       .filter((t) => t.index >= 0);
@@ -1036,7 +1037,8 @@ function runSearch() {
     return;
   }
   let body = escapeRegExp(query);
-  if (searchWordBox.checked) body = "\\b" + body + "\\b";
+  // not \b: identifiers can start or end with $ ($scope, el$)
+  if (searchWordBox.checked) body = "(?<![\\w$])" + body + "(?![\\w$])";
   const re = new RegExp(body, searchCaseBox.checked ? "g" : "gi");
 
   outer:

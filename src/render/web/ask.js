@@ -265,8 +265,9 @@ function askRenderComposer() {
   askInput.placeholder = ctx ? "Ask about " + ctx.label + "…" : "Open a change to ask about it";
   askHintEl.textContent = askState.error || "↵ ask · ⇧↵ newline · Esc back to the code";
   askHintEl.classList.toggle("error", !!askState.error);
-  askSendBtn.textContent = askState.copied ? "Copied ✓" : listening || waiting ? "Ask" : "Copy as prompt";
-  askSendBtn.disabled = !ctx || !askInput.value.trim() || !!waiting || askState.busy;
+  askSendBtn.textContent = askState.copied ? "Copied ✓" : listening ? "Ask" : "Copy as prompt";
+  // one question at a time for the agent; with none listening, copying still works
+  askSendBtn.disabled = !ctx || !askInput.value.trim() || (listening && !!waiting) || askState.busy;
 }
 
 function askRenderThread() {

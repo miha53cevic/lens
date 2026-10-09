@@ -111,8 +111,9 @@ export async function serveViewer(
   async function tokensFor(theme: string): Promise<ThemeTokens> {
     const cached = themeCache.get(theme);
     if (cached) return cached;
+    const files = current.files;
     const results = await Promise.all(
-      current.files.map((f) =>
+      files.map((f) =>
         highlightSource(f.source, f.language ?? shikiLangForFile(f.file), theme)),
     );
     const entry: ThemeTokens = {
@@ -121,7 +122,8 @@ export async function serveViewer(
       bg: results[0]?.bg ?? "#000000",
       tokens: results.map((r) => r.tokens),
     };
-    themeCache.set(theme, entry);
+    // a ↻ refresh while Shiki ran: these tokens are the old files', don't keep them
+    if (files === current.files) themeCache.set(theme, entry);
     return entry;
   }
 

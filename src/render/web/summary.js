@@ -111,7 +111,7 @@ const CONCERN_PREF = "lens.concernMarks";
 const concernMarks = (() => {
   try { return new Map(Object.entries(JSON.parse(readPref(CONCERN_PREF) || "{}"))); } catch { return new Map(); }
 })();
-function concernKey(u, c) { return u.id + "@" + u.hash + "#" + c.kind + ":" + c.text; }
+function concernKey(u, c) { return u.id + "@" + u.hash + "#" + c.kind + ":" + c.line + ":" + c.text; }
 function concernMark(u, c) { return concernMarks.get(concernKey(u, c)) || null; }
 function setConcernMark(u, c, mark) {
   const key = concernKey(u, c);
