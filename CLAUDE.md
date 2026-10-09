@@ -140,4 +140,4 @@ lens never calls an AI, does no semantic analysis or type checking, never edits 
 
 ## Git
 
-Commits use conventional prefixes (`feat:`, `fix:`, `refactor:`, `chore:`). Don't add a `Co-Authored-By` trailer or any other Claude attribution to commits. Work goes on `features/*` branches and is merged to `main` through PRs.
+Commits use conventional prefixes (`feat:`, `fix:`, `refactor:`, `chore:`). Don't add a `Co-Authored-By` trailer or any other Claude attribution to commits. Work goes on `features/*` branches and is merged to `main` through PRs. Never push and never open PRs, and don't offer to: the user does all pushing and PRs.
