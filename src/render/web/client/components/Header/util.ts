@@ -21,8 +21,3 @@ export function foldLevelHint(state: LensState): string {
     ? 'Level ' + state.threshold + ' folds ' + folded.join(', ') + '.'
     : 'Nothing folds at level ' + state.threshold + ' in this run.';
 }
-
-/** A view setting is away from its default: the ⋯ button shows a dot. */
-export function viewSettingsChanged(state: LensState): boolean {
-  return state.threshold !== state.data.config.threshold || !state.hunksOnly || !state.showRemoved || !state.hideTests;
-}

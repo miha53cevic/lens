@@ -328,12 +328,10 @@ pageTest('the review pill marks the file viewed and opens the next one, stopping
   );
 });
 
-pageTest('the ⋯ menu holds the view settings; one away from its default marks the button', async () => {
-  assert.equal($$('#more-btn .trigger-dot').length, 0);
+pageTest('the ⋯ menu holds the view settings', async () => {
   await click($('#hunks-only'));
   assert.equal($('#hunks-only').getAttribute('aria-checked'), 'false');
   assert.equal($$('#code .row.gap').length, 0, 'the whole file');
-  assert.ok($('#more-btn .trigger-dot'));
   await click($('#keys-btn'));
   assert.ok(($('#keys-modal') as HTMLDialogElement).open);
 });
