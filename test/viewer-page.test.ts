@@ -54,7 +54,7 @@ before(async () => {
     },
   };
   writeStored(repo, 'diff', stored);
-  input.summary = input.reloadSummary!();
+  input.summary = input.latestSummary!();
   const themes = await Promise.all(['github-dark', 'github-light'].map(themeSwatch));
   payload = viewerPayload(input, await highlightFiles(input.files, 'github-dark'), themes, {
     themePinned: true,

@@ -9,10 +9,16 @@ import { collapseAll, expandAll } from './actions/folds.ts';
 import { openDialog, openSearch } from './actions/dialogs.ts';
 import { openUnitInCode, showOverview, stepSummary } from './actions/summary.ts';
 import { refresh } from './actions/session.ts';
-import { setHideTests, setHunksOnly, setShowRemoved, stepThreshold } from './actions/viewSettings.ts';
+import {
+  setHideTests,
+  setHunksOnly,
+  setShowRemoved,
+  stepThreshold,
+  toggleFileViewed,
+  toggleNav,
+  toggleUnitViewed,
+} from './actions/prefs.ts';
 import { setView } from './actions/views.ts';
-import { toggleFileViewed, toggleUnitViewed } from './actions/viewed.ts';
-import { toggleNav } from './actions/sidebar.ts';
 import { askOpenAndFocus, askSetOpen } from './ask/rail.ts';
 import { isDiffMode } from './shared.ts';
 

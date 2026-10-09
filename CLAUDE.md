@@ -27,6 +27,7 @@ cli.ts            arg parsing → analyze() → serveViewer(), or runSummary()
 analyze.ts        paths | diff | pr → ViewerInput; re-run on ↻ refresh
 git.ts, pr.ts     git diff parsing, PR refs via plain git fetch (no GitHub API)
 config.ts         lens.defaults.json merged with the nearest .lens.json
+glob.ts, text.ts  pure helpers (path patterns, truncate / plural); the viewer imports them too
 parse/parser.ts   tree-sitter (wasm) for ts / tsx / js
 classify/         fold rules → FoldRegion[] (model.ts has the shapes)
 render/highlight.ts   Shiki tokens, computed server-side
@@ -47,7 +48,7 @@ ask/              ask mode: the viewer's Ask rail and `lens ask listen|reply` (s
 - The viewer is a React app in `client/`, written in strict TypeScript (`main.tsx` is the entry). `bundle.ts` bundles it with esbuild when the server starts, so there's still no build step: one script, plus one stylesheet collected from the `.css` files the code imports. `server.ts` inlines both into `viewer.html` (a `#root` element and nothing else), and puts the payload in the `lens-data` JSON script, which `client/shared.ts` reads as `INITIAL_DATA`.
 - Shared state lives in `client/store.ts`: one immutable `LensState`, replaced on every change. Components read it with `useLens(selector)`.
   - `model/` derives what the components show, as pure functions: `tree.ts`, `plans.ts` (folds, row plans and the fold chips' categories), `signals.ts`, `summaryList.ts`, `progress.ts` (files viewed, changes reviewed, what's next) and `askContext.ts`.
-  - `actions/` changes the state, one file per area: `tabs`, `folds`, `viewSettings`, `views` (including `jumpToLine`), `summary`, `dialogs` (including search), `session`, `sidebar`, `viewed` and `review` (the review pill).
+  - `actions/` changes the state, one file per area: `tabs`, `folds`, `views` (including `jumpToLine`), `summary`, `dialogs` (including search), `session`, `prefs` (the sidebar, the view settings and the viewed marks) and `review` (the review pill).
   - `ask/` is the Ask rail's logic: `rail.ts`, `selection.ts` and `answers.ts`.
   - Use `commit()` instead of `update()` when the DOM must show the new state before you touch it, e.g. scrolling to a row.
 - `components/` holds one component or folder per area: `Header` (with its theme and ⋯ menus), `Nav` (the tree and the summary list, under a progress ring), `Tabs`, `CodePane`, `SummaryPane`, `ReviewPill`, `AskRail`, `SettingsDialog`, `KeysDialog` and `SearchDialog`. Pieces several areas use sit next to them: `CodeRows` (both views' code), `CodeCard` (the card around it, with its header: status, path, counts, fold chips; the same in both views), `FoldChips`, `ViewedBox`, `Resizer`, `SignalMarker` and `ModalHead`. `main.tsx` sets up the document-level listeners and store subscriptions.

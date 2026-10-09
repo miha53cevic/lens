@@ -2,7 +2,7 @@
 
 import { useLens } from '../store.ts';
 import { navShown } from '../model/tree.ts';
-import { setNavWidth } from '../actions/sidebar.ts';
+import { setNavWidth } from '../actions/prefs.ts';
 import { askSetWidth } from '../ask/rail.ts';
 import { Header } from './Header/index.tsx';
 import { Nav } from './Nav/index.tsx';

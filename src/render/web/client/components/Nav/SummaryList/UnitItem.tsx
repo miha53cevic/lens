@@ -2,7 +2,7 @@ import clsx from 'clsx';
 import { useLens } from '../../../store.ts';
 import { isFlagged, type Unit, unitLabel, unitViewKey } from '../../../model/signals.ts';
 import { openSummaryUnit } from '../../../actions/summary.ts';
-import { toggleUnitViewed } from '../../../actions/viewed.ts';
+import { toggleUnitViewed } from '../../../actions/prefs.ts';
 import { SignalMarker } from '../../SignalMarker.tsx';
 import { ViewedBox } from '../../ViewedBox.tsx';
 

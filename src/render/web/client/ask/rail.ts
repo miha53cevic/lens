@@ -63,10 +63,7 @@ export async function askPoll(): Promise<void> {
     if (response.ok) {
       if (getState().ask.error === ASK_GONE) patch.error = null; // it's back (restarted on the same port)
       const json = await response.text();
-      if (json !== getState().ask.dataJson) {
-        patch.dataJson = json;
-        patch.data = JSON.parse(json);
-      }
+      if (json !== JSON.stringify(getState().ask.data)) patch.data = JSON.parse(json);
     }
   } catch {
     // the server is gone (ctrl-c): no agent can answer, and sending would fail

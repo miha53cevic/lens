@@ -83,16 +83,22 @@ nav .file {
   font: var(--text-sm) / 1.5 var(--font-mono);
   text-align: left;
 }
-nav .file:hover:not(:disabled) {
+/* the tree's files and the Summary tab's items */
+nav .file:hover:not(:disabled),
+.sum-overview-item:hover,
+.sum-item:hover {
   background: color-mix(in oklab, var(--surface) 60%, transparent);
   color: var(--text);
 }
-nav .file.active {
+nav .file.active,
+.sum-overview-item.active,
+.sum-item.active {
   background: var(--selected-bg);
   box-shadow: 0 0 0 1px var(--selected-ring);
   color: var(--text);
 }
-nav .file .fname {
+nav .file .fname,
+.sum-item .name {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -141,15 +147,6 @@ nav .file.excluded:disabled {
 }
 .sum-overview-item .kbd-combo {
   margin-left: auto;
-}
-.sum-overview-item:hover {
-  background: color-mix(in oklab, var(--surface) 60%, transparent);
-  color: var(--text);
-}
-.sum-overview-item.active {
-  background: var(--selected-bg);
-  box-shadow: 0 0 0 1px var(--selected-ring);
-  color: var(--text);
 }
 .sum-overview-item.active .ico {
   color: var(--accent);
@@ -243,20 +240,6 @@ nav .file.excluded:disabled {
   border-radius: var(--radius-md);
   color: var(--muted);
   text-align: left;
-}
-.sum-item:hover {
-  background: color-mix(in oklab, var(--surface) 60%, transparent);
-  color: var(--text);
-}
-.sum-item.active {
-  background: var(--selected-bg);
-  box-shadow: 0 0 0 1px var(--selected-ring);
-  color: var(--text);
-}
-.sum-item .name {
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
 }
 .sum-item .side {
   max-width: 80px;

@@ -9,7 +9,7 @@ import { currentUnit, summaryPage } from '../model/summaryList.ts';
 import { nextFile, nextUnit, reviewedNextUnit, startReview, viewedNextFile } from '../actions/review.ts';
 import { stepFile } from '../actions/tabs.ts';
 import { stepSummary } from '../actions/summary.ts';
-import { toggleFileViewed, toggleUnitViewed } from '../actions/viewed.ts';
+import { toggleFileViewed, toggleUnitViewed } from '../actions/prefs.ts';
 import { isTestFile } from '../shared.ts';
 import './ReviewPill.css';
 

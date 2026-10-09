@@ -2,7 +2,7 @@ import { Keyboard, MoreHorizontal, Power, Settings } from 'lucide-react';
 import { useLens } from '../../store.ts';
 import { treeModel } from '../../model/tree.ts';
 import { collapseAll, expandAll } from '../../actions/folds.ts';
-import { setHideTests, setHunksOnly, setShowRemoved, setThreshold } from '../../actions/viewSettings.ts';
+import { setHideTests, setHunksOnly, setShowRemoved, setThreshold } from '../../actions/prefs.ts';
 import { openDialog } from '../../actions/dialogs.ts';
 import { endSession } from '../../actions/session.ts';
 import { isDiffMode } from '../../shared.ts';

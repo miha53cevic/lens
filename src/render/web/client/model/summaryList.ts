@@ -83,8 +83,7 @@ const buildList = memo(
     query: string,
     sumSignal: SignalFilter,
     flowOpen: ReadonlyMap<string, boolean>,
-    summaryActive: string | null,
-    overview: boolean,
+    summaryUnit: string | null,
   ): ListModel => {
     const isShown = (unit: Unit) => !(hideTests && isTestFile(unit.displayFile));
     const units = summary.units.filter(isShown); // hide tests: the counts follow the list
@@ -98,7 +97,7 @@ const buildList = memo(
     const signal = sumSignal !== null && counts[sumSignal] === 0 ? null : sumSignal;
     const text = query.trim().toLowerCase();
     // the open unit stays listed under a signal filter: dismissing its concern mustn't take it away
-    const isOpenUnit = (unit: Unit) => !overview && unit.id === summaryActive;
+    const isOpenUnit = (unit: Unit) => unit.id === summaryUnit;
     const matches = (unit: Unit) => {
       if (!isShown(unit)) return false;
       const hasSignal =
@@ -119,7 +118,7 @@ const buildList = memo(
       if (text !== '' || signal !== null) return false;
       const explicit = flowOpen.get(section.flow.title);
       if (explicit !== undefined) return !explicit;
-      const holdsOpenUnit = !overview && section.members.some((unit) => unit.id === summaryActive);
+      const holdsOpenUnit = section.members.some(isOpenUnit);
       return flowPriority(section.flow) === 3 && !holdsOpenUnit;
     };
     const folded = new Set(sections.filter(isFolded).map((section) => section.flow.title));
@@ -128,7 +127,7 @@ const buildList = memo(
       .flatMap((section) => section.members);
     const order = [...new Set([...visibleMembers, ...others].map((unit) => unit.id))];
     // a unit the filter hides stays open in the pane
-    const activeId = summaryActive && unitById(summary, summaryActive) ? summaryActive : order[0] || null;
+    const activeId = summaryUnit && unitById(summary, summaryUnit) ? summaryUnit : order[0] || null;
     const listed = [...sections.flatMap((section) => section.members), ...others];
     return {
       units,
@@ -156,14 +155,13 @@ export function listModel(state: LensState): ListModel | null {
     state.sumQuery,
     state.sumSignal,
     state.flowOpen,
-    state.summaryActive,
-    state.summaryOverview,
+    state.summaryUnit,
   );
 }
 
 /** The open unit; null on the overview, where unit keys (o, m) do nothing. */
 export function currentUnit(state: LensState): Unit | null {
-  if (state.summaryOverview) return null;
+  if (state.summaryUnit === null) return null;
   const list = listModel(state);
   return list ? unitById(state.data.summary, list.activeId) : null;
 }
@@ -172,5 +170,5 @@ export function currentUnit(state: LensState): Unit | null {
 export function summaryPage(state: LensState): 'empty' | 'overview' | 'unit' {
   const list = listModel(state);
   if (!list || (list.summarized === 0 && !state.summaryBrowsing)) return 'empty';
-  return state.summaryOverview ? 'overview' : 'unit';
+  return state.summaryUnit === null ? 'overview' : 'unit';
 }

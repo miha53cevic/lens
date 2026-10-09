@@ -14,6 +14,8 @@ export interface LoadedDiff {
   label: string | null;
   /** Changed files, excluded ones already dropped */
   targets: DiffTarget[];
+  /** Absolute path → new-side content, for each target */
+  sources: Map<string, string>;
   /** Repo-relative paths of changed files skipped via exclude patterns */
   excluded: string[];
   /** Absolute paths of deleted files */
@@ -47,6 +49,7 @@ export async function loadDiff(command: "diff" | "pr", args: string[], cwd: stri
   });
   return {
     root, diffArgs, label, targets, excluded,
+    sources: new Map(targets.map((t) => [t.file, readNewSource(t, cwd)])),
     deleted: result.deleted,
     deletedBlobs: result.deletedBlobs,
     renamed: result.renamed,
@@ -54,7 +57,7 @@ export async function loadDiff(command: "diff" | "pr", args: string[], cwd: stri
 }
 
 /** New-side content of a changed file: from git for ref diffs, from disk for the working tree. */
-export function readNewSource(target: Pick<DiffTarget, "file" | "newBlob">, cwd: string): string {
+function readNewSource(target: Pick<DiffTarget, "file" | "newBlob">, cwd: string): string {
   return target.newBlob !== undefined ? readBlob(target.newBlob, cwd) : readFileSync(target.file, "utf8");
 }
 
@@ -66,7 +69,6 @@ export async function collectUnits(
   diff: LoadedDiff,
   config: LensConfig,
   cwd: string,
-  sources?: Map<string, string>,
 ): Promise<Unit[]> {
   const excludeRegexes = compilePatterns(config.exclude);
   const testRegexes = compilePatterns(config.testFilePatterns);
@@ -78,7 +80,7 @@ export async function collectUnits(
     const file = relPath(diff.root, t.file);
     inputs.push({
       file,
-      newSource: sources?.get(t.file) ?? readNewSource(t, cwd),
+      newSource: diff.sources.get(t.file)!,
       oldSource: t.oldBlob ? readBlob(t.oldBlob, cwd) : null,
       changedLines: t.changedLines,
       removals: t.removals,

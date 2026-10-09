@@ -37,7 +37,6 @@ export interface ViewerInput {
   excluded: string[];
   /** Pure renames — listed, nothing to analyze */
   renamed: { from: string; to: string }[];
-  testFilePatterns: string[];
   /** The effective merged config, shown in the viewer's settings modal */
   config: LensConfig;
   configSource: string | null;
@@ -45,10 +44,8 @@ export interface ViewerInput {
   label: string | null;
   /** Diff/PR mode: data for the Summary tab */
   summary: SummaryView | null;
-  /** Re-reads the stored summary for the current units (after a submit) */
-  reloadSummary: (() => SummaryView | null) | null;
-  /** summary.json mtime, cheap: polled on window focus */
-  summaryStamp: (() => number | null) | null;
+  /** The summary as stored now: the same object until a submit changes summary.json */
+  latestSummary: (() => SummaryView) | null;
 }
 
 export interface ViewerOptions {
@@ -61,9 +58,8 @@ export interface ViewerOptions {
   themePinned: boolean;
 }
 
-/** What the page gets as DATA (client/shared.ts) — ViewerInput made serializable, plus tokens. */
-export interface ViewerPayload {
-  threshold: number;
+/** What the page gets as DATA (client/shared.ts): ViewerInput made serializable, plus one theme's tokens. */
+export type ViewerPayload = Omit<ViewerInput, "root" | "cwd" | "files" | "latestSummary"> & {
   theme: string;
   /** The theme menu's themes, each with its colors */
   themes: ThemeSwatch[];
@@ -72,17 +68,9 @@ export interface ViewerPayload {
   /** The theme's function-name color: the viewer's accent */
   accent: string;
   files: (ViewerFile & { tokens: ViewerToken[][] })[];
-  deleted: string[];
-  excluded: string[];
-  renamed: { from: string; to: string }[];
-  testFilePatterns: string[];
-  config: LensConfig;
-  configSource: string | null;
-  label: string | null;
-  summary: SummaryView | null;
   themePinned: boolean;
   canRefresh: boolean;
-}
+};
 
 export interface ThemeTokens {
   theme: string;
@@ -113,24 +101,16 @@ export async function highlightFiles(files: ViewerFile[], theme: string): Promis
 export function viewerPayload(
   input: ViewerInput, t: ThemeTokens, themes: ThemeSwatch[], opts: { themePinned: boolean; canRefresh: boolean },
 ): ViewerPayload {
+  const { root: _root, cwd: _cwd, latestSummary: _latest, ...data } = input;
   return {
-    threshold: input.threshold,
+    ...data,
     theme: t.theme,
     themes,
     fg: t.fg,
     bg: t.bg,
     accent: t.accent,
     files: input.files.map((f, i) => ({ ...f, tokens: t.tokens[i] })),
-    deleted: input.deleted,
-    excluded: input.excluded,
-    renamed: input.renamed,
-    testFilePatterns: input.testFilePatterns,
-    config: input.config,
-    configSource: input.configSource,
-    label: input.label,
-    summary: input.summary,
-    themePinned: opts.themePinned,
-    canRefresh: opts.canRefresh,
+    ...opts,
   };
 }
 
@@ -151,7 +131,6 @@ export async function serveViewer(
   reanalyze?: () => Promise<ViewerInput>,
 ): Promise<void> {
   let current = input;
-  const themeCache = new Map<string, ThemeTokens>();
   const ask = createAskRoutes(() => current, opts.port);
   // the root of the analysis that wrote server.json — a refresh can't move it
   const infoRoot = input.root;
@@ -160,13 +139,23 @@ export async function serveViewer(
     process.exit(0);
   };
 
-  async function tokensFor(theme: string): Promise<ThemeTokens> {
-    const cached = themeCache.get(theme);
+  // Caches keyed by what they were made from: a ↻ refresh (new files) or a newer summary
+  // (a new ViewerInput) starts fresh ones, and work that was under way fills the old ones.
+  const tokenCache = new WeakMap<ViewerFile[], Map<string, ThemeTokens>>();
+  // pages are cached per theme: payloads can be MBs, and stringifying them on every reload is waste
+  const htmlCache = new WeakMap<ViewerInput, Map<string, string>>();
+  const cacheFor = <K extends object, V>(caches: WeakMap<K, Map<string, V>>, key: K) => {
+    let cache = caches.get(key);
+    if (!cache) caches.set(key, (cache = new Map()));
+    return cache;
+  };
+
+  async function tokensFor(files: ViewerFile[], theme: string): Promise<ThemeTokens> {
+    const cache = cacheFor(tokenCache, files);
+    const cached = cache.get(theme);
     if (cached) return cached;
-    const files = current.files;
     const entry = await highlightFiles(files, theme);
-    // a ↻ refresh while Shiki ran: these tokens are the old files', don't keep them
-    if (files === current.files) themeCache.set(theme, entry);
+    cache.set(theme, entry);
     return entry;
   }
 
@@ -174,39 +163,32 @@ export async function serveViewer(
     (SUGGESTED_THEMES.includes(opts.theme) ? SUGGESTED_THEMES : [opts.theme, ...SUGGESTED_THEMES]).map(themeSwatch),
   );
 
-  async function payloadFor(theme: string): Promise<ViewerPayload> {
-    // tokensFor highlights the files current now; a ↻ refresh during the await mustn't mix them
-    const cur = current;
-    const t = await tokensFor(theme);
-    return viewerPayload(cur, t, themes, { themePinned: opts.themePinned, canRefresh: reanalyze !== undefined });
+  async function payloadFor(input: ViewerInput, theme: string): Promise<ViewerPayload> {
+    const t = await tokensFor(input.files, theme);
+    return viewerPayload(input, t, themes, { themePinned: opts.themePinned, canRefresh: reanalyze !== undefined });
   }
 
   // Warm the initial theme before accepting requests.
-  await tokensFor(opts.theme);
+  await tokensFor(current.files, opts.theme);
   const template = await loadTemplate();
 
-  // Serialized pages are cached per theme — payloads can be MBs, and
-  // stringifying them on every reload is waste. Cleared on refresh.
-  const htmlCache = new Map<string, string>();
-  /** A submit since the summary was read: re-read it (the units stay those of the last analysis). */
-  function reloadSummary(): void {
-    const summary = current.reloadSummary ? current.reloadSummary() : null;
-    if (summary) {
-      current = { ...current, summary };
-      htmlCache.clear();
-    }
+  /** A submit since the summary was read: take the new one (the units stay those of the last analysis). */
+  function syncSummary(): void {
+    const summary = current.latestSummary?.() ?? null;
+    if (summary !== current.summary) current = { ...current, summary };
   }
 
   async function htmlFor(theme: string): Promise<string> {
     // the page opens with the summary as it is now, not as it was when the server started
-    if (current.summary && current.summaryStamp && current.summaryStamp() !== current.summary.stamp) reloadSummary();
-    const cached = htmlCache.get(theme);
+    syncSummary();
+    const input = current;
+    const cache = cacheFor(htmlCache, input);
+    const cached = cache.get(theme);
     if (cached) return cached;
-    const cur = current;
-    const data = JSON.stringify(await payloadFor(theme)).replace(/</g, "\\u003c");
+    const data = JSON.stringify(await payloadFor(input, theme)).replace(/</g, "\\u003c");
     // Function replacement: a plain string would expand $-sequences in the payload.
     const html = template.replace("/*__LENS_DATA__*/", () => data);
-    if (cur === current) htmlCache.set(theme, html); // not a page of the files from before a ↻ refresh
+    cache.set(theme, html);
     return html;
   }
 
@@ -228,7 +210,7 @@ export async function serveViewer(
           sendJson(res, 400, { error: `unknown theme "${themeParam}"` });
           return;
         }
-        sendJson(res, 200, await tokensFor(theme));
+        sendJson(res, 200, await tokensFor(current.files, theme));
       } else if (url.pathname === "/api/refresh") {
         if (!reanalyze) {
           sendJson(res, 404, { error: "refresh not available" });
@@ -236,15 +218,14 @@ export async function serveViewer(
         }
         current = await reanalyze();
         ask.refresh();
-        themeCache.clear();
-        htmlCache.clear();
-        sendJson(res, 200, await payloadFor(theme));
+        sendJson(res, 200, await payloadFor(current, theme));
       } else if (url.pathname === "/api/summary") {
-        // A submit since the page loaded: re-read the stored summary (↻ refresh recomputes the units).
-        reloadSummary();
-        sendJson(res, 200, current.summary ?? null);
+        // A submit since the page loaded: take the stored summary (↻ refresh recomputes the units).
+        syncSummary();
+        sendJson(res, 200, current.summary);
       } else if (url.pathname === "/api/summary/stamp") {
-        sendJson(res, 200, { stamp: current.summaryStamp ? current.summaryStamp() : null });
+        syncSummary();
+        sendJson(res, 200, { stamp: current.summary?.stamp ?? null });
       } else if (url.pathname === "/api/shutdown" && req.method === "POST") {
         res.writeHead(200, { "content-type": "application/json" });
         res.end(JSON.stringify({ ok: true }), () => {

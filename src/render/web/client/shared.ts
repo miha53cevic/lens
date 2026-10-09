@@ -2,6 +2,7 @@
 
 import type { CSSProperties } from 'react';
 import type { ViewerPayload } from '../server.ts';
+import { compilePatterns, matchesAny } from '../../../glob.ts';
 
 export type ViewFile = ViewerPayload['files'][number];
 
@@ -80,18 +81,10 @@ export function writePref(key: string, value: string | number): void {
   } catch {}
 }
 
-// Glob-ish test-file matcher: "*" = within a path segment, "**" = across
-// segments; patterns match anywhere in the path ("*.spec.*", "__tests__/**").
-const testRegexes = (INITIAL_DATA.testFilePatterns || []).map((pattern) => {
-  const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
-  const body = escaped
-    .split('**')
-    .map((part) => part.replaceAll('*', '[^/]*'))
-    .join('.*');
-  return new RegExp('(^|/)' + body + '$');
-});
+// Matched like the server matches them (glob.ts), so "hide tests" agrees with the summary's test units.
+const testRegexes = compilePatterns(INITIAL_DATA.config.testFilePatterns);
 export function isTestFile(path: string): boolean {
-  return testRegexes.some((pattern) => pattern.test(path));
+  return matchesAny(path, testRegexes);
 }
 
 /** What the viewed mark of a file is keyed by: its content, so a file that changes after it was ticked comes back unticked. */
@@ -123,9 +116,7 @@ export function hiddenStyle(hidden: boolean): CSSProperties | undefined {
   return hidden ? { display: 'none' } : undefined;
 }
 
-export function plural(n: number, word: string): string {
-  return n + ' ' + word + (n === 1 ? '' : 's');
-}
+export { plural } from '../../../text.ts';
 
 export function baseName(path: string): string {
   return path.split('/').pop()!;

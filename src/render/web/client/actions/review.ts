@@ -5,7 +5,7 @@ import { fileProgress, unitProgress } from '../model/progress.ts';
 import { currentUnit, listModel } from '../model/summaryList.ts';
 import { openFile, stepFile } from './tabs.ts';
 import { openSummaryUnit, stepSummary } from './summary.ts';
-import { toggleFileViewed, toggleUnitViewed } from './viewed.ts';
+import { toggleFileViewed, toggleUnitViewed } from './prefs.ts';
 
 /** "Viewed · next file": the open file is marked viewed, and the next one not viewed yet opens (the last one stays). */
 export function viewedNextFile(): void {

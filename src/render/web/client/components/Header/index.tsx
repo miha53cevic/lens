@@ -6,7 +6,7 @@ import { useLens } from '../../store.ts';
 import { treeModel } from '../../model/tree.ts';
 import { refresh } from '../../actions/session.ts';
 import { openSearch } from '../../actions/dialogs.ts';
-import { toggleNav } from '../../actions/sidebar.ts';
+import { toggleNav } from '../../actions/prefs.ts';
 import { askSetOpen } from '../../ask/rail.ts';
 import { hiddenStyle } from '../../shared.ts';
 import { IconButton } from '../../ui/IconButton.tsx';

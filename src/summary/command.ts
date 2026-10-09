@@ -1,7 +1,7 @@
 import { readFileSync, existsSync, statSync } from "node:fs";
 import { join, resolve, dirname, basename } from "node:path";
 import { loadConfig } from "../config.ts";
-import { loadDiff, collectUnits, commitLog, readNewSource } from "./collect.ts";
+import { loadDiff, collectUnits, commitLog } from "./collect.ts";
 import { prepareBundle, prepareCommand } from "./bundle.ts";
 import { hasUnits, validateResult } from "./validate.ts";
 import { summaryKey, readStored, writeStored, unitSetHash, type Bundle } from "./store.ts";
@@ -17,8 +17,7 @@ export async function runSummary(rest: string[], cwd: string): Promise<void> {
     if (command === "pr" && args.length !== 1) throw new Error("summary prepare pr takes one argument — a PR URL or number");
     const config = loadConfig(cwd);
     const diff = await loadDiff(command, args, cwd, config);
-    const sourcesByPath = new Map(diff.targets.map((t) => [t.file, readNewSource(t, cwd)]));
-    const units = await collectUnits(diff, config, cwd, sourcesByPath);
+    const units = await collectUnits(diff, config, cwd);
     if (units.length === 0) {
       console.log("lens: nothing to summarize — this diff has no changed text files");
       return;
@@ -32,7 +31,7 @@ export async function runSummary(rest: string[], cwd: string): Promise<void> {
       label: diff.label,
       commits: commitLog(diff.diffArgs, cwd),
       units,
-      sources: new Map([...sourcesByPath].map(([abs, src]) => [relPath(diff.root, abs), src])),
+      sources: new Map([...diff.sources].map(([abs, src]) => [relPath(diff.root, abs), src])),
     });
     console.log(result.instructions);
     return;

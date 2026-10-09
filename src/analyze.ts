@@ -1,4 +1,4 @@
-import { readdirSync, statSync, existsSync } from "node:fs";
+import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { analyzeSource } from "./classify/index.ts";
 import { findConfigPath } from "./config.ts";
@@ -8,7 +8,7 @@ import type { ViewerInput } from "./render/web/server.ts";
 import { compilePatterns, matchesAny } from "./glob.ts";
 import { relPath } from "./paths.ts";
 import type { FileFoldModel, LensConfig } from "./model.ts";
-import { loadDiff, collectUnits, readNewSource, type LoadedDiff } from "./summary/collect.ts";
+import { loadDiff, collectUnits, type LoadedDiff } from "./summary/collect.ts";
 import { summaryKey, summaryStamp } from "./summary/store.ts";
 import { buildSummaryView, type SummaryView } from "./summary/view.ts";
 
@@ -47,11 +47,9 @@ export async function analyze(
     targets = diff.targets;
   }
 
-  const sourcesByPath = new Map<string, string>();
   const files: ViewerInput["files"] = [];
   for (const target of targets) {
-    const source = readNewSource(target, cwd);
-    sourcesByPath.set(target.file, source);
+    const source = diff ? diff.sources.get(target.file)! : readFileSync(target.file, "utf8");
     const display = shown(target.file);
     // Unsupported file types (diff mode only) are shown without folding.
     const fileModel: FileFoldModel = await analyzeSource(display, source, config)
@@ -63,16 +61,17 @@ export async function analyze(
   }
 
   let summary: SummaryView | null = null;
-  let reloadSummary: (() => SummaryView | null) | null = null;
-  let stamp: (() => number | null) | null = null;
+  let latestSummary: (() => SummaryView) | null = null;
   if (diff && withSummary && command !== "paths") {
     try {
-      const units = await collectUnits(diff, config, cwd, sourcesByPath);
+      const units = await collectUnits(diff, config, cwd);
       const { root } = diff;
       const key = summaryKey(command, args);
-      reloadSummary = () => buildSummaryView({ root, cwd, command, args, units });
-      stamp = () => summaryStamp(root, key);
-      summary = reloadSummary();
+      const build = () => buildSummaryView({ root, cwd, command, args, units });
+      let view = build();
+      // summary.json's mtime is cheap to check; rebuild only after a submit
+      latestSummary = () => (summaryStamp(root, key) === view.stamp ? view : (view = build()));
+      summary = view;
     } catch (err) {
       console.error(`lens: summary mode unavailable: ${(err as Error).message}`);
     }
@@ -86,13 +85,11 @@ export async function analyze(
     deleted: diff ? diff.deleted.map(shown) : [],
     excluded: diff ? diff.excluded : [],
     renamed: diff ? diff.renamed.map((r) => ({ from: shown(r.from), to: shown(r.to) })) : [],
-    testFilePatterns: config.testFilePatterns,
     config,
     configSource: findConfigPath(cwd),
     label: diff ? diff.label : null,
     summary,
-    reloadSummary,
-    summaryStamp: stamp,
+    latestSummary,
   };
 }
 

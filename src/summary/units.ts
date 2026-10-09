@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { Node } from "@vscode/tree-sitter-wasm";
 import { parseSource, languageForFile } from "../parse/parser.ts";
 import type { LanguageId, RemovedBlock } from "../model.ts";
+import { truncate } from "../text.ts";
 
 // A "unit" is the thing summary mode summarizes: one changed declaration
 // (function, component, hook, method, class, type, constant, top-level call),
@@ -332,7 +333,7 @@ function indexTopLevel(stmt: Node, start: number, lang: LanguageId, add: AddDecl
     case "variable_declaration": {
       const declarators = node.namedChildren.filter((c): c is Node => c?.type === "variable_declarator");
       if (declarators.length === 0) return;
-      const names = declarators.map((d) => oneLine(d.childForFieldName("name")?.text ?? "?", 40));
+      const names = declarators.map((d) => truncate(d.childForFieldName("name")?.text ?? "?", 40));
       const name = names.join(", ");
       const value = declarators.length === 1 ? declarators[0].childForFieldName("value") : null;
       add(name, value ? valueKind(name, value, lang) : "constant", start, stmt);
@@ -348,7 +349,7 @@ function indexTopLevel(stmt: Node, start: number, lang: LanguageId, add: AddDecl
     case "internal_module":
     case "module": {
       const name = node.childForFieldName("name")?.text;
-      if (name) add(oneLine(name, 60), "namespace", start, stmt, true);
+      if (name) add(truncate(name, 60), "namespace", start, stmt, true);
       return;
     }
     case "expression_statement": {
@@ -358,7 +359,7 @@ function indexTopLevel(stmt: Node, start: number, lang: LanguageId, add: AddDecl
         add(callName(expr), "call", start, stmt);
       } else if (expr?.type === "assignment_expression") {
         const left = expr.childForFieldName("left");
-        if (left) add(oneLine(left.text, 60), "statement", start, stmt);
+        if (left) add(truncate(left.text, 60), "statement", start, stmt);
       }
       return;
     }
@@ -387,9 +388,9 @@ function indexMember(className: string, member: Node, start: number, add: AddDec
 
 /** `router.get("/orders")`, `describe("parser")`, `app.listen()` */
 function callName(call: Node): string {
-  const callee = oneLine(call.childForFieldName("function")?.text ?? "call", 40);
+  const callee = truncate(call.childForFieldName("function")?.text ?? "call", 40);
   const first = call.childForFieldName("arguments")?.namedChildren[0];
-  const literal = first && (first.type === "string" || first.type === "template_string") ? oneLine(first.text, 40) : "";
+  const literal = first && (first.type === "string" || first.type === "template_string") ? truncate(first.text, 40) : "";
   return `${callee}(${literal})`;
 }
 
@@ -414,11 +415,6 @@ function functionKind(name: string, lang: LanguageId): UnitKind {
   // usually factories or constructors-by-convention.
   if (/^[A-Z]/.test(name) && lang !== "typescript") return "component";
   return "function";
-}
-
-function oneLine(text: string, max: number): string {
-  const collapsed = text.replace(/\s+/g, " ").trim();
-  return collapsed.length > max ? collapsed.slice(0, max - 1) + "…" : collapsed;
 }
 
 // ---------- invariant + labels ----------
