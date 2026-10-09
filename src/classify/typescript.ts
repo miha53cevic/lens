@@ -1,5 +1,6 @@
 import type { Node } from "@vscode/tree-sitter-wasm";
 import type { FoldCategory, FoldRegion, LensConfig } from "../model.ts";
+import { escapeRegExp, plural, truncate } from "../text.ts";
 
 // Works for typescript, tsx, and javascript grammars — they share these node types.
 // The rule DATA (receivers, methods, scores, markers) comes from LensConfig;
@@ -150,15 +151,6 @@ function onlyBlankBetween(a: Node, b: Node, lines: string[]): boolean {
   return true;
 }
 
-function truncate(text: string, max = 60): string {
-  const collapsed = text.replace(/\s+/g, " ").trim();
-  return collapsed.length > max ? collapsed.slice(0, max - 1) + "…" : collapsed;
-}
-
-function plural(n: number, word: string): string {
-  return `${n} ${word}${n === 1 ? "" : "s"}`;
-}
-
 /** The first `max` names, then "…" if there are more. */
 function listNames(names: string[], max: number): string {
   return names.slice(0, max).join(", ") + (names.length > max ? ", …" : "");
@@ -167,10 +159,6 @@ function listNames(names: string[], max: number): string {
 function lineSpan(startL: number, endL: number): string {
   const n = endL - startL + 1;
   return n > 1 ? ` (${n} lines)` : "";
-}
-
-function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 // ---------- rule: imports ----------

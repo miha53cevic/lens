@@ -116,9 +116,7 @@ export function hiddenStyle(hidden: boolean): CSSProperties | undefined {
   return hidden ? { display: 'none' } : undefined;
 }
 
-export function plural(n: number, word: string): string {
-  return n + ' ' + word + (n === 1 ? '' : 's');
-}
+export { plural } from '../../../text.ts';
 
 export function baseName(path: string): string {
   return path.split('/').pop()!;

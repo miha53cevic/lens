@@ -1,5 +1,6 @@
 import type { ViewerPayload } from '../../../server.ts';
 import { isTestFile, memo, sourceLines } from '../../shared.ts';
+import { escapeRegExp } from '../../../../../text.ts';
 
 export const SEARCH_LIMIT = 500;
 
@@ -9,10 +10,6 @@ export interface SearchHit {
   line: number;
   column: number;
   length: number;
-}
-
-function escapeRegExp(text: string) {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /**
