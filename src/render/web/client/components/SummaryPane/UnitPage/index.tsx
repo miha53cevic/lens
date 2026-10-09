@@ -8,6 +8,7 @@ import { type Unit, unitLabel } from '../../../model/signals.ts';
 import { openUnitInCode } from '../../../actions/summary.ts';
 import { fileStatus } from '../../../ui/FileStatus.tsx';
 import { Button } from '../../../ui/Button.tsx';
+import { CopyCommand } from '../../../ui/CopyCommand.tsx';
 import { CodeCard, removedCount } from '../../CodeCard.tsx';
 import { Concerns } from './Concerns.tsx';
 import { Changes } from './Changes.tsx';
@@ -37,12 +38,12 @@ export function UnitPage({ unit }: { unit: Unit }) {
       )}
       {unit.stale ? (
         <div className='sum-note stale'>
-          The code changed since this was summarized. Run <code>{command}</code> again to update it.
+          The code changed since this was summarized. Run <CopyCommand command={command} /> again to update it.
         </div>
       ) : (
         !summary && (
           <div className='sum-note'>
-            Not summarized yet. Run <code>{command}</code> in your agent.
+            Not summarized yet. Run <CopyCommand command={command} /> in your agent.
           </div>
         )
       )}

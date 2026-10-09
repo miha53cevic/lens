@@ -148,7 +148,8 @@ units the flows cover and which units with a concern or break are in none.
 
 Any agent with a shell can follow `prepare`'s printed instructions; the skill is only
 a thin pointer to them. After a submit, the Summary tab shows a dot when you return to
-the viewer (or press reload, `r`).
+the viewer (or press reload, `r`). Wherever the viewer tells you to run a command
+(`/lens-review …`, `/lens-ask`), click it to copy it.
 
 **As the review step of a plan → build workflow**, `/lens-build-review [base-commit]
 [plan-file]` has the agent do everything: pick the build's diff (making new files

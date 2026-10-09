@@ -4,6 +4,7 @@ import type { AskQuestion } from '../../../../../ask/session.ts';
 import { useLens } from '../../store.ts';
 import { askGoto, askMarkdown, askOpenCite } from '../../ask/answers.ts';
 import { askSelLabel } from '../../ask/selection.ts';
+import { CopyCommand } from '../../ui/CopyCommand.tsx';
 
 /** The questions and the agent's answers. A thread scrolled to its end follows new ones (askPoll). */
 export function Thread() {
@@ -31,8 +32,8 @@ export function Thread() {
             'Ask about the open change. Select code first to ask about those lines.'
           ) : (
             <>
-              Run <code>/lens-ask</code> in your agent to get answers here. Until then, <b>Copy as prompt</b> puts your
-              question and the code on the clipboard.
+              Run <CopyCommand command='/lens-ask' /> in your agent to get answers here. Until then,{' '}
+              <b>Copy as prompt</b> puts your question and the code on the clipboard.
             </>
           )}
         </div>
