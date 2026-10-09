@@ -484,7 +484,7 @@ pageTest('Ask without an agent copies the question as a prompt', async (page) =>
     label: 'orders.ts',
     selection: null,
   });
-  assert.equal($('#ask-send').textContent, 'Copied ✓');
+  assert.equal($('#ask-send').textContent!.trim(), 'Copied');
   assert.equal(($('#ask-input') as HTMLTextAreaElement).value, 'why the deleted column?', 'the question stays');
 });
 

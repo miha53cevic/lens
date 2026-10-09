@@ -1,3 +1,4 @@
+import { ChevronRight } from 'lucide-react';
 import type { ReactNode } from 'react';
 import clsx from 'clsx';
 import { useLens } from '../../store.ts';
@@ -48,7 +49,7 @@ function addRows(node: TreeDir, path: string, depth: number, context: TreeContex
         title={dirPath}
         onClick={() => toggleDir(dirPath)}
       >
-        <span className={clsx('caret', !closed && 'open')}>▸</span>
+        <ChevronRight className={clsx('caret', !closed && 'open')} size={12} />
         {dir.name}
       </div>,
     );

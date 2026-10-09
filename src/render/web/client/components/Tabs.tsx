@@ -1,3 +1,4 @@
+import { X } from 'lucide-react';
 import clsx from 'clsx';
 import { useLens } from '../store.ts';
 import { baseName, hiddenStyle } from '../shared.ts';
@@ -45,7 +46,7 @@ export function Tabs() {
                 closeTab(tab.index);
               }}
             >
-              ✕
+              <X size={12} />
             </button>
           </div>
         );

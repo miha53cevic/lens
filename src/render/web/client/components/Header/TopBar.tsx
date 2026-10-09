@@ -1,3 +1,4 @@
+import { Keyboard, Menu, Power, RefreshCw, Search, Settings } from 'lucide-react';
 import { useLens } from '../../store.ts';
 import { treeModel } from '../../model/tree.ts';
 import { endSession, refresh, switchTheme } from '../../actions/session.ts';
@@ -33,7 +34,7 @@ export function TopBar() {
         style={hiddenStyle(!topBar.navToggleShown)}
         onClick={toggleNav}
       >
-        &#9776;
+        <Menu size={16} />
       </button>
       <div className='brand'>lens</div>
       {/* PR mode: "owner/repo#N — title" */}
@@ -83,7 +84,7 @@ export function TopBar() {
         Ask
       </button>
       <button id='search-btn' className='icon' title='search in files (⌘P)' onClick={() => openSearch()}>
-        ⌕
+        <Search size={15} />
       </button>
       <select
         id='theme-select'
@@ -102,10 +103,10 @@ export function TopBar() {
         ))}
       </select>
       <button id='settings-btn' className='icon' title='current settings' onClick={() => openDialog('settings-modal')}>
-        ⚙
+        <Settings size={15} />
       </button>
       <button id='keys-btn' className='icon' title='keyboard shortcuts (?)' onClick={() => openDialog('keys-modal')}>
-        ?
+        <Keyboard size={16} />
       </button>
       <button
         id='refresh'
@@ -114,7 +115,8 @@ export function TopBar() {
         disabled={topBar.refreshing}
         onClick={refresh}
       >
-        {topBar.refreshing ? '…' : '↻ refresh'}
+        <RefreshCw size={13} className={topBar.refreshing ? 'spin' : undefined} />
+        refresh
       </button>
       <button
         id='end-session'
@@ -124,7 +126,8 @@ export function TopBar() {
           endSession();
         }}
       >
-        ⏻ end
+        <Power size={13} />
+        end
       </button>
     </div>
   );

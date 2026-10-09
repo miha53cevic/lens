@@ -1,3 +1,4 @@
+import { Check } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useLens } from '../../store.ts';
 import { askContext, askSelection } from '../../model/askContext.ts';
@@ -83,7 +84,15 @@ export function Composer() {
         </span>
         <span className='spacer' />
         <button id='ask-send' disabled={blocked} onClick={send}>
-          {copied ? 'Copied ✓' : composer.listening ? 'Ask' : 'Copy as prompt'}
+          {copied ? (
+            <>
+              <Check size={13} /> Copied
+            </>
+          ) : composer.listening ? (
+            'Ask'
+          ) : (
+            'Copy as prompt'
+          )}
         </button>
       </div>
     </div>

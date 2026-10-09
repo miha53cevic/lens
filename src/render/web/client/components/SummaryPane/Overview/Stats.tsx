@@ -6,6 +6,7 @@ import { listModel } from '../../../model/summaryList.ts';
 import { setSignalFilter } from '../../../actions/summary.ts';
 import { plural } from '../../../shared.ts';
 import { Info } from '../../Info.tsx';
+import { SignalIcon } from '../../SignalIcon.tsx';
 
 const AGENT_NOTE = "The agent's judgement — lens doesn't verify it.";
 
@@ -48,9 +49,12 @@ export function Stats({ units, flowCount }: StatsProps) {
       <FilterStat value={flagged} tone='amber' filter='any' signal={signal}>
         {'flagged '}
         <Info title='flagged' note={AGENT_NOTE}>
-          Changes with a reason to look closely: a possible bug (⚠), a risk (!), a question (?) the agent raised, or
-          callers outside the diff it may break (↗). Dismissed concerns don't count. Click the number to list only
-          these.
+          Changes with a reason to look closely: a possible bug (<SignalIcon signal='bug' size={10} />
+          ), a risk (
+          <SignalIcon signal='risk' size={10} />
+          ), a question (<SignalIcon signal='question' size={10} />) the agent raised, or callers outside the diff it
+          may break (<SignalIcon signal='breaks' size={10} />
+          ). Dismissed concerns don't count. Click the number to list only these.
         </Info>
       </FilterStat>
       <Stat value={new Set(callerLines).size} tone='amber'>

@@ -1,3 +1,4 @@
+import { ArrowUpRight, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 import clsx from 'clsx';
 import type { ViewUnit } from '../../../../../../summary/view.ts';
@@ -24,7 +25,8 @@ export function Breaks({ breaks }: { breaks: PossibleBreak[] }) {
             data-brk={breakIndex}
             onClick={() => toggleBreak('b' + breakIndex)}
           >
-            <span className='pk'>{open ? '▾' : '▸'}</span>↗ {possibleBreak.summary}
+            <ChevronRight className={clsx('pk', open && 'open')} size={12} />
+            <ArrowUpRight size={12} /> {possibleBreak.summary}
           </button>,
           <div key={'callers' + breakIndex} className='brk-callers' data-brk={breakIndex} style={hiddenStyle(!open)}>
             {possibleBreak.callers.flatMap((caller, callerIndex) => {
@@ -37,7 +39,8 @@ export function Breaks({ breaks }: { breaks: PossibleBreak[] }) {
                   data-peek={peekKey}
                   onClick={() => toggleBreak('p' + peekKey)}
                 >
-                  {(peekOpen ? '▾ ' : '▸ ') + caller.file + ':' + caller.line}
+                  <ChevronRight className={clsx('pk', peekOpen && 'open')} size={12} />
+                  {caller.file + ':' + caller.line}
                 </button>,
                 <div key={'peek' + callerIndex} className='peek' data-peek={peekKey} style={hiddenStyle(!peekOpen)}>
                   {caller.lines.map((peekLine) => (

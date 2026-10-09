@@ -1,3 +1,4 @@
+import { TriangleAlert } from 'lucide-react';
 import { useMemo } from 'react';
 import { useLens } from '../../store.ts';
 import { activeFile, filePlan } from '../../model/plans.ts';
@@ -42,7 +43,11 @@ export function FileCode() {
   }
   return (
     <>
-      {file.parseError && <div className='notice'>⚠ folding disabled — this file has syntax errors</div>}
+      {file.parseError && (
+        <div className='notice'>
+          <TriangleAlert size={13} /> folding disabled — this file has syntax errors
+        </div>
+      )}
       <CodeRows
         path={file.file}
         items={plan.items}

@@ -1,3 +1,4 @@
+import { ChevronRight } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import clsx from 'clsx';
 import type { FoldRegion } from '../../../../../model.ts';
@@ -44,7 +45,7 @@ export function Region({ region, body, context }: RegionProps) {
         {/* the changed-lines gutter bar shows on the pill too, so collapsed changes stay scannable in the margin */}
         <span className={clsx('mark', touchesChange && 'changed')} />
         <span className='pill' style={{ '--cat': catColor(region.category) } as CSSProperties}>
-          <span className='caret'>▸</span>
+          <ChevronRight className='caret' size={12} strokeWidth={2.5} />
           <span className='cat'>{region.category}</span>
           {region.summary}
         </span>

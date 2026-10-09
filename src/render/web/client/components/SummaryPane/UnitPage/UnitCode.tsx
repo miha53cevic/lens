@@ -1,12 +1,13 @@
 import { useMemo, type ReactNode } from 'react';
 import clsx from 'clsx';
 import { useLens } from '../../../store.ts';
-import { concernLabel, concernMark, SIGNALS, type Unit } from '../../../model/signals.ts';
+import { concernLabel, concernMark, type Unit } from '../../../model/signals.ts';
 import { unitPlan } from '../../../model/plans.ts';
 import { askSelLabels } from '../../../ask/selection.ts';
 import { askSelection } from '../../../model/askContext.ts';
 import { linesFromTokens } from '../../../shared.ts';
 import { CodeRows, RemovedRow } from '../../CodeRows/index.tsx';
+import { SignalIcon } from '../../SignalIcon.tsx';
 import { Verdict } from './Verdict.tsx';
 
 /**
@@ -34,7 +35,9 @@ export function UnitCode({ unit, hoveredCite }: { unit: Unit; hoveredCite: strin
     const note = (
       <div key={'note' + concernIndex} className={clsx('inline-note', 'k-' + concern.kind, mark)}>
         <div className='n-top'>
-          <b>{SIGNALS[concern.kind].icon + ' ' + concernLabel(concern, mark)}</b>
+          <b>
+            <SignalIcon signal={concern.kind} /> {concernLabel(concern, mark)}
+          </b>
           <Verdict unit={unit} concern={concern} concernIndex={concernIndex} mark={mark} />
         </div>
         <div className='n-text'>{concern.text}</div>

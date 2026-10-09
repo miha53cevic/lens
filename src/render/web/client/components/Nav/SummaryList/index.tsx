@@ -1,3 +1,4 @@
+import { ChevronRight } from 'lucide-react';
 import clsx from 'clsx';
 import { useLens } from '../../../store.ts';
 import { listModel } from '../../../model/summaryList.ts';
@@ -43,7 +44,7 @@ export function SummaryList() {
               title={flow.title + ' — ' + flow.path + (flow.why ? '\n' + flow.why : '')}
               onClick={() => toggleFlow(flow.title, folded)}
             >
-              <span className='caret'>{folded ? '▸' : '▾'}</span>
+              <ChevronRight className={clsx('caret', !folded && 'open')} size={12} />
               <FlowPriority flow={flow} />
               {/* the whole title, wrapped, with the path under it: a cut-off title says nothing */}
               <span className='flow-name'>

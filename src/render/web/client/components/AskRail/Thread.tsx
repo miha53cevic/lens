@@ -1,3 +1,4 @@
+import { RefreshCw } from 'lucide-react';
 import clsx from 'clsx';
 import type { AskQuestion } from '../../../../../ask/session.ts';
 import { useLens } from '../../store.ts';
@@ -74,7 +75,11 @@ function QuestionAndAnswer({ question, files }: { question: AskQuestion; files: 
           </div>
         </div>
       )}
-      {question.stale && <div className='ask-stale'>↻ the code changed since this was asked</div>}
+      {question.stale && (
+        <div className='ask-stale'>
+          <RefreshCw size={11} /> the code changed since this was asked
+        </div>
+      )}
     </>
   );
 }

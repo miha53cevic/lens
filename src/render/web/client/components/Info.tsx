@@ -1,3 +1,4 @@
+import { Info as InfoIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 interface InfoProps {
@@ -10,7 +11,7 @@ interface InfoProps {
 export function Info({ title, children, note }: InfoProps) {
   return (
     <span className='info' aria-label={title}>
-      &#9432;
+      <InfoIcon size={12} />
       <span className='tip'>
         <div className='tip-title'>{title}</div>
         {children}

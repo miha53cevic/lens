@@ -11,12 +11,12 @@ export type Unit = ViewUnit;
  * Only for a reason on record: an open concern (by kind) or callers it may break. Older
  * summaries can carry the agent's bare flag: "look".
  */
-export const SIGNALS: Record<SignalId, { icon: string; one: string; many: string }> = {
-  bug: { icon: '⚠', one: 'possible bug', many: 'possible bugs' },
-  risk: { icon: '!', one: 'possible risk', many: 'risks' },
-  question: { icon: '?', one: 'question', many: 'questions' },
-  breaks: { icon: '↗', one: 'may break callers', many: 'may break callers' },
-  look: { icon: '●', one: 'flagged, no reason given', many: 'no reason given' },
+export const SIGNALS: Record<SignalId, { one: string; many: string }> = {
+  bug: { one: 'possible bug', many: 'possible bugs' },
+  risk: { one: 'possible risk', many: 'risks' },
+  question: { one: 'question', many: 'questions' },
+  breaks: { one: 'may break callers', many: 'may break callers' },
+  look: { one: 'flagged, no reason given', many: 'no reason given' },
 };
 const CONCERN_KINDS = ['bug', 'risk', 'question'] as const;
 

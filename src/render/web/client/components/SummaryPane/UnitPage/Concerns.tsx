@@ -1,7 +1,8 @@
 import clsx from 'clsx';
 import type { Concern } from '../../../../../../summary/store.ts';
 import { useLens } from '../../../store.ts';
-import { concernLabel, concernMark, SIGNALS, type Unit } from '../../../model/signals.ts';
+import { concernLabel, concernMark, type Unit } from '../../../model/signals.ts';
+import { SignalIcon } from '../../SignalIcon.tsx';
 import { Cite } from './Cite.tsx';
 import { Verdict } from './Verdict.tsx';
 
@@ -14,7 +15,9 @@ export function Concerns({ unit, concerns }: { unit: Unit; concerns: Concern[] }
         const mark = concernMark(marks, unit, concern);
         return (
           <div key={concernIndex} className={clsx('concern', 'k-' + concern.kind, mark)}>
-            <span className='ic'>{SIGNALS[concern.kind].icon}</span>
+            <span className='ic'>
+              <SignalIcon signal={concern.kind} />
+            </span>
             <span className='kind'>{concernLabel(concern, mark)}</span>
             <Cite label={concern.line} />
             <Verdict unit={unit} concern={concern} concernIndex={concernIndex} mark={mark} />

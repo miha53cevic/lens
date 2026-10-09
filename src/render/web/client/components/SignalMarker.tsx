@@ -1,4 +1,5 @@
-import { type Marks, SIGNALS, signalTip, type Unit, unitSignals } from '../model/signals.ts';
+import { type Marks, signalTip, type Unit, unitSignals } from '../model/signals.ts';
+import { SignalIcon } from './SignalIcon.tsx';
 
 interface SignalMarkerProps {
   marks: Marks;
@@ -11,7 +12,7 @@ export function SignalMarker({ marks, unit }: SignalMarkerProps) {
   if (!topSignal) return <span />;
   return (
     <span className={'sig sig-' + topSignal} title={signalTip(marks, unit, topSignal)}>
-      {SIGNALS[topSignal].icon}
+      <SignalIcon signal={topSignal} size={11} />
     </span>
   );
 }

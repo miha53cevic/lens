@@ -1,3 +1,4 @@
+import { X } from 'lucide-react';
 import { hiddenStyle } from '../../shared.ts';
 
 interface FilterProps {
@@ -34,7 +35,7 @@ export function Filter({ inputId, clearId, wrapperId, hidden, placeholder, value
         style={hiddenStyle(value.trim() === '')}
         onClick={() => onChange('')}
       >
-        ✕
+        <X size={12} />
       </button>
     </div>
   );

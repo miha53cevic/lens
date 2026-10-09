@@ -1,5 +1,6 @@
 // The Ask rail: the chat with the reader's agent about the open change.
 
+import { X } from 'lucide-react';
 import { useLens } from '../../store.ts';
 import { askSetOpen } from '../../ask/rail.ts';
 import { Thread } from './Thread.tsx';
@@ -22,7 +23,7 @@ export function AskRail() {
           {listening ? 'agent listening' : 'no agent'}
         </span>
         <button id='ask-close' className='icon' title='hide the Ask rail (\)' onClick={() => askSetOpen(false)}>
-          ✕
+          <X size={14} />
         </button>
       </div>
       <Thread />

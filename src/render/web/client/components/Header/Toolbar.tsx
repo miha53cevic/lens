@@ -1,3 +1,4 @@
+import { Info } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import { useLens } from '../../store.ts';
 import { activeFile } from '../../model/plans.ts';
@@ -102,7 +103,7 @@ export function Toolbar() {
           <option value='3'>3</option>
         </select>
         <span className='info' id='threshold-info' aria-label='what each fold level shows'>
-          &#9432; <ThresholdTip />
+          <Info size={12} /> <ThresholdTip />
         </span>
       </label>
       <div className='vdivider' />

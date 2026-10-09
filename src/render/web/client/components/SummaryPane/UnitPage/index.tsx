@@ -1,6 +1,7 @@
 // One unit: the agent's headline, its concerns, When / Before / Now, callers it may break,
 // and its code (CodeRows, as in the Code view).
 
+import { ArrowUpRight } from 'lucide-react';
 import { useState } from 'react';
 import { useLens } from '../../../store.ts';
 import { type Unit, unitLabel, unitViewKey } from '../../../model/signals.ts';
@@ -55,7 +56,7 @@ export function UnitPage({ unit }: { unit: Unit }) {
         </label>
         {inCodeView && (
           <button id='open-in-code' title='open in the code view (o)' onClick={() => openUnitInCode(unit)}>
-            code view ↗
+            code view <ArrowUpRight size={12} />
           </button>
         )}
       </div>
