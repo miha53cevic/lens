@@ -76,17 +76,24 @@ document.addEventListener("selectionchange", () => {
   if (sel.isCollapsed) { askSetSel(null); return; }
   const rowOf = (node) => (node instanceof Element ? node : node.parentElement)?.closest(".row");
   const rows = [...root.querySelectorAll(".row")].filter((r) => !r.matches(".pill-row, .gap, .unit-gap"));
-  // [first, last] row index an end of the selection covers: an end on a fold's pill takes in its region
-  const span = (node) => {
+  // [first, last] row index an end of the selection covers: an end on a fold's pill takes in its
+  // region; one off the rows (a ⋯ row, blank space under the code) counts as the gap between the
+  // rows around it — the first row after it when it starts the range, the last before when it ends it
+  const span = (node, offset) => {
     const row = rowOf(node);
     const i = rows.indexOf(row);
     if (i >= 0) return [i, i];
     const inRegion = [...(row?.closest(".region")?.querySelectorAll(".row") ?? [])].map((r) => rows.indexOf(r)).filter((x) => x >= 0);
-    return inRegion.length > 0 ? [Math.min(...inRegion), Math.max(...inRegion)] : null;
+    if (inRegion.length > 0) return [Math.min(...inRegion), Math.max(...inRegion)];
+    const at = document.createRange();
+    at.setStart(node, offset);
+    const after = rows.filter((r) => at.comparePoint(r, 0) < 0).length;
+    return [after, after - 1];
   };
-  const a = span(sel.anchorNode), b = span(sel.focusNode);
-  if (!a || !b) return; // an end off the rows (blank space, a ⋯ row): keep what was kept
-  const picked = rows.slice(Math.min(a[0], b[0]), Math.max(a[1], b[1]) + 1).slice(0, ASK_MAX_LINES);
+  const a = span(sel.anchorNode, sel.anchorOffset), b = span(sel.focusNode, sel.focusOffset);
+  const from = Math.min(a[0], b[0]), to = Math.max(a[1], b[1]);
+  if (from > to) { askSetSel(null); return; } // nothing but ⋯ rows and blank space
+  const picked = rows.slice(from, to + 1).slice(0, ASK_MAX_LINES);
   const lines = picked.map((r) => {
     const el = /** @type {HTMLElement} */ (r);
     const n = el.dataset.line ?? el.dataset.old;

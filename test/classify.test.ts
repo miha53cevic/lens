@@ -337,6 +337,10 @@ async function run(i: number, tx: Tx, user: User | null) {
 test("code sharing an import's line isn't folded with it", async () => {
   const sameLine = await regionsOf(`import "./polyfill"; main();\nfunction main() { return 1; }`);
   assert.equal(sameLine.filter((r) => r.category === "import").length, 0);
+
+  const commented = await regionsOf(`import a from "a"; // why\nimport b from "b";\nimport c from "c";\nuse(a, b, c);`);
+  assert.deepEqual(commented.filter((r) => r.category === "import").map((r) => [r.startLine, r.endLine]), [[1, 3]],
+    "a trailing comment keeps the import in its group");
 });
 
 test("directive comments stay visible", async () => {
@@ -370,6 +374,7 @@ test("guards whose condition does work stay visible; a labeled continue keeps it
 async function handle(user: User, rows: Row[][]) {
   if (await limiter.consume(user.id)) throw new TooMany();
   if (attempts++ > limit) return;
+  if (!h) return async () => { await cleanup(); };
   outer: for (const row of rows) {
     for (const cell of row) {
       if (cell.skip) continue outer;
@@ -379,7 +384,9 @@ async function handle(user: User, rows: Row[][]) {
 }
 `.trim());
   const guards = regions.filter((r) => r.category === "guard");
-  assert.deepEqual(guards.map((g) => [g.startLine, g.summary]), [[6, "1 guard → continue outer"]]);
+  // line 4: the callback runs later, so returning it is no work
+  assert.deepEqual(guards.map((g) => g.startLine), [4, 7]);
+  assert.match(guards[1].summary, /^1 guard → continue outer/);
 });
 
 test("data: a computed key that calls something isn't data", async () => {

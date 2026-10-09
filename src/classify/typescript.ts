@@ -130,15 +130,19 @@ function ownsWholeLines(n: Node, lines: string[]): boolean {
   return before.trim() === "" && after.trim() === "";
 }
 
-/** The expression does work beyond computing a value: await, assignment, ++/--, yield. */
+const EFFECTS = new Set([
+  "await_expression", "assignment_expression", "augmented_assignment_expression", "update_expression", "yield_expression",
+]);
+const FUNCTIONS = new Set(["arrow_function", "function_expression", "function", "generator_function"]);
+
+/**
+ * The expression does work beyond computing a value: await, assignment, ++/--, yield.
+ * A function it only creates (`return async () => { await cleanup(); }`) runs later: not counted.
+ */
 function hasEffects(n: Node): boolean {
-  let found = false;
-  walk(n, (c) => {
-    if (c.type === "await_expression" || c.type === "assignment_expression" ||
-        c.type === "augmented_assignment_expression" || c.type === "update_expression" ||
-        c.type === "yield_expression") found = true;
-  });
-  return found;
+  if (EFFECTS.has(n.type)) return true;
+  if (FUNCTIONS.has(n.type)) return false;
+  return namedChildren(n).some(hasEffects);
 }
 
 function onlyBlankBetween(a: Node, b: Node, lines: string[]): boolean {
@@ -176,11 +180,17 @@ function escapeRegExp(s: string): string {
 function importRegions(root: Node, ctx: RuleContext): FoldRegion[] {
   // Re-exports (`export { x } from "y"`) group with imports rather than
   // breaking up the run; whole-file barrels are handled by the barrel rule.
-  // only ones alone on their lines: `import "./polyfill"; main();` keeps main() in view
+  // only ones no code shares a line with: `import "./polyfill"; main();` keeps main() in view
+  // (a trailing comment is fine)
+  const ownsLines = (c: Node) => {
+    const before = (ctx.lines[c.startPosition.row] ?? "").slice(0, c.startPosition.column);
+    const after = (ctx.lines[c.endPosition.row] ?? "").slice(c.endPosition.column).trim();
+    return before.trim() === "" && (after === "" || after.startsWith("//") || after.startsWith("/*"));
+  };
   const importish = namedChildren(root).filter((c) =>
     (c.type === "import_statement" ||
       (c.type === "export_statement" && c.childForFieldName("source") !== null)) &&
-    ownsWholeLines(c, ctx.lines),
+    ownsLines(c),
   );
   const groups: Node[][] = [];
   for (const stmt of importish) {

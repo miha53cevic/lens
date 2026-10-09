@@ -212,7 +212,7 @@ viewer's slider switches the threshold live.
 | `telemetry`         | fire-and-forget `metrics.*` / `telemetry.*` / `analytics.*` calls |
 | `error-boilerplate` | catch blocks that only log and/or rethrow |
 | `accessor`          | getters/setters that only return or store a value, and one-statement delegation methods |
-| `barrel`            | files that are only imports and re-exports fold to one pill |
+| `barrel`            | files that are only imports and re-exports fold to one pill (it names side-effect imports: `; runs polyfills`) |
 | `data`              | pure-literal constants: lookup maps, option objects, literal enums, runs of one-liner consts (3+ lines) |
 
 Guards fold regardless of what they return — judging whether a guard hides a bug is

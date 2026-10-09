@@ -136,22 +136,24 @@ export async function serveViewer(
     : [opts.theme, ...SUGGESTED_THEMES];
 
   async function payloadFor(theme: string): Promise<ViewerPayload> {
+    // tokensFor highlights the files current now; a ↻ refresh during the await mustn't mix them
+    const cur = current;
     const t = await tokensFor(theme);
     return {
-      threshold: current.threshold,
+      threshold: cur.threshold,
       theme,
       themes,
       fg: t.fg,
       bg: t.bg,
-      files: current.files.map((f, i) => ({ ...f, tokens: t.tokens[i] })),
-      deleted: current.deleted,
-      excluded: current.excluded,
-      renamed: current.renamed,
-      testFilePatterns: current.testFilePatterns,
-      config: current.config,
-      configSource: current.configSource,
-      label: current.label,
-      summary: current.summary,
+      files: cur.files.map((f, i) => ({ ...f, tokens: t.tokens[i] })),
+      deleted: cur.deleted,
+      excluded: cur.excluded,
+      renamed: cur.renamed,
+      testFilePatterns: cur.testFilePatterns,
+      config: cur.config,
+      configSource: cur.configSource,
+      label: cur.label,
+      summary: cur.summary,
       themePinned: opts.themePinned,
       canRefresh: reanalyze !== undefined,
     };
@@ -167,10 +169,11 @@ export async function serveViewer(
   async function htmlFor(theme: string): Promise<string> {
     const cached = htmlCache.get(theme);
     if (cached) return cached;
+    const cur = current;
     const data = JSON.stringify(await payloadFor(theme)).replace(/</g, "\\u003c");
     // Function replacement: a plain string would expand $-sequences in the payload.
     const html = template.replace("/*__LENS_DATA__*/ null", () => data);
-    htmlCache.set(theme, html);
+    if (cur === current) htmlCache.set(theme, html); // not a page of the files from before a ↻ refresh
     return html;
   }
 
