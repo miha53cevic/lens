@@ -136,13 +136,11 @@ const EFFECTS = new Set([
 const FUNCTIONS = new Set(["arrow_function", "function_expression", "function", "generator_function"]);
 
 /**
- * The expression does work beyond computing a value: await, assignment, ++/--, yield.
- * A function it only creates (`return async () => { await cleanup(); }`) runs later: not counted.
+ * The expression does work beyond computing a value: await, assignment, ++/--, yield —
+ * callbacks included, since `list.forEach((i) => { seen[i] = true; })` runs them now.
  */
 function hasEffects(n: Node): boolean {
-  if (EFFECTS.has(n.type)) return true;
-  if (FUNCTIONS.has(n.type)) return false;
-  return namedChildren(n).some(hasEffects);
+  return EFFECTS.has(n.type) || namedChildren(n).some(hasEffects);
 }
 
 function onlyBlankBetween(a: Node, b: Node, lines: string[]): boolean {
@@ -185,7 +183,7 @@ function importRegions(root: Node, ctx: RuleContext): FoldRegion[] {
   const ownsLines = (c: Node) => {
     const before = (ctx.lines[c.startPosition.row] ?? "").slice(0, c.startPosition.column);
     const after = (ctx.lines[c.endPosition.row] ?? "").slice(c.endPosition.column).trim();
-    return before.trim() === "" && (after === "" || after.startsWith("//") || after.startsWith("/*"));
+    return before.trim() === "" && /^(\/\/.*|\/\*(?:(?!\*\/).)*\*\/)?$/.test(after);
   };
   const importish = namedChildren(root).filter((c) =>
     (c.type === "import_statement" ||
@@ -351,7 +349,10 @@ function asGuard(stmt: Node, ctx: RuleContext): { exits: string[]; logged: boole
 
 function exitDescription(s: Node): string | null {
   // `throw await rollback(tx)`, `return (cache = load())`: the exit does real work
-  if ((s.type === "throw_statement" || s.type === "return_statement") && hasEffects(s)) return null;
+  // (returning a function only creates it: `return async () => { await cleanup(); }` runs later)
+  const value = namedChildren(s)[0];
+  if ((s.type === "throw_statement" || s.type === "return_statement") && value && !FUNCTIONS.has(value.type) &&
+      hasEffects(value)) return null;
   if (s.type === "throw_statement") {
     const arg = namedChildren(s)[0];
     if (arg?.type === "new_expression") {
@@ -742,10 +743,14 @@ function isForwardingCall(call: Node, member: Node, methodName: string): boolean
   const paramsNode = member.childForFieldName("parameters");
   const argsNode = call.childForFieldName("arguments");
   if (!paramsNode || !argsNode) return false;
-  const params = namedChildren(paramsNode).map((p) => p.childForFieldName("pattern")?.text ?? "");
+  const paramNodes = namedChildren(paramsNode);
+  // a default (`retries = 3`) is a value the pill wouldn't show
+  if (paramNodes.some((p) => p.childForFieldName("value") !== null)) return false;
+  const params = paramNodes.map((p) => p.childForFieldName("pattern")?.text ?? "");
   const args = namedChildren(argsNode);
+  // `...args` passes through as `...args`
   const verbatim = params.length === args.length &&
-    args.every((a, i) => a.type === "identifier" && a.text === params[i]);
+    args.every((a, i) => (a.type === "identifier" || a.type === "spread_element") && a.text === params[i]);
   return verbatim && (calleeName === methodName || params.length > 0);
 }
 

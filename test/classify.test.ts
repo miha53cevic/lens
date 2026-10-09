@@ -389,6 +389,26 @@ async function handle(user: User, rows: Row[][]) {
   assert.match(guards[1].summary, /^1 guard → continue outer/);
 });
 
+test("callbacks run now count as work; defaults aren't forwarding; rest pass-through is", async () => {
+  const regions = await regionsOf(`
+function f(list: number[], x: boolean) {
+  if (!x) return list.forEach((i) => { seen[i] = true; });
+  if (list.some((i) => (seen[i] = true))) return 1;
+  return 1;
+}
+class A {
+  load(retries = 3) { return this.repo.load(retries); }
+  log(...args: unknown[]) { this.inner.log(...args); }
+}
+`.trim());
+  assert.equal(regions.filter((r) => r.category === "guard").length, 0);
+  const accessors = regions.filter((r) => r.category === "accessor");
+  assert.deepEqual(accessors.map((r) => [r.startLine, r.summary.replace(/ \(\d+ lines?\)$/, "")]), [[8, "1 accessor — log()"]]);
+
+  const blockThenCode = await regionsOf(`import a from "a"; /* note */ main();\nimport b from "b";\nimport c from "c";\nmain();`);
+  assert.deepEqual(blockThenCode.filter((r) => r.category === "import").map((r) => [r.startLine, r.endLine]), [[2, 3]]);
+});
+
 test("data: a computed key that calls something isn't data", async () => {
   const regions = await regionsOf(`
 const table = {
