@@ -14,6 +14,7 @@ import { Concerns } from './Concerns.tsx';
 import { Changes } from './Changes.tsx';
 import { Breaks } from './Breaks.tsx';
 import { UnitCode } from './UnitCode.tsx';
+import { UnitRuler } from './UnitRuler.tsx';
 
 // Mounted per unit (SummaryPane's key): another unit starts afresh.
 export function UnitPage({ unit }: { unit: Unit }) {
@@ -57,6 +58,7 @@ export function UnitPage({ unit }: { unit: Unit }) {
         added={unit.changedLines.length}
         removed={removedCount(unit.removals)}
         className='unit-card'
+        ruler={<UnitRuler unit={unit} />}
         action={
           inCodeView && (
             <Button variant='ghost' size='sm' id='open-in-code' onClick={() => openUnitInCode(unit)}>

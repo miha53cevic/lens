@@ -66,6 +66,9 @@ explicitly is always analyzed.
   test file anyway (a tab, a search hit, an Ask cite) turns it off for that page. Lockfiles and
   minified files (`exclude`) are listed as dimmed `⊘` rows without being read; pure
   renames show as `R` rows.
+- **The ruler** beside the code shows where the changes (green), removed lines (orange)
+  and, on the Summary tab, open concerns sit in the rows on screen. Click a tick to jump
+  there; a folded change opens.
 - **The header** keeps four buttons in sight: search, Ask, the code theme and reload.
   Everything else is in the **⋯** menu: the fold level, expand / collapse all, hunks
   only, removed lines and hide tests (each with its key), then the keyboard shortcuts,

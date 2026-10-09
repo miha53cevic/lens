@@ -3,7 +3,7 @@
 import type { Concern, Flow } from '../../../../summary/store.ts';
 import type { SummaryView, ViewUnit } from '../../../../summary/view.ts';
 import type { ConcernMark, LensState, SignalId } from '../store.ts';
-import { baseName } from '../shared.ts';
+import { baseName, memo } from '../shared.ts';
 
 export type Unit = ViewUnit;
 
@@ -36,6 +36,12 @@ export function openConcerns(marks: Marks, unit: Unit): Concern[] {
   if (!unit.summary) return [];
   return unit.summary.concerns.filter((concern) => concernMark(marks, unit, concern) !== 'dismissed');
 }
+
+/** The open concerns' kinds, by the row each is on ("N12", "O5"): the overview ruler's concern ticks. */
+export const openConcernLines = memo(
+  (marks: Marks, unit: Unit): ReadonlyMap<string, string> =>
+    new Map(openConcerns(marks, unit).map((concern) => [concern.line, concern.kind])),
+);
 
 /** Whether the reader dismissed any of the unit's concerns. */
 export function hasDismissed(marks: Marks, unit: Unit): boolean {

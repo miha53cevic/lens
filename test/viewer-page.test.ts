@@ -284,6 +284,31 @@ pageTest('a replaced line marks the words it changed, in both views; x drops the
   );
 });
 
+/** The overview ruler's ticks: "add N9" a run of changes from line 9, "del O17" removed lines, "bug N10" a concern */
+function ticks(card = '.code-pane'): string[] {
+  return $$(card + ' .ruler .tick').map((tick) => tick.className.match(/tick-(\w+)/)![1] + ' ' + tick.dataset.label);
+}
+
+pageTest('the ruler ticks the changes by row; a click opens the fold around one and flashes it', async () => {
+  // the changed log line (9) is folded: its tick sits at the fold's pill, one run with line 10
+  assert.deepEqual(ticks(), ['del O9', 'add N9', 'del O17']);
+  const tick = $$('.code-pane .ruler .tick')[1];
+  // rows: ⋯ R6 −9 R9 10 … (20 on screen): the run is rows 3–4
+  assert.equal(tick.style.top, (3 / 20) * 100 + '%');
+  assert.equal(tick.style.height, (2 / 20) * 100 + '%');
+  await click(tick);
+  assert.ok($('#code .row[data-line="9"]').closest('.region')!.classList.contains('open'));
+  assert.ok($('#code .row[data-line="9"]').classList.contains('flash'));
+});
+
+pageTest("a unit's ruler ticks its open concerns too; a dismissed one drops off", async () => {
+  await key('v');
+  await key('j');
+  assert.deepEqual(ticks('.unit-card'), ['del O9', 'add N9', 'bug N10']);
+  await click($('.concern .vbtn.v-dismissed'));
+  assert.deepEqual(ticks('.unit-card'), ['del O9', 'add N9']);
+});
+
 pageTest('hide tests: t shows the test file, and hiding it again leaves it', async () => {
   await key('t');
   assert.deepEqual(treeFiles(), ['orders.test.ts', 'orders.ts']);

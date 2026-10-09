@@ -12,7 +12,11 @@ export function regionKey(path: string, region: FoldRegion): string {
   return region.category + '|' + path + ':' + region.startLine;
 }
 
-export function isRegionOpen(state: LensState, path: string, region: FoldRegion): boolean {
+export function isRegionOpen(
+  state: Pick<LensState, 'foldOverrides' | 'openCats'>,
+  path: string,
+  region: FoldRegion,
+): boolean {
   return state.foldOverrides.get(regionKey(path, region)) ?? state.openCats.has(region.category);
 }
 

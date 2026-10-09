@@ -7,8 +7,12 @@ import { askSelection } from '../../model/askContext.ts';
 import { codeLines, isTestFile, listedOnlyCount } from '../../shared.ts';
 import { CodeRows } from '../CodeRows/index.tsx';
 import { CodeCard, removedCount } from '../CodeCard.tsx';
+import { OverviewRuler } from '../OverviewRuler.tsx';
 import { fileStatus } from '../../ui/FileStatus.tsx';
 import { findUsages, restoreFileScroll, saveFileScroll } from './util.ts';
+
+/** The Code view has no concerns: only changes tick the ruler. */
+const NO_FLAGS: ReadonlyMap<string, string> = new Map();
 
 /** The open file's code card, or why there's none. */
 export function FileCode() {
@@ -64,6 +68,7 @@ export function FileCode() {
           </>
         )
       }
+      ruler={<OverviewRuler path={file.file} items={plan.items} changedLines={changedLines} flagged={NO_FLAGS} />}
       bodyRef={restoreScroll}
       onBodyScroll={(event) => saveFileScroll(event.currentTarget, file.file)}
     >
