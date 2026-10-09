@@ -11,7 +11,8 @@ import './style.css';
 export function SummaryPane() {
   const { shown, page, unit, browsing } = useLens((state) => {
     const shown = state.view === 'summary';
-    const page = shown ? summaryPage(state) : null;
+    // while the server is asked for a newer summary, "No summary yet" waits: it may be out of date
+    const page = !shown ? null : summaryPage(state) === 'empty' && state.summaryChecking ? null : summaryPage(state);
     return { shown, page, unit: page === 'unit' ? currentUnit(state) : null, browsing: state.summaryBrowsing };
   });
 

@@ -441,6 +441,32 @@ pageTest(
   '#summary',
 );
 
+test('a summary submitted after the page loaded: the tab doesn\'t say "No summary yet" while it fetches it', async () => {
+  const fresh = payload.summary!;
+  // the page loaded before the agent's submit: no unit summarized yet
+  payload.summary = { ...fresh, stamp: 1, units: fresh.units.map((unit) => ({ ...unit, summary: null })) };
+  try {
+    await open();
+    payload.summary = { ...fresh, stamp: 2 }; // the server now has the submit
+    const realFetch = globalThis.fetch;
+    let release = () => {};
+    const held = new Promise<void>((resolve) => (release = resolve));
+    globalThis.fetch = (async (input: string | URL, init?: RequestInit) => {
+      if (String(input).includes('/api/summary/stamp')) await held;
+      return realFetch(input, init);
+    }) as typeof fetch;
+    await key('v');
+    assert.equal($$('#summary-pane .sum-empty').length, 0, 'no "No summary yet" while the stamp is checked');
+    release();
+    await settle();
+    assert.equal($$('#summary-pane .sum-empty').length, 0);
+    assert.equal($('#summary-pane .sum-headline').textContent, 'The changes', 'the overview, with the new summary');
+  } finally {
+    payload.summary = fresh;
+    await close();
+  }
+});
+
 pageTest('on the Summary tab the pill starts the review, and marks each change reviewed on the way', async () => {
   const pill = () => $('#review-next').textContent!.trim();
   await key('v');

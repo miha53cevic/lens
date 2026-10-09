@@ -188,7 +188,18 @@ export async function serveViewer(
   // Serialized pages are cached per theme — payloads can be MBs, and
   // stringifying them on every reload is waste. Cleared on refresh.
   const htmlCache = new Map<string, string>();
+  /** A submit since the summary was read: re-read it (the units stay those of the last analysis). */
+  function reloadSummary(): void {
+    const summary = current.reloadSummary ? current.reloadSummary() : null;
+    if (summary) {
+      current = { ...current, summary };
+      htmlCache.clear();
+    }
+  }
+
   async function htmlFor(theme: string): Promise<string> {
+    // the page opens with the summary as it is now, not as it was when the server started
+    if (current.summary && current.summaryStamp && current.summaryStamp() !== current.summary.stamp) reloadSummary();
     const cached = htmlCache.get(theme);
     if (cached) return cached;
     const cur = current;
@@ -229,14 +240,9 @@ export async function serveViewer(
         htmlCache.clear();
         sendJson(res, 200, await payloadFor(theme));
       } else if (url.pathname === "/api/summary") {
-        // A submit since the page loaded: re-read the stored summary; the
-        // units stay those of the last analysis (↻ refresh recomputes them).
-        const summary = current.reloadSummary ? current.reloadSummary() : null;
-        if (summary) {
-          current = { ...current, summary };
-          htmlCache.clear();
-        }
-        sendJson(res, 200, summary);
+        // A submit since the page loaded: re-read the stored summary (↻ refresh recomputes the units).
+        reloadSummary();
+        sendJson(res, 200, current.summary ?? null);
       } else if (url.pathname === "/api/summary/stamp") {
         sendJson(res, 200, { stamp: current.summaryStamp ? current.summaryStamp() : null });
       } else if (url.pathname === "/api/shutdown" && req.method === "POST") {
