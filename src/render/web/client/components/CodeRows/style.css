@@ -55,6 +55,15 @@
   background: var(--del);
   opacity: 0.7;
 }
+/* word diff: the words a replaced line changed, on both sides */
+.w-add {
+  background: color-mix(in oklab, var(--add) 32%, transparent);
+  border-radius: 2px;
+}
+.w-del {
+  background: color-mix(in oklab, var(--del) 34%, transparent);
+  border-radius: 2px;
+}
 
 /* hunks only: the hidden stretch, one click from showing */
 .row.gap {

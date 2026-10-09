@@ -59,7 +59,8 @@ explicitly is always analyzed.
   diff mode a `●` marks pills that contain changed lines.
 - **Diff mode** shows every text file the diff touched. Unsupported types (json, md,
   yaml, …) get change markers and syntax colors, just no folding. Removed lines show
-  inline, struck through, where they were deleted (`x` hides them). **Hunks only**
+  inline, struck through, where they were deleted (`x` hides them). When a line was
+  replaced, the words it changed are marked on both sides, so a one-character fix stands out. **Hunks only**
   (`h`, on by default) shows just the changes with 3 lines of context, PR-style;
   click a `⋯` row to show what it hides. **Hide tests** (`t`) is on by default too; opening a
   test file anyway (a tab, a search hit, an Ask cite) turns it off for that page. Lockfiles and

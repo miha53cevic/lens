@@ -9,6 +9,7 @@ import {
   type CodeItem,
   type RemovedLine,
 } from '../src/render/web/client/rows.ts';
+import { lineHtml, pairWordDiffs, splitAt, wordDiff } from '../src/render/web/client/wordDiff.ts';
 import type { FileFoldModel, RemovedBlock } from '../src/model.ts';
 import type { ViewUnit } from '../src/summary/view.ts';
 
@@ -110,4 +111,71 @@ test("unitSpans + planCode: a unit's ranges break with ⋯; removed lines anchor
     { start: 12, end: 15 },
   ]);
   assert.deepEqual(show(planCode(spans, file.regions, removedAt)), ['gap:1-5', '⋯', '-3', 'L12', 'L13', 'L14', 'L15']);
+});
+
+// "[changed]" around each marked range
+function marked(line: string, ranges: readonly (readonly [number, number])[]): string {
+  return splitAt(line, 0, ranges)
+    .map((part) => (part.marked ? '[' + part.text + ']' : part.text))
+    .join('');
+}
+
+test('wordDiff: marks only the words a replaced line changed, on both sides', () => {
+  const before = 'const ref = `refs/pull/${n}/head`;';
+  const after = 'const ref = `refs/pull/${Number(n)}/head`;';
+  const diff = wordDiff(before, after)!;
+  assert.equal(marked(before, diff.before), before, 'nothing was removed from the old line');
+  assert.equal(marked(after, diff.after), 'const ref = `refs/pull/${[Number(]n[)]}/head`;');
+
+  const renamed = wordDiff('  return total + tax;', '  return subtotal + tax;')!;
+  assert.equal(marked('  return total + tax;', renamed.before), '  return [total] + tax;');
+  assert.equal(marked('  return subtotal + tax;', renamed.after), '  return [subtotal] + tax;');
+});
+
+test('wordDiff: words split only by spaces mark as one stretch; whitespace alone is never marked', () => {
+  const diff = wordDiff('a = foo bar;', 'a = baz qux;')!;
+  assert.equal(marked('a = baz qux;', diff.after), 'a = [baz qux];');
+  const spaces = wordDiff('if (a)  return;', 'if (a) return;')!;
+  assert.deepEqual(spaces.after, [], 'a changed indent or spacing marks nothing');
+});
+
+test('wordDiff: a rewrite is too different to mark', () => {
+  assert.equal(wordDiff('return rows.map(toOrder);', 'log.info("finding orders", { userId });'), null);
+});
+
+test('pairWordDiffs: a removed line pairs with the first close-enough added line, past inserted ones', () => {
+  const newLines = [
+    'export async function findOrders(userId) {',
+    '  log.info("finding orders", { userId });',
+    '  const rows = await db.query("select * from orders where user = ? and deleted = 0", [userId]);',
+    '  return rows;',
+  ];
+  const diffs = pairWordDiffs(
+    [
+      {
+        afterLine: 1,
+        oldStart: 2,
+        lines: ['  const rows = await db.query("select * from orders where user = ?", [userId]);'],
+      },
+    ],
+    [2, 3],
+    newLines,
+  );
+  assert.deepEqual([...diffs.added.keys()], [3], 'the log line was inserted: the query pairs with line 3');
+  assert.deepEqual([...diffs.removed.keys()], [], 'the old query only gained words: nothing on it to mark');
+  assert.equal(
+    marked(newLines[2], diffs.added.get(3)!),
+    '  const rows = await db.query("select * from orders where user = ? [and deleted = 0]", [userId]);',
+  );
+});
+
+test('lineHtml: marks cut across highlighted tokens, and the text stays escaped', () => {
+  const html = lineHtml(
+    [
+      ['a <', '#f00'],
+      ['b', null],
+    ],
+    [[2, 3]],
+  );
+  assert.equal(html, '<span style="color:#f00">a <span class="w-add">&lt;</span></span>b');
 });

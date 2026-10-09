@@ -4,7 +4,7 @@ import { useLens } from '../../store.ts';
 import { activeFile, filePlan } from '../../model/plans.ts';
 import { askSelLabels } from '../../ask/selection.ts';
 import { askSelection } from '../../model/askContext.ts';
-import { isTestFile, linesFromTokens, listedOnlyCount } from '../../shared.ts';
+import { codeLines, isTestFile, listedOnlyCount } from '../../shared.ts';
 import { CodeRows } from '../CodeRows/index.tsx';
 import { CodeCard, removedCount } from '../CodeCard.tsx';
 import { fileStatus } from '../../ui/FileStatus.tsx';
@@ -12,7 +12,7 @@ import { findUsages, restoreFileScroll, saveFileScroll } from './util.ts';
 
 /** The open file's code card, or why there's none. */
 export function FileCode() {
-  const { file, plan, hiddenAsTest, fileCount, listedOnly, selection } = useLens((state) => {
+  const { file, plan, hiddenAsTest, fileCount, listedOnly, selection, showRemoved } = useLens((state) => {
     const file = activeFile(state);
     return {
       file,
@@ -21,6 +21,7 @@ export function FileCode() {
       fileCount: state.data.files.length,
       listedOnly: listedOnlyCount(state.data),
       selection: askSelection(state),
+      showRemoved: state.showRemoved,
     };
   });
   // the kept Ask selection's rows are tinted: the browser's own highlight goes once the rail's input has focus
@@ -47,6 +48,7 @@ export function FileCode() {
   if (hiddenAsTest) {
     return <div className='empty'>Every file here is a test file. Turn off "Hide tests" in ⋯ to see them.</div>;
   }
+  const { lines, removedWords } = codeLines(file, showRemoved);
   return (
     // keyed by the file: another file mounts afresh, back where the reader left it (scrollStore), even after a refresh
     <CodeCard
@@ -69,8 +71,9 @@ export function FileCode() {
         <CodeRows
           path={file.file}
           items={plan.items}
-          lines={linesFromTokens(file)}
+          lines={lines}
           changedLines={changedLines}
+          removedWords={removedWords}
           gutter={String(file.lineCount).length}
           marks={marks}
         />

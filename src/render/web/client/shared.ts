@@ -3,21 +3,15 @@
 import type { CSSProperties } from 'react';
 import type { ViewerPayload } from '../server.ts';
 import { compilePatterns, matchesAny } from '../../../glob.ts';
+import { escapeHtml } from '../../../text.ts';
+import { lineHtml, pairWordDiffs, type WordDiffs } from './wordDiff.ts';
 
 export type ViewFile = ViewerPayload['files'][number];
 
 /** The server's payload, injected into the page as JSON (see server.ts). */
 export const INITIAL_DATA: ViewerPayload = JSON.parse(document.getElementById('lens-data')!.textContent!);
 
-// Quotes too: the result also goes into attributes (data-id="…", title="…").
-export function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
+export { escapeHtml };
 
 // Tokens come pre-computed from the backend (Shiki): per line, [text, color] pairs. Rows set
 // these as HTML — far cheaper than an element per token on big files. A theme switch or a
@@ -26,19 +20,48 @@ const lineCache = new WeakMap<ViewFile, string[]>();
 export function linesFromTokens(file: ViewFile): string[] {
   let lines = lineCache.get(file);
   if (!lines) {
-    lines =
-      Array.isArray(file.tokens) && file.tokens.length > 0
-        ? file.tokens.map((line) =>
-            line
-              .map(([text, color]) =>
-                color ? '<span style="color:' + color + '">' + escapeHtml(text) + '</span>' : escapeHtml(text),
-              )
-              .join(''),
-          )
-        : file.source.split('\n').map(escapeHtml);
+    lines = fileTokens(file).map((line) => lineHtml(line));
     lineCache.set(file, lines);
   }
   return lines;
+}
+
+/** The file's tokens, or its plain lines as uncolored tokens when there are none. */
+function fileTokens(file: ViewFile): ViewFile['tokens'] {
+  return Array.isArray(file.tokens) && file.tokens.length > 0
+    ? file.tokens
+    : file.source.split('\n').map((line) => [[line, null]]);
+}
+
+// A file's word marks, and its lines with the added side's marks in them.
+const wordDiffCache = new WeakMap<ViewFile, { diffs: WordDiffs; lines: string[] }>();
+function fileWordDiffs(file: ViewFile) {
+  let cached = wordDiffCache.get(file);
+  if (!cached) {
+    const diffs = pairWordDiffs(file.removals || [], file.changedLines || [], sourceLines(file));
+    const plain = linesFromTokens(file);
+    const tokens = fileTokens(file);
+    const lines = plain.map((html, index) => {
+      const marked = diffs.added.get(index + 1);
+      return marked ? lineHtml(tokens[index] ?? [], marked) : html;
+    });
+    cached = { diffs, lines };
+    wordDiffCache.set(file, cached);
+  }
+  return cached;
+}
+
+/**
+ * What the code rows show of a file: its highlighted lines and, with the removed lines shown,
+ * the changed words of each replaced line on both sides (removed lines hidden: no pairs to mark).
+ */
+export function codeLines(
+  file: ViewFile,
+  showRemoved: boolean,
+): { lines: string[]; removedWords: WordDiffs['removed'] | undefined } {
+  if (!showRemoved) return { lines: linesFromTokens(file), removedWords: undefined };
+  const { diffs, lines } = fileWordDiffs(file);
+  return { lines, removedWords: diffs.removed };
 }
 
 // Plain-text lines per file, split lazily once (search).

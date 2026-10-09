@@ -267,6 +267,23 @@ pageTest('removed lines show where they were removed; x hides them', async () =>
   assert.deepEqual(rows(), HUNKS);
 });
 
+pageTest('a replaced line marks the words it changed, in both views; x drops the marks', async () => {
+  const added = () => $$('#code .row[data-line="10"] .w-add').map((word) => word.textContent);
+  // the inserted log line (9) doesn't shift the pair: the old query pairs with the new one
+  assert.deepEqual(added(), ['and deleted = 0']);
+  assert.equal($$('#code .row[data-line="9"] .w-add').length, 0);
+  assert.equal($$('#code .row.removed .w-del').length, 0, 'the old query only gained words');
+  await key('x');
+  assert.deepEqual(added(), [], 'with the removed lines hidden there is no pair to show');
+  await key('x');
+  await key('v');
+  await key('j');
+  assert.deepEqual(
+    $$('.unit-code .row[data-line="10"] .w-add').map((word) => word.textContent),
+    ['and deleted = 0'],
+  );
+});
+
 pageTest('hide tests: t shows the test file, and hiding it again leaves it', async () => {
   await key('t');
   assert.deepEqual(treeFiles(), ['orders.test.ts', 'orders.ts']);
