@@ -267,6 +267,57 @@ pageTest('removed lines show where they were removed; x hides them', async () =>
   assert.deepEqual(rows(), HUNKS);
 });
 
+pageTest('word diff (d, off by default) marks the words a replaced line changed, in both views', async () => {
+  const added = () => $$('#code .row[data-line="10"] .w-add').map((word) => word.textContent);
+  assert.deepEqual(added(), [], 'off by default');
+  await key('d');
+  assert.equal($('#word-diff').getAttribute('aria-checked'), 'true', 'the ⋯ menu switch follows the key');
+  assert.equal(localStorage.getItem('lens.wordDiff'), '1', 'remembered');
+  // the inserted log line (9) doesn't shift the pair: the old query pairs with the new one
+  assert.deepEqual(added(), ['and deleted = 0']);
+  assert.equal($$('#code .row[data-line="9"] .w-add').length, 0);
+  assert.equal($$('#code .row.removed .w-del').length, 0, 'the old query only gained words');
+  await key('x');
+  assert.deepEqual(added(), [], 'with the removed lines hidden there is no pair to show');
+  await key('x');
+  await key('v');
+  await key('j');
+  assert.deepEqual(
+    $$('.unit-code .row[data-line="10"] .w-add').map((word) => word.textContent),
+    ['and deleted = 0'],
+  );
+});
+
+/** The overview ruler's ticks: "add N9" a run of changes from line 9, "del O17" removed lines, "bug N10" a concern */
+function ticks(card = '.code-pane'): string[] {
+  return $$(card + ' .ruler .tick').map((tick) => tick.className.match(/tick-(\w+)/)![1] + ' ' + tick.dataset.label);
+}
+
+pageTest('the ruler ticks the changes by row; a click opens the fold around one and flashes it', async () => {
+  // the changed log line (9) is folded: its tick sits at the fold's pill, one run with line 10
+  assert.deepEqual(ticks(), ['del O9', 'add N9', 'del O17']);
+  const tick = $$('.code-pane .ruler .tick')[1];
+  // rows: ⋯ R6 −9 R9 10 … (20 on screen): the run is rows 3–4
+  assert.equal(tick.style.top, (3 / 20) * 100 + '%');
+  assert.equal(tick.style.height, (2 / 20) * 100 + '%');
+  await click(tick);
+  assert.ok($('#code .row[data-line="9"]').closest('.region')!.classList.contains('open'));
+  assert.ok($('#code .row[data-line="9"]').classList.contains('flash'));
+});
+
+pageTest("a unit's ruler ticks its open concerns too; a dismissed one drops off", async () => {
+  await key('v');
+  await key('j');
+  assert.deepEqual(ticks('.unit-card'), ['del O9', 'add N9', 'bug N10']);
+  // only a concern's tick takes the concern color (a class match, so "tick-add" can't catch it)
+  assert.deepEqual(
+    $$('.unit-card .ruler .tick.concern').map((tick) => tick.dataset.label),
+    ['N10'],
+  );
+  await click($('.concern .vbtn.v-dismissed'));
+  assert.deepEqual(ticks('.unit-card'), ['del O9', 'add N9']);
+});
+
 pageTest('hide tests: t shows the test file, and hiding it again leaves it', async () => {
   await key('t');
   assert.deepEqual(treeFiles(), ['orders.test.ts', 'orders.ts']);
@@ -332,6 +383,9 @@ pageTest('the ⋯ menu holds the view settings', async () => {
   await click($('#hunks-only'));
   assert.equal($('#hunks-only').getAttribute('aria-checked'), 'false');
   assert.equal($$('#code .row.gap').length, 0, 'the whole file');
+  await click($('#word-diff'));
+  assert.equal($('#word-diff').getAttribute('aria-checked'), 'true');
+  assert.equal($$('#code .w-add').length, 1, 'the replaced query marks its new words');
   await click($('#keys-btn'));
   assert.ok(($('#keys-modal') as HTMLDialogElement).open);
 });
@@ -378,20 +432,42 @@ pageTest('? opens the shortcuts in tabs: Global, Code and Summary', async () => 
   assert.deepEqual(keys(), ['g', 'j / k', 'o', 'm', '/']);
 });
 
-pageTest('search finds matches; Enter jumps to one, even in a hidden stretch', async () => {
+pageTest('search lists where a name is defined, then its usages; Enter jumps, even into a hidden stretch', async () => {
   await key('p', { ctrlKey: true });
   assert.ok(($('#search-modal') as HTMLDialogElement).open);
   await type($('#search-input'), 'toOrder');
   assert.deepEqual(
-    $$('.search-hit .ln').map((lineNumber) => lineNumber.textContent),
-    ['11', '14'],
+    $$('#search-results > div').map((row) => row.textContent),
+    [
+      'Defined at · 1',
+      '14function · src/orders.tsfunction toOrder(row: any): Order {',
+      'src/orders.ts · 1',
+      '11return rows.map(toOrder);',
+    ],
+    'the declaring line is a definition, not also a usage',
   );
-  fireEvent.keyDown($('#search-input'), { key: 'ArrowDown' });
-  await settle();
   fireEvent.keyDown($('#search-input'), { key: 'Enter' });
   await settle();
   assert.ok(!($('#search-modal') as HTMLDialogElement).open);
   assert.ok($('#code .row[data-line="14"]').classList.contains('flash'), 'line 14 was hidden: its stretch opened');
+});
+
+pageTest('the row a jump lands on stays marked after the flash, until the next jump', async () => {
+  const landed = () => $$('#code .row.landed').map((row) => row.dataset.line ?? '−' + row.dataset.old);
+  await key('p', { ctrlKey: true });
+  await type($('#search-input'), 'toOrder');
+  fireEvent.keyDown($('#search-input'), { key: 'Enter' });
+  await settle();
+  assert.deepEqual(landed(), ['14']);
+  await key('e'); // the rows re-render: the mark is state, so it stays
+  assert.deepEqual(landed(), ['14']);
+  await click($$('.code-pane .ruler .tick')[0]);
+  assert.deepEqual(landed(), ['−9'], 'a ruler jump moves it');
+  await key('v');
+  await key('j');
+  assert.equal($$('.unit-code .row.landed').length, 1, 'the unit shows the same file: the mark is there too');
+  await click($('.cite'));
+  assert.equal($$('.unit-code .row.landed').length, 1, 'a cite moves it');
 });
 
 pageTest('tabs: a double-click keeps a tab, w closes the active one, and a refresh keeps them', async (page) => {

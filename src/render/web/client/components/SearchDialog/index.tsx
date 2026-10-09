@@ -71,7 +71,7 @@ export function SearchDialog() {
         </span>
         <span className='spacer' />
         <span>
-          tip: <Kbd combo='⌥ click' /> an identifier in the code finds its usages
+          tip: <Kbd combo='⌥ click' /> an identifier in the code finds where it's defined and its usages
         </span>
       </div>
     </dialog>

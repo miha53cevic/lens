@@ -18,6 +18,8 @@ interface CodeCardProps {
   action?: ReactNode;
   /** A note about the whole file, under the header */
   notice?: ReactNode;
+  /** Beside the code: the overview ruler */
+  ruler?: ReactNode;
   className?: string;
   /** The code's scroll container */
   bodyRef?: Ref<HTMLDivElement>;
@@ -52,8 +54,11 @@ export function CodeCard(props: CodeCardProps) {
         {action}
       </div>
       {notice && <div className='notice'>{notice}</div>}
-      <div className='code-body' ref={props.bodyRef} onScroll={props.onBodyScroll}>
-        {props.children}
+      <div className='code-frame'>
+        <div className='code-body' ref={props.bodyRef} onScroll={props.onBodyScroll}>
+          {props.children}
+        </div>
+        {props.ruler}
       </div>
     </div>
   );

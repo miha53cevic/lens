@@ -27,8 +27,9 @@ cli.ts            arg parsing → analyze() → serveViewer(), or runSummary()
 analyze.ts        paths | diff | pr → ViewerInput; re-run on ↻ refresh
 git.ts, pr.ts     git diff parsing, PR refs via plain git fetch (no GitHub API)
 config.ts         lens.defaults.json merged with the nearest .lens.json
-glob.ts, text.ts  pure helpers (path patterns, truncate / plural); the viewer imports them too
+glob.ts, text.ts  pure helpers (path patterns, truncate / plural / escapeHtml); the viewer imports them too
 parse/parser.ts   tree-sitter (wasm) for ts / tsx / js
+parse/declarations.ts   the names a file declares, for search's "Defined at" (by name, no types)
 classify/         fold rules → FoldRegion[] (model.ts has the shapes)
 render/highlight.ts   Shiki tokens, computed server-side
 render/web/       server.ts, bundle.ts + the viewer page and its client/ code (see below)
@@ -51,7 +52,7 @@ ask/              ask mode: the viewer's Ask rail and `lens ask listen|reply` (s
   - `actions/` changes the state, one file per area: `tabs`, `folds`, `views` (including `jumpToLine`), `summary`, `dialogs` (including search), `session`, `prefs` (the sidebar, the view settings and the viewed marks) and `review` (the review pill).
   - `ask/` is the Ask rail's logic: `rail.ts`, `selection.ts` and `answers.ts`.
   - Use `commit()` instead of `update()` when the DOM must show the new state before you touch it, e.g. scrolling to a row.
-- `components/` holds one component or folder per area: `Header` (with its theme and ⋯ menus), `Nav` (the tree and the summary list, under a progress ring), `Tabs`, `CodePane`, `SummaryPane`, `ReviewPill`, `AskRail`, `SettingsDialog`, `KeysDialog` and `SearchDialog`. Pieces several areas use sit next to them: `CodeRows` (both views' code), `CodeCard` (the card around it, with its header: status, path, counts, fold chips; the same in both views), `FoldChips`, `ViewedBox`, `Resizer`, `SignalMarker` and `ModalHead`. `main.tsx` sets up the document-level listeners and store subscriptions.
+- `components/` holds one component or folder per area: `Header` (with its theme and ⋯ menus), `Nav` (the tree and the summary list, under a progress ring), `Tabs`, `CodePane`, `SummaryPane`, `ReviewPill`, `AskRail`, `SettingsDialog`, `KeysDialog` and `SearchDialog`. Pieces several areas use sit next to them: `CodeRows` (both views' code), `CodeCard` (the card around it, with its header: status, path, counts, fold chips; the same in both views), `OverviewRuler` (the ticks beside the code; `model/ruler.ts` places them by row), `FoldChips`, `ViewedBox`, `Resizer`, `SignalMarker` and `ModalHead`. `main.tsx` sets up the document-level listeners and store subscriptions.
 - `test/viewer-page.test.ts` runs the real bundle in happy-dom (`@happy-dom/global-registrator`) on a real analysis of a fixture repo (`test/fixtures/viewerRepo.ts`), with `fetch` stubbed, and drives it with keys, clicks and typing (`@testing-library/dom`'s `fireEvent`). A change to how the viewer behaves gets a test there. Assert on what the reader sees: the rows, the tree, classes like `open` and `pinned`. `settle()` after each action lets React render.
 - Keep the markup and class names the stylesheets and the page tests expect. Rows are memoized and their highlighted lines are prebuilt HTML strings, so a toggle re-renders only the rows it changes. Keep it that way on big files.
 - Browser code imports server-side types with `import type` (e.g. `ViewerPayload` from `server.ts`, `SummaryView` from `summary/view.ts`), so a shape change breaks the viewer's typecheck instead of the page.
@@ -106,7 +107,7 @@ ask/              ask mode: the viewer's Ask rail and `lens ask listen|reply` (s
 The Summary tab shows the same code snippets as the Code view, with the agent's summary on top. Anything added to or changed in the Code view that affects how code is shown must also work on the Summary tab's unit code, in the same change. That covers folds, fold chips, the fold level, expand/collapse, hunks only, removed lines, hide tests, and their keyboard shortcuts.
 
 - The view settings in the header's ⋯ menu, the fold chips in the code card's header and the review pill work on the Summary tab too. They change state, and both views render from that state: `foldScope` (`actions/folds.ts`) and `foldCategories` (`model/plans.ts`) pick the open file's or the open unit's folds.
-- Both views get their rows from `client/rows.ts`: `fileSpans` / `unitSpans` pick the shown lines and hidden stretches, and `planCode` turns them into lines, folds, removed lines and gaps. Both views render the plan with `CodeRows`, and each passes in its own row marks (cited lines, concern notes, the Ask selection). Change how code is shown there, and both views follow. `rows.ts` has no DOM, so `test/viewer.test.ts` tests it in node.
+- Both views get their rows from `client/rows.ts`: `fileSpans` / `unitSpans` pick the shown lines and hidden stretches, and `planCode` turns them into lines, folds, removed lines and gaps. Both views render the plan with `CodeRows`, and each passes in its own row marks (cited lines, concern notes, the Ask selection). Change how code is shown there, and both views follow. `rows.ts` has no DOM, so `test/viewer.test.ts` tests it in node. So does `wordDiff.ts`, which pairs replaced lines and marks the words they changed (`codeLines` in `shared.ts` hands both views the marked lines).
 - A new control should change state both views read (e.g. `openCats` for the fold chips) or get a Summary branch (e.g. `unitSpans` for hunks only, `listModel` for hide tests).
 - Share constants between the views instead of duplicating them (e.g. `HUNK_CONTEXT` in `client/rows.ts`).
 - New keys go in `client/keys.ts` (and its `SUMMARY_KEYS` when they act on a unit), and in the `?` help: the Global, Code or Summary tab of `KEY_TABS` (`components/KeysDialog/const.ts`).
@@ -139,4 +140,4 @@ lens never calls an AI, does no semantic analysis or type checking, never edits 
 
 ## Git
 
-Commits use conventional prefixes (`feat:`, `fix:`, `refactor:`, `chore:`). Don't add a `Co-Authored-By` trailer or any other Claude attribution to commits. Work goes on `features/*` branches and is merged to `main` through PRs.
+Commits use conventional prefixes (`feat:`, `fix:`, `refactor:`, `chore:`). Don't add a `Co-Authored-By` trailer or any other Claude attribution to commits. Work goes on `features/*` branches and is merged to `main` through PRs. Never push and never open PRs, and don't offer to: the user does all pushing and PRs.

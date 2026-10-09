@@ -5,7 +5,7 @@ import { concernLabel, concernMark, type Unit } from '../../../model/signals.ts'
 import { unitPlan } from '../../../model/plans.ts';
 import { askSelLabels } from '../../../ask/selection.ts';
 import { askSelection } from '../../../model/askContext.ts';
-import { linesFromTokens } from '../../../shared.ts';
+import { codeLines } from '../../../shared.ts';
 import { CodeRows, RemovedRow } from '../../CodeRows/index.tsx';
 import { SignalIcon } from '../../SignalIcon.tsx';
 import { Verdict } from './Verdict.tsx';
@@ -16,10 +16,13 @@ import { Verdict } from './Verdict.tsx';
  * under it like a review comment), the Ask selection and the hovered cite.
  */
 export function UnitCode({ unit, hoveredCite }: { unit: Unit; hoveredCite: string | null }) {
-  const { plan, marks, selection } = useLens((state) => ({
+  const { plan, marks, selection, showRemoved, wordDiff, landed } = useLens((state) => ({
     plan: unitPlan(state, unit),
     marks: state.concernMarks,
     selection: askSelection(state),
+    showRemoved: state.showRemoved,
+    wordDiff: state.wordDiff,
+    landed: state.landed,
   }));
   const summary = unit.summary;
   const changedLines = useMemo(() => new Set(unit.changedLines), [unit]);
@@ -47,15 +50,20 @@ export function UnitCode({ unit, hoveredCite }: { unit: Unit; hoveredCite: strin
   });
   for (const label of askSelLabels(selection)) addClass(label, 'ask-sel');
   if (hoveredCite) addClass(hoveredCite, 'hover-cite');
+  if (landed && landed.path === unit.displayFile) addClass(landed.label, 'landed');
 
+  const { lines, removedWords } = plan.file
+    ? codeLines(plan.file, wordDiff, showRemoved)
+    : { lines: [], removedWords: undefined };
   return (
     <div className='unit-code'>
       <div className='code'>
         <CodeRows
           path={unit.displayFile}
           items={plan.items}
-          lines={plan.file ? linesFromTokens(plan.file) : []}
+          lines={lines}
           changedLines={changedLines}
+          removedWords={removedWords}
           gutter={plan.gutter}
           marks={{ classes, notes }}
         />

@@ -13,6 +13,7 @@ import {
   setHideTests,
   setHunksOnly,
   setShowRemoved,
+  setWordDiff,
   stepThreshold,
   toggleFileViewed,
   toggleNav,
@@ -23,7 +24,7 @@ import { askOpenAndFocus, askSetOpen } from './ask/rail.ts';
 import { isDiffMode } from './shared.ts';
 
 /** The keys that also work on the Summary tab: the view settings' keys act on the open unit's code. */
-const SUMMARY_KEYS = ['?', 'x', 's', 'r', 'e', 'c', '[', ']', 'h', 't', 'a', '\\'];
+const SUMMARY_KEYS = ['?', 'x', 'd', 's', 'r', 'e', 'c', '[', ']', 'h', 't', 'a', '\\'];
 
 /** Shows the nav (if it's collapsed, and remembers that) and focuses one of its filters. */
 function focusFilter(selector: string) {
@@ -118,6 +119,9 @@ export function onKeyDown(event: KeyboardEvent): void {
       break;
     case 'x':
       if (diffMode) setShowRemoved(!state.showRemoved);
+      break;
+    case 'd':
+      if (diffMode) setWordDiff(!state.wordDiff);
       break;
     case 't':
       if (treeModel(state).testsPresent) setHideTests(!state.hideTests);

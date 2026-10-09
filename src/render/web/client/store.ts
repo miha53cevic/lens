@@ -47,6 +47,8 @@ export interface LensState {
   showRemoved: boolean;
   hideTests: boolean;
   hunksOnly: boolean;
+  /** Mark the words a replaced line changed (wordDiff.ts) */
+  wordDiff: boolean;
   navCollapsed: boolean;
   navWidth: number;
   /** The tree filter's text (transient) */
@@ -71,6 +73,8 @@ export interface LensState {
   /** Flow title -> open, once the reader toggled it */
   flowOpen: ReadonlyMap<string, boolean>;
   concernMarks: ReadonlyMap<string, ConcernMark>;
+  /** Where the last jump landed: that row stays marked until the next jump */
+  landed: { path: string; label: string } | null;
   // Ask rail
   ask: {
     open: boolean;
@@ -124,6 +128,7 @@ const initialState: LensState = {
   showRemoved: true,
   hideTests: readPref('lens.hideTests') !== '0', // on by default
   hunksOnly: readPref('lens.hunksOnly') !== '0', // on by default
+  wordDiff: readPref('lens.wordDiff') === '1', // off by default
   navCollapsed: readPref('lens.navCollapsed') === '1',
   navWidth: savedWidth('lens.navWidth', 160, 600, 0),
   navQuery: '',
@@ -139,6 +144,7 @@ const initialState: LensState = {
   sumSignal: null,
   flowOpen: new Map(),
   concernMarks: loadMarks(),
+  landed: null,
   ask: {
     open: readPref('lens.askOpen') === '1',
     width: savedWidth('lens.askWidth', 280, 720, 360),

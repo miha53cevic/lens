@@ -137,14 +137,14 @@ svg.lucide {
   background: transparent;
 }
 
-/* less motion: no transitions or flourishes, but a spinner still turns and the Ask dot still pulses, since they say work is going on */
+/* less motion: no transitions or flourishes, but a spinner still turns and the Ask dot still pulses, since they say work is going on, and a jump still pops the line it lands on, so the eye finds it */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     transition: none !important;
   }
-  :not(.spin, .ask-spin, .ask-dot) {
+  :not(.spin, .ask-spin, .ask-dot, .row.flash) {
     animation: none !important;
   }
 }

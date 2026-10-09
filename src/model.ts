@@ -36,6 +36,25 @@ export interface FileFoldModel {
   status?: DiffStatus;
   /** Diff mode: old-side lines the diff removed, anchored to new-side positions */
   removals?: RemovedBlock[];
+  /** The names the file declares (parse/declarations.ts): the viewer's "defined at" */
+  declarations?: Declaration[];
+}
+
+export type DeclarationKind =
+  | "function"
+  | "class"
+  | "method"
+  | "property"
+  | "variable"
+  | "type"
+  | "enum"
+  | "namespace";
+
+export interface Declaration {
+  name: string;
+  /** The line of the name */
+  line: number;
+  kind: DeclarationKind;
 }
 
 export interface RemovedBlock {

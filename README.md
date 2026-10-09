@@ -59,15 +59,20 @@ explicitly is always analyzed.
   diff mode a `●` marks pills that contain changed lines.
 - **Diff mode** shows every text file the diff touched. Unsupported types (json, md,
   yaml, …) get change markers and syntax colors, just no folding. Removed lines show
-  inline, struck through, where they were deleted (`x` hides them). **Hunks only**
+  inline, struck through, where they were deleted (`x` hides them). **Word diff** (`d`,
+  off by default) marks the words a replaced line changed on both sides, so a
+  one-character fix stands out. **Hunks only**
   (`h`, on by default) shows just the changes with 3 lines of context, PR-style;
   click a `⋯` row to show what it hides. **Hide tests** (`t`) is on by default too; opening a
   test file anyway (a tab, a search hit, an Ask cite) turns it off for that page. Lockfiles and
   minified files (`exclude`) are listed as dimmed `⊘` rows without being read; pure
   renames show as `R` rows.
+- **The ruler** beside the code shows where the changes (green), removed lines (orange)
+  and, on the Summary tab, open concerns sit in the rows on screen. Click a tick to jump
+  there; a folded change opens.
 - **The header** keeps four buttons in sight: search, Ask, the code theme and reload.
   Everything else is in the **⋯** menu: the fold level, expand / collapse all, hunks
-  only, removed lines and hide tests (each with its key), then the keyboard shortcuts,
+  only, removed lines, word diff and hide tests (each with its key), then the keyboard shortcuts,
   the settings and *End session*.
 - **The code theme** colors the whole page, not just the code: the panels, lines and text
   are mixed from the theme's background and foreground, and the accent is the color the
@@ -77,7 +82,11 @@ explicitly is always analyzed.
   code card's header, next to its path, the lines it added and removed, and its fold chips.
   The Summary tab shows a change's code in the same card.
 - **Search**: ⌘P (Ctrl+P) searches across all loaded files; ⌥-click an identifier to
-  find its usages.
+  find its usages. When a loaded file declares the name (a top-level function, class,
+  const, type or enum, or a class member), *Defined at* lists that first. It matches by
+  name only, as a text search would: no types, no imports followed.
+- **Jumps** (a search hit, a ruler tick, a cite) flash the line they land on, and leave
+  it marked with an accent bar and line number until the next jump.
 - **Reload** (`r`) re-runs the analysis — new file contents, a fresh `git diff`, edits
   to `.lens.json` — without restarting the server. *Settings* in ⋯ shows the effective
   config.
@@ -90,7 +99,7 @@ explicitly is always analyzed.
 - **Ask** (`a`): a rail on the right where you ask your agent about the code you're
   reading — see [Ask mode](#ask-mode).
 - **Keys** (`?` lists them): j/k files, e/c folds, [/] threshold, h hunks, x removed
-  lines, t hide tests, / filter, m viewed, s sidebar, r refresh, v Code/Summary,
+  lines, d word diff, t hide tests, / filter, m viewed, s sidebar, r refresh, v Code/Summary,
   a ask, \ hide the Ask rail; in Summary, g overview and j/k changes.
 
 **PR mode** uses git alone — no GitHub API or gh CLI, so private repos just use your

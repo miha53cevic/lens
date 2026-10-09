@@ -9,9 +9,15 @@
   background: var(--surface);
   box-shadow: 0 12px 30px -18px var(--shadow);
 }
-/* the code scrolls inside the card, under a header that stays put */
+/* the code scrolls inside the card, under a header that stays put, beside the ruler */
+.code-frame {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
 .code-body {
   flex: 1;
+  min-width: 0;
   min-height: 0;
   overflow: auto;
 }

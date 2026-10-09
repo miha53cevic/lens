@@ -2,11 +2,10 @@
 
 import type { Concern } from '../../../../summary/store.ts';
 import { CONCERN_PREF, type ConcernMark, getState, type SignalFilter, update, VIEWED_CAP } from '../store.ts';
-import { flashRow, writePref } from '../shared.ts';
+import { writePref } from '../shared.ts';
 import { concernKey, type Unit } from '../model/signals.ts';
 import { currentUnit, listModel } from '../model/summaryList.ts';
-import { openFoldAround } from './folds.ts';
-import { jumpToLine } from './views.ts';
+import { jumpToLine, landOn } from './views.ts';
 
 export function openSummaryUnit(unitId: string): void {
   update({ summaryUnit: unitId, summaryBrowsing: true });
@@ -68,7 +67,6 @@ export function flashCited(label: string): boolean {
   const row = citedRow(label);
   const unit = currentUnit(getState());
   if (!row || !unit) return false;
-  openFoldAround(row, unit.displayFile);
-  flashRow(row, true);
+  landOn(row, unit.displayFile, label, true);
   return true;
 }

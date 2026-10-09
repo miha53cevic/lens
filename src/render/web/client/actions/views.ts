@@ -78,7 +78,15 @@ export function jumpToLine(fileIndex: number, line: number, pinOrigin?: boolean)
     };
   });
   const row = document.querySelector<HTMLElement>('#code .row[data-line="' + line + '"]');
-  if (!row) return;
-  openFoldAround(row, getState().data.files[fileIndex].file);
-  flashRow(row);
+  if (row) landOn(row, getState().data.files[fileIndex].file, 'N' + line);
+}
+
+/**
+ * A jump lands on a row ("N12" a line, "O5" a removed one): its fold opens, it scrolls into the
+ * middle and flashes, and it stays marked (`landed`) so the eye can find it after the flash.
+ */
+export function landOn(row: HTMLElement, path: string, label: string, smooth?: boolean): void {
+  openFoldAround(row, path);
+  commit({ landed: { path, label } });
+  flashRow(row, smooth);
 }
