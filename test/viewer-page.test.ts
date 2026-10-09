@@ -309,6 +309,11 @@ pageTest("a unit's ruler ticks its open concerns too; a dismissed one drops off"
   await key('v');
   await key('j');
   assert.deepEqual(ticks('.unit-card'), ['del O9', 'add N9', 'bug N10']);
+  // only a concern's tick takes the concern color (a class match, so "tick-add" can't catch it)
+  assert.deepEqual(
+    $$('.unit-card .ruler .tick.concern').map((tick) => tick.dataset.label),
+    ['N10'],
+  );
   await click($('.concern .vbtn.v-dismissed'));
   assert.deepEqual(ticks('.unit-card'), ['del O9', 'add N9']);
 });

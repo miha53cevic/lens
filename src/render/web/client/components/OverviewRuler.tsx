@@ -51,15 +51,21 @@ export function OverviewRuler({ path, items, changedLines, flagged }: OverviewRu
   };
   return (
     <div className='ruler' aria-hidden='true'>
-      {ticks.map((tick, tickIndex) => (
-        <div
-          key={tickIndex}
-          className={clsx('tick', 'tick-' + tick.kind, tick.kind !== 'add' && tick.kind !== 'del' && 'k-' + tick.kind)}
-          data-label={tick.label}
-          style={{ top: tick.top * 100 + '%', height: tick.height * 100 + '%' } as CSSProperties}
-          onClick={(event) => jump(event, tick.label)}
-        />
-      ))}
+      <div className='ruler-track'>
+        {ticks.map((tick, tickIndex) => (
+          <div
+            key={tickIndex}
+            className={clsx(
+              'tick',
+              'tick-' + tick.kind,
+              tick.kind !== 'add' && tick.kind !== 'del' && ['concern', 'k-' + tick.kind],
+            )}
+            data-label={tick.label}
+            style={{ top: tick.top * 100 + '%', height: tick.height * 100 + '%' } as CSSProperties}
+            onClick={(event) => jump(event, tick.label)}
+          />
+        ))}
+      </div>
     </div>
   );
 }
