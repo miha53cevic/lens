@@ -44,7 +44,10 @@ ask/              ask mode: the viewer's Ask rail and `lens ask listen|reply` (s
 
 ### Viewer (`src/render/web/`)
 
-- The browser code lives in `client/` as strict TypeScript modules (`main.ts` is the entry). `bundle.ts` bundles it with esbuild when the server starts, so there's still no build step. `server.ts` inlines `viewer.css` and the bundle into `viewer.html`, and puts the payload in the `lens-data` JSON script, which `client/shared.ts` reads as `DATA`.
+- The viewer is a React app in `client/`, written in strict TypeScript (`main.tsx` is the entry). `bundle.ts` bundles it with esbuild when the server starts, so there's still no build step. `server.ts` inlines `viewer.css` and the bundle into `viewer.html` (a `#root` element and nothing else), and puts the payload in the `lens-data` JSON script, which `client/shared.ts` reads as `INITIAL_DATA`.
+- State lives in `client/store.ts`: one immutable `LensState`, replaced on every change. Components read it with `useLens()`. `model.ts` derives what they show from it (the tree, the code plans, the summary list, the Ask context), as pure functions. `actions.ts` changes it. Use `commit()` instead of `update()` when the DOM must show the new state before you touch it, e.g. scrolling to a row.
+- `components/` has one file per area: `Header` (top bar and toolbar), `Nav` (tree and summary list), `CodePane` (tabs and the file), `SummaryPane`, `AskRail`, `Dialogs` (settings, `?` help, search), and `CodeRows`, which both views use for code.
+- Keep the markup and class names `viewer.css` expects. Rows are memoized and their highlighted lines are prebuilt HTML strings, so a toggle re-renders only the rows it changes. Keep it that way on big files.
 - Browser code imports server-side types with `import type` (e.g. `ViewerPayload` from `server.ts`, `SummaryView` from `summary/view.ts`), so a shape change breaks the viewer's typecheck instead of the page.
 - Server endpoints: `/api/tokens` (theme switch), `/api/refresh`, `/api/summary`, `/api/summary/stamp` (polled on window focus), `/api/shutdown`, and the Ask rail's `/api/ask*` (in `src/ask/routes.ts`).
 - Browser-only state, such as viewed marks, lives in `localStorage`.
@@ -53,27 +56,27 @@ ask/              ask mode: the viewer's Ask rail and `lens ask listen|reply` (s
 
 The Summary tab shows the same code snippets as the Code view, with the agent's summary on top. Anything added to or changed in the Code view that affects how code is shown must also work on the Summary tab's unit code, in the same change. That covers folds, fold chips, the fold level, expand/collapse, hunks only, removed lines, hide tests, and their keyboard shortcuts.
 
-- The toolbar stays visible on the Summary tab (`setView` in `client/summary.ts`). Toolbar handlers in `client/code.ts` call `render()`, which hands off to `renderSummary()` when the Summary tab is open.
-- Both views get their rows from `client/rows.ts`: `fileSpans` / `unitSpans` pick the shown lines and hidden stretches, and `planCode` turns them into lines, folds, removed lines and gaps. Change how code is shown there, and both views follow. It has no DOM, so `test/viewer.test.ts` tests it in node.
-- A new control should either act on DOM both views share (e.g. `.region` elements) or get a Summary branch (e.g. `shownRanges` for hunks only, `isUnitShown` for hide tests).
-- Share constants between the views instead of duplicating them (e.g. `HUNK_CONTEXT` in `client/shared.ts`).
-- New keys need adding to the Summary tab's allowed-keys list in `client/keys.ts`, and to the `?` help in `viewer.html`.
+- The toolbar stays visible on the Summary tab. Its controls change state, and both views render from that state: `foldScope` and `chipCategories` pick the open file's or the open unit's folds.
+- Both views get their rows from `client/rows.ts`: `fileSpans` / `unitSpans` pick the shown lines and hidden stretches, and `planCode` turns them into lines, folds, removed lines and gaps. Both views render the plan with `CodeRows`, and each passes in its own row marks (cited lines, concern notes, the Ask selection). Change how code is shown there, and both views follow. `rows.ts` has no DOM, so `test/viewer.test.ts` tests it in node.
+- A new control should change state both views read (e.g. `openCats` for the fold chips) or get a Summary branch (e.g. `unitSpans` for hunks only, `listModel` for hide tests).
+- Share constants between the views instead of duplicating them (e.g. `HUNK_CONTEXT` in `client/rows.ts`).
+- New keys go in `client/keys.ts` (and its `SUMMARY_KEYS` when they act on a unit), and in the `?` help (`KEYS` in `components/Dialogs.tsx`).
 
 ## Summary mode (`src/summary/`)
 
 lens never calls an AI. The user's agent writes `result.json`, and lens checks it.
 
-- Pipeline: `collect.ts` (load the diff) → `units.ts` (split it into units) → `bundle.ts` (`prepare` writes `.lens/summary/<key>/`) → agent → `validate.ts` (`submit`) → `store.ts` (`summary.json`) → `view.ts` (`SummaryView` for the viewer) → `client/summary.ts`.
+- Pipeline: `collect.ts` (load the diff) → `units.ts` (split it into units) → `bundle.ts` (`prepare` writes `.lens/summary/<key>/`) → agent → `validate.ts` (`submit`) → `store.ts` (`summary.json`) → `view.ts` (`SummaryView` for the viewer) → `client/model.ts` and `components/SummaryPane.tsx`.
 - Invariant: every changed and removed line belongs to exactly one unit. `checkCoverage` enforces it, so keep it true when changing how units are found.
 - `validate.ts` drops claims that don't point at real code and gives the agent a reason it can act on. A new kind of claim gets the same treatment.
 - The agent instructions are generated in `bundle.ts` and are the source of truth. The skills in `skills/` are thin pointers to them, so put format and rule changes in `bundle.ts`, not in a skill.
-- Changing the result's shape touches all of these: `RESULT_SCHEMA` and the instructions (`bundle.ts`), `validate.ts`, the types in `store.ts`, `view.ts`, `client/summary.ts`, and `test/summary.test.ts`. The stored format is `version: 1`, and `readStored` ignores files of any other version.
+- Changing the result's shape touches all of these: `RESULT_SCHEMA` and the instructions (`bundle.ts`), `validate.ts`, the types in `store.ts`, `view.ts`, the viewer (`client/model.ts`, `components/SummaryPane.tsx`), and `test/summary.test.ts`. The stored format is `version: 1`, and `readStored` ignores files of any other version.
 - Summaries are keyed by unit hash, so a code change marks a unit stale instead of showing an outdated summary.
 - Tests build real diffs with `git diff --no-index` and real temp repos (see the helpers at the top of `test/summary.test.ts` and `test/git.test.ts`). Follow that pattern rather than hand-writing diff text.
 
 ## Ask mode (`src/ask/`)
 
-The Ask rail (`client/ask.ts`) asks the user's agent about the open change. As in summary mode, lens never answers anything itself.
+The Ask rail (`client/ask.ts`, `components/AskRail.tsx`) asks the user's agent about the open change. As in summary mode, lens never answers anything itself.
 
 - Flow: the viewer posts a question (`routes.ts`) → `session.ts` holds the chat in memory, one per server → `lens ask listen` (`command.ts`) long-polls `/api/ask/next` and prints the agent text → `lens ask reply` posts the answer → `cites.ts` keeps the `path:line` cites that resolve.
 - The agent text, including the read-only rules, is generated in `context.ts` and is the source of truth. `skills/lens-ask` only points at it.
