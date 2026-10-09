@@ -22,5 +22,8 @@ export function readBody(req: IncomingMessage): Promise<string> {
 export function isLocalRequest(req: IncomingMessage, port: number): boolean {
   const { host, origin } = req.headers;
   if (host !== `127.0.0.1:${port}` && host !== `localhost:${port}`) return false;
+  // an <img>/<script> GET from another site carries no Origin, but browsers mark it
+  const site = req.headers["sec-fetch-site"];
+  if (site !== undefined && site !== "same-origin" && site !== "none") return false;
   return origin === undefined || origin === `http://${host}`;
 }

@@ -85,8 +85,7 @@ document.addEventListener("selectionchange", () => {
     return inRegion.length > 0 ? [Math.min(...inRegion), Math.max(...inRegion)] : null;
   };
   const a = span(sel.anchorNode), b = span(sel.focusNode);
-  // an end on a hidden stretch's ⋯ row: no lines to name, so no kept selection either
-  if (!a || !b) { askSetSel(null); return; }
+  if (!a || !b) return; // an end off the rows (blank space, a ⋯ row): keep what was kept
   const picked = rows.slice(Math.min(a[0], b[0]), Math.max(a[1], b[1]) + 1).slice(0, ASK_MAX_LINES);
   const lines = picked.map((r) => {
     const el = /** @type {HTMLElement} */ (r);

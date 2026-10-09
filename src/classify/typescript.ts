@@ -696,9 +696,10 @@ function asAccessor(member: Node): string | null {
   const plainReturn = stmt.type === "return_statement" &&
     (expr?.type === "member_expression" || expr?.type === "identifier");
   if (keywords.includes("get")) return plainReturn ? `get ${name}` : null;
-  // trivial store: `this._x = v`
+  // trivial store of its own parameter: `this._x = v`
   if (keywords.includes("set")) {
-    return expr?.type === "assignment_expression" && expr.childForFieldName("right")?.type === "identifier"
+    const param = namedChildren(member.childForFieldName("parameters") ?? body)[0]?.childForFieldName("pattern")?.text;
+    return expr?.type === "assignment_expression" && param !== undefined && expr.childForFieldName("right")?.text === param
       ? `set ${name}` : null;
   }
   if (plainReturn) return `${name}()`;

@@ -173,6 +173,9 @@ test("isLocalRequest: only this machine's host, and no foreign origin", () => {
   assert.ok(isLocalRequest(req({ host: "localhost:5326", origin: "http://localhost:5326" }), 5326));
   assert.ok(!isLocalRequest(req({ host: "127.0.0.1:5326", origin: "https://evil.example" }), 5326), "a cross-site POST");
   assert.ok(!isLocalRequest(req({ host: "evil.example:5326" }), 5326), "DNS rebinding");
+  assert.ok(!isLocalRequest(req({ host: "127.0.0.1:5326", "sec-fetch-site": "cross-site" }), 5326), "a no-cors GET from another site");
+  assert.ok(isLocalRequest(req({ host: "127.0.0.1:5326", "sec-fetch-site": "same-origin" }), 5326));
+  assert.ok(isLocalRequest(req({ host: "127.0.0.1:5326", "sec-fetch-site": "none" }), 5326), "typed in the address bar");
   assert.ok(!isLocalRequest(req({ host: "127.0.0.1:9999" }), 5326));
 });
 

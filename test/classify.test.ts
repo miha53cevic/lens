@@ -357,6 +357,7 @@ class Temp {
   set celsius(v: number) { this._c = (v - 32) * 5 / 9; }
   get raw() { return this._c; }
   set raw(v: number) { this._c = v; }
+  set reset(v: number) { this._c = DEFAULT; }
 }
 `.trim());
   const accessors = regions.filter((r) => r.category === "accessor");
