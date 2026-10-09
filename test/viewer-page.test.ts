@@ -2,49 +2,64 @@
 // analysis of a fixture repo, driven like a reader would — clicks, keys, typing.
 // Type-checked by tsconfig.viewer.json (it needs the DOM types).
 
-import { test, before, after } from "node:test";
-import assert from "node:assert/strict";
-import { rmSync } from "node:fs";
-import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import { fireEvent, within } from "@testing-library/dom";
-import { analyze } from "../src/analyze.ts";
-import { loadConfig } from "../src/config.ts";
-import { bundleViewer } from "../src/render/web/bundle.ts";
-import { highlightFiles, viewerPayload, type ViewerPayload } from "../src/render/web/server.ts";
-import { writeStored, type StoredSummary } from "../src/summary/store.ts";
-import type { AskState } from "../src/ask/session.ts";
-import { makeViewerRepo } from "./fixtures/viewerRepo.ts";
+import { test, before, after } from 'node:test';
+import assert from 'node:assert/strict';
+import { rmSync } from 'node:fs';
+import { GlobalRegistrator } from '@happy-dom/global-registrator';
+import { fireEvent, within } from '@testing-library/dom';
+import { analyze } from '../src/analyze.ts';
+import { loadConfig } from '../src/config.ts';
+import { bundleViewer } from '../src/render/web/bundle.ts';
+import { highlightFiles, viewerPayload, type ViewerPayload } from '../src/render/web/server.ts';
+import { writeStored, type StoredSummary } from '../src/summary/store.ts';
+import type { AskState } from '../src/ask/session.ts';
+import { makeViewerRepo } from './fixtures/viewerRepo.ts';
 
-let repo = "";
-let bundle = "";
+let repo = '';
+let bundle = '';
 let payload: ViewerPayload;
 let lightTokens: unknown;
 
 before(async () => {
   repo = makeViewerRepo();
   bundle = await bundleViewer();
-  const input = await analyze("diff", [], repo, loadConfig(repo));
+  const input = await analyze('diff', [], repo, loadConfig(repo));
   const unit = (name: string) => input.summary!.units.find((u) => u.name === name)!;
-  const findOrders = unit("findOrders"), legacy = unit("legacyTotal");
+  const findOrders = unit('findOrders'),
+    legacy = unit('legacyTotal');
   const stored: StoredSummary = {
     version: 1,
-    updatedAt: "",
+    updatedAt: '',
     flows: [],
     units: {
       [findOrders.id]: {
-        hash: findOrders.hash, headline: "findOrders skips deleted orders", gist: "skips deleted orders", needsLook: true,
-        changes: [{ when: "an order is deleted", before: "it was returned", now: "it's skipped", line: "N10" }],
+        hash: findOrders.hash,
+        headline: 'findOrders skips deleted orders',
+        gist: 'skips deleted orders',
+        needsLook: true,
+        changes: [{ when: 'an order is deleted', before: 'it was returned', now: "it's skipped", line: 'N10' }],
         breaks: [],
-        concerns: [{ kind: "bug", text: "deleted is a string column", line: "N10" }],
+        concerns: [{ kind: 'bug', text: 'deleted is a string column', line: 'N10' }],
       },
-      [legacy.id]: { hash: legacy.hash, headline: "legacyTotal is gone", gist: "removed", needsLook: false, changes: [], breaks: [], concerns: [] },
+      [legacy.id]: {
+        hash: legacy.hash,
+        headline: 'legacyTotal is gone',
+        gist: 'removed',
+        needsLook: false,
+        changes: [],
+        breaks: [],
+        concerns: [],
+      },
     },
   };
-  writeStored(repo, "diff", stored);
+  writeStored(repo, 'diff', stored);
   input.summary = input.reloadSummary!();
-  const themes = ["github-dark", "github-light"];
-  payload = viewerPayload(input, await highlightFiles(input.files, "github-dark"), themes, { themePinned: true, canRefresh: true });
-  lightTokens = await highlightFiles(input.files, "github-light");
+  const themes = ['github-dark', 'github-light'];
+  payload = viewerPayload(input, await highlightFiles(input.files, 'github-dark'), themes, {
+    themePinned: true,
+    canRefresh: true,
+  });
+  lightTokens = await highlightFiles(input.files, 'github-light');
 });
 
 after(() => rmSync(repo, { recursive: true, force: true }));
@@ -59,30 +74,39 @@ interface Page {
 }
 
 /** Opens the viewer on the payload, with these localStorage entries already there. */
-async function open(prefs: Record<string, string> = {}, hash = ""): Promise<Page> {
-  GlobalRegistrator.register({ url: "http://127.0.0.1:5326/" + hash, width: 1400, height: 900 });
+async function open(prefs: Record<string, string> = {}, hash = ''): Promise<Page> {
+  GlobalRegistrator.register({ url: 'http://127.0.0.1:5326/' + hash, width: 1400, height: 900 });
   const p: Page = { requests: [], ask: { listening: false, questions: [] } };
   globalThis.fetch = (async (input: string | URL, init?: RequestInit) => {
-    const url = new URL(String(input), "http://127.0.0.1:5326");
-    const method = init?.method ?? "GET";
-    const body = typeof init?.body === "string" ? JSON.parse(init.body) : null;
+    const url = new URL(String(input), 'http://127.0.0.1:5326');
+    const method = init?.method ?? 'GET';
+    const body = typeof init?.body === 'string' ? JSON.parse(init.body) : null;
     p.requests.push({ method, path: url.pathname, body });
-    const reply = (value: unknown) => new Response(JSON.stringify(value), { headers: { "content-type": "application/json" } });
-    switch (method + " " + url.pathname) {
-      case "GET /api/ask": return reply(p.ask);
-      case "POST /api/ask": return reply({ ok: true });
-      case "POST /api/ask/prompt": return reply({ text: "the prompt" });
-      case "GET /api/summary/stamp": return reply({ stamp: payload.summary!.stamp });
-      case "GET /api/summary": return reply(payload.summary);
-      case "GET /api/refresh": return reply(payload);
-      case "GET /api/tokens": return reply(lightTokens);
-      case "POST /api/shutdown": return reply({ ok: true });
+    const reply = (value: unknown) =>
+      new Response(JSON.stringify(value), { headers: { 'content-type': 'application/json' } });
+    switch (method + ' ' + url.pathname) {
+      case 'GET /api/ask':
+        return reply(p.ask);
+      case 'POST /api/ask':
+        return reply({ ok: true });
+      case 'POST /api/ask/prompt':
+        return reply({ text: 'the prompt' });
+      case 'GET /api/summary/stamp':
+        return reply({ stamp: payload.summary!.stamp });
+      case 'GET /api/summary':
+        return reply(payload.summary);
+      case 'GET /api/refresh':
+        return reply(payload);
+      case 'GET /api/tokens':
+        return reply(lightTokens);
+      case 'POST /api/shutdown':
+        return reply({ ok: true });
     }
-    return new Response("{}", { status: 404 });
+    return new Response('{}', { status: 404 });
   }) as typeof fetch;
   for (const [key, value] of Object.entries(prefs)) localStorage.setItem(key, value);
   document.body.innerHTML = '<div id="root"></div><script id="lens-data" type="application/json"></script>';
-  document.getElementById("lens-data")!.textContent = JSON.stringify(payload);
+  document.getElementById('lens-data')!.textContent = JSON.stringify(payload);
   new Function(bundle)();
   await settle();
   return p;
@@ -98,7 +122,7 @@ async function settle() {
 }
 
 async function key(k: string, opts: KeyboardEventInit = {}) {
-  document.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true, ...opts }));
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, ...opts }));
   await settle();
 }
 
@@ -114,230 +138,314 @@ async function type(el: Element, text: string) {
 
 function $(selector: string): HTMLElement {
   const el = document.querySelector<HTMLElement>(selector);
-  assert.ok(el, "no element matches " + selector);
+  assert.ok(el, 'no element matches ' + selector);
   return el;
 }
 const $$ = (selector: string) => [...document.querySelectorAll<HTMLElement>(selector)];
 
 /** The code rows on screen: "12" a line, "−9" a removed line (old side), "⋯" a gap, "R6-8" a fold */
-function rows(root = "#code"): string[] {
-  return $$(root + " > .row, " + root + " > .region").map((el) =>
-    el.classList.contains("region") ? "R" + el.querySelector<HTMLElement>(".body .row[data-line]")!.dataset.line
-      : el.dataset.line ?? (el.dataset.old ? "−" + el.dataset.old : "⋯"));
+function rows(root = '#code'): string[] {
+  return $$(root + ' > .row, ' + root + ' > .region').map((el) =>
+    el.classList.contains('region')
+      ? 'R' + el.querySelector<HTMLElement>('.body .row[data-line]')!.dataset.line
+      : (el.dataset.line ?? (el.dataset.old ? '−' + el.dataset.old : '⋯')),
+  );
 }
 
 function treeFiles(): string[] {
-  return $$("#tree .file").map((b) => b.querySelector(".fname")!.textContent!);
+  return $$('#tree .file').map((b) => b.querySelector('.fname')!.textContent!);
 }
 
 /** A test on a freshly opened page. */
 function pageTest(name: string, fn: (p: Page) => Promise<void>, prefs?: Record<string, string>, hash?: string) {
   test(name, async () => {
     const p = await open(prefs, hash);
-    try { await fn(p); } finally { await close(); }
+    try {
+      await fn(p);
+    } finally {
+      await close();
+    }
   });
 }
 
 // hunks only (on by default): 1–5, 14 and 21–27 are far from every change
-const HUNKS = ["⋯", "R6", "−9", "R9", "10", "11", "12", "13", "⋯", "15", "16", "17", "−17", "−18", "−19", "−20", "18", "19", "20", "⋯"];
+const HUNKS = [
+  '⋯',
+  'R6',
+  '−9',
+  'R9',
+  '10',
+  '11',
+  '12',
+  '13',
+  '⋯',
+  '15',
+  '16',
+  '17',
+  '−17',
+  '−18',
+  '−19',
+  '−20',
+  '18',
+  '19',
+  '20',
+  '⋯',
+];
 
 // ---- the Code view ----
 
-pageTest("the page opens on the first file of the tree, folded, hunks only", async () => {
-  assert.deepEqual(treeFiles(), ["orders.ts"], "hide tests is on by default");
-  assert.equal($(".tab.active .tab-name").textContent, "orders.ts");
+pageTest('the page opens on the first file of the tree, folded, hunks only', async () => {
+  assert.deepEqual(treeFiles(), ['orders.ts'], 'hide tests is on by default');
+  assert.equal($('.tab.active .tab-name').textContent, 'orders.ts');
   assert.deepEqual(rows(), HUNKS);
-  assert.deepEqual($$("#code .row.gap").map((g) => g.lastElementChild!.textContent), ["⋯ 5 unchanged lines", "⋯ 1 unchanged line", "⋯ 7 unchanged lines"]);
-  assert.equal($("#stats").textContent, "2 files changed · src/orders.ts — 27 lines, 4 folded (−15%) · 13 unchanged hidden");
+  assert.deepEqual(
+    $$('#code .row.gap').map((g) => g.lastElementChild!.textContent),
+    ['⋯ 5 unchanged lines', '⋯ 1 unchanged line', '⋯ 7 unchanged lines'],
+  );
+  assert.equal(
+    $('#stats').textContent,
+    '2 files changed · src/orders.ts — 27 lines, 4 folded (−15%) · 13 unchanged hidden',
+  );
 });
 
-pageTest("a fold opens on a click; expand all, collapse all and a fold chip act on all of them", async () => {
+pageTest('a fold opens on a click; expand all, collapse all and a fold chip act on all of them', async () => {
   const fold = (cat: string) => $(`#code .region[data-cat="${cat}"]`);
-  const chip = (cat: string) => $$("#toggles .chip").find((c) => c.textContent === cat)!.querySelector("input")!;
-  await click(fold("guard").querySelector(".pill-row")!);
-  assert.ok(fold("guard").classList.contains("open"));
-  assert.ok(!fold("logging").classList.contains("open"));
+  const chip = (cat: string) =>
+    $$('#toggles .chip')
+      .find((c) => c.textContent === cat)!
+      .querySelector('input')!;
+  await click(fold('guard').querySelector('.pill-row')!);
+  assert.ok(fold('guard').classList.contains('open'));
+  assert.ok(!fold('logging').classList.contains('open'));
 
-  await key("e");
-  assert.ok(fold("guard").classList.contains("open") && fold("logging").classList.contains("open"));
-  assert.deepEqual($$("#toggles .chip input").map((b) => (b as HTMLInputElement).checked), [true, true, true], "every chip, import's too");
+  await key('e');
+  assert.ok(fold('guard').classList.contains('open') && fold('logging').classList.contains('open'));
+  assert.deepEqual(
+    $$('#toggles .chip input').map((b) => (b as HTMLInputElement).checked),
+    [true, true, true],
+    "every chip, import's too",
+  );
 
-  await key("c");
-  assert.equal($$("#code .region.open").length, 0);
-  await click(chip("logging"));
-  assert.ok(fold("logging").classList.contains("open"));
-  assert.ok(!fold("guard").classList.contains("open"));
+  await key('c');
+  assert.equal($$('#code .region.open').length, 0);
+  await click(chip('logging'));
+  assert.ok(fold('logging').classList.contains('open'));
+  assert.ok(!fold('guard').classList.contains('open'));
 });
 
-pageTest("the fold level pins the regions scored above it", async () => {
-  fireEvent.change($("#threshold"), { target: { value: "0" } });
+pageTest('the fold level pins the regions scored above it', async () => {
+  fireEvent.change($('#threshold'), { target: { value: '0' } });
   await settle();
-  assert.deepEqual($$("#code .region.pinned").map((r) => r.dataset.cat), ["guard", "logging"], "both score 1");
-  await key("]");
-  assert.equal($$("#code .region.pinned").length, 0);
-  assert.equal(($("#threshold") as HTMLSelectElement).value, "1");
+  assert.deepEqual(
+    $$('#code .region.pinned').map((r) => r.dataset.cat),
+    ['guard', 'logging'],
+    'both score 1',
+  );
+  await key(']');
+  assert.equal($$('#code .region.pinned').length, 0);
+  assert.equal(($('#threshold') as HTMLSelectElement).value, '1');
 });
 
-pageTest("hunks only: a click shows a hidden stretch, h shows the whole file", async () => {
-  await click($$("#code .row.gap")[0]);
-  assert.deepEqual(rows().slice(0, 4), ["R1", "4", "5", "R6"]);
-  await key("h");
-  assert.equal($$("#code .row.gap").length, 0);
-  assert.equal($$("#code .row[data-line]").length, 27);
+pageTest('hunks only: a click shows a hidden stretch, h shows the whole file', async () => {
+  await click($$('#code .row.gap')[0]);
+  assert.deepEqual(rows().slice(0, 4), ['R1', '4', '5', 'R6']);
+  await key('h');
+  assert.equal($$('#code .row.gap').length, 0);
+  assert.equal($$('#code .row[data-line]').length, 27);
 });
 
-pageTest("removed lines show where they were removed; x hides them", async () => {
-  await key("x");
-  assert.deepEqual(rows().filter((r) => r.startsWith("−")), []);
-  await key("x");
+pageTest('removed lines show where they were removed; x hides them', async () => {
+  await key('x');
+  assert.deepEqual(
+    rows().filter((r) => r.startsWith('−')),
+    [],
+  );
+  await key('x');
   assert.deepEqual(rows(), HUNKS);
 });
 
-pageTest("hide tests: t shows the test file, and hiding it again leaves it", async () => {
-  await key("t");
-  assert.deepEqual(treeFiles(), ["orders.test.ts", "orders.ts"]);
-  await click($$("#tree .file").find((b) => b.textContent!.includes("orders.test.ts"))!);
-  assert.equal($(".tab.active .tab-name").textContent, "orders.test.ts");
-  await key("t");
-  assert.deepEqual(treeFiles(), ["orders.ts"]);
-  assert.equal($(".tab.active .tab-name").textContent, "orders.ts", "the open test file gives way");
+pageTest('hide tests: t shows the test file, and hiding it again leaves it', async () => {
+  await key('t');
+  assert.deepEqual(treeFiles(), ['orders.test.ts', 'orders.ts']);
+  await click($$('#tree .file').find((b) => b.textContent!.includes('orders.test.ts'))!);
+  assert.equal($('.tab.active .tab-name').textContent, 'orders.test.ts');
+  await key('t');
+  assert.deepEqual(treeFiles(), ['orders.ts']);
+  assert.equal($('.tab.active .tab-name').textContent, 'orders.ts', 'the open test file gives way');
 });
 
-test("a viewed mark sticks, and survives a reload", async () => {
+test('a viewed mark sticks, and survives a reload', async () => {
   await open();
-  let saved = "";
+  let saved = '';
   try {
-    await key("m");
-    assert.ok($("#tree .file").classList.contains("viewed"));
-    assert.ok(($("#viewed") as HTMLInputElement).checked);
-    saved = localStorage.getItem("lens.viewedFiles")!;
+    await key('m');
+    assert.ok($('#tree .file').classList.contains('viewed'));
+    assert.ok(($('#viewed') as HTMLInputElement).checked);
+    saved = localStorage.getItem('lens.viewedFiles')!;
     assert.match(saved, /src\/orders\.ts@/);
-  } finally { await close(); }
-  await open({ "lens.viewedFiles": saved });
+  } finally {
+    await close();
+  }
+  await open({ 'lens.viewedFiles': saved });
   try {
-    assert.ok($("#tree .file").classList.contains("viewed"));
-  } finally { await close(); }
+    assert.ok($('#tree .file').classList.contains('viewed'));
+  } finally {
+    await close();
+  }
 });
 
-pageTest("search finds matches; Enter jumps to one, even in a hidden stretch", async () => {
-  await key("p", { ctrlKey: true });
-  assert.ok(($("#search-modal") as HTMLDialogElement).open);
-  await type($("#search-input"), "toOrder");
-  assert.deepEqual($$(".search-hit .ln").map((l) => l.textContent), ["11", "14"]);
-  fireEvent.keyDown($("#search-input"), { key: "ArrowDown" });
+pageTest('search finds matches; Enter jumps to one, even in a hidden stretch', async () => {
+  await key('p', { ctrlKey: true });
+  assert.ok(($('#search-modal') as HTMLDialogElement).open);
+  await type($('#search-input'), 'toOrder');
+  assert.deepEqual(
+    $$('.search-hit .ln').map((l) => l.textContent),
+    ['11', '14'],
+  );
+  fireEvent.keyDown($('#search-input'), { key: 'ArrowDown' });
   await settle();
-  fireEvent.keyDown($("#search-input"), { key: "Enter" });
+  fireEvent.keyDown($('#search-input'), { key: 'Enter' });
   await settle();
-  assert.ok(!($("#search-modal") as HTMLDialogElement).open);
-  assert.ok($('#code .row[data-line="14"]').classList.contains("flash"), "line 14 was hidden: its stretch opened");
+  assert.ok(!($('#search-modal') as HTMLDialogElement).open);
+  assert.ok($('#code .row[data-line="14"]').classList.contains('flash'), 'line 14 was hidden: its stretch opened');
 });
 
-pageTest("tabs: a double-click keeps a tab, w closes the active one, and a refresh keeps them", async (p) => {
-  await key("t");
-  fireEvent.dblClick($$("#tree .file").find((b) => b.textContent!.includes("orders.test.ts"))!);
+pageTest('tabs: a double-click keeps a tab, w closes the active one, and a refresh keeps them', async (p) => {
+  await key('t');
+  fireEvent.dblClick($$('#tree .file').find((b) => b.textContent!.includes('orders.test.ts'))!);
   await settle();
-  assert.deepEqual($$(".tab .tab-name").map((t) => t.textContent), ["orders.ts", "orders.test.ts"]);
-  await click($("#refresh"));
+  assert.deepEqual(
+    $$('.tab .tab-name').map((t) => t.textContent),
+    ['orders.ts', 'orders.test.ts'],
+  );
+  await click($('#refresh'));
   await settle();
-  assert.ok(p.requests.some((r) => r.path === "/api/refresh"));
-  assert.deepEqual($$(".tab .tab-name").map((t) => t.textContent), ["orders.ts", "orders.test.ts"]);
-  assert.equal($(".tab.active .tab-name").textContent, "orders.test.ts");
-  await key("w");
-  assert.deepEqual($$(".tab .tab-name").map((t) => t.textContent), ["orders.ts"]);
+  assert.ok(p.requests.some((r) => r.path === '/api/refresh'));
+  assert.deepEqual(
+    $$('.tab .tab-name').map((t) => t.textContent),
+    ['orders.ts', 'orders.test.ts'],
+  );
+  assert.equal($('.tab.active .tab-name').textContent, 'orders.test.ts');
+  await key('w');
+  assert.deepEqual(
+    $$('.tab .tab-name').map((t) => t.textContent),
+    ['orders.ts'],
+  );
 });
 
 // ---- the Summary tab ----
 
-pageTest("the Summary tab lists the changes, flagged first, and opens on the overview", async () => {
-  assert.equal($("#summary-pane").style.display, "");
-  assert.deepEqual($$(".sum-item .name").map((n) => n.textContent), ["findOrders", "legacyTotal"], "the test file's unit hides with the tests");
-  assert.equal($(".sum-head .legend").textContent, "1 flagged");
-  assert.ok($(".sum-overview-item").classList.contains("active"));
-  assert.ok($$(".ov-stat").some((st) => st.textContent!.startsWith("1possible bug")));
-}, {}, "#summary");
+pageTest(
+  'the Summary tab lists the changes, flagged first, and opens on the overview',
+  async () => {
+    assert.equal($('#summary-pane').style.display, '');
+    assert.deepEqual(
+      $$('.sum-item .name').map((n) => n.textContent),
+      ['findOrders', 'legacyTotal'],
+      "the test file's unit hides with the tests",
+    );
+    assert.equal($('.sum-head .legend').textContent, '1 flagged');
+    assert.ok($('.sum-overview-item').classList.contains('active'));
+    assert.ok($$('.ov-stat').some((st) => st.textContent!.startsWith('1possible bug')));
+  },
+  {},
+  '#summary',
+);
 
 pageTest("a unit's code has the Code view's folds, hunks and toolbar keys", async () => {
-  await key("v");
-  await key("j");
-  assert.equal($(".sum-headline").textContent, "findOrders skips deleted orders");
-  const code = ".unit-code .code";
+  await key('v');
+  await key('j');
+  assert.equal($('.sum-headline').textContent, 'findOrders skips deleted orders');
+  const code = '.unit-code .code';
   // hunks only: line 5 is far from the changes and the cited line
-  assert.deepEqual(rows(code), ["⋯", "R6", "−9", "R9", "10", "11", "12"]);
-  assert.deepEqual($$("#toggles .chip").map((c) => c.textContent), ["guard", "logging"], "the chips are the unit's folds");
-  await key("e");
-  assert.equal($$(code + " .region.open").length, 2);
-  await key("h");
-  assert.deepEqual(rows(code), ["5", "R6", "−9", "R9", "10", "11", "12"]);
-  await key("x");
-  assert.deepEqual(rows(code), ["5", "R6", "R9", "10", "11", "12"]);
+  assert.deepEqual(rows(code), ['⋯', 'R6', '−9', 'R9', '10', '11', '12']);
+  assert.deepEqual(
+    $$('#toggles .chip').map((c) => c.textContent),
+    ['guard', 'logging'],
+    "the chips are the unit's folds",
+  );
+  await key('e');
+  assert.equal($$(code + ' .region.open').length, 2);
+  await key('h');
+  assert.deepEqual(rows(code), ['5', 'R6', '−9', 'R9', '10', '11', '12']);
+  await key('x');
+  assert.deepEqual(rows(code), ['5', 'R6', 'R9', '10', '11', '12']);
 });
 
 pageTest("a concern sits under its line; dismissing it drops the note and the unit's flag", async () => {
-  await key("v");
-  await key("j");
+  await key('v');
+  await key('j');
   const line = $('.unit-code .row[data-line="10"]');
-  assert.ok(line.classList.contains("cited") && line.classList.contains("flagged") && line.classList.contains("k-bug"));
-  assert.ok(line.nextElementSibling!.classList.contains("inline-note"));
-  assert.ok($(".sum-item.active .sig-bug"));
+  assert.ok(line.classList.contains('cited') && line.classList.contains('flagged') && line.classList.contains('k-bug'));
+  assert.ok(line.nextElementSibling!.classList.contains('inline-note'));
+  assert.ok($('.sum-item.active .sig-bug'));
 
-  await click($(".concern .vbtn.v-dismissed"));
-  assert.equal($$(".inline-note").length, 0);
-  assert.ok($(".concern").classList.contains("dismissed"));
-  assert.equal($(".sum-head .legend").textContent, "0 flagged");
-  assert.equal($$(".sum-item.active .sig").length, 0);
-  assert.match(localStorage.getItem("lens.concernMarks")!, /dismissed/);
+  await click($('.concern .vbtn.v-dismissed'));
+  assert.equal($$('.inline-note').length, 0);
+  assert.ok($('.concern').classList.contains('dismissed'));
+  assert.equal($('.sum-head .legend').textContent, '0 flagged');
+  assert.equal($$('.sum-item.active .sig').length, 0);
+  assert.match(localStorage.getItem('lens.concernMarks')!, /dismissed/);
 });
 
-pageTest("a deleted unit is its removed lines; o opens a unit in the code view", async () => {
-  await key("v");
-  await key("j");
-  await key("j");
-  assert.equal($(".sum-item.active .name").textContent, "legacyTotal");
-  assert.deepEqual(rows(".unit-code .code"), ["−17", "−18", "−19", "−20"]);
-  await key("k");
-  await key("o");
-  assert.equal($("main").style.display, "", "back on the code view");
-  assert.ok($('#code .row[data-line="9"]').classList.contains("flash"), "at the unit's first changed line");
+pageTest('a deleted unit is its removed lines; o opens a unit in the code view', async () => {
+  await key('v');
+  await key('j');
+  await key('j');
+  assert.equal($('.sum-item.active .name').textContent, 'legacyTotal');
+  assert.deepEqual(rows('.unit-code .code'), ['−17', '−18', '−19', '−20']);
+  await key('k');
+  await key('o');
+  assert.equal($('main').style.display, '', 'back on the code view');
+  assert.ok($('#code .row[data-line="9"]').classList.contains('flash'), "at the unit's first changed line");
 });
 
 // ---- the Ask rail ----
 
-pageTest("Ask without an agent copies the question as a prompt", async (p) => {
-  await key("\\");
-  assert.equal($("#ask-rail").style.display, "");
-  assert.equal($("#ask-chips").textContent, "orders.ts");
-  assert.equal($("#ask-send").textContent, "Copy as prompt");
-  await type($("#ask-input"), "why the deleted column?");
-  await click($("#ask-send"));
-  const sent = p.requests.find((r) => r.path === "/api/ask/prompt")!;
-  assert.deepEqual(sent.body, { text: "why the deleted column?", file: "src/orders.ts", unitId: null, label: "orders.ts", selection: null });
+pageTest('Ask without an agent copies the question as a prompt', async (p) => {
+  await key('\\');
+  assert.equal($('#ask-rail').style.display, '');
+  assert.equal($('#ask-chips').textContent, 'orders.ts');
+  assert.equal($('#ask-send').textContent, 'Copy as prompt');
+  await type($('#ask-input'), 'why the deleted column?');
+  await click($('#ask-send'));
+  const sent = p.requests.find((r) => r.path === '/api/ask/prompt')!;
+  assert.deepEqual(sent.body, {
+    text: 'why the deleted column?',
+    file: 'src/orders.ts',
+    unitId: null,
+    label: 'orders.ts',
+    selection: null,
+  });
 });
 
-pageTest("Ask with an agent listening sends the question with the selected lines", async (p) => {
+pageTest('Ask with an agent listening sends the question with the selected lines', async (p) => {
   p.ask = { listening: true, questions: [] };
-  await key("\\");
+  await key('\\');
   const range = document.createRange();
   range.setStart($('#code .row[data-line="10"]'), 0);
   range.setEnd($('#code .row[data-line="11"]'), 1);
   document.getSelection()!.removeAllRanges();
   document.getSelection()!.addRange(range);
-  document.dispatchEvent(new Event("selectionchange"));
+  document.dispatchEvent(new Event('selectionchange'));
   await settle();
-  assert.equal($("#ask-chips").textContent, "orders.tssrc/orders.ts:10–11");
-  assert.ok($('#code .row[data-line="10"]').classList.contains("ask-sel"));
-  assert.equal($("#ask-send").textContent, "Ask");
-  await type($("#ask-input"), "what if userId is empty?");
-  await click($("#ask-send"));
-  const sent = p.requests.find((r) => r.method === "POST" && r.path === "/api/ask")!;
+  assert.equal($('#ask-chips').textContent, 'orders.tssrc/orders.ts:10–11');
+  assert.ok($('#code .row[data-line="10"]').classList.contains('ask-sel'));
+  assert.equal($('#ask-send').textContent, 'Ask');
+  await type($('#ask-input'), 'what if userId is empty?');
+  await click($('#ask-send'));
+  const sent = p.requests.find((r) => r.method === 'POST' && r.path === '/api/ask')!;
   const body = sent.body as { selection: { lines: { n: number }[] } };
-  assert.deepEqual(body.selection.lines.map((l) => l.n), [10, 11]);
-  assert.equal(($("#ask-input") as HTMLTextAreaElement).value, "", "the input clears once it's sent");
+  assert.deepEqual(
+    body.selection.lines.map((l) => l.n),
+    [10, 11],
+  );
+  assert.equal(($('#ask-input') as HTMLTextAreaElement).value, '', "the input clears once it's sent");
 });
 
-pageTest("⏻ end stops the server and leaves a note", async (p) => {
-  await click($("#end-session"));
-  assert.ok(p.requests.some((r) => r.method === "POST" && r.path === "/api/shutdown"));
+pageTest('⏻ end stops the server and leaves a note', async (p) => {
+  await click($('#end-session'));
+  assert.ok(p.requests.some((r) => r.method === 'POST' && r.path === '/api/shutdown'));
   // (screen binds to the document at import, before happy-dom is there)
-  assert.equal(within(document.body).getByText(/session ended/).className, "ended");
+  assert.equal(within(document.body).getByText(/session ended/).className, 'ended');
 });
-

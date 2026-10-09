@@ -15,7 +15,9 @@
     "install-cli": "npm link",
     "uninstall-cli": "npm unlink -g lens",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.viewer.json",
-    "test": "npm run typecheck && node --test test/*.test.ts",
+    "format": "prettier --write src/render/web/client test/viewer-page.test.ts test/viewer.test.ts test/fixtures/viewerRepo.ts",
+    "format:check": "prettier --check src/render/web/client test/viewer-page.test.ts test/viewer.test.ts test/fixtures/viewerRepo.ts",
+    "test": "npm run typecheck && npm run format:check && node --test test/*.test.ts",
     "install-skill": "node scripts/skills.ts install",
     "uninstall-skill": "node scripts/skills.ts uninstall"
   },
@@ -26,6 +28,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "happy-dom": "^20.14.6",
+    "prettier": "^3.9.9",
     "typescript": "^7.0.2"
   },
   "dependencies": {
