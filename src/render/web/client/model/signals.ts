@@ -37,6 +37,11 @@ export function openConcerns(marks: Marks, unit: Unit): Concern[] {
   return unit.summary.concerns.filter((concern) => concernMark(marks, unit, concern) !== 'dismissed');
 }
 
+/** Whether the reader dismissed any of the unit's concerns. */
+export function hasDismissed(marks: Marks, unit: Unit): boolean {
+  return !!unit.summary?.concerns.some((concern) => concernMark(marks, unit, concern) === 'dismissed');
+}
+
 /** The unit's signal ids, most serious first. */
 export function unitSignals(marks: Marks, unit: Unit): SignalId[] {
   const summary = unit.summary;

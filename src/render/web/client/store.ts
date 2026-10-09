@@ -14,7 +14,8 @@ import { INITIAL_DATA, readPref } from './shared.ts';
 export type View = 'code' | 'summary';
 export type ConcernMark = 'real' | 'dismissed';
 export type SignalId = 'bug' | 'risk' | 'question' | 'breaks' | 'look';
-export type SignalFilter = SignalId | 'any' | null;
+/** What the list's chips filter by: a signal, any of them, or the concerns the reader dismissed */
+export type SignalFilter = SignalId | 'any' | 'dismissed' | null;
 
 /** An open editor tab. At most one is unpinned: the "preview" tab, reused by the next single-click open. */
 export interface Tab {

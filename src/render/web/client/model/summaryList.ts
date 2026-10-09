@@ -2,9 +2,18 @@
 
 import type { Flow } from '../../../../summary/store.ts';
 import type { SummaryView } from '../../../../summary/view.ts';
-import type { LensState, SignalFilter, SignalId } from '../store.ts';
+import type { LensState, SignalFilter } from '../store.ts';
 import { isTestFile, memo } from '../shared.ts';
-import { flowPriority, isFlagged, type Marks, type Unit, unitById, unitLabel, unitSignals } from './signals.ts';
+import {
+  flowPriority,
+  hasDismissed,
+  isFlagged,
+  type Marks,
+  type Unit,
+  unitById,
+  unitLabel,
+  unitSignals,
+} from './signals.ts';
 
 export interface Section {
   flow: Flow;
@@ -51,7 +60,7 @@ export function groupUnits(
 export interface ListModel {
   /** The units hide tests leaves */
   units: Unit[];
-  counts: Record<SignalId | 'any', number>;
+  counts: Record<NonNullable<SignalFilter>, number>;
   /** The signal filter in effect: one whose last unit went away (dismissed) lifts */
   signal: SignalFilter;
   text: string;
@@ -79,11 +88,12 @@ const buildList = memo(
   ): ListModel => {
     const isShown = (unit: Unit) => !(hideTests && isTestFile(unit.displayFile));
     const units = summary.units.filter(isShown); // hide tests: the counts follow the list
-    const counts = { any: 0, bug: 0, risk: 0, question: 0, breaks: 0, look: 0 };
+    const counts = { any: 0, bug: 0, risk: 0, question: 0, breaks: 0, look: 0, dismissed: 0 };
     for (const unit of units) {
       const signals = unitSignals(marks, unit);
       if (signals.length > 0) counts.any++;
       for (const signal of signals) counts[signal]++;
+      if (hasDismissed(marks, unit)) counts.dismissed++;
     }
     const signal = sumSignal !== null && counts[sumSignal] === 0 ? null : sumSignal;
     const text = query.trim().toLowerCase();
@@ -92,7 +102,12 @@ const buildList = memo(
     const matches = (unit: Unit) => {
       if (!isShown(unit)) return false;
       const hasSignal =
-        signal === 'any' ? isFlagged(marks, unit) : signal === null || unitSignals(marks, unit).includes(signal);
+        signal === null ||
+        (signal === 'any'
+          ? isFlagged(marks, unit)
+          : signal === 'dismissed'
+            ? hasDismissed(marks, unit)
+            : unitSignals(marks, unit).includes(signal));
       if (!hasSignal && !isOpenUnit(unit)) return false;
       if (text === '') return true;
       const haystack = unitLabel(unit) + '\n' + unit.displayFile + '\n' + (unit.summary ? unit.summary.gist : '');

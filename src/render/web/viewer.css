@@ -463,7 +463,7 @@
   .sig-risk { --sig: var(--modified); }
   .sig-question { --sig: var(--sig-question); }
   .sig-breaks { --sig: var(--sig-breaks); }
-  .sig-look { --sig: var(--muted); }
+  .sig-look, .sig-dismissed { --sig: var(--muted); }
   .sig {
     color: var(--sig); font-size: 10.5px; font-weight: 800; line-height: 1;
     align-self: center; justify-self: center; cursor: help;

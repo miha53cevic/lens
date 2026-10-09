@@ -4,14 +4,14 @@ import { SIGNALS } from '../../../model/signals.ts';
 import { setSignalFilter } from '../../../actions/summary.ts';
 
 interface SignalChipsProps {
-  counts: Record<SignalId | 'any', number>;
+  counts: Record<NonNullable<SignalFilter>, number>;
   signal: SignalFilter;
 }
 
-/** One toggle per signal present in the diff, plus "all flagged". */
+/** One toggle per signal present in the diff, plus "all flagged", and "dismissed" once the reader dismissed a concern. */
 export function SignalChips({ counts, signal }: SignalChipsProps) {
-  if (counts.any === 0) return null;
-  const chip = (id: SignalId | 'any', icon: string, label: string) => (
+  if (counts.any === 0 && counts.dismissed === 0) return null;
+  const chip = (id: NonNullable<SignalFilter>, icon: string, label: string) => (
     <button
       key={id}
       className={clsx('sig-chip', id !== 'any' && 'sig-' + id)}
@@ -29,8 +29,9 @@ export function SignalChips({ counts, signal }: SignalChipsProps) {
 
   return (
     <div className='sig-chips'>
-      {chip('any', '', 'all flagged')}
+      {counts.any > 0 && chip('any', '', 'all flagged')}
       {present.map((id) => chip(id, SIGNALS[id].icon, SIGNALS[id].many))}
+      {counts.dismissed > 0 && chip('dismissed', '✕', 'dismissed')}
     </div>
   );
 }

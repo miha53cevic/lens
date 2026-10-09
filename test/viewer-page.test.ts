@@ -419,6 +419,25 @@ pageTest("a verdict doesn't move the list: the order stays, and a signal filter 
   assert.deepEqual(listed(), ['>findOrders', 'legacyTotal'], 'the open unit stays listed under it');
 });
 
+pageTest('a dismissed chip lists the changes whose concerns the reader dismissed', async () => {
+  await key('v');
+  await key('j');
+  assert.equal($$('.sig-chip[data-sig="dismissed"]').length, 0, 'nothing dismissed yet');
+  await click($('.concern .vbtn.v-dismissed'));
+  assert.equal($('.sig-chip[data-sig="dismissed"] .n').textContent, '1');
+  await click($('.sig-chip[data-sig="dismissed"]'));
+  assert.deepEqual(
+    $$('.sum-item .name').map((name) => name.textContent),
+    ['findOrders'],
+  );
+  await click($('.concern .vbtn.v-dismissed')); // restore: nothing is dismissed, the filter lifts
+  assert.equal($$('.sig-chip[data-sig="dismissed"]').length, 0);
+  assert.deepEqual(
+    $$('.sum-item .name').map((name) => name.textContent),
+    ['findOrders', 'legacyTotal'],
+  );
+});
+
 pageTest('hovering a When row tints the line it cites, until the pointer leaves the row or the tab', async () => {
   await key('v');
   await key('j');
