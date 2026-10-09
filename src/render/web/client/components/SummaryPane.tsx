@@ -1,6 +1,7 @@
 // The Summary tab's pane: "No summary yet", the overview, or one unit — its headline, concerns,
 // When / Before / Now, callers it may break, and its code (CodeRows, as in the Code view).
 
+import clsx from "clsx";
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { Concern, Flow } from "../../../../summary/store.ts";
 import type { SummaryView } from "../../../../summary/view.ts";
@@ -135,7 +136,7 @@ function Overview({ s, summary }: { s: LensState; summary: SummaryView }) {
 
 function Stat({ value, tone, children }: { value: number; tone: string; children: ReactNode }) {
   return (
-    <div className={"ov-stat" + (value > 0 && tone ? " " + tone : "")}>
+    <div className={clsx("ov-stat", value > 0 && tone)}>
       <div className="v">{value}</div><div className="l">{children}</div>
     </div>
   );
@@ -144,7 +145,7 @@ function Stat({ value, tone, children }: { value: number; tone: string; children
 // a stat whose number filters the list by a signal
 function FilterStat({ value, tone, sig, signal, children }: { value: number; tone: string; sig: "bug" | "any"; signal: SignalFilter; children: ReactNode }) {
   return (
-    <div className={"ov-stat" + (value > 0 && tone ? " " + tone : "")}>
+    <div className={clsx("ov-stat", value > 0 && tone)}>
       <button className="v ov-filter" data-sig={sig} aria-pressed={signal === sig} title="list only these" disabled={value === 0} onClick={() => setSignalFilter(sig)}>{value}</button>
       <div className="l">{children}</div>
     </div>
@@ -213,7 +214,7 @@ function LaneHead({ title, count, muted, mono, flow }: { title: string; count: s
   return (
     <div className="ov-lane-h">
       {flow && <Prio flow={flow} />}
-      <span className={"t" + (muted ? " muted" : "") + (mono ? " mono" : "")}>{title}</span>
+      <span className={clsx("t", muted && "muted", mono && "mono")}>{title}</span>
       {flow?.why && <span className="why">{flow.why}</span>}
       <span className="n">{count}</span>
     </div>
@@ -234,7 +235,7 @@ function Chip({ s, u }: { s: LensState; u: Unit }) {
   const top = unitSignals(s.concernMarks, u)[0];
   return (
     <button
-      className={"ov-chip st-" + u.status + (top ? " look sig-" + top : "") + (s.viewedUnits.has(unitViewKey(u)) ? " viewed" : "")}
+      className={clsx("ov-chip", "st-" + u.status, top && "look sig-" + top, s.viewedUnits.has(unitViewKey(u)) && "viewed")}
       data-id={u.id} title={u.summary ? u.summary.headline : u.id} onClick={() => openSummaryUnit(u.id)}
     >
       <span className="st-bar" /><span className="cn">{unitLabel(u)}</span>
@@ -264,7 +265,7 @@ function UnitPage({ s, u }: { s: LensState; u: Unit }) {
           {sum.concerns.map((c, i) => {
             const mark = concernMark(marks, u, c);
             return (
-              <div key={i} className={"concern k-" + c.kind + (mark ? " " + mark : "")}>
+              <div key={i} className={clsx("concern", "k-" + c.kind, mark)}>
                 <span className="ic">{SIGNALS[c.kind].icon}</span><span className="kind">{concernLabel(c, mark)}</span>
                 <Cite label={c.line} />
                 <Verdict u={u} c={c} i={i} mark={mark} />
@@ -306,7 +307,7 @@ function UnitPage({ s, u }: { s: LensState; u: Unit }) {
                     <button key={"c" + ci} className="caller" data-peek={peek} onClick={() => flip("p" + peek)}>{(peekOpen ? "▾ " : "▸ ") + c.file + ":" + c.line}</button>,
                     <div key={"p" + ci} className="peek" data-peek={peek} style={peekOpen ? undefined : { display: "none" }}>
                       {c.lines.map((l) => (
-                        <div key={l.n} className={"row" + (l.n === c.line ? " call" : "")}>
+                        <div key={l.n} className={clsx("row", l.n === c.line && "call")}>
                           <span className="num">{l.n}</span><span className="mark" /><span>{l.text || " "}</span>
                         </div>
                       ))}
@@ -345,7 +346,7 @@ function UnitCode({ s, u, hover }: { s: LensState; u: Unit; hover: string | null
     if (mark === "dismissed") return;
     add(c.line, "flagged k-" + c.kind);
     notes.set(c.line, [...(notes.get(c.line) ?? []), (
-      <div key={"note" + i} className={"inline-note k-" + c.kind + (mark ? " " + mark : "")}>
+      <div key={"note" + i} className={clsx("inline-note", "k-" + c.kind, mark)}>
         <div className="n-top"><b>{SIGNALS[c.kind].icon + " " + concernLabel(c, mark)}</b><Verdict u={u} c={c} i={i} mark={mark} /></div>
         <div className="n-text">{c.text}</div>
       </div>

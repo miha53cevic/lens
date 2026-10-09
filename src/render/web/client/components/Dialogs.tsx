@@ -1,5 +1,6 @@
 // The modals: current settings, keyboard shortcuts (the ? help), and search in files (⌘P).
 
+import clsx from "clsx";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { getState, update, type LensState } from "../store.ts";
 import { visibleFile } from "../model.ts";
@@ -248,7 +249,7 @@ function Results({ s, hits, sel, onJump }: { s: LensState; hits: Hit[]; sel: num
     const before = ((from > 0 ? "…" : "") + text.slice(from, hit.col)).replace(/^\s+/, "");
     const after = text.slice(hit.col + hit.len, hit.col + hit.len + 160);
     rows.push(
-      <div key={idx} className={"search-hit" + (idx === sel ? " selected" : "")} data-idx={idx} onClick={() => onJump(hit)}>
+      <div key={idx} className={clsx("search-hit", idx === sel && "selected")} data-idx={idx} onClick={() => onJump(hit)}>
         <span className="ln">{hit.line}</span>
         <span className="preview">{before}<span className="match">{text.substr(hit.col, hit.len)}</span>{after}</span>
       </div>,

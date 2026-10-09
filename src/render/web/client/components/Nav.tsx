@@ -1,5 +1,6 @@
 // The sidebar: the file tree (Code view) or the list of changes (Summary tab).
 
+import clsx from "clsx";
 import { forwardRef, useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
 import type { Flow } from "../../../../summary/store.ts";
 import { update, type LensState, type SignalFilter, type SignalId } from "../store.ts";
@@ -77,7 +78,7 @@ function treeRows(s: LensState, node: TreeDir, path: string, depth: number, filt
     const closed = filter === "" && s.closedDirs.has(dirPath);
     out.push(
       <div key={"d:" + dirPath} className="dir" style={{ paddingLeft: indent + "px" }} title={dirPath} onClick={() => toggleDir(dirPath)}>
-        <span className={"caret" + (closed ? "" : " open")}>▸</span>{dir.name}
+        <span className={clsx("caret", !closed && "open")}>▸</span>{dir.name}
       </div>,
     );
     if (!closed) treeRows(s, dir, dirPath, depth + 1, filter, out);
@@ -89,7 +90,7 @@ function treeRows(s: LensState, node: TreeDir, path: string, depth: number, filt
     out.push(
       <button
         key={"f:" + entry.path + ":" + entry.status}
-        className={"file" + (entry.status ? " " + entry.status : "") + (index !== null && index === s.active ? " active" : "") + (isViewed ? " viewed" : "")}
+        className={clsx("file", entry.status, index !== null && index === s.active && "active", isViewed && "viewed")}
         style={{ paddingLeft: (indent + 13) + "px" }}
         title={entry.status === "renamed"
           ? entry.renamedFrom + " → " + entry.path + " — " + STATUS_TITLE.renamed
@@ -139,8 +140,8 @@ function SummaryList({ s }: { s: LensState }) {
   const item = (u: Unit, side: string | undefined) => {
     const sum = u.summary;
     const isViewed = s.viewedUnits.has(unitViewKey(u));
-    const cls = "sum-item" + (!s.summaryOverview && u.id === list.activeId ? " active" : "") +
-      (!sum ? " pending" : isFlagged(marks, u) ? "" : " routine") + (isViewed ? " viewed" : "") + " st-" + u.status;
+    const cls = clsx("sum-item", !s.summaryOverview && u.id === list.activeId && "active",
+      !sum ? "pending" : !isFlagged(marks, u) && "routine", isViewed && "viewed", "st-" + u.status);
     return (
       <button key={u.id} className={cls} data-id={u.id} title={u.id + " — " + u.status} onClick={() => openSummaryUnit(u.id)}>
         <ViewedBox on={isViewed} onToggle={() => toggleUnitViewed(u)} />
@@ -160,14 +161,14 @@ function SummaryList({ s }: { s: LensState }) {
         <span className="title">{title}</span>
         <span className="legend">{list.summarized === 0 ? "not summarized yet" : list.counts.any + " flagged"}</span>
       </div>
-      <button className={"sum-overview-item" + (s.summaryOverview ? " active" : "")} title="the whole diff at a glance (g)" onClick={showOverview}>
+      <button className={clsx("sum-overview-item", s.summaryOverview && "active")} title="the whole diff at a glance (g)" onClick={showOverview}>
         <span className="ico" />Overview<span className="key">g</span>
       </button>
       <SignalChips counts={list.counts} signal={list.signal} />
       {list.sections.map(({ flow, members }) => {
         const isFolded = list.folded.has(flow.title);
         return (
-          <div key={"flow:" + flow.title} className={"sum-section" + (isFolded ? " folded" : "")}>
+          <div key={"flow:" + flow.title} className={clsx("sum-section", isFolded && "folded")}>
             <button className="sum-section-title flow" data-flow={flow.title} aria-expanded={!isFolded} onClick={() => toggleFlow(flow.title, isFolded)}>
               <span className="caret">{isFolded ? "▸" : "▾"}</span><Prio flow={flow} />
               <span className="t">{flow.title}</span>
@@ -193,7 +194,7 @@ function SummaryList({ s }: { s: LensState }) {
 function SignalChips({ counts, signal }: { counts: Record<SignalId | "any", number>; signal: SignalFilter }) {
   if (counts.any === 0) return null;
   const chip = (id: SignalId | "any", icon: string, label: string) => (
-    <button key={id} className={"sig-chip" + (id === "any" ? "" : " sig-" + id)} data-sig={id} aria-pressed={signal === id}
+    <button key={id} className={clsx("sig-chip", id !== "any" && "sig-" + id)} data-sig={id} aria-pressed={signal === id}
       title="list only these (click again for all)" onClick={() => setSignalFilter(id)}>
       <span className="si">{icon}</span>{label}<span className="n">{counts[id]}</span>
     </button>

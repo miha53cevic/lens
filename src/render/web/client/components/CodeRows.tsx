@@ -1,5 +1,6 @@
 // The rows of a code plan (rows.ts) — the Code view's file and a summary unit's code alike.
 
+import clsx from "clsx";
 import { memo, type CSSProperties, type ReactNode } from "react";
 import type { FoldRegion } from "../../../../model.ts";
 import type { CodeItem } from "../rows.ts";
@@ -60,17 +61,13 @@ function withNotes(label: string, marks: RowMarks | undefined, row: ReactNode): 
   return [row, ...(marks?.notes?.get(label) ?? [])];
 }
 
-function cls(...parts: (string | false | null | undefined)[]): string {
-  return parts.filter(Boolean).join(" ");
-}
-
 // Rows re-render only when their own props change: a fold level or a selection change
 // touches a few rows, not the whole file.
 const Line = memo(function Line({ line, html, changed, gutter, extra }: { line: number; html: string; changed: boolean; gutter: number; extra?: string }) {
   return (
-    <div className={cls("row", extra)} data-line={line}>
+    <div className={clsx("row", extra)} data-line={line}>
       <span className="num">{String(line).padStart(gutter)}</span>
-      <span className={cls("mark", changed && "changed")} />
+      <span className={clsx("mark", changed && "changed")} />
       <span dangerouslySetInnerHTML={{ __html: html || " " }} />
     </div>
   );
@@ -79,7 +76,7 @@ const Line = memo(function Line({ line, html, changed, gutter, extra }: { line: 
 const Removed = memo(function Removed({ text, old, gutter, extra }: { text: string; old: number; gutter: number; extra?: string }) {
   return (
     // its old-side line: cites and the Ask rail point at it
-    <div className={cls("row removed", extra)} data-old={old}>
+    <div className={clsx("row removed", extra)} data-old={old}>
       <span className="num">{"−".padStart(gutter)}</span>
       <span className="mark" />
       <span>{text || " "}</span>
@@ -118,14 +115,14 @@ function Region({ region, body, ctx }: { region: FoldRegion; body: CodeItem[]; c
     (it.kind === "line" && marks.notes!.has("N" + it.line)) || (it.kind === "removed" && marks.notes!.has("O" + it.old)));
   return (
     <div
-      className={cls("region", isRegionOpen(s, path, region) && "open", region.score > s.threshold && "pinned", hasNote && "has-note")}
+      className={clsx("region", isRegionOpen(s, path, region) && "open", region.score > s.threshold && "pinned", hasNote && "has-note")}
       data-cat={region.category}
       data-score={region.score}
     >
       <div className="row pill-row" onClick={() => toggleRegion(path, region)}>
         <span className="num">{String(region.startLine).padStart(gutter)}</span>
         {/* the changed-lines gutter bar shows on the pill too, so collapsed changes stay scannable in the margin */}
-        <span className={cls("mark", touchesChange && "changed")} />
+        <span className={clsx("mark", touchesChange && "changed")} />
         <span className="pill" style={{ "--cat": catColor(region.category) } as CSSProperties}>
           <span className="caret">▸</span><span className="cat">{region.category}</span>{region.summary}
         </span>

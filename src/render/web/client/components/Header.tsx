@@ -1,5 +1,6 @@
 // The header: the top bar (view switch, stats, session buttons) and the toolbar (folds, toggles).
 
+import clsx from "clsx";
 import type { CSSProperties } from "react";
 import type { LensState } from "../store.ts";
 import { update } from "../store.ts";
@@ -146,7 +147,7 @@ function ThresholdTip({ s }: { s: LensState }) {
     <span className="tip" id="threshold-tip">
       <div className="tip-title">what folds at each level</div>
       {rows.map((r) => (
-        <div key={r.level} className={"tip-row" + (r.level === s.threshold ? " current" : "")}>
+        <div key={r.level} className={clsx("tip-row", r.level === s.threshold && "current")}>
           <span className="lvl">{r.label}</span><span>{r.text}</span>
         </div>
       ))}

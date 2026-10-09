@@ -1,5 +1,6 @@
 // The Ask rail: the chat with the reader's agent about the open change.
 
+import clsx from "clsx";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { LensState } from "../store.ts";
 import { askContext, askSelection } from "../model.ts";
@@ -27,7 +28,7 @@ export function AskRail({ s }: { s: LensState }) {
       <div className="ask-head">
         <span className="ask-title">Ask</span>
         <span className="spacer" />
-        <span className="ask-status" id="ask-status"><span className={"ask-dot" + (listening ? " on" : "")} />{listening ? "agent listening" : "no agent"}</span>
+        <span className="ask-status" id="ask-status"><span className={clsx("ask-dot", listening && "on")} />{listening ? "agent listening" : "no agent"}</span>
         <button id="ask-close" className="icon" title="hide the Ask rail (\)" onClick={() => askSetOpen(false)}>✕</button>
       </div>
       <Thread s={s} />
@@ -61,7 +62,7 @@ function Thread({ s }: { s: LensState }) {
         </div>
       ) : qs.map((q) => {
         const nodes = [
-          <div key={q.id + "q"} className={"ask-q" + (q.stale ? " stale" : "")}>
+          <div key={q.id + "q"} className={clsx("ask-q", q.stale && "stale")}>
             <div className="ask-chips">
               <button className="ask-chip unit ask-goto" title="open this change" onClick={() => askGoto(q)}>{q.label}</button>
               {q.selection && <span className="ask-chip">{askSelLabel(q.selection)}</span>}
@@ -72,7 +73,7 @@ function Thread({ s }: { s: LensState }) {
         if (q.answer) {
           const secs = Math.max(1, Math.round((q.answer.at - q.askedAt) / 1000));
           const html = '<div class="ask-who">agent · ' + secs + "s</div>" + askMarkdown(q.answer.markdown, q.stale ? [] : q.answer.cites, s.data.files);
-          nodes.push(<div key={q.id + "a"} className={"ask-a" + (q.stale ? " stale" : "")} dangerouslySetInnerHTML={{ __html: html }} />);
+          nodes.push(<div key={q.id + "a"} className={clsx("ask-a", q.stale && "stale")} dangerouslySetInnerHTML={{ __html: html }} />);
         } else {
           // "waiting for agent · 6s", ticking with the poll
           const secs = Math.round((Date.now() - q.askedAt) / 1000);
@@ -135,7 +136,7 @@ function Composer({ s }: { s: LensState }) {
         }}
       />
       <div className="ask-row">
-        <span className={"ask-hint" + (s.ask.error ? " error" : "")} id="ask-hint">{s.ask.error || "↵ ask · ⇧↵ newline · Esc back to the code"}</span>
+        <span className={clsx("ask-hint", s.ask.error && "error")} id="ask-hint">{s.ask.error || "↵ ask · ⇧↵ newline · Esc back to the code"}</span>
         <span className="spacer" />
         <button id="ask-send" disabled={disabled} onClick={send}>{copied ? "Copied ✓" : listening(s) ? "Ask" : "Copy as prompt"}</button>
       </div>

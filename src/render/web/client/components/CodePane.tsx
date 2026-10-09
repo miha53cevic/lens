@@ -1,5 +1,6 @@
 // The Code view: the editor tabs and the open file's code.
 
+import clsx from "clsx";
 import { useLayoutEffect, useMemo, useRef, type MouseEvent } from "react";
 import type { LensState } from "../store.ts";
 import { activeFile, filePlan } from "../model.ts";
@@ -25,7 +26,7 @@ export function Tabs({ s }: { s: LensState }) {
         return (
           <div
             key={t.index}
-            className={"tab" + (t.index === s.active ? " active" : "") + (t.pinned ? "" : " preview")}
+            className={clsx("tab", t.index === s.active && "active", !t.pinned && "preview")}
             title={path + (t.pinned ? "" : " — preview tab: reused by the next open, double-click to keep")}
             onClick={() => openFile(t.index)}
             onDoubleClick={() => pinTab(t.index)}
