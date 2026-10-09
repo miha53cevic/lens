@@ -306,6 +306,19 @@ pageTest(
   { 'lens.navCollapsed': '1' },
 );
 
+pageTest('? opens the shortcuts in tabs: Global, Code and Summary', async () => {
+  await key('?');
+  assert.ok(($('#keys-modal') as HTMLDialogElement).open);
+  const tabs = () =>
+    $$('.key-tab').map((tab) => tab.textContent + (tab.getAttribute('aria-selected') === 'true' ? '*' : ''));
+  const keys = () => $$('#keys-modal tr td:first-child').map((cell) => cell.textContent);
+  assert.deepEqual(tabs(), ['Global*', 'Code', 'Summary']);
+  assert.ok(keys().includes('⌘P / Ctrl P'));
+  await click($('.key-tab[data-tab="summary"]'));
+  assert.deepEqual(tabs(), ['Global', 'Code', 'Summary*']);
+  assert.deepEqual(keys(), ['g', 'j / k', 'o', 'm', '/']);
+});
+
 pageTest('search finds matches; Enter jumps to one, even in a hidden stretch', async () => {
   await key('p', { ctrlKey: true });
   assert.ok(($('#search-modal') as HTMLDialogElement).open);

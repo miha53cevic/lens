@@ -6,25 +6,50 @@ export interface KeyHelp {
   note?: string;
 }
 
-export const KEYS: KeyHelp[] = [
-  { keys: ['j', 'k'], action: 'next / previous file' },
-  { keys: ['w'], action: 'close the active tab' },
-  { keys: ['o'], action: 'keep the preview tab open (pin it)' },
-  { keys: ['m'], action: 'mark the file / change as viewed' },
-  { keys: ['⌘P', 'Ctrl P'], action: 'search in files' },
-  { keys: ['⌥ click'], action: 'find usages of the clicked identifier' },
-  { keys: ['/'], action: 'focus the file filter' },
-  { keys: ['s'], action: 'toggle the file tree' },
-  { keys: ['e', 'c'], action: 'expand / collapse all folds' },
-  { keys: ['[', ']'], action: 'fold threshold down / up' },
-  { keys: ['h'], action: 'toggle hunks only', note: '(diff mode)' },
-  { keys: ['x'], action: 'toggle removed lines', note: '(diff mode)' },
-  { keys: ['t'], action: 'toggle hide tests' },
-  { keys: ['r'], action: 'refresh the analysis' },
-  { keys: ['v'], action: 'switch Code / Summary', note: '(diff mode)' },
-  { keys: ['a'], action: 'ask your agent about the open change (and your selection)' },
-  { keys: ['\\'], action: 'show / hide the Ask rail' },
-];
+export type KeyTab = 'global' | 'code' | 'summary';
 
-/** The keys that also act on the Summary tab's open change, as the help lists them. */
-export const SUMMARY_TOOLBAR_KEYS = ['e', 'c', '[', ']', 'h', 'x', 't'];
+/** The ? help's tabs: keys that work the same in both views, then each view's own. */
+export const KEY_TABS: { id: KeyTab; label: string; keys: KeyHelp[] }[] = [
+  {
+    id: 'global',
+    label: 'Global',
+    keys: [
+      { keys: ['⌘P', 'Ctrl P'], action: 'search in files' },
+      { keys: ['v'], action: 'switch Code / Summary', note: '(diff mode)' },
+      { keys: ['s'], action: 'toggle the sidebar' },
+      { keys: ['e', 'c'], action: 'expand / collapse all folds of the open file or change' },
+      { keys: ['[', ']'], action: 'fold threshold down / up' },
+      { keys: ['h'], action: 'toggle hunks only', note: '(diff mode)' },
+      { keys: ['x'], action: 'toggle removed lines', note: '(diff mode)' },
+      { keys: ['t'], action: 'toggle hide tests' },
+      { keys: ['r'], action: 'refresh the analysis' },
+      { keys: ['a'], action: 'ask your agent about the open change (and your selection)' },
+      { keys: ['\\'], action: 'show / hide the Ask rail' },
+      { keys: ['?'], action: 'this help' },
+      { keys: ['Esc'], action: 'close dialogs · clear the filter · leave the Ask input' },
+    ],
+  },
+  {
+    id: 'code',
+    label: 'Code',
+    keys: [
+      { keys: ['j', 'k'], action: 'next / previous file' },
+      { keys: ['w'], action: 'close the active tab' },
+      { keys: ['o'], action: 'keep the preview tab open (pin it)' },
+      { keys: ['m'], action: 'mark the file as viewed' },
+      { keys: ['/'], action: 'focus the file filter' },
+      { keys: ['⌥ click'], action: 'find usages of the clicked identifier' },
+    ],
+  },
+  {
+    id: 'summary',
+    label: 'Summary',
+    keys: [
+      { keys: ['g'], action: 'the overview' },
+      { keys: ['j', 'k'], action: 'next / previous change' },
+      { keys: ['o'], action: 'open the change in the code view' },
+      { keys: ['m'], action: 'mark the change as viewed' },
+      { keys: ['/'], action: 'filter the changes' },
+    ],
+  },
+];

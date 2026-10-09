@@ -100,7 +100,7 @@ The Summary tab shows the same code snippets as the Code view, with the agent's 
 - Both views get their rows from `client/rows.ts`: `fileSpans` / `unitSpans` pick the shown lines and hidden stretches, and `planCode` turns them into lines, folds, removed lines and gaps. Both views render the plan with `CodeRows`, and each passes in its own row marks (cited lines, concern notes, the Ask selection). Change how code is shown there, and both views follow. `rows.ts` has no DOM, so `test/viewer.test.ts` tests it in node.
 - A new control should change state both views read (e.g. `openCats` for the fold chips) or get a Summary branch (e.g. `unitSpans` for hunks only, `listModel` for hide tests).
 - Share constants between the views instead of duplicating them (e.g. `HUNK_CONTEXT` in `client/rows.ts`).
-- New keys go in `client/keys.ts` (and its `SUMMARY_KEYS` when they act on a unit), and in the `?` help (`KEYS` in `components/KeysDialog/const.ts`).
+- New keys go in `client/keys.ts` (and its `SUMMARY_KEYS` when they act on a unit), and in the `?` help: the Global, Code or Summary tab of `KEY_TABS` (`components/KeysDialog/const.ts`).
 
 ## Summary mode (`src/summary/`)
 

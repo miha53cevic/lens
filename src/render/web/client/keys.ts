@@ -1,4 +1,4 @@
-// lens viewer: keyboard shortcuts (listed in the ? help, components/KeysDialog/const.ts).
+// lens viewer: keyboard shortcuts (listed in the ? help, KEY_TABS in components/KeysDialog/const.ts).
 
 import { getState } from './store.ts';
 import { activeFile } from './model/plans.ts';
