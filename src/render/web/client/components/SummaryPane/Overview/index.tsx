@@ -9,18 +9,14 @@ import { flowLanes, mapLanes } from './Lanes.tsx';
 import { AgentOverview } from './AgentOverview.tsx';
 
 export function Overview() {
-  const { summary, list, marks } = useLens((state) => ({
-    summary: state.data.summary!,
-    list: listModel(state)!,
-    marks: state.concernMarks,
-  }));
+  const { summary, list } = useLens((state) => ({ summary: state.data.summary!, list: listModel(state)! }));
   const [tab, setTab] = useState(() => (readPref('lens.overviewTab') === 'map' ? 'map' : 'flows'));
   const setOverviewTab = (next: 'flows' | 'map') => {
     writePref('lens.overviewTab', next);
     setTab(next);
   };
   const units = list.units; // hide tests: the stats follow the lanes
-  const { sections, others } = groupUnits(summary, marks, (unit) => units.includes(unit));
+  const { sections, others } = groupUnits(summary, (unit) => units.includes(unit));
   // the lower half flips between the flows and the map
   const lower = tab === 'map' ? mapLanes({ units }) : flowLanes({ sections, others });
 

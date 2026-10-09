@@ -101,7 +101,8 @@ The list on the left is organized by **flows**: one story each (a feature end to
 a fix and the places it touches), ranked by the agent from P1 (review first) to P3
 (mechanical, folded until you open it). A unit is **flagged** only for a reason on
 record, each with its own mark: ⚠ possible bug, ! risk, ? question, ↗ may break callers
-(dismissed concerns don't count). Chips at the top of the list filter by them.
+(dismissed concerns don't count). Chips at the top of the list filter by them. Your
+verdicts don't reorder the list, and the change you're on stays listed under a filter.
 It opens on an **Overview** (<kbd>g</kbd>): counts (click *possible bugs* or *flagged*
 to list just those), the agent's account of the whole diff, and each flow laid out by layer — or,
 flipped to the **Map** tab, every change where it lives: a card per folder, a column

@@ -12,16 +12,19 @@ export interface Section {
   members: Unit[];
 }
 
-// List order: flows by priority (then by how many of their units are flagged),
-// then the units in no flow: flagged, routine, not yet summarized / stale.
+/** No verdicts: what the agent flagged */
+const AGENT_FLAGS: Marks = new Map();
+
+// List order: flows by priority (then by how many of their units the agent flagged),
+// then the units in no flow: flagged, routine, not yet summarized / stale. The reader's
+// verdicts don't reorder it: a dismiss mustn't move the list under the reader.
 // A unit in several flows is listed under each.
 export function groupUnits(
   summary: SummaryView,
-  marks: Marks,
   shown: (unit: Unit) => boolean,
 ): { sections: Section[]; others: Unit[] } {
-  const rank = (unit: Unit) => (!unit.summary ? 3 : isFlagged(marks, unit) ? 0 : 1);
-  const flaggedCount = (members: Unit[]) => members.filter((unit) => isFlagged(marks, unit)).length;
+  const rank = (unit: Unit) => (!unit.summary ? 3 : isFlagged(AGENT_FLAGS, unit) ? 0 : 1);
+  const flaggedCount = (members: Unit[]) => members.filter((unit) => isFlagged(AGENT_FLAGS, unit)).length;
   const inFlow = new Set<string>();
   const sections = summary.flows
     .map((flow, order) => {
@@ -84,16 +87,18 @@ const buildList = memo(
     }
     const signal = sumSignal !== null && counts[sumSignal] === 0 ? null : sumSignal;
     const text = query.trim().toLowerCase();
+    // the open unit stays listed under a signal filter: dismissing its concern mustn't take it away
+    const isOpenUnit = (unit: Unit) => !overview && unit.id === summaryActive;
     const matches = (unit: Unit) => {
       if (!isShown(unit)) return false;
-      if (signal === 'any' ? !isFlagged(marks, unit) : signal !== null && !unitSignals(marks, unit).includes(signal)) {
-        return false;
-      }
+      const hasSignal =
+        signal === 'any' ? isFlagged(marks, unit) : signal === null || unitSignals(marks, unit).includes(signal);
+      if (!hasSignal && !isOpenUnit(unit)) return false;
       if (text === '') return true;
       const haystack = unitLabel(unit) + '\n' + unit.displayFile + '\n' + (unit.summary ? unit.summary.gist : '');
       return haystack.toLowerCase().includes(text);
     };
-    const { sections, others } = groupUnits(summary, marks, matches);
+    const { sections, others } = groupUnits(summary, matches);
     // P3 flows start folded; a click on the flow's title flips it. A filter, or the open unit sitting inside, unfolds it.
     const isFolded = (section: Section) => {
       if (text !== '' || signal !== null) return false;

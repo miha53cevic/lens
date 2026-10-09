@@ -48,7 +48,7 @@ before(async () => {
         needsLook: false,
         changes: [],
         breaks: [],
-        concerns: [],
+        concerns: [{ kind: 'question', text: 'did anything still call it?', line: 'O17' }],
       },
     },
   };
@@ -356,7 +356,7 @@ pageTest(
       ['findOrders', 'legacyTotal'],
       "the test file's unit hides with the tests",
     );
-    assert.equal($('.sum-head .legend').textContent, '1 flagged');
+    assert.equal($('.sum-head .legend').textContent, '2 flagged');
     assert.ok($('.sum-overview-item').classList.contains('active'));
     assert.ok($$('.ov-stat').some((stat) => stat.textContent!.startsWith('1possible bug')));
   },
@@ -395,9 +395,28 @@ pageTest("a concern sits under its line; dismissing it drops the note and the un
   await click($('.concern .vbtn.v-dismissed'));
   assert.equal($$('.inline-note').length, 0);
   assert.ok($('.concern').classList.contains('dismissed'));
-  assert.equal($('.sum-head .legend').textContent, '0 flagged');
+  assert.equal($('.sum-head .legend').textContent, '1 flagged');
   assert.equal($$('.sum-item.active .sig').length, 0);
   assert.match(localStorage.getItem('lens.concernMarks')!, /dismissed/);
+});
+
+pageTest("a verdict doesn't move the list: the order stays, and a signal filter keeps the open unit", async () => {
+  // the list's names, the open unit marked ">"
+  const listed = () =>
+    $$('.sum-item').map(
+      (item) => (item.classList.contains('active') ? '>' : '') + item.querySelector('.name')!.textContent,
+    );
+  await key('v');
+  await key('j');
+  assert.deepEqual(listed(), ['>findOrders', 'legacyTotal']);
+  await click($('.concern .vbtn.v-dismissed'));
+  assert.deepEqual(listed(), ['>findOrders', 'legacyTotal'], 'no longer flagged, but it keeps its place');
+
+  await click($('.concern .vbtn.v-dismissed')); // restore
+  await click($('.sig-chip[data-sig="any"]'));
+  await click($('.concern .vbtn.v-dismissed'));
+  assert.equal($('.sig-chip[data-sig="any"]').getAttribute('aria-pressed'), 'true', 'legacyTotal keeps the filter on');
+  assert.deepEqual(listed(), ['>findOrders', 'legacyTotal'], 'the open unit stays listed under it');
 });
 
 pageTest('hovering a When row tints the line it cites, until the pointer leaves the row or the tab', async () => {
