@@ -18,7 +18,6 @@ export function SignalChips({ counts, signal }: SignalChipsProps) {
       className={clsx('sig-chip', id !== 'any' && 'sig-' + id)}
       data-sig={id}
       aria-pressed={signal === id}
-      title='list only these (click again for all)'
       onClick={() => setSignalFilter(id)}
     >
       {id !== 'any' && (

@@ -12,7 +12,7 @@ export function ViewedBox({ checked, onToggle }: ViewedBoxProps) {
       className='viewed-box'
       role='checkbox'
       aria-checked={checked}
-      title='mark viewed'
+      aria-label='viewed'
       onClick={(event) => {
         event.stopPropagation();
         onToggle();

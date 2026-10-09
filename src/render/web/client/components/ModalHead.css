@@ -8,14 +8,19 @@ dialog {
   background: var(--raised);
   box-shadow: 0 30px 70px -20px var(--shadow);
   color: var(--text);
+  /* the title row stays; only the body scrolls */
+  overflow: hidden;
+}
+dialog[open] {
+  display: flex;
+  flex-direction: column;
 }
 dialog::backdrop {
   background: #00000066;
 }
 .modal-head {
-  position: sticky;
-  top: 0;
   display: flex;
+  flex: none;
   align-items: center;
   gap: var(--space-3);
   padding: 6px 6px 6px var(--space-4);
@@ -25,10 +30,9 @@ dialog::backdrop {
 .modal-title {
   font: 700 var(--text-lg) var(--font-serif);
 }
-.modal-head .icon-btn[data-tip]::after {
-  right: 0;
-}
 .modal-body {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: var(--space-4) var(--space-4) var(--space-5);
   font-size: 12.5px;

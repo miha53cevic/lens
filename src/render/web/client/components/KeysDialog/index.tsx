@@ -1,6 +1,7 @@
 import { Fragment, useState } from 'react';
 import { useLens } from '../../store.ts';
 import { ModalHead } from '../ModalHead.tsx';
+import { Kbd } from '../../ui/Kbd.tsx';
 import { KEY_TABS, type KeyTab } from './const.ts';
 import './style.css';
 
@@ -37,7 +38,7 @@ export function KeysDialog() {
                   {help.keys.map((key, keyIndex) => (
                     <Fragment key={key}>
                       {keyIndex > 0 && ' / '}
-                      <kbd>{key}</kbd>
+                      <Kbd combo={key} />
                     </Fragment>
                   ))}
                 </td>

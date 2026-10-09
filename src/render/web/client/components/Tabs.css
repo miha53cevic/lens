@@ -27,8 +27,8 @@
   color: var(--text);
 }
 .tab.active {
-  border-color: var(--line);
-  background: var(--surface);
+  border-color: var(--selected-ring);
+  background: var(--selected-bg);
   color: var(--text);
 }
 .tab.preview .tab-name {

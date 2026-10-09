@@ -6,10 +6,9 @@ import { useState } from 'react';
 import { useLens } from '../../../store.ts';
 import { type Unit, unitLabel } from '../../../model/signals.ts';
 import { openUnitInCode } from '../../../actions/summary.ts';
-import { fileStatus, StatusBadge } from '../../../ui/FileStatus.tsx';
+import { fileStatus } from '../../../ui/FileStatus.tsx';
 import { Button } from '../../../ui/Button.tsx';
-import { CodeCard } from '../../CodeCard.tsx';
-import { FoldChips } from '../../FoldChips.tsx';
+import { CodeCard, removedCount } from '../../CodeCard.tsx';
 import { Concerns } from './Concerns.tsx';
 import { Changes } from './Changes.tsx';
 import { Breaks } from './Breaks.tsx';
@@ -24,13 +23,12 @@ export function UnitPage({ unit }: { unit: Unit }) {
     inCodeView: state.data.files.some((file) => file.file === unit.displayFile) && unit.ranges.length > 0,
   }));
   const summary = unit.summary;
-  const status = fileStatus(unit.status);
 
   return (
     <div className='sum-inner'>
       <div className='kicker'>
         <code title={unit.id}>{unit.displayFile}</code>
-        <span>{unit.status + (unit.formattingOnly ? ' · formatting only' : '')}</span>
+        {unit.formattingOnly && <span>formatting only</span>}
       </div>
       {summary ? (
         <h1 className='sum-headline'>{summary.headline}</h1>
@@ -52,28 +50,18 @@ export function UnitPage({ unit }: { unit: Unit }) {
       {summary && summary.changes.length > 0 && <Changes changes={summary.changes} onHover={setHoveredCite} />}
       {summary && summary.breaks.length > 0 && <Breaks breaks={summary.breaks} />}
       <CodeCard
-        status={status}
+        status={fileStatus(unit.status)}
+        path={unit.displayFile}
+        scope={unitLabel(unit)}
+        added={unit.changedLines.length}
+        removed={removedCount(unit.removals)}
         className='unit-card'
-        head={
-          <>
-            <StatusBadge status={status} />
-            <span className='code-path'>
-              <b>{unitLabel(unit)}</b>
-            </span>
-            <span className='spacer' />
-            <FoldChips />
-            {inCodeView && (
-              <Button
-                variant='ghost'
-                size='sm'
-                id='open-in-code'
-                title='open in the code view (o)'
-                onClick={() => openUnitInCode(unit)}
-              >
-                Open in Code <ArrowUpRight size={12} />
-              </Button>
-            )}
-          </>
+        action={
+          inCodeView && (
+            <Button variant='ghost' size='sm' id='open-in-code' onClick={() => openUnitInCode(unit)}>
+              Open in Code <ArrowUpRight size={12} />
+            </Button>
+          )
         }
       >
         <UnitCode unit={unit} hoveredCite={hoveredCite} />

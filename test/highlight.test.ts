@@ -5,6 +5,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { highlightSource, isBundledTheme, SUGGESTED_THEMES, themeAccent } from "../src/render/highlight.ts";
 import { DEFAULT_CONFIG } from "../src/config.ts";
+import { highlightFiles } from "../src/render/web/server.ts";
 
 const DEFAULT_THEME = DEFAULT_CONFIG.theme;
 
@@ -46,6 +47,12 @@ test("the viewer's accent is the theme's function-name color, matched as TextMat
   assert.equal(await themeAccent("github-light"), "#6f42c1", "entity.name covers entity.name.function");
   assert.equal(await themeAccent("min-light"), "#6f42c1", "no function rule: support.function");
   await assert.rejects(() => themeAccent("not-a-theme"), /unknown theme/);
+});
+
+test("with no files to highlight, the page still takes the theme's own colors", async () => {
+  const light = await highlightFiles([], "github-light");
+  assert.equal(light.bg.toLowerCase(), "#fff");
+  assert.equal(light.fg.toLowerCase(), "#24292e");
 });
 
 test("non-classified languages: shiki colors when known, plain when not", async () => {

@@ -12,17 +12,12 @@ export function ViewSwitch() {
 
   return (
     <div className='view-switch' id='view-switch' role='group' aria-label='view'>
-      <button id='view-code' aria-pressed={!summaryView} title='the diff, folded (v)' onClick={() => setView('code')}>
+      <button id='view-code' aria-pressed={!summaryView} onClick={() => setView('code')}>
         Code
       </button>
-      <button
-        id='view-summary'
-        aria-pressed={summaryView}
-        title='one change at a time, summarized by your agent (v)'
-        onClick={() => setView('summary')}
-      >
+      <button id='view-summary' aria-pressed={summaryView} onClick={() => setView('summary')}>
         Summary
-        {summaryDot && <span className='new-dot' id='summary-dot' title='a new summary is available' />}
+        {summaryDot && <span className='new-dot' id='summary-dot' />}
       </button>
     </div>
   );

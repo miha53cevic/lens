@@ -4,7 +4,7 @@ import './Resizer.css';
 
 interface ResizerProps {
   id: string;
-  title: string;
+  label: string;
   /** The id of the panel the drag resizes */
   panelId: string;
   hidden: boolean;
@@ -15,7 +15,7 @@ interface ResizerProps {
 }
 
 /** A drag handle between panels. The width is set on the panel as the pointer moves (no re-render per move). */
-export function Resizer({ id, title, panelId, hidden, widthAt, onResized }: ResizerProps) {
+export function Resizer({ id, label, panelId, hidden, widthAt, onResized }: ResizerProps) {
   const startDrag = (down: ReactPointerEvent<HTMLDivElement>) => {
     const panel = document.getElementById(panelId);
     if (!panel) return;
@@ -38,5 +38,14 @@ export function Resizer({ id, title, panelId, hidden, widthAt, onResized }: Resi
     handle.addEventListener('pointerup', up);
   };
 
-  return <div className='resizer' id={id} title={title} style={hiddenStyle(hidden)} onPointerDown={startDrag} />;
+  return (
+    <div
+      className='resizer'
+      id={id}
+      role='separator'
+      aria-label={label}
+      style={hiddenStyle(hidden)}
+      onPointerDown={startDrag}
+    />
+  );
 }

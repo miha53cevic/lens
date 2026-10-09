@@ -75,6 +75,7 @@ explicitly is always analyzed.
 - **Each file shows its status** as a colored letter in the tree and on its tab (`A`
   added, `M` modified, `D` deleted, `R` renamed, `⊘` excluded), and spelled out in the
   code card's header, next to its path, the lines it added and removed, and its fold chips.
+  The Summary tab shows a change's code in the same card.
 - **Search**: ⌘P (Ctrl+P) searches across all loaded files; ⌥-click an identifier to
   find its usages.
 - **Reload** (`r`) re-runs the analysis — new file contents, a fresh `git diff`, edits
@@ -83,7 +84,8 @@ explicitly is always analyzed.
 - **Viewed marks**: tick a file in the tree (or press `m`) once you've read it; it dims,
   and the ring above the tree counts the files viewed. The pill under the code marks the
   open file viewed and opens the next one not viewed yet (*Viewed · next file*); *Prev*
-  goes back. Marks live in the browser and clear themselves when the file's content
+  goes back. Both stop at the first and the last file of the tree instead of wrapping
+  around (so do j/k), and the same goes for the Summary's changes. Marks live in the browser and clear themselves when the file's content
   changes. Summary changes have their own marks.
 - **Ask** (`a`): a rail on the right where you ask your agent about the code you're
   reading — see [Ask mode](#ask-mode).
@@ -107,11 +109,13 @@ the line it's about and repeated as a note under that line in the code — you m
 one *real* or *dismiss* it), **what behaves differently** as scenarios (*when* … with
 the old result struck out and the new one below, each linked to the line that causes
 it), callers outside the diff it may break (click one to peek at the call), and the
-unit's code with the usual folds and removed lines.
+unit's code with the usual folds and removed lines. Deleted files are left out: there's
+nothing in them to read (the Code view's tree still lists them).
 
 The list on the left is organized by **flows**: one story each (a feature end to end,
-a fix and the places it touches), ranked by the agent from P1 (review first) to P3
-(mechanical, folded until you open it). A unit is **flagged** only for a reason on
+a fix and the places it touches), listed by name like chapters. The agent ranks them
+from P1 (review first) to P3 (mechanical); the ranking only sets their order, and P3
+flows start folded until you open them. A unit is **flagged** only for a reason on
 record, each with its own mark: ⚠ possible bug, ! risk, ? question, ↗ may break callers
 (dismissed concerns don't count). Chips at the top of the list filter by them, and a
 *dismissed* chip lists the changes whose concerns you dismissed. Your

@@ -195,18 +195,35 @@ button.ask-chip:hover {
   gap: var(--space-2);
 }
 .ask-hint {
-  color: var(--faint);
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  min-width: 0;
+  color: var(--muted);
   font-size: var(--text-xs);
+}
+.ask-hint > span {
+  white-space: nowrap;
+}
+.ask-hint kbd {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  font-size: 10.5px;
 }
 .ask-hint.error {
   color: var(--del);
 }
 #ask-send {
   display: inline-flex;
+  flex: none;
+  white-space: nowrap;
   align-items: center;
   gap: 5px;
   height: var(--control-h);
-  padding: 0 var(--space-4);
+  padding: 0 var(--space-3);
   border-radius: var(--radius-full);
   background: var(--accent);
   color: var(--accent-fg);

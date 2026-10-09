@@ -20,7 +20,6 @@ export function FoldChips() {
           color={catColor(category)}
           checked={openCats.has(category)}
           onChange={(open) => setCategoryOpen(category, open)}
-          title={'open every ' + category + ' fold'}
         >
           {category}
         </Chip>

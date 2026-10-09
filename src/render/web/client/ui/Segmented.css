@@ -16,7 +16,7 @@
   color: var(--text);
 }
 .seg button[aria-checked='true'] {
-  background: var(--surface);
-  box-shadow: 0 0 0 1px var(--line);
-  color: var(--text);
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-weight: 600;
 }

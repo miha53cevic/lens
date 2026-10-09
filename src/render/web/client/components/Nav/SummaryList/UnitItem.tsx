@@ -8,8 +8,8 @@ import { ViewedBox } from '../../ViewedBox.tsx';
 
 interface UnitItemProps {
   unit: Unit;
-  /** What shows on the right: the unit's layer in its flow, or its file */
-  side: string | undefined;
+  /** What shows on the right: the file, for a change in no flow */
+  side?: string;
   active: boolean;
 }
 

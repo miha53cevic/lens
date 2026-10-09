@@ -62,7 +62,7 @@ interface GapRowProps {
 /** Hidden unchanged lines (hunks only), shown on a click. */
 export function GapRow({ lineCount, gapKey, gutter }: GapRowProps) {
   return (
-    <div className='row gap' title='click to expand' onClick={() => expandGap(gapKey)}>
+    <div className='row gap' onClick={() => expandGap(gapKey)}>
       <span className='num'>{'⋯'.padStart(gutter)}</span>
       <span className='mark' />
       <span>{'⋯ ' + lineCount + ' unchanged line' + (lineCount === 1 ? '' : 's')}</span>

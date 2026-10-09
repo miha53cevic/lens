@@ -208,6 +208,24 @@ test("units: a method's decorator belongs to the method", async () => {
   assert.deepEqual(units.map((u) => [u.name, u.changedLines]), [["Orders.list", [2]]]);
 });
 
+test("the summary view leaves out deleted files, but keeps a function deleted from a file", async () => {
+  const root = mkdtempSync(join(tmpdir(), "lens-view-"));
+  try {
+    const units = [
+      ...(await unitsFor(inputFor("src/gone.ts", "export const a = 1;\n", null))),
+      ...(await unitsFor(inputFor("src/repo.ts", OLD_REPO, NEW_REPO))),
+      ...(await unitsFor(inputFor("src/left.ts", "export function a() {}\n\nexport function b() {}\n", "export function a() {}\n"))),
+    ];
+    const view = buildSummaryView({ root, cwd: root, command: "diff", args: [], units });
+    const ids = view.units.map((unit) => unit.id);
+    assert.ok(!ids.some((id) => id.startsWith("src/gone.ts")), "the deleted file");
+    assert.ok(ids.includes("src/left.ts#b"), "a deleted function is still a change to read");
+    assert.ok(ids.includes("src/repo.ts#findOrders"));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("readStored tolerates a summary.json without flows, or with a malformed overview", () => {
   const root = mkdtempSync(join(tmpdir(), "lens-store-"));
   try {

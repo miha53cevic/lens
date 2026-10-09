@@ -79,11 +79,7 @@ export function stepFile(direction: number): void {
           .map(({ fileIndex }) => fileIndex);
   if (order.length === 0) return;
   const position = order.indexOf(state.active);
-  openFile(
-    position === -1
-      ? direction > 0
-        ? order[0]
-        : order[order.length - 1]
-      : order[(position + direction + order.length) % order.length],
-  );
+  // stops at the first and the last file: no wrapping around
+  const target = position === -1 ? (direction > 0 ? 0 : order.length - 1) : position + direction;
+  if (target >= 0 && target < order.length && order[target] !== state.active) openFile(order[target]);
 }

@@ -32,7 +32,6 @@ export function Filter({ inputId, clearId, wrapperId, hidden, placeholder, value
       />
       <button
         id={clearId}
-        title='clear filter (Esc)'
         aria-label='clear filter'
         style={hiddenStyle(value.trim() === '')}
         onClick={() => onChange('')}

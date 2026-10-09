@@ -12,18 +12,23 @@ export interface Progress {
   total: number;
   /** The open file or change is viewed */
   currentDone: boolean;
-  /** The next one not viewed after the open one (wrapping around), or null when all are */
+  /** The next one not viewed after the open one, or null when none is left after it: the review stops at the end */
   next: number | string | null;
+  /** The open one is the first, or the last, in the list's order: Prev and Next stop there */
+  atStart: boolean;
+  atEnd: boolean;
 }
 
-/** The first not-yet-viewed entry after `current` in `order`, wrapping around; null when there's none. */
+/** The first not-yet-viewed entry after `current` in `order` (from the top when there's none open); null when there's none. */
 function nextNotDone<T>(order: T[], current: T | null, isDone: (entry: T) => boolean): T | null {
   const at = current === null ? -1 : order.indexOf(current);
-  for (let step = 1; step <= order.length; step++) {
-    const entry = order[(at + step) % order.length];
-    if (entry !== current && !isDone(entry)) return entry;
-  }
-  return null;
+  return order.slice(at + 1).find((entry) => !isDone(entry)) ?? null;
+}
+
+/** Where the open entry sits in `order`: at its start, at its end. */
+function ends<T>(order: T[], current: T | null): { atStart: boolean; atEnd: boolean } {
+  const at = current === null ? -1 : order.indexOf(current);
+  return { atStart: at <= 0, atEnd: at === -1 || at === order.length - 1 };
 }
 
 const buildFileProgress = memo(
@@ -45,6 +50,7 @@ const buildFileProgress = memo(
       total: counted.length,
       currentDone: active >= 0 && isViewed(active),
       next: nextNotDone(order, active >= 0 ? active : null, isViewed),
+      ...ends(order, active >= 0 ? active : null),
     };
   },
 );
@@ -66,6 +72,7 @@ const buildUnitProgress = memo(
       total: list.units.length,
       currentDone: current !== null && isViewed(current),
       next: nextNotDone(list.order, current, isViewed),
+      ...ends(list.order, current),
     };
     return progress;
   },

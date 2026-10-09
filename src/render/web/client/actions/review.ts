@@ -15,7 +15,7 @@ export function viewedNextFile(): void {
   if (typeof next === 'number') openFile(next);
 }
 
-/** The next file not viewed yet, or simply the next file when they all are. */
+/** The next file not viewed yet, or simply the next file when none after it is (stopping at the last). */
 export function nextFile(): void {
   const next = fileProgress(getState()).next;
   if (typeof next === 'number') openFile(next);
@@ -29,7 +29,7 @@ export function reviewedNextUnit(): void {
   if (typeof next === 'string') openSummaryUnit(next);
 }
 
-/** The next change not reviewed yet (from the overview: the first), or simply the next one. */
+/** The next change not reviewed yet (from the overview: the first), or simply the next one (stopping at the last). */
 export function nextUnit(): void {
   const next = unitProgress(getState())?.next;
   if (typeof next === 'string') openSummaryUnit(next);

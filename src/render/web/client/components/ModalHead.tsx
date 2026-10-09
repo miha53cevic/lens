@@ -9,7 +9,7 @@ export function ModalHead({ title }: { title: string }) {
       <span className='modal-title'>{title}</span>
       <span className='spacer' />
       <form method='dialog'>
-        <IconButton label='Close' shortcut='Esc'>
+        <IconButton label='Close'>
           <X size={15} />
         </IconButton>
       </form>

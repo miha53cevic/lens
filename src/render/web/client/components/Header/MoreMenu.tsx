@@ -41,7 +41,7 @@ export function MoreMenu() {
       trigger={
         <>
           <MoreHorizontal size={17} />
-          {more.changed && <span className='trigger-dot' title='a view setting is changed' />}
+          {more.changed && <span className='trigger-dot' />}
         </>
       }
     >

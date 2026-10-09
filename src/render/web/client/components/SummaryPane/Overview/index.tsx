@@ -36,7 +36,6 @@ export function Overview() {
               className={clsx('ov-stat', 'sig-' + signal)}
               data-sig={signal}
               aria-pressed={list.signal === signal}
-              title='list only these (click again for all)'
               onClick={() => setSignalFilter(signal)}
             >
               <i />

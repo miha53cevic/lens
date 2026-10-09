@@ -32,7 +32,7 @@ export function Tabs() {
           <div
             key={tab.index}
             className={clsx('tab', tab.index === active && 'active', !tab.pinned && 'preview')}
-            title={path + (tab.pinned ? '' : ' — preview tab: reused by the next open, double-click to keep')}
+            title={path}
             onClick={() => openFile(tab.index)}
             onDoubleClick={() => pinTab(tab.index)}
             onAuxClick={(event) => {
@@ -44,7 +44,7 @@ export function Tabs() {
             {baseNameCounts.get(name)! > 1 && dir && <span className='tab-dir'>{dir}</span>}
             <button
               className='tab-close'
-              title='close (or middle-click)'
+              aria-label='close'
               onClick={(event) => {
                 event.stopPropagation();
                 closeTab(tab.index);

@@ -29,7 +29,6 @@ export function Header() {
       <IconButton
         id='nav-toggle'
         label='Toggle the sidebar'
-        shortcut='s'
         style={hiddenStyle(!header.navToggleShown)}
         onClick={toggleNav}
       >

@@ -1,14 +1,14 @@
 import { TriangleAlert } from 'lucide-react';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useLens } from '../../store.ts';
 import { activeFile, filePlan } from '../../model/plans.ts';
 import { askSelLabels } from '../../ask/selection.ts';
 import { askSelection } from '../../model/askContext.ts';
 import { isTestFile, linesFromTokens, listedOnlyCount } from '../../shared.ts';
 import { CodeRows } from '../CodeRows/index.tsx';
-import { CodeCard } from '../CodeCard.tsx';
-import { FileHead } from './FileHead.tsx';
-import { findUsages } from './util.ts';
+import { CodeCard, removedCount } from '../CodeCard.tsx';
+import { fileStatus } from '../../ui/FileStatus.tsx';
+import { findUsages, restoreFileScroll, saveFileScroll } from './util.ts';
 
 /** The open file's code card, or why there's none. */
 export function FileCode() {
@@ -29,6 +29,9 @@ export function FileCode() {
     [selection],
   );
   const changedLines = useMemo(() => new Set(file?.changedLines || []), [file]);
+  const path = file?.file ?? null;
+  // stable per file: a new callback would run again on every render and reset the scroll
+  const restoreScroll = useCallback((body: HTMLDivElement | null) => restoreFileScroll(body, path), [path]);
 
   if (!file || !plan) {
     return (
@@ -45,12 +48,23 @@ export function FileCode() {
     return <div className='empty'>Every file here is a test file. Turn off "Hide tests" in ⋯ to see them.</div>;
   }
   return (
-    <CodeCard status={file.status} head={<FileHead file={file} />}>
-      {file.parseError && (
-        <div className='notice'>
-          <TriangleAlert size={13} /> Folding is off: this file has syntax errors.
-        </div>
-      )}
+    // keyed by the file: another file mounts afresh, back where the reader left it (scrollStore), even after a refresh
+    <CodeCard
+      key={file.file}
+      status={file.status ? fileStatus(file.status) : undefined}
+      path={file.file}
+      added={file.changedLines?.length ?? 0}
+      removed={removedCount(file.removals || [])}
+      notice={
+        file.parseError && (
+          <>
+            <TriangleAlert size={13} /> Folding is off: this file has syntax errors.
+          </>
+        )
+      }
+      bodyRef={restoreScroll}
+      onBodyScroll={(event) => saveFileScroll(event.currentTarget, file.file)}
+    >
       <div className='code' id='code' onClick={findUsages}>
         <CodeRows
           path={file.file}

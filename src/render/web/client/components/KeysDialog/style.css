@@ -1,9 +1,12 @@
 /* the ? help keeps its size from tab to tab */
-#keys-modal .modal-body {
-  min-height: 26rem;
+#keys-modal {
+  height: min(34rem, 80vh);
 }
 #keys-modal .set-table td:first-child {
-  width: 7.5rem;
+  width: 9rem;
+}
+#keys-modal .set-table td {
+  vertical-align: middle;
 }
 .key-tabs {
   display: flex;
@@ -19,7 +22,8 @@
 .key-tab:hover {
   color: var(--text);
 }
+/* the selected one in the theme's accent */
 .key-tab[aria-selected='true'] {
-  background: var(--text);
-  color: var(--surface);
+  background: var(--accent);
+  color: var(--accent-fg);
 }

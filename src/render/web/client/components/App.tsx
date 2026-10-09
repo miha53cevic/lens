@@ -35,7 +35,7 @@ export function App() {
         <Nav />
         <Resizer
           id='resizer'
-          title='drag to resize the file tree'
+          label='resize the file tree'
           panelId='nav'
           hidden={!navVisible}
           widthAt={(event, nav) => Math.min(600, Math.max(160, event.clientX - nav.getBoundingClientRect().left))}
@@ -49,7 +49,7 @@ export function App() {
         </div>
         <Resizer
           id='ask-resizer'
-          title='drag to resize the Ask rail'
+          label='resize the Ask rail'
           panelId='ask-rail'
           hidden={!askOpen}
           widthAt={(event, rail) => Math.min(720, Math.max(280, rail.getBoundingClientRect().right - event.clientX))}

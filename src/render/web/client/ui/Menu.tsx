@@ -4,6 +4,7 @@
 import { useId, useRef, type ReactNode } from 'react';
 import clsx from 'clsx';
 import { IconButton } from './IconButton.tsx';
+import { Kbd } from './Kbd.tsx';
 import './Menu.css';
 
 interface MenuProps {
@@ -77,7 +78,7 @@ export function MenuItem({ id, icon, shortcut, danger, disabled, onSelect, child
     >
       {icon}
       <span className='menu-label'>{children}</span>
-      {shortcut && <kbd>{shortcut}</kbd>}
+      {shortcut && <Kbd combo={shortcut} />}
     </button>
   );
 }
@@ -103,7 +104,7 @@ export function MenuSwitch({ id, shortcut, title, checked, onChange, children }:
       onClick={() => onChange(!checked)}
     >
       <span className='menu-label'>{children}</span>
-      {shortcut && <kbd>{shortcut}</kbd>}
+      {shortcut && <Kbd combo={shortcut} />}
       <span className={clsx('switch', checked && 'on')} aria-hidden />
     </button>
   );

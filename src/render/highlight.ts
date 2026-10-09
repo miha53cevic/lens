@@ -101,17 +101,18 @@ export async function themeAccent(theme: string): Promise<string> {
   return loaded.fg;
 }
 
-/** A theme as the viewer's theme menu shows it: its name, background and accent. */
+/** A theme as the viewer's theme menu shows it: its name, its colors and its accent. */
 export interface ThemeSwatch {
   name: string;
   bg: string;
+  fg: string;
   accent: string;
 }
 
 export async function themeSwatch(theme: string): Promise<ThemeSwatch> {
   const accent = await themeAccent(theme);
-  const highlighter = await getHighlighter();
-  return { name: theme, bg: highlighter.getTheme(theme).bg, accent };
+  const loaded = (await getHighlighter()).getTheme(theme);
+  return { name: theme, bg: loaded.bg, fg: loaded.fg, accent };
 }
 
 /**

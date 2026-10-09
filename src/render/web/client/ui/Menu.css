@@ -37,8 +37,15 @@
 .menu-item:focus-visible {
   outline-offset: -2px;
 }
+.menu-item kbd {
+  color: var(--muted);
+}
 .menu-item.danger {
-  color: var(--del);
+  color: var(--danger);
+}
+.menu-item.danger:hover:not(:disabled),
+.menu-item.danger:focus-visible {
+  background: color-mix(in oklab, var(--danger) 14%, transparent);
 }
 .menu-label {
   flex: 1;

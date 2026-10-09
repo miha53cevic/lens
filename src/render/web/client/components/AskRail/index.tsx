@@ -24,7 +24,7 @@ export function AskRail() {
           <span className={listening ? 'ask-dot on' : 'ask-dot'} />
           {listening ? 'agent listening' : 'no agent'}
         </span>
-        <IconButton id='ask-close' label='Hide the Ask rail' shortcut='\' onClick={() => askSetOpen(false)}>
+        <IconButton id='ask-close' label='Hide the Ask rail' onClick={() => askSetOpen(false)}>
           <X size={14} />
         </IconButton>
       </div>

@@ -22,11 +22,9 @@ export function stepSummary(direction: number): void {
   if (!list || list.order.length === 0) return;
   // from the overview, j starts at the top of the list and k at the bottom
   const position = state.summaryOverview ? -1 : list.order.indexOf(list.activeId!);
-  openSummaryUnit(
-    position === -1
-      ? list.order[direction > 0 ? 0 : list.order.length - 1]
-      : list.order[(position + direction + list.order.length) % list.order.length],
-  );
+  // stops at the first and the last change: no wrapping around
+  const target = position === -1 ? (direction > 0 ? 0 : list.order.length - 1) : position + direction;
+  if (target >= 0 && target < list.order.length) openSummaryUnit(list.order[target]);
 }
 
 export function openUnitInCode(unit: Unit | null): void {

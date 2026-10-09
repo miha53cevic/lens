@@ -11,7 +11,6 @@ import { isLocalRequest, sendJson } from "./http.ts";
 import { bundleViewer } from "./bundle.ts";
 import {
   highlightSource,
-  themeAccent,
   themeSwatch,
   type ThemeSwatch,
   isBundledTheme,
@@ -99,11 +98,13 @@ export async function highlightFiles(files: ViewerFile[], theme: string): Promis
   const results = await Promise.all(
     files.map((f) => highlightSource(f.source, f.language ?? shikiLangForFile(f.file), theme)),
   );
+  // the theme's own colors, not a file's: with no files, the page still follows the theme
+  const swatch = await themeSwatch(theme);
   return {
     theme,
-    accent: await themeAccent(theme),
-    fg: results[0]?.fg ?? "#ffffff",
-    bg: results[0]?.bg ?? "#000000",
+    accent: swatch.accent,
+    fg: results[0]?.fg ?? swatch.fg,
+    bg: results[0]?.bg ?? swatch.bg,
     tokens: results.map((r) => r.tokens),
   };
 }

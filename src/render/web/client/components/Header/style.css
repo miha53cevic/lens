@@ -58,9 +58,10 @@
 .view-switch button:hover {
   color: var(--text);
 }
+/* the selected one in the theme's accent */
 .view-switch button[aria-pressed='true'] {
-  background: var(--text);
-  color: var(--surface);
+  background: var(--accent);
+  color: var(--accent-fg);
 }
 .new-dot {
   width: 6px;
@@ -83,9 +84,8 @@
   height: 16px;
   border: 1px solid var(--line-strong);
   border-radius: 50%;
-  /* the theme's accent as a dot in its background */
-  background: currentColor;
-  box-shadow: inset 0 0 0 4px var(--swatch-bg, var(--code-bg));
+  /* the theme's background and its accent, split on the diagonal */
+  background: linear-gradient(135deg, var(--swatch-bg, var(--code-bg)) 50%, currentColor 50%);
 }
 .swatch.current {
   color: var(--accent);

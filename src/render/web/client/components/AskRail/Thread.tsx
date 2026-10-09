@@ -49,7 +49,7 @@ function QuestionAndAnswer({ question, files }: { question: AskQuestion; files: 
     <>
       <div className={clsx('ask-q', question.stale && 'stale')}>
         <div className='ask-chips'>
-          <button className='ask-chip unit ask-goto' title='open this change' onClick={() => askGoto(question)}>
+          <button className='ask-chip unit ask-goto' onClick={() => askGoto(question)}>
             {question.label}
           </button>
           {question.selection && <span className='ask-chip'>{askSelLabel(question.selection)}</span>}

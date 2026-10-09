@@ -92,7 +92,8 @@ export function buildSummaryView(opts: {
       renamedFrom: renamed ? { id: renamed.id, removals: renamed.removals } : null,
     };
   });
-  const visible = units.filter((u) => !hiddenDeleted.has(u.id));
+  // a deleted file adds nothing to read: the Summary leaves it out (the Code view's tree still lists it)
+  const visible = units.filter((u) => !hiddenDeleted.has(u.id) && !(u.kind === "file" && u.status === "deleted"));
   const ids = new Set(visible.map((u) => u.id));
   const flows = (stored?.flows ?? [])
     .map((f) => ({ ...f, units: Object.fromEntries(Object.entries(f.units).filter(([id]) => ids.has(id))) }))

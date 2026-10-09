@@ -1,27 +1,20 @@
-/* the Code view: the open file as one card on the page, its header kept in sight */
+/* the Code view: the open file as one card filling the pane; the code scrolls inside it */
 .code-pane {
+  display: flex;
   flex: 1;
+  flex-direction: column;
   min-width: 0;
-  overflow: auto;
-  padding: 0 22px 96px;
+  min-height: 0;
+  padding: 0 22px 16px;
   background: var(--bg);
-  /* the header's width follows the pane, not the card (cqw) */
-  container-type: inline-size;
 }
 
-/* as wide as the longest line, at least as wide as the pane */
+/* a short file's card ends with its code */
 .code-pane .code-card {
-  display: flow-root;
-  width: max-content;
-  min-width: 100%;
+  max-height: 100%;
 }
 
-/* the header stays in sight, however far the code scrolls */
-.code-pane .code-head {
-  position: sticky;
-  top: 0;
-  left: 22px;
-  z-index: 4;
-  width: 100cqw;
-  max-width: 100%;
+/* the review pill floats over the code: the last rows can scroll out from under it */
+.code-pane .code {
+  padding-bottom: 64px;
 }

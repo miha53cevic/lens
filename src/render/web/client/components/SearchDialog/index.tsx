@@ -1,7 +1,9 @@
 // Search in files (⌘P): a palette of every match, ↑ / ↓ to pick, ↵ to jump.
 
+import { Search } from 'lucide-react';
 import { useLens } from '../../store.ts';
 import { jumpToHit, moveSearchSelection, setSearch } from '../../actions/dialogs.ts';
+import { Kbd } from '../../ui/Kbd.tsx';
 import { Results } from './Results.tsx';
 import { findHits } from './util.ts';
 import './style.css';
@@ -15,24 +17,27 @@ export function SearchDialog() {
   return (
     <dialog id='search-modal' className='palette'>
       <div className='palette-head'>
-        <input
-          id='search-input'
-          type='text'
-          placeholder='search in files…'
-          spellCheck={false}
-          autoComplete='off'
-          value={search.query}
-          onChange={(event) => setSearch({ query: event.target.value })}
-          onKeyDown={(event) => {
-            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-              moveSearchSelection(event.key === 'ArrowDown' ? 1 : -1, hits.length);
-              event.preventDefault();
-            } else if (event.key === 'Enter' && hits[search.selected]) {
-              jumpToHit(hits[search.selected].fileIndex, hits[search.selected].line);
-            }
-          }}
-        />
-        <label className='control' title='match whole words only'>
+        <label className='palette-field'>
+          <Search size={16} aria-hidden />
+          <input
+            id='search-input'
+            type='text'
+            placeholder='Search in files…'
+            spellCheck={false}
+            autoComplete='off'
+            value={search.query}
+            onChange={(event) => setSearch({ query: event.target.value })}
+            onKeyDown={(event) => {
+              if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                moveSearchSelection(event.key === 'ArrowDown' ? 1 : -1, hits.length);
+                event.preventDefault();
+              } else if (event.key === 'Enter' && hits[search.selected]) {
+                jumpToHit(hits[search.selected].fileIndex, hits[search.selected].line);
+              }
+            }}
+          />
+        </label>
+        <label className='control'>
           <input
             type='checkbox'
             id='search-word'
@@ -41,7 +46,7 @@ export function SearchDialog() {
           />{' '}
           word
         </label>
-        <label className='control' title='match case'>
+        <label className='control'>
           <input
             type='checkbox'
             id='search-case'
@@ -66,7 +71,7 @@ export function SearchDialog() {
         </span>
         <span className='spacer' />
         <span>
-          tip: <kbd>⌥ click</kbd> an identifier in the code finds its usages
+          tip: <Kbd combo='⌥ click' /> an identifier in the code finds its usages
         </span>
       </div>
     </dialog>

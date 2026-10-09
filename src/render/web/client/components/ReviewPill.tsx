@@ -30,7 +30,7 @@ export function ReviewPill() {
       else if (progress.currentDone) stage = 'done';
       else stage = progress.next === null ? 'last' : 'todo';
     }
-    return { codeView, stage, total: progress?.total ?? 0 };
+    return { codeView, stage, total: progress?.total ?? 0, atStart: !!progress?.atStart, atEnd: !!progress?.atEnd };
   });
   if (pill.stage === 'hidden') return null;
 
@@ -56,7 +56,7 @@ export function ReviewPill() {
   }
   return (
     <div className='review-pill' id='review-pill'>
-      <button className='rp-btn' id='review-prev' title={'the previous ' + noun} onClick={prev}>
+      <button className='rp-btn' id='review-prev' disabled={pill.atStart} onClick={prev}>
         <ArrowLeft size={13} /> Prev
       </button>
       {pill.stage === 'all' && (
@@ -70,36 +70,18 @@ export function ReviewPill() {
         </span>
       )}
       {(pill.stage === 'todo' || pill.stage === 'last') && (
-        <button
-          className='rp-main'
-          id='review-next'
-          title={
-            'mark it ' +
-            markedWord.toLowerCase() +
-            (pill.stage === 'todo' ? ', then open the next ' + noun + ' not yet' : '')
-          }
-          onClick={markAndNext}
-        >
+        <button className='rp-main' id='review-next' onClick={markAndNext}>
           <Check size={13} />{' '}
           {pill.stage === 'todo' ? markedWord + ' · next ' + noun : 'Mark ' + markedWord.toLowerCase()}
         </button>
       )}
       {(pill.stage === 'done' || pill.stage === 'all') && (
-        <button
-          className='rp-btn'
-          id='review-undo'
-          title={'not ' + markedWord.toLowerCase() + ' after all'}
-          onClick={undo}
-        >
+        <button className='rp-btn' id='review-undo' onClick={undo}>
           Undo
         </button>
       )}
-      {pill.stage === 'done' && (
-        <button
-          className='rp-btn'
-          title={'the next ' + noun + ' not ' + markedWord.toLowerCase() + ' yet'}
-          onClick={next}
-        >
+      {pill.stage === 'done' && !pill.atEnd && (
+        <button className='rp-btn' onClick={next}>
           Next <ArrowRight size={13} />
         </button>
       )}

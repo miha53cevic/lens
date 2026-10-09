@@ -51,17 +51,29 @@ code {
   font-family: var(--font-mono);
 }
 
+/* a key: its label centered in a keycap, in the UI font (mono fonts draw ⌘ ⇧ ↵ badly) */
 kbd {
-  display: inline-block;
-  min-width: 18px;
-  padding: 2px 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  box-sizing: border-box;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
   border: 1px solid var(--line-strong);
-  border-bottom-width: 2px;
   border-radius: var(--radius-sm);
+  box-shadow: inset 0 -1px 0 var(--line-strong);
   background: var(--surface);
-  color: var(--muted);
-  font: 600 10.5px/1 var(--font-mono);
-  text-align: center;
+  color: var(--text);
+  font: 500 11px/1 var(--font-sans);
+  white-space: nowrap;
+  vertical-align: middle;
+  /* center the glyph, not the font's line box: the capitals' height, or a lowercase letter's x-height */
+  text-box: trim-both cap alphabetic;
+}
+kbd.lower {
+  text-box: trim-both ex alphabetic;
 }
 
 /* icons (lucide) take the text's color and sit on its line */
@@ -125,11 +137,14 @@ svg.lucide {
   background: transparent;
 }
 
+/* less motion: no transitions or flourishes, but a spinner still turns, since it says work is going on */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     transition: none !important;
+  }
+  :not(.spin, .ask-spin) {
     animation: none !important;
   }
 }

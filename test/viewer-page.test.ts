@@ -297,22 +297,35 @@ test('a viewed mark sticks, and survives a reload', async () => {
   }
 });
 
-pageTest('the review pill marks the file viewed and opens the next one, until every file is', async () => {
+pageTest('the review pill marks the file viewed and opens the next one, stopping at the ends of the tree', async () => {
   const pill = () => $('#review-next').textContent!.trim();
-  await key('t'); // the test file shows too: two files
+  const open = () => $('.tab.active .tab-name').textContent;
+  const prev = () => $('#review-prev') as HTMLButtonElement;
+  await key('t'); // the test file shows too, first in the tree: orders.ts is now the last file
   assert.equal($('#nav .progress-count').textContent, '0 of 2');
+  assert.equal(pill(), 'Mark viewed', 'the last file: nothing after it to open');
+  await key('j');
+  assert.equal(open(), 'orders.ts', 'j stops at the last file');
+  await click(prev());
+  assert.equal(open(), 'orders.test.ts');
+  assert.ok(prev().disabled, 'the first file: no Prev');
+  await key('k');
+  assert.equal(open(), 'orders.test.ts', 'k stops at the first file');
   assert.equal(pill(), 'Viewed · next file');
   await click($('#review-next'));
-  assert.equal($('.tab.active .tab-name').textContent, 'orders.test.ts', 'the next file not viewed yet');
+  assert.equal(open(), 'orders.ts', 'the next file not viewed yet');
   assert.equal($('#nav .progress-count').textContent, '1 of 2');
-  assert.equal(pill(), 'Mark viewed', 'the last one left');
+  assert.equal(pill(), 'Mark viewed');
   await click($('#review-next'));
   assert.equal(pill(), 'All 2 files viewed');
   await click($('#review-undo'));
-  assert.equal($('#nav .progress-count').textContent, '1 of 2');
-  await click($('#review-prev'));
-  assert.equal($('.tab.active .tab-name').textContent, 'orders.ts');
+  await click(prev());
+  assert.equal(open(), 'orders.test.ts');
   assert.equal(pill(), 'Viewed', 'already viewed: no mark, Undo and Next instead');
+  assert.deepEqual(
+    $$('#review-pill button').map((button) => button.textContent!.trim()),
+    ['Prev', 'Undo', 'Next'],
+  );
 });
 
 pageTest('the ⋯ menu holds the view settings; one away from its default marks the button', async () => {
@@ -356,7 +369,12 @@ pageTest('? opens the shortcuts in tabs: Global, Code and Summary', async () => 
     $$('.key-tab').map((tab) => tab.textContent + (tab.getAttribute('aria-selected') === 'true' ? '*' : ''));
   const keys = () => $$('#keys-modal tr td:first-child').map((cell) => cell.textContent);
   assert.deepEqual(tabs(), ['Global*', 'Code', 'Summary']);
-  assert.ok(keys().includes('⌘P / Ctrl P'));
+  // each key its own keycap: ⌘P is ⌘ and P
+  const search = $$('#keys-modal tr td:first-child').find((cell) => cell.textContent!.includes('Ctrl'))!;
+  assert.deepEqual(
+    [...search.querySelectorAll('kbd')].map((cap) => cap.textContent),
+    ['⌘', 'P', 'Ctrl', 'P'],
+  );
   await click($('.key-tab[data-tab="summary"]'));
   assert.deepEqual(tabs(), ['Global', 'Code', 'Summary*']);
   assert.deepEqual(keys(), ['g', 'j / k', 'o', 'm', '/']);
@@ -434,6 +452,34 @@ pageTest('on the Summary tab the pill starts the review, and marks each change r
   assert.equal($('.sum-item.active .name').textContent, 'legacyTotal');
   assert.equal($('#nav .progress-count').textContent, '1 of 2');
   assert.equal($('.sum-item:not(.active) .viewed-box').getAttribute('aria-checked'), 'true');
+});
+
+test('a flow is its name: the priority only orders it, and a P3 flow starts folded', async () => {
+  const summary = payload.summary!;
+  const id = (name: string) => summary.units.find((unit) => unit.name === name)!.id;
+  summary.flows = [
+    {
+      title: 'Order cleanup',
+      path: 'repo',
+      priority: 3,
+      units: { [id('findOrders')]: 'repo', [id('legacyTotal')]: 'repo' },
+    },
+  ];
+  await open();
+  try {
+    await key('v');
+    const title = () => $('.sum-section-title.flow .t').textContent;
+    const count = () => $$('.sum-section-title.flow .sub')[0]?.textContent?.trim() ?? null;
+    assert.deepEqual([title(), count()], ['Order cleanup', '2 changes'], 'folded: the name and its count');
+    assert.equal($$('.sum-section-title .prio').length, 0, 'no P3 tag');
+    await click($('.sum-section-title.flow'));
+    assert.deepEqual([title(), count()], ['Order cleanup', null]);
+    assert.equal($$('.sum-section:not(.folded) .sum-item').length, 2);
+    assert.equal($$('.sum-section:not(.folded) .sum-item .side').length, 0, 'no layer labels');
+  } finally {
+    summary.flows = [];
+    await close();
+  }
 });
 
 pageTest("a unit's code has the Code view's folds, hunks and toolbar keys", async () => {
