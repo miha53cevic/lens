@@ -101,7 +101,9 @@ The list on the left is organized by **flows**: one story each (a feature end to
 a fix and the places it touches), ranked by the agent from P1 (review first) to P3
 (mechanical, folded until you open it). A unit is **flagged** only for a reason on
 record, each with its own mark: ⚠ possible bug, ! risk, ? question, ↗ may break callers
-(dismissed concerns don't count). Chips at the top of the list filter by them.
+(dismissed concerns don't count). Chips at the top of the list filter by them, and a
+*dismissed* chip lists the changes whose concerns you dismissed. Your
+verdicts don't reorder the list, and the change you're on stays listed under a filter.
 It opens on an **Overview** (<kbd>g</kbd>): counts (click *possible bugs* or *flagged*
 to list just those), the agent's account of the whole diff, and each flow laid out by layer — or,
 flipped to the **Map** tab, every change where it lives: a card per folder, a column
@@ -284,9 +286,9 @@ npm test            # typecheck + node --test
 ```
 
 Classifier rules live in `src/classify/typescript.ts` (shared by ts/tsx/js). The viewer
-is `src/render/web/`: `viewer.html`, `viewer.css`, `viewer.js` (Code view),
-`summary.js` (Summary view) and `ask.js` (the Ask rail), which the server inlines into one page. The scripts are
-plain JS type-checked through JSDoc (`tsconfig.viewer.json`, part of `npm test`).
+is `src/render/web/`: `viewer.html`, `viewer.css` and a React app in `client/` (TypeScript),
+which the server bundles with esbuild when it starts and inlines into one page — there's
+no build step. `tsconfig.viewer.json` type-checks it as part of `npm test`.
 Fixture-driven tests are the main defense against a fold hiding a real bug — a rule
 change that suddenly folds more fails loudly.
 

@@ -1,0 +1,100 @@
+import { Check } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { useLens } from '../../store.ts';
+import { askContext, askSelection } from '../../model/askContext.ts';
+import { askSelLabel } from '../../ask/selection.ts';
+import { askSend, askWaiting, growInput, setAsk } from '../../ask/rail.ts';
+
+/** The question being written, with what goes along with it: the open change and the selection. */
+export function Composer() {
+  const [draft, setDraft] = useState('');
+  /** A send or copy in flight */
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const composer = useLens((state) => {
+    const context = askContext(state);
+    const selection = askSelection(state);
+    return {
+      contextLabel: context?.label ?? null,
+      selectionLabel: selection ? askSelLabel(selection) : null,
+      listening: state.ask.data.listening,
+      waiting: !!askWaiting(state),
+      error: state.ask.error,
+    };
+  });
+  // one question at a time for the agent; with none listening, copying still works
+  const blocked = !composer.contextLabel || !draft.trim() || (composer.listening && composer.waiting) || busy;
+
+  const send = async () => {
+    if (blocked) return;
+    setBusy(true);
+    const result = await askSend(draft);
+    setBusy(false);
+    if (result === 'sent') {
+      setDraft('');
+      if (inputRef.current) inputRef.current.style.height = ''; // back to its two rows
+    } else if (result === 'copied') {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    }
+  };
+
+  return (
+    <div className='ask-composer'>
+      <div className='ask-chips' id='ask-chips'>
+        {composer.contextLabel && (
+          <span className='ask-chip unit' title='the open change goes along with every question'>
+            {composer.contextLabel}
+          </span>
+        )}
+        {composer.contextLabel && composer.selectionLabel && (
+          <span className='ask-chip' title='your selection in the code'>
+            {composer.selectionLabel}
+          </span>
+        )}
+      </div>
+      <textarea
+        id='ask-input'
+        ref={inputRef}
+        rows={2}
+        spellCheck={false}
+        value={draft}
+        disabled={!composer.contextLabel}
+        placeholder={
+          composer.contextLabel ? 'Ask about ' + composer.contextLabel + '…' : 'Open a change to ask about it'
+        }
+        onChange={(event) => {
+          setDraft(event.target.value);
+          if (composer.error) setAsk({ error: null }); // the reader typing: a failed send's message goes
+          growInput(event.target);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
+            event.preventDefault();
+            send();
+          } else if (event.key === 'Escape') {
+            event.currentTarget.blur(); // back to the code: j/k and the toolbar keys work again
+          }
+        }}
+      />
+      <div className='ask-row'>
+        <span className={composer.error ? 'ask-hint error' : 'ask-hint'} id='ask-hint'>
+          {composer.error || '↵ ask · ⇧↵ newline · Esc back to the code'}
+        </span>
+        <span className='spacer' />
+        <button id='ask-send' disabled={blocked} onClick={send}>
+          {copied ? (
+            <>
+              <Check size={13} /> Copied
+            </>
+          ) : composer.listening ? (
+            'Ask'
+          ) : (
+            'Copy as prompt'
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}

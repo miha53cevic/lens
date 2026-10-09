@@ -1,0 +1,63 @@
+// The rows of a code plan (rows.ts): the Code view's file and a summary unit's code alike.
+
+import type { ReactNode } from 'react';
+import type { CodeItem } from '../../rows.ts';
+import { BreakRow, GapRow, LineRow, RemovedLineRow } from './Rows.tsx';
+import { Region } from './Region.tsx';
+import type { RowContext } from './types.ts';
+
+export type { RowMarks } from './types.ts';
+export { RemovedRow } from './Rows.tsx';
+
+interface CodeRowsProps extends RowContext {
+  items: CodeItem[];
+}
+
+export function CodeRows({ items, ...context }: CodeRowsProps) {
+  return <>{planRows(items, context)}</>;
+}
+
+/** The rows for plan items, each followed by the notes on it. */
+export function planRows(items: CodeItem[], context: RowContext): ReactNode[] {
+  return items.flatMap((item, itemIndex) => itemRows(item, itemIndex, context));
+}
+
+function itemRows(item: CodeItem, itemIndex: number, context: RowContext): ReactNode[] {
+  const { lines, changedLines, gutter, marks } = context;
+  const withNotes = (label: string, row: ReactNode) => [row, ...(marks?.notes?.get(label) ?? [])];
+  switch (item.kind) {
+    case 'line': {
+      const label = 'N' + item.line;
+      return withNotes(
+        label,
+        <LineRow
+          key={label}
+          line={item.line}
+          html={lines[item.line - 1] ?? ''}
+          changed={changedLines.has(item.line)}
+          gutter={gutter}
+          extraClass={marks?.classes?.get(label)}
+        />,
+      );
+    }
+    case 'removed': {
+      const label = 'O' + item.old;
+      return withNotes(
+        label,
+        <RemovedLineRow
+          key={label}
+          text={item.text}
+          oldLine={item.old}
+          gutter={gutter}
+          extraClass={marks?.classes?.get(label)}
+        />,
+      );
+    }
+    case 'gap':
+      return [<GapRow key={item.key} lineCount={item.end - item.start + 1} gapKey={item.key} gutter={gutter} />];
+    case 'break':
+      return [<BreakRow key={'break' + itemIndex} gutter={gutter} />];
+    case 'region':
+      return [<Region key={'R' + item.region.startLine} region={item.region} body={item.body} context={context} />];
+  }
+}

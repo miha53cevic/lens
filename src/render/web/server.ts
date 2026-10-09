@@ -8,6 +8,7 @@ import type { SummaryView } from "../../summary/view.ts";
 import { removeServerInfo, writeServerInfo } from "../../ask/discovery.ts";
 import { createAskRoutes } from "../../ask/routes.ts";
 import { isLocalRequest, sendJson } from "./http.ts";
+import { bundleViewer } from "./bundle.ts";
 import {
   highlightSource,
   isBundledTheme,
@@ -58,7 +59,7 @@ export interface ViewerOptions {
   themePinned: boolean;
 }
 
-/** What the page gets as DATA (viewer.js) — ViewerInput made serializable, plus tokens. */
+/** What the page gets as DATA (client/shared.ts) — ViewerInput made serializable, plus tokens. */
 export interface ViewerPayload {
   threshold: number;
   theme: string;
@@ -78,7 +79,7 @@ export interface ViewerPayload {
   canRefresh: boolean;
 }
 
-interface ThemeTokens {
+export interface ThemeTokens {
   theme: string;
   fg: string;
   bg: string;
@@ -86,15 +87,53 @@ interface ThemeTokens {
   tokens: ViewerToken[][][];
 }
 
+/** Every file's Shiki tokens in one theme. */
+export async function highlightFiles(files: ViewerFile[], theme: string): Promise<ThemeTokens> {
+  const results = await Promise.all(
+    files.map((f) => highlightSource(f.source, f.language ?? shikiLangForFile(f.file), theme)),
+  );
+  return {
+    theme,
+    fg: results[0]?.fg ?? "#ffffff",
+    bg: results[0]?.bg ?? "#000000",
+    tokens: results.map((r) => r.tokens),
+  };
+}
+
+/** The page's payload: the analysis, made serializable, with one theme's tokens. */
+export function viewerPayload(
+  input: ViewerInput, t: ThemeTokens, themes: string[], opts: { themePinned: boolean; canRefresh: boolean },
+): ViewerPayload {
+  return {
+    threshold: input.threshold,
+    theme: t.theme,
+    themes,
+    fg: t.fg,
+    bg: t.bg,
+    files: input.files.map((f, i) => ({ ...f, tokens: t.tokens[i] })),
+    deleted: input.deleted,
+    excluded: input.excluded,
+    renamed: input.renamed,
+    testFilePatterns: input.testFilePatterns,
+    config: input.config,
+    configSource: input.configSource,
+    label: input.label,
+    summary: input.summary,
+    themePinned: opts.themePinned,
+    canRefresh: opts.canRefresh,
+  };
+}
+
 const webDir = dirname(fileURLToPath(import.meta.url));
 
-/** viewer.html with its stylesheet and scripts inlined: one self-contained page. */
-function loadTemplate(): string {
+/** viewer.html with its stylesheet and the bundled viewer script inlined: one self-contained page. */
+async function loadTemplate(): Promise<string> {
   const read = (name: string) => readFileSync(join(webDir, name), "utf8");
+  const script = await bundleViewer();
   // Function replacements: plain strings would expand $-sequences in the code.
   return read("viewer.html")
     .replace("/*__LENS_CSS__*/", () => read("viewer.css"))
-    .replace("/*__LENS_JS__*/", () => read("viewer.js") + "\n" + read("summary.js") + "\n" + read("ask.js"));
+    .replace("/*__LENS_JS__*/", () => script);
 }
 
 export async function serveViewer(
@@ -116,16 +155,7 @@ export async function serveViewer(
     const cached = themeCache.get(theme);
     if (cached) return cached;
     const files = current.files;
-    const results = await Promise.all(
-      files.map((f) =>
-        highlightSource(f.source, f.language ?? shikiLangForFile(f.file), theme)),
-    );
-    const entry: ThemeTokens = {
-      theme,
-      fg: results[0]?.fg ?? "#ffffff",
-      bg: results[0]?.bg ?? "#000000",
-      tokens: results.map((r) => r.tokens),
-    };
+    const entry = await highlightFiles(files, theme);
     // a ↻ refresh while Shiki ran: these tokens are the old files', don't keep them
     if (files === current.files) themeCache.set(theme, entry);
     return entry;
@@ -139,29 +169,12 @@ export async function serveViewer(
     // tokensFor highlights the files current now; a ↻ refresh during the await mustn't mix them
     const cur = current;
     const t = await tokensFor(theme);
-    return {
-      threshold: cur.threshold,
-      theme,
-      themes,
-      fg: t.fg,
-      bg: t.bg,
-      files: cur.files.map((f, i) => ({ ...f, tokens: t.tokens[i] })),
-      deleted: cur.deleted,
-      excluded: cur.excluded,
-      renamed: cur.renamed,
-      testFilePatterns: cur.testFilePatterns,
-      config: cur.config,
-      configSource: cur.configSource,
-      label: cur.label,
-      summary: cur.summary,
-      themePinned: opts.themePinned,
-      canRefresh: reanalyze !== undefined,
-    };
+    return viewerPayload(cur, t, themes, { themePinned: opts.themePinned, canRefresh: reanalyze !== undefined });
   }
 
   // Warm the initial theme before accepting requests.
   await tokensFor(opts.theme);
-  const template = loadTemplate();
+  const template = await loadTemplate();
 
   // Serialized pages are cached per theme — payloads can be MBs, and
   // stringifying them on every reload is waste. Cleared on refresh.
@@ -172,7 +185,7 @@ export async function serveViewer(
     const cur = current;
     const data = JSON.stringify(await payloadFor(theme)).replace(/</g, "\\u003c");
     // Function replacement: a plain string would expand $-sequences in the payload.
-    const html = template.replace("/*__LENS_DATA__*/ null", () => data);
+    const html = template.replace("/*__LENS_DATA__*/", () => data);
     if (cur === current) htmlCache.set(theme, html); // not a page of the files from before a ↻ refresh
     return html;
   }
