@@ -420,16 +420,20 @@ pageTest('? opens the shortcuts in tabs: Global, Code and Summary', async () => 
   assert.deepEqual(keys(), ['g', 'j / k', 'o', 'm', '/']);
 });
 
-pageTest('search finds matches; Enter jumps to one, even in a hidden stretch', async () => {
+pageTest('search lists where a name is defined, then its usages; Enter jumps, even into a hidden stretch', async () => {
   await key('p', { ctrlKey: true });
   assert.ok(($('#search-modal') as HTMLDialogElement).open);
   await type($('#search-input'), 'toOrder');
   assert.deepEqual(
-    $$('.search-hit .ln').map((lineNumber) => lineNumber.textContent),
-    ['11', '14'],
+    $$('#search-results > div').map((row) => row.textContent),
+    [
+      'Defined at · 1',
+      '14function · src/orders.tsfunction toOrder(row: any): Order {',
+      'src/orders.ts · 1',
+      '11return rows.map(toOrder);',
+    ],
+    'the declaring line is a definition, not also a usage',
   );
-  fireEvent.keyDown($('#search-input'), { key: 'ArrowDown' });
-  await settle();
   fireEvent.keyDown($('#search-input'), { key: 'Enter' });
   await settle();
   assert.ok(!($('#search-modal') as HTMLDialogElement).open);

@@ -1,5 +1,6 @@
 import { parseSource, languageForFile } from "../parse/parser.ts";
 import { classify } from "./typescript.ts";
+import { declarationsOf } from "../parse/declarations.ts";
 import type { FileFoldModel, LensConfig } from "../model.ts";
 
 export async function analyzeSource(
@@ -19,7 +20,7 @@ export async function analyzeSource(
       language,
       lineCount: source.split("\n").length,
       regions: parseError ? [] : classify(tree.rootNode, source, config),
-      ...(parseError ? { parseError } : {}),
+      ...(parseError ? { parseError } : { declarations: declarationsOf(tree.rootNode) }),
     };
   } finally {
     tree.delete();

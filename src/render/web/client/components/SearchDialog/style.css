@@ -91,6 +91,24 @@ dialog.palette {
 .search-file .count {
   color: var(--faint);
 }
+/* the places the name is declared, above its usages */
+.search-file.defined {
+  color: var(--accent);
+  font-family: var(--font-sans);
+  font-weight: 600;
+}
+.search-hit .declares {
+  flex: none;
+  max-width: 40%;
+  overflow: hidden;
+  color: var(--faint);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.search-hit .declares .path {
+  color: var(--muted);
+}
 .search-hit {
   display: flex;
   align-items: baseline;

@@ -11,7 +11,7 @@ interface ResultsProps {
   selected: number;
 }
 
-/** The hits, grouped by file: the line number and the line around the match. */
+/** The definitions first, then the usages grouped by file: the line number and the line around the match. */
 export function Results({ query, hits, selected }: ResultsProps) {
   const files = useLens((state) => state.data.files);
   const trimmed = query.trim();
@@ -25,12 +25,20 @@ export function Results({ query, hits, selected }: ResultsProps) {
   if (hits.length === 0) return <div className='search-empty'>no matches</div>;
 
   const rows: ReactNode[] = [];
+  const definitionCount = hits.filter((hit) => hit.declares).length;
+  if (definitionCount > 0) {
+    rows.push(
+      <div key='defined' className='search-file defined'>
+        Defined at <span className='count'>· {definitionCount}</span>
+      </div>,
+    );
+  }
   let lastFileIndex = -1;
   hits.forEach((hit, hitIndex) => {
     const file = files[hit.fileIndex];
-    if (hit.fileIndex !== lastFileIndex) {
+    if (!hit.declares && hit.fileIndex !== lastFileIndex) {
       lastFileIndex = hit.fileIndex;
-      const hitCount = hits.filter((other) => other.fileIndex === hit.fileIndex).length;
+      const hitCount = hits.filter((other) => !other.declares && other.fileIndex === hit.fileIndex).length;
       rows.push(
         <div key={'file' + hit.fileIndex} className='search-file'>
           {file.file + ' '}
@@ -50,6 +58,11 @@ export function Results({ query, hits, selected }: ResultsProps) {
         onClick={() => jumpToHit(hit.fileIndex, hit.line)}
       >
         <span className='ln'>{hit.line}</span>
+        {hit.declares && (
+          <span className='declares'>
+            {hit.declares} · <span className='path'>{file.file}</span>
+          </span>
+        )}
         <span className='preview'>
           {before}
           <span className='match'>{text.substr(hit.column, hit.length)}</span>

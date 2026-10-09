@@ -27,8 +27,9 @@ cli.ts            arg parsing → analyze() → serveViewer(), or runSummary()
 analyze.ts        paths | diff | pr → ViewerInput; re-run on ↻ refresh
 git.ts, pr.ts     git diff parsing, PR refs via plain git fetch (no GitHub API)
 config.ts         lens.defaults.json merged with the nearest .lens.json
-glob.ts, text.ts  pure helpers (path patterns, truncate / plural); the viewer imports them too
+glob.ts, text.ts  pure helpers (path patterns, truncate / plural / escapeHtml); the viewer imports them too
 parse/parser.ts   tree-sitter (wasm) for ts / tsx / js
+parse/declarations.ts   the names a file declares, for search's "Defined at" (by name, no types)
 classify/         fold rules → FoldRegion[] (model.ts has the shapes)
 render/highlight.ts   Shiki tokens, computed server-side
 render/web/       server.ts, bundle.ts + the viewer page and its client/ code (see below)

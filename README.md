@@ -81,7 +81,9 @@ explicitly is always analyzed.
   code card's header, next to its path, the lines it added and removed, and its fold chips.
   The Summary tab shows a change's code in the same card.
 - **Search**: ⌘P (Ctrl+P) searches across all loaded files; ⌥-click an identifier to
-  find its usages.
+  find its usages. When a loaded file declares the name (a top-level function, class,
+  const, type or enum, or a class member), *Defined at* lists that first. It matches by
+  name only, as a text search would: no types, no imports followed.
 - **Reload** (`r`) re-runs the analysis — new file contents, a fresh `git diff`, edits
   to `.lens.json` — without restarting the server. *Settings* in ⋯ shows the effective
   config.
