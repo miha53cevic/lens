@@ -96,6 +96,16 @@ export function classify(root: Node, source: string, config: LensConfig): FoldRe
       }
     }
   }
+  // A keep-marker comment (TODO, @ts-ignore, …) pins whatever region took it
+  // in — a guard's leading comment, a catch body, an object literal.
+  const keep = ctx.keepMarkers;
+  if (keep) {
+    const markers: Node[] = [];
+    walk(root, (n) => { if (n.type === "comment" && keep.test(n.text)) markers.push(n); });
+    for (const region of accepted) {
+      if (markers.some((c) => startLine(c) <= region.endLine && region.startLine <= endLine(c))) region.score = 4;
+    }
+  }
   return accepted;
 }
 
@@ -136,6 +146,11 @@ function plural(n: number, word: string): string {
   return `${n} ${word}${n === 1 ? "" : "s"}`;
 }
 
+/** The first `max` names, then "…" if there are more. */
+function listNames(names: string[], max: number): string {
+  return names.slice(0, max).join(", ") + (names.length > max ? ", …" : "");
+}
+
 function lineSpan(startL: number, endL: number): string {
   const n = endL - startL + 1;
   return n > 1 ? ` (${n} lines)` : "";
@@ -163,8 +178,6 @@ function importRegions(root: Node, ctx: RuleContext): FoldRegion[] {
   }
   return groups.map((group) => {
     const names = group.map(shortModuleName).filter(Boolean);
-    const shown = names.slice(0, 5);
-    const suffix = names.length > shown.length ? ", …" : "";
     const reexports = group.filter((s) => s.type === "export_statement").length;
     const imports = group.length - reexports;
     const label =
@@ -176,7 +189,7 @@ function importRegions(root: Node, ctx: RuleContext): FoldRegion[] {
       endLine: endLine(group[group.length - 1]),
       category: "import" as const,
       score: ctx.score("import"),
-      summary: `${label} — ${shown.join(", ")}${suffix}`,
+      summary: `${label} — ${listNames(names, 5)}`,
     };
   });
 }
@@ -573,11 +586,10 @@ function dataRegions(root: Node, ctx: RuleContext): FoldRegion[] {
       if (run) {
         const span = endLine(run.last) - startLine(run.first) + 1;
         if (span >= 3) {
-          const summary = run.entries.length === 1
-            ? run.entries[0].singleDesc + lineSpan(startLine(run.first), endLine(run.last))
-            : `${plural(run.entries.length, "constant")} — ${
-                run.entries.flatMap((e) => e.names).slice(0, 4).join(", ")
-              }${run.entries.flatMap((e) => e.names).length > 4 ? ", …" : ""}${lineSpan(startLine(run.first), endLine(run.last))}`;
+          const names = run.entries.flatMap((e) => e.names);
+          const summary = (names.length === 1
+            ? run.entries[0].singleDesc
+            : `${plural(names.length, "constant")} — ${listNames(names, 4)}`) + lineSpan(startLine(run.first), endLine(run.last));
           regions.push({
             startLine: startLine(run.first),
             endLine: endLine(run.last),
@@ -617,14 +629,12 @@ function accessorRegions(root: Node, ctx: RuleContext): FoldRegion[] {
     let run: { first: Node; last: Node; names: string[] } | null = null;
     const flush = () => {
       if (run) {
-        const shown = run.names.slice(0, 4);
-        const suffix = run.names.length > shown.length ? ", …" : "";
         regions.push({
           startLine: startLine(run.first),
           endLine: endLine(run.last),
           category: "accessor",
           score: ctx.score("accessor"),
-          summary: `${plural(run.names.length, "accessor")} — ${shown.join(", ")}${suffix}${lineSpan(startLine(run.first), endLine(run.last))}`,
+          summary: `${plural(run.names.length, "accessor")} — ${listNames(run.names, 4)}${lineSpan(startLine(run.first), endLine(run.last))}`,
         });
       }
       run = null;
@@ -645,7 +655,7 @@ function accessorRegions(root: Node, ctx: RuleContext): FoldRegion[] {
 }
 
 /**
- * Getters/setters with a single-statement body, trivial property returns, and
+ * Getters/setters that only return or store a value, trivial property returns, and
  * genuine delegation — a one-call body that forwards to a same-named callee or
  * passes the method's own parameters through verbatim. Constructors, static
  * members (usually factories: fromEntity, of, parse), one-liners with real
@@ -664,12 +674,16 @@ function asAccessor(member: Node): string | null {
   const stmt = statements[0];
   const expr = namedChildren(stmt)[0];
 
-  if (keywords.includes("get")) return stmt.type === "return_statement" ? `get ${name}` : null;
-  if (keywords.includes("set")) return stmt.type === "expression_statement" ? `set ${name}` : null;
-
   // trivial property return: `return this._x`
-  if (stmt.type === "return_statement" &&
-      (expr?.type === "member_expression" || expr?.type === "identifier")) return `${name}()`;
+  const plainReturn = stmt.type === "return_statement" &&
+    (expr?.type === "member_expression" || expr?.type === "identifier");
+  if (keywords.includes("get")) return plainReturn ? `get ${name}` : null;
+  // trivial store: `this._x = v`
+  if (keywords.includes("set")) {
+    return expr?.type === "assignment_expression" && expr.childForFieldName("right")?.type === "identifier"
+      ? `set ${name}` : null;
+  }
+  if (plainReturn) return `${name}()`;
   // delegation: the whole method is one forwarding call, returned or bare
   if ((stmt.type === "return_statement" || stmt.type === "expression_statement") &&
       expr?.type === "call_expression" && isForwardingCall(expr, member, name)) return `${name}()`;
@@ -719,13 +733,11 @@ function barrelRegions(root: Node, ctx: RuleContext): FoldRegion[] {
   }
   if (reexports === 0) return [];
 
-  const shown = names.slice(0, 5);
-  const suffix = names.length > shown.length ? ", …" : "";
   return [{
     startLine: 1,
     endLine: endLine(all[all.length - 1]),
     category: "barrel",
     score: ctx.score("barrel"),
-    summary: `barrel file — re-exports ${plural(reexports, "module")}: ${shown.join(", ")}${suffix}`,
+    summary: `barrel file — re-exports ${plural(reexports, "module")}: ${listNames(names, 5)}`,
   }];
 }

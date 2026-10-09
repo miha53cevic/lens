@@ -50,6 +50,18 @@ test('"base": false replaces the built-in rules entirely', () => {
   assert.deepEqual(config.keepCommentMarkers, []);
 });
 
+test("callPatterns with non-string receivers or methods are dropped", () => {
+  const dir = configDir({
+    base: false,
+    callPatterns: [
+      { category: "a", receivers: [42] },
+      { category: "b", receivers: ["b"], methods: "info" },
+      { category: "c", receivers: ["c"], methods: ["track"] },
+    ],
+  });
+  assert.deepEqual(loadConfig(dir).callPatterns.map((p) => p.category), ["c"]);
+});
+
 test("custom callPatterns fold custom receivers under their own category", async () => {
   const config: LensConfig = {
     ...DEFAULT_CONFIG,

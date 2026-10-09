@@ -200,7 +200,7 @@ viewer's slider switches the threshold live.
 | 0         | zero-signal scaffolding: imports, comments, barrel files |
 | 1         | **default** — also guards, logging, telemetry, log-and-rethrow catches, accessors, constant data |
 | 2–3       | nothing extra by default — headroom for categories you score 2–3 |
-| —         | score 4 never folds: TODO/FIXME comments and `lens:keep` regions |
+| —         | score 4 never folds: TODO/FIXME comments (and any region holding one) and `lens:keep` regions |
 
 | category            | what folds (conservatively) |
 | ------------------- | --------------------------- |
@@ -210,7 +210,7 @@ viewer's slider switches the threshold live.
 | `logging`           | `console.*` / `logger.*` calls whose result is unused |
 | `telemetry`         | fire-and-forget `metrics.*` / `telemetry.*` / `analytics.*` calls |
 | `error-boilerplate` | catch blocks that only log and/or rethrow |
-| `accessor`          | getters/setters and one-statement delegation methods |
+| `accessor`          | getters/setters that only return or store a value, and one-statement delegation methods |
 | `barrel`            | files that are only imports and re-exports fold to one pill |
 | `data`              | pure-literal constants: lookup maps, option objects, literal enums, runs of one-liner consts (3+ lines) |
 
@@ -251,8 +251,9 @@ reaches 2, and **adds** an `audit` category next to the built-in call patterns.
 | `testFilePatterns` | `*.spec.*`, `*.test.*`, `__tests__/**` | what the viewer's **hide tests** toggle hides, and which files summary mode treats as tests |
 | `exclude` | lockfiles, `*.min.js`, `*.min.css`, `*.map` | diff mode lists these as `⊘` without reading them; directory walks skip them (a file passed explicitly is always analyzed) |
 
-Path patterns: `*` matches within a segment, `**` across segments, and a pattern
-matches anywhere in the path (`*.min.js` matches `dist/app.min.js`).
+Path patterns: `*` matches within a segment, `**` across segments (`**/` also matches
+no directory: `src/**/x.ts` matches `src/x.ts`), and a pattern matches anywhere in the
+path (`*.min.js` matches `dist/app.min.js`).
 
 **`callPatterns`** fold expression statements `<receiver>.<method>(...)` whose result
 is unused:

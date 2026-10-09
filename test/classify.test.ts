@@ -274,6 +274,57 @@ export function UserCard({ user }: Props) {
   }
 });
 
+test("keep markers pin the guard, catch or data region that takes them in", async () => {
+  const regions = await regionsOf(`
+function f(user: User | null, input: string) {
+  // TODO: remove once the API is fixed
+  if (!user) throw new Error("no user");
+  try {
+    run(input);
+  } catch (e) {
+    // FIXME: swallowing this hides real failures
+    console.error(e);
+  }
+  const OPTIONS = {
+    // @ts-ignore
+    mode: "fast",
+    retries: 3,
+  };
+}
+`.trim());
+  const byCat = (c: string) => regions.find((r) => r.category === c);
+  assert.deepEqual([byCat("guard")?.startLine, byCat("guard")?.endLine], [2, 3]);
+  assert.deepEqual([byCat("error-boilerplate")?.startLine, byCat("error-boilerplate")?.endLine], [7, 8]);
+  assert.deepEqual([byCat("data")?.startLine, byCat("data")?.endLine], [10, 14]);
+  for (const r of regions) assert.equal(r.score, 4, `${r.category} ${r.startLine}-${r.endLine} must stay open`);
+});
+
+test("getters and setters with real logic are not accessors", async () => {
+  const regions = await regionsOf(`
+class Temp {
+  get fahrenheit() { return this._c * 9 / 5 + 32; }
+  set celsius(v: number) { this._c = (v - 32) * 5 / 9; }
+  get raw() { return this._c; }
+  set raw(v: number) { this._c = v; }
+}
+`.trim());
+  const accessors = regions.filter((r) => r.category === "accessor");
+  assert.equal(accessors.length, 1);
+  assert.deepEqual([accessors[0].startLine, accessors[0].endLine], [4, 5]);
+  assert.match(accessors[0].summary, /2 accessors — get raw, set raw/);
+});
+
+test("data: one statement with several constants names them all", async () => {
+  const regions = await regionsOf(`
+export const A = 1,
+  B = { x: 1 },
+  C = 3;
+`.trim());
+  const data = regions.filter((r) => r.category === "data");
+  assert.equal(data.length, 1);
+  assert.match(data[0].summary, /^3 constants — A, B, C \(3 lines\)/);
+});
+
 test("trivial accessors fold; real methods do not", async () => {
   const regions = await regionsOf(`
 class Store {
