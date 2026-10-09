@@ -1,9 +1,12 @@
-// The viewer's state: one immutable object, replaced on every change. Components read it
-// with useLens(); actions (actions.ts) change it with update(), or commit() when the DOM
-// must show the new state right away (to scroll to a row, say).
+// The viewer's state: one immutable object in a Zustand store, replaced on every change.
+// Components read it with useLens() — the whole state, or a slice through a selector, which
+// re-renders the component only when that slice changes. Actions (actions.ts) change it
+// with update(), or commit() when the DOM must show the new state right away (to scroll to
+// a row, say).
 
-import { useSyncExternalStore } from "react";
 import { flushSync } from "react-dom";
+import { create } from "zustand";
+import { useShallow } from "zustand/react/shallow";
 import type { ViewerPayload } from "../server.ts";
 import type { AskSelection, AskState } from "../../../ask/session.ts";
 import { INITIAL_DATA, readPref } from "./shared.ts";
@@ -88,7 +91,7 @@ function savedWidth(key: string, min: number, max: number, fallback: number) {
   return w >= min && w <= max ? w : fallback;
 }
 
-let current: LensState = {
+const initial: LensState = {
   data: INITIAL_DATA,
   threshold: INITIAL_DATA.threshold,
   themeBusy: false,
@@ -131,20 +134,14 @@ let current: LensState = {
   },
 };
 
-const listeners = new Set<() => void>();
-function subscribe(listener: () => void) {
-  listeners.add(listener);
-  return () => { listeners.delete(listener); };
-}
+const useStore = create<LensState>()(() => initial);
 
-export function getState(): LensState { return current; }
+export function getState(): LensState { return useStore.getState(); }
 
 export type Patch = Partial<LensState> | ((s: LensState) => Partial<LensState>);
 
 export function update(patch: Patch): void {
-  const changes = typeof patch === "function" ? patch(current) : patch;
-  current = { ...current, ...changes };
-  for (const l of listeners) l();
+  useStore.setState(patch);
 }
 
 /** update(), with the DOM updated before it returns. */
@@ -152,9 +149,19 @@ export function commit(patch: Patch): void {
   flushSync(() => update(patch));
 }
 
-export function useLens(): LensState {
-  return useSyncExternalStore(subscribe, getState);
+/**
+ * The state, in a component. With a selector, only what it picks: the component re-renders
+ * when that changes (compared shallowly, so a selector can return a fresh object or array of
+ * state values). Selectors must not build new values themselves (`new Set(...)`, `.map(...)`).
+ */
+export function useLens(): LensState;
+export function useLens<T>(select: (s: LensState) => T): T;
+export function useLens<T>(select?: (s: LensState) => T): T | LensState {
+  // a hook can't be called conditionally: without a selector, the identity one
+  return useStore(useShallow(select ?? (identity as (s: LensState) => T)));
 }
+
+function identity(s: LensState): LensState { return s; }
 
 /** A copy of the set with `key` added or removed. */
 export function toggled<T>(set: ReadonlySet<T>, key: T, on?: boolean): Set<T> {
