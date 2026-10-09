@@ -2,11 +2,12 @@
 
 import type { FoldRegion } from "../../../model.ts";
 import {
-  DATA, HUNK_CONTEXT, byId, catColor, escapeHtml, expandedGaps, isTestFile, linesFromTokens, readPref, state,
+  DATA, byId, catColor, escapeHtml, expandedGaps, isTestFile, linesFromTokens, readPref, state,
   toggleViewed, viewed, viewedBoxHtml, visibleFile, writePref, type ViewFile,
 } from "./shared.ts";
 import { renderSummary, setView, syncViewSwitch } from "./summary.ts";
 import { askSync } from "./ask.ts";
+import { fileSpans, hiddenCount, planCode, type CodeItem, type RemovedLine } from "./rows.ts";
 
 // PR mode: "owner/repo#N — title" in the header and the tab title
 const prLabelEl = byId("pr-label");
@@ -409,60 +410,22 @@ export function render(): void {
     return;
   }
 
-  const lines = linesFromTokens(file);
-  const changed = new Set(file.changedLines || []);
-  const regionAt = new Map<number, FoldRegion>();
-  for (const r of file.regions) regionAt.set(r.startLine, r);
-
   // Old-side lines the diff removed, keyed by the new-side line they follow.
-  const removedAfter = new Map<number, { text: string; old: number }[]>();
+  const removedAfter = new Map<number, RemovedLine[]>();
   if (state.showRemoved) {
     for (const block of file.removals || []) {
       const existing = removedAfter.get(block.afterLine) || [];
       removedAfter.set(block.afterLine, existing.concat(block.lines.map((text, i) => ({ text, old: block.oldStart + i }))));
     }
   }
-  const emitRemoved = (afterLine: number, container: HTMLElement) => {
-    for (const { text, old } of removedAfter.get(afterLine) || []) {
-      const row = removedRowEl(text, gutter);
-      row.dataset.old = String(old); // its old-side line, as in the Summary view (the Ask rail sends it)
-      container.appendChild(row);
-    }
-  };
+  const items = planCode(fileSpans(file, state.hunksOnly, expandedGaps), file.regions, (after) => removedAfter.get(after) || []);
+  const hiddenTotal = hiddenCount(items);
 
-  const { windows, hiddenGaps } = computeHunks(file);
-  const inWindow = (start: number, end: number) =>
-    windows === null || windows.some((w) => start <= w.end && w.start <= end);
-  const gapAt = (line: number) => hiddenGaps.find((g) => line >= g.start && line <= g.end);
-
-  const gutter = String(file.lineCount).length;
   codeEl.innerHTML = "";
   if (file.parseError) {
     codeEl.innerHTML = '<div class="notice">⚠ folding disabled — this file has syntax errors</div>';
   }
-  emitRemoved(0, codeEl);
-  let lineNo = 1;
-  let hiddenTotal = 0;
-  while (lineNo <= file.lineCount) {
-    const region = regionAt.get(lineNo);
-    if (region && inWindow(region.startLine, region.endLine)) {
-      codeEl.appendChild(regionEl(region, lines, changed, gutter, emitRemoved));
-      emitRemoved(region.endLine, codeEl);
-      lineNo = region.endLine + 1;
-      continue;
-    }
-    const gap = gapAt(lineNo);
-    if (gap) {
-      const count = gap.end - lineNo + 1;
-      hiddenTotal += count;
-      codeEl.appendChild(gapRowEl(count, file.file + ":" + gap.start, gutter));
-      lineNo = gap.end + 1;
-      continue;
-    }
-    codeEl.appendChild(rowEl(lineNo, lines[lineNo - 1] ?? "", changed.has(lineNo), gutter));
-    emitRemoved(lineNo, codeEl);
-    lineNo++;
-  }
+  appendCode(codeEl, items, linesFromTokens(file), new Set(file.changedLines || []), String(file.lineCount).length);
   lastHiddenTotal = hiddenTotal;
   updateStats();
   renderedPath = file.file;
@@ -472,56 +435,7 @@ export function render(): void {
   askSync(); // the rows were rebuilt: repaint the kept selection (or drop it for another file)
 }
 
-interface LineSpan { start: number; end: number }
-
-// Hunks-only windows: ±HUNK_CONTEXT lines around every change/removal anchor, merged;
-// hiddenGaps are the non-expanded stretches in between (ids stable across expansion).
-function computeHunks(file: ViewFile): { windows: LineSpan[] | null; hiddenGaps: LineSpan[] } {
-  const hasAnchors = (file.changedLines || []).length > 0 || (file.removals || []).length > 0;
-  if (!state.hunksOnly || !hasAnchors) return { windows: null, hiddenGaps: [] };
-
-  const raw = (file.changedLines || []).map((l) => ({ start: l - HUNK_CONTEXT, end: l + HUNK_CONTEXT }));
-  // a removed block shows after its anchor line: HUNK_CONTEXT lines on each side, as in the Summary
-  for (const block of file.removals || []) {
-    raw.push({ start: block.afterLine - HUNK_CONTEXT + 1, end: block.afterLine + HUNK_CONTEXT });
-  }
-  // a fold region is never cut by a hidden stretch: a window takes in every region it touches
-  // (regions don't overlap, so one pass is enough)
-  for (const w of raw) {
-    for (const r of file.regions) {
-      if (r.startLine <= w.end && w.start <= r.endLine) {
-        w.start = Math.min(w.start, r.startLine);
-        w.end = Math.max(w.end, r.endLine);
-      }
-    }
-  }
-  const windows: LineSpan[] = [];
-  for (const w of raw.sort((a, b) => a.start - b.start)) {
-    const start = Math.max(1, w.start);
-    const end = Math.min(file.lineCount, w.end);
-    const last = windows[windows.length - 1];
-    if (last && start <= last.end + 1) last.end = Math.max(last.end, end);
-    else windows.push({ start, end });
-  }
-  let cursor = 1;
-  const hiddenGaps: LineSpan[] = [];
-  for (const w of [...windows]) {
-    if (w.start > cursor) {
-      const gap = { start: cursor, end: w.start - 1 };
-      if (expandedGaps.has(file.file + ":" + gap.start)) windows.push(gap);
-      else hiddenGaps.push(gap);
-    }
-    cursor = w.end + 1;
-  }
-  if (cursor <= file.lineCount) {
-    const gap = { start: cursor, end: file.lineCount };
-    if (expandedGaps.has(file.file + ":" + gap.start)) windows.push(gap);
-    else hiddenGaps.push(gap);
-  }
-  return { windows, hiddenGaps };
-}
-
-export function gapRowEl(count: number, key: string, gutter: number): HTMLElement {
+function gapRowEl(count: number, key: string, gutter: number): HTMLElement {
   const row = document.createElement("div");
   row.className = "row gap";
   row.title = "click to expand";
@@ -564,6 +478,28 @@ function applyThreshold() {
   updateStats();
 }
 
+/** The rows of a plan (rows.ts), in either view. */
+export function appendCode(container: HTMLElement, items: CodeItem[], lines: string[], changed: Set<number>, gutter: number): void {
+  for (const it of items) {
+    if (it.kind === "line") {
+      container.appendChild(rowEl(it.line, lines[it.line - 1] ?? "", changed.has(it.line), gutter));
+    } else if (it.kind === "removed") {
+      const row = removedRowEl(it.text, gutter);
+      row.dataset.old = String(it.old); // its old-side line (cites and the Ask rail point at it)
+      container.appendChild(row);
+    } else if (it.kind === "gap") {
+      container.appendChild(gapRowEl(it.end - it.start + 1, it.key, gutter));
+    } else if (it.kind === "break") {
+      const row = document.createElement("div");
+      row.className = "row unit-gap";
+      row.innerHTML = '<span class="num">' + "⋯".padStart(gutter) + '</span><span class="mark"></span><span></span>';
+      container.appendChild(row);
+    } else {
+      container.appendChild(regionEl(it.region, it.body, lines, changed, gutter));
+    }
+  }
+}
+
 export function removedRowEl(text: string, gutter: number): HTMLElement {
   const row = document.createElement("div");
   row.className = "row removed";
@@ -574,7 +510,7 @@ export function removedRowEl(text: string, gutter: number): HTMLElement {
   return row;
 }
 
-export function rowEl(lineNo: number, html: string, isChanged: boolean, gutter: number): HTMLElement {
+function rowEl(lineNo: number, html: string, isChanged: boolean, gutter: number): HTMLElement {
   const row = document.createElement("div");
   row.className = "row";
   row.dataset.line = String(lineNo);
@@ -585,10 +521,7 @@ export function rowEl(lineNo: number, html: string, isChanged: boolean, gutter: 
   return row;
 }
 
-export function regionEl(
-  region: FoldRegion, lines: string[], changed: Set<number>, gutter: number,
-  emitRemoved: (afterLine: number, container: HTMLElement) => void,
-): HTMLElement {
+function regionEl(region: FoldRegion, body: CodeItem[], lines: string[], changed: Set<number>, gutter: number): HTMLElement {
   const wrap = document.createElement("div");
   wrap.className = "region" +
     (state.hiddenCategories.has(region.category) ? " open" : "") +
@@ -610,15 +543,11 @@ export function regionEl(
     escapeHtml(region.category) + "</span>" + escapeHtml(region.summary) + "</span>";
   head.onclick = () => wrap.classList.toggle("open");
 
-  const body = document.createElement("div");
-  body.className = "body";
-  for (let l = region.startLine; l <= region.endLine; l++) {
-    body.appendChild(rowEl(l, lines[l - 1] ?? "", changed.has(l), gutter));
-    // removals anchored at endLine render after the region, in the main flow
-    if (l < region.endLine) emitRemoved(l, body);
-  }
+  const bodyEl = document.createElement("div");
+  bodyEl.className = "body";
+  appendCode(bodyEl, body, lines, changed, gutter);
   wrap.appendChild(head);
-  wrap.appendChild(body);
+  wrap.appendChild(bodyEl);
   return wrap;
 }
 
@@ -1044,11 +973,8 @@ export function jumpToLine(fileIndex: number, line: number, pinOrigin?: boolean)
   ensureTab(fileIndex);
   state.active = fileIndex;
   const file = DATA.files[fileIndex];
-  if (state.hunksOnly) {
-    const { hiddenGaps } = computeHunks(file);
-    const gap = hiddenGaps.find((g) => line >= g.start && line <= g.end);
-    if (gap) expandedGaps.add(file.file + ":" + gap.start);
-  }
+  const gap = fileSpans(file, state.hunksOnly, expandedGaps).find((s) => s.gap !== undefined && line >= s.start && line <= s.end);
+  if (gap) expandedGaps.add(gap.gap!);
   render();
   const row = codeEl.querySelector<HTMLElement>('.row[data-line="' + line + '"]');
   if (!row) return;

@@ -54,6 +54,7 @@ ask/              ask mode: the viewer's Ask rail and `lens ask listen|reply` (s
 The Summary tab shows the same code snippets as the Code view, with the agent's summary on top. Anything added to or changed in the Code view that affects how code is shown must also work on the Summary tab's unit code, in the same change. That covers folds, fold chips, the fold level, expand/collapse, hunks only, removed lines, hide tests, and their keyboard shortcuts.
 
 - The toolbar stays visible on the Summary tab (`setView` in `client/summary.ts`). Toolbar handlers in `client/code.ts` call `render()`, which hands off to `renderSummary()` when the Summary tab is open.
+- Both views get their rows from `client/rows.ts`: `fileSpans` / `unitSpans` pick the shown lines and hidden stretches, and `planCode` turns them into lines, folds, removed lines and gaps. Change how code is shown there, and both views follow. It has no DOM, so `test/viewer.test.ts` tests it in node.
 - A new control should either act on DOM both views share (e.g. `.region` elements) or get a Summary branch (e.g. `shownRanges` for hunks only, `isUnitShown` for hide tests).
 - Share constants between the views instead of duplicating them (e.g. `HUNK_CONTEXT` in `client/shared.ts`).
 - New keys need adding to the Summary tab's allowed-keys list in `client/keys.ts`, and to the `?` help in `viewer.html`.

@@ -106,6 +106,3 @@ export function isTestFile(path: string): boolean {
 export function visibleFile(path: string): boolean {
   return !(state.hideTests && isTestFile(path));
 }
-
-/** Lines of context around each change in hunks-only mode (code view and summary) */
-export const HUNK_CONTEXT = 3;

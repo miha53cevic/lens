@@ -3,18 +3,18 @@
 // One changed unit (function, component, hook, …) at a time: the agent's
 // headline, a When / Before / Now table, callers it may break, and the code.
 
-import type { FoldRegion } from "../../../model.ts";
 import type { Concern, Flow } from "../../../summary/store.ts";
 import type { SummaryView, ViewUnit } from "../../../summary/view.ts";
 import {
-  DATA, HUNK_CONTEXT, VIEWED_CAP, byId, escapeHtml, expandedGaps, isTestFile, linesFromTokens, readPref, state,
+  DATA, VIEWED_CAP, byId, escapeHtml, expandedGaps, isTestFile, linesFromTokens, readPref, state,
   toggleViewed, viewed, viewedBoxHtml, writePref,
 } from "./shared.ts";
 import {
-  gapRowEl, jumpToLine, leaveCodeView, mainEl, nav, navToggle, regionEl, removedRowEl, render, renderToggles,
-  resizerEl, rowEl, statsEl, tabbarEl, togglesEl, treeEl, filterInput, viewedDivider, viewedWrap,
+  appendCode, jumpToLine, leaveCodeView, mainEl, nav, navToggle, removedRowEl, render, renderToggles,
+  resizerEl, statsEl, tabbarEl, togglesEl, treeEl, filterInput, viewedDivider, viewedWrap,
 } from "./code.ts";
 import { askSync } from "./ask.ts";
+import { planCode, unitSpans } from "./rows.ts";
 
 type Unit = ViewUnit;
 type ConcernMark = "real" | "dismissed";
@@ -664,64 +664,17 @@ function unitCodeEl(u: Unit, fileIndex: number) {
   code.className = "code";
   wrap.appendChild(code);
   const file = fileIndex >= 0 ? DATA.files[fileIndex] : null;
-  const cited = new Set((s ? s.changes : []).map((c) => c.line));
   const gutter = String(Math.max(file ? file.lineCount : 0, ...u.removals.map((b) => b.oldStart + b.lines.length))).length;
   // a deleted unit is nothing but removed lines: they show even with removed lines hidden
   const showRemoved = state.showRemoved || !file || u.ranges.length === 0;
   // each removed block carries its display anchor (computed by the server)
-  const emitRemoved = (after: number, container: HTMLElement) => {
-    if (!showRemoved) return;
-    for (const b of u.removals.filter((r) => r.anchor === after)) {
-      b.lines.forEach((text, i) => {
-        const row = removedRowEl(text, gutter);
-        row.dataset.old = String(b.oldStart + i);
-        if (cited.has("O" + (b.oldStart + i))) row.classList.add("cited");
-        container.appendChild(row);
-      });
-    }
-  };
-  if (!file || u.ranges.length === 0) {
-    emitRemoved(0, code);
-  } else {
-    const lines = linesFromTokens(file);
-    const changed = new Set(u.changedLines);
-    const regionAt = new Map<number, FoldRegion>();
-    for (const r of file.regions) regionAt.set(r.startLine, r);
-    const { ranges, gaps } = unitHunks(u, file.regions);
-    // shown ranges and hidden stretches (hunks only: a row that expands on click) in line
-    // order; a jump between them, where the unit's own ranges break, is a plain ⋯
-    const segments = [...ranges.map((r) => ({ ...r, gap: null })), ...gaps.map((g) => ({ start: g.start, end: g.end, gap: g }))]
-      .sort((a, b) => a.start - b.start);
-    segments.forEach((range, si) => {
-      if (si > 0 && segments[si - 1].end + 1 !== range.start) {
-        const gap = document.createElement("div");
-        gap.className = "row unit-gap";
-        gap.innerHTML = '<span class="num">' + "⋯".padStart(gutter) + '</span><span class="mark"></span><span></span>';
-        code.appendChild(gap);
-      }
-      if (range.gap) { code.appendChild(gapRowEl(range.end - range.start + 1, range.gap.key, gutter)); return; }
-      emitRemoved(range.start - 1, code);
-      let l = range.start;
-      while (l <= range.end) {
-        const region = regionAt.get(l);
-        if (region && region.endLine <= range.end) {
-          code.appendChild(regionEl(region, lines, changed, gutter, emitRemoved));
-          emitRemoved(region.endLine, code);
-          l = region.endLine + 1;
-          continue;
-        }
-        const row = rowEl(l, lines[l - 1] ?? "", changed.has(l), gutter);
-        if (cited.has("N" + l)) row.classList.add("cited");
-        code.appendChild(row);
-        emitRemoved(l, code);
-        l++;
-      }
-    });
-  }
-  // rows built inside folds (regionEl) get their cited mark here
-  for (const label of cited) {
-    if (label.startsWith("N")) code.querySelector('.row[data-line="' + label.slice(1) + '"]')?.classList.add("cited");
-  }
+  const removedAt = (after: number) => !showRemoved ? [] : u.removals.filter((r) => r.anchor === after)
+    .flatMap((b) => b.lines.map((text, i) => ({ text, old: b.oldStart + i })));
+  const regions = file ? file.regions : [];
+  const spans = file ? unitSpans(u, regions, state.hunksOnly, expandedGaps) : [];
+  appendCode(code, planCode(spans, regions, removedAt), file ? linesFromTokens(file) : [], new Set(u.changedLines), gutter);
+  // the lines the When / Before / Now rows point at
+  for (const c of s ? s.changes : []) citedRow(wrap, c.line)?.classList.add("cited");
   // each open concern as a note under its line, like a review comment
   (s ? s.concerns : []).forEach((c, i) => {
     const mark = concernMark(u, c);
@@ -766,47 +719,6 @@ function citeHtml(label: string) {
 export function citedRow(container: ParentNode, label: string): HTMLElement | null {
   const selector = label.startsWith("O") ? '.row[data-old="' + label.slice(1) + '"]' : '.row[data-line="' + label.slice(1) + '"]';
   return container.querySelector<HTMLElement>(".unit-code " + selector);
-}
-
-// Hunks only: the unit's lines within HUNK_CONTEXT of a change or a removed block, as in the
-// code view, plus the hidden stretches in between — each expands on click (expandedGaps).
-function unitHunks(u: Unit, regions: FoldRegion[]) {
-  type Gap = { start: number; end: number; key: string };
-  if (!state.hunksOnly) return { ranges: u.ranges, gaps: [] as Gap[] };
-  const near = new Set<number>();
-  const around = (from: number, to: number) => { for (let l = from; l <= to; l++) near.add(l); };
-  for (const l of u.changedLines) around(l - HUNK_CONTEXT, l + HUNK_CONTEXT);
-  // a removed block shows after its anchor line: keep the lines on both sides
-  for (const b of u.removals) around(b.anchor - HUNK_CONTEXT + 1, b.anchor + HUNK_CONTEXT);
-  // lines the summary points at stay in view — a concern's note hangs off its line
-  const s = u.summary;
-  for (const c of s ? [...s.concerns, ...s.changes] : []) {
-    if (c.line.startsWith("N")) { const l = Number(c.line.slice(1)); around(l - 1, l + 1); }
-  }
-  // as in the code view, a fold region is never cut by a hidden stretch
-  for (const r of regions) {
-    for (let l = r.startLine; l <= r.endLine; l++) if (near.has(l)) { around(r.startLine, r.endLine); break; }
-  }
-  // runs of hidden lines within each of the unit's ranges; an expanded one shows again
-  const gaps: Gap[] = [];
-  for (const r of u.ranges) {
-    for (let l = r.start; l <= r.end; l++) {
-      if (near.has(l)) continue;
-      const last = gaps[gaps.length - 1];
-      if (last && last.end === l - 1) last.end = l; else gaps.push({ start: l, end: l, key: "" });
-    }
-  }
-  for (const g of gaps) g.key = "unit:" + u.id + ":" + g.start;
-  const hidden = gaps.filter((g) => !expandedGaps.has(g.key));
-  const ranges: { start: number; end: number }[] = [];
-  for (const r of u.ranges) {
-    for (let l = r.start; l <= r.end; l++) {
-      if (hidden.some((g) => l >= g.start && l <= g.end)) continue;
-      const last = ranges[ranges.length - 1];
-      if (last && last.end === l - 1) last.end = l; else ranges.push({ start: l, end: l });
-    }
-  }
-  return { ranges, gaps: hidden };
 }
 
 export function flashCited(container: ParentNode, label: string): void {
