@@ -108,6 +108,12 @@
 }
 
 /* ---- the overview ---- */
+/* a reading column, centered: the overview is prose, not code */
+.ov-page {
+  width: 100%;
+  max-width: 760px;
+  margin-inline: auto;
+}
 .ov-stats {
   display: flex;
   flex-wrap: wrap;
