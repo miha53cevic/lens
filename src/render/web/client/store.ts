@@ -47,6 +47,8 @@ export interface LensState {
   showRemoved: boolean;
   hideTests: boolean;
   hunksOnly: boolean;
+  /** Mark the words a replaced line changed (wordDiff.ts) */
+  wordDiff: boolean;
   navCollapsed: boolean;
   navWidth: number;
   /** The tree filter's text (transient) */
@@ -124,6 +126,7 @@ const initialState: LensState = {
   showRemoved: true,
   hideTests: readPref('lens.hideTests') !== '0', // on by default
   hunksOnly: readPref('lens.hunksOnly') !== '0', // on by default
+  wordDiff: readPref('lens.wordDiff') === '1', // off by default
   navCollapsed: readPref('lens.navCollapsed') === '1',
   navWidth: savedWidth('lens.navWidth', 160, 600, 0),
   navQuery: '',

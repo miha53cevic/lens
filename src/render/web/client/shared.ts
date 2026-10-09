@@ -52,14 +52,16 @@ function fileWordDiffs(file: ViewFile) {
 }
 
 /**
- * What the code rows show of a file: its highlighted lines and, with the removed lines shown,
- * the changed words of each replaced line on both sides (removed lines hidden: no pairs to mark).
+ * What the code rows show of a file: its highlighted lines and, with word diff on and the removed
+ * lines shown, the changed words of each replaced line on both sides (removed lines hidden: no
+ * pairs to mark).
  */
 export function codeLines(
   file: ViewFile,
+  wordDiff: boolean,
   showRemoved: boolean,
 ): { lines: string[]; removedWords: WordDiffs['removed'] | undefined } {
-  if (!showRemoved) return { lines: linesFromTokens(file), removedWords: undefined };
+  if (!wordDiff || !showRemoved) return { lines: linesFromTokens(file), removedWords: undefined };
   const { diffs, lines } = fileWordDiffs(file);
   return { lines, removedWords: diffs.removed };
 }

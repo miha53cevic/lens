@@ -25,7 +25,7 @@ export function toggleDir(path: string): void {
   update((state) => ({ closedDirs: toggled(state.closedDirs, path) }));
 }
 
-// The view settings: hunks only, removed lines, hide tests, the fold level.
+// The view settings: hunks only, removed lines, word diff, hide tests, the fold level.
 
 export function setHunksOnly(on: boolean): void {
   writePref('lens.hunksOnly', on ? '1' : '0');
@@ -42,6 +42,11 @@ export function setHideTests(on: boolean): void {
 
 export function setShowRemoved(on: boolean): void {
   update({ showRemoved: on });
+}
+
+export function setWordDiff(on: boolean): void {
+  writePref('lens.wordDiff', on ? '1' : '0');
+  update({ wordDiff: on });
 }
 
 export function setThreshold(threshold: number): void {

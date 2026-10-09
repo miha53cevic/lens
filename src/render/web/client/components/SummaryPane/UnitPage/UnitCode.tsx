@@ -16,11 +16,12 @@ import { Verdict } from './Verdict.tsx';
  * under it like a review comment), the Ask selection and the hovered cite.
  */
 export function UnitCode({ unit, hoveredCite }: { unit: Unit; hoveredCite: string | null }) {
-  const { plan, marks, selection, showRemoved } = useLens((state) => ({
+  const { plan, marks, selection, showRemoved, wordDiff } = useLens((state) => ({
     plan: unitPlan(state, unit),
     marks: state.concernMarks,
     selection: askSelection(state),
     showRemoved: state.showRemoved,
+    wordDiff: state.wordDiff,
   }));
   const summary = unit.summary;
   const changedLines = useMemo(() => new Set(unit.changedLines), [unit]);
@@ -50,7 +51,7 @@ export function UnitCode({ unit, hoveredCite }: { unit: Unit; hoveredCite: strin
   if (hoveredCite) addClass(hoveredCite, 'hover-cite');
 
   const { lines, removedWords } = plan.file
-    ? codeLines(plan.file, showRemoved)
+    ? codeLines(plan.file, wordDiff, showRemoved)
     : { lines: [], removedWords: undefined };
   return (
     <div className='unit-code'>

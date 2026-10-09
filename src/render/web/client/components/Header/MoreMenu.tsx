@@ -2,7 +2,7 @@ import { Keyboard, MoreHorizontal, Power, Settings } from 'lucide-react';
 import { useLens } from '../../store.ts';
 import { treeModel } from '../../model/tree.ts';
 import { collapseAll, expandAll } from '../../actions/folds.ts';
-import { setHideTests, setHunksOnly, setShowRemoved, setThreshold } from '../../actions/prefs.ts';
+import { setHideTests, setHunksOnly, setShowRemoved, setThreshold, setWordDiff } from '../../actions/prefs.ts';
 import { openDialog } from '../../actions/dialogs.ts';
 import { endSession } from '../../actions/session.ts';
 import { isDiffMode } from '../../shared.ts';
@@ -30,6 +30,7 @@ export function MoreMenu() {
     testsPresent: treeModel(state).testsPresent,
     hunksOnly: state.hunksOnly,
     showRemoved: state.showRemoved,
+    wordDiff: state.wordDiff,
     hideTests: state.hideTests,
   }));
 
@@ -74,6 +75,17 @@ export function MoreMenu() {
             {more.diffMode && (
               <MenuSwitch id='show-removed' shortcut='x' checked={more.showRemoved} onChange={setShowRemoved}>
                 Removed lines
+              </MenuSwitch>
+            )}
+            {more.diffMode && (
+              <MenuSwitch
+                id='word-diff'
+                shortcut='d'
+                title='mark the words a replaced line changed, on both sides'
+                checked={more.wordDiff}
+                onChange={setWordDiff}
+              >
+                Word diff
               </MenuSwitch>
             )}
             {more.testsPresent && (

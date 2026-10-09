@@ -267,8 +267,12 @@ pageTest('removed lines show where they were removed; x hides them', async () =>
   assert.deepEqual(rows(), HUNKS);
 });
 
-pageTest('a replaced line marks the words it changed, in both views; x drops the marks', async () => {
+pageTest('word diff (d, off by default) marks the words a replaced line changed, in both views', async () => {
   const added = () => $$('#code .row[data-line="10"] .w-add').map((word) => word.textContent);
+  assert.deepEqual(added(), [], 'off by default');
+  await key('d');
+  assert.equal($('#word-diff').getAttribute('aria-checked'), 'true', 'the ⋯ menu switch follows the key');
+  assert.equal(localStorage.getItem('lens.wordDiff'), '1', 'remembered');
   // the inserted log line (9) doesn't shift the pair: the old query pairs with the new one
   assert.deepEqual(added(), ['and deleted = 0']);
   assert.equal($$('#code .row[data-line="9"] .w-add').length, 0);
@@ -374,6 +378,9 @@ pageTest('the ⋯ menu holds the view settings', async () => {
   await click($('#hunks-only'));
   assert.equal($('#hunks-only').getAttribute('aria-checked'), 'false');
   assert.equal($$('#code .row.gap').length, 0, 'the whole file');
+  await click($('#word-diff'));
+  assert.equal($('#word-diff').getAttribute('aria-checked'), 'true');
+  assert.equal($$('#code .w-add').length, 1, 'the replaced query marks its new words');
   await click($('#keys-btn'));
   assert.ok(($('#keys-modal') as HTMLDialogElement).open);
 });

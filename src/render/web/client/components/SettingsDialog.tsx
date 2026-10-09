@@ -44,11 +44,12 @@ function Section({ title, hint, rows }: { title: string; hint?: string; rows: [R
 
 /** The settings in effect: where they come from, this session's choices, every rule. */
 export function SettingsDialog() {
-  const { data, threshold, hideTests, hunksOnly } = useLens((state) => ({
+  const { data, threshold, hideTests, hunksOnly, wordDiff } = useLens((state) => ({
     data: state.data,
     threshold: state.threshold,
     hideTests: state.hideTests,
     hunksOnly: state.hunksOnly,
+    wordDiff: state.wordDiff,
   }));
   const config = data.config;
   const categories = Object.keys(config.categories || {});
@@ -73,6 +74,7 @@ export function SettingsDialog() {
             ],
             ['Theme', data.theme],
             ['Hunks only', onOff(hunksOnly)],
+            ['Word diff', onOff(wordDiff)],
             ['Hide tests', onOff(hideTests)],
           ]}
         />

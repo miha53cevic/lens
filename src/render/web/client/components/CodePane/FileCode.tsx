@@ -16,7 +16,7 @@ const NO_FLAGS: ReadonlyMap<string, string> = new Map();
 
 /** The open file's code card, or why there's none. */
 export function FileCode() {
-  const { file, plan, hiddenAsTest, fileCount, listedOnly, selection, showRemoved } = useLens((state) => {
+  const { file, plan, hiddenAsTest, fileCount, listedOnly, selection, showRemoved, wordDiff } = useLens((state) => {
     const file = activeFile(state);
     return {
       file,
@@ -26,6 +26,7 @@ export function FileCode() {
       listedOnly: listedOnlyCount(state.data),
       selection: askSelection(state),
       showRemoved: state.showRemoved,
+      wordDiff: state.wordDiff,
     };
   });
   // the kept Ask selection's rows are tinted: the browser's own highlight goes once the rail's input has focus
@@ -52,7 +53,7 @@ export function FileCode() {
   if (hiddenAsTest) {
     return <div className='empty'>Every file here is a test file. Turn off "Hide tests" in ⋯ to see them.</div>;
   }
-  const { lines, removedWords } = codeLines(file, showRemoved);
+  const { lines, removedWords } = codeLines(file, wordDiff, showRemoved);
   return (
     // keyed by the file: another file mounts afresh, back where the reader left it (scrollStore), even after a refresh
     <CodeCard
