@@ -1,19 +1,20 @@
 {
-  // Type-checks the viewer's browser scripts (plain JS + JSDoc), which the
-  // server inlines into one page — so they share one global scope here too.
+  // Type-checks the viewer's browser code (client/), which bundle.ts bundles
+  // with esbuild when the server starts.
   "compilerOptions": {
-    "target": "es2024",
+    "target": "es2022",
     "lib": ["es2024", "dom", "dom.iterable"],
-    "allowJs": true,
-    "checkJs": true,
-    "noEmit": true,
-    "strict": false,
     "module": "preserve",
-    "moduleDetection": "legacy",
     "moduleResolution": "bundler",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noEmit": true,
+    "erasableSyntaxOnly": true,
     "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["src/render/web/*.js"]
+  "include": ["src/render/web/client/**/*"]
 }

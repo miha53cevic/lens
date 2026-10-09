@@ -1,16 +1,33 @@
-// lens viewer: the Summary view. Inlined after viewer.js (see there).
+// lens viewer: the Summary view.
 
 // One changed unit (function, component, hook, …) at a time: the agent's
 // headline, a When / Before / Now table, callers it may break, and the code.
-const viewSwitch = document.getElementById("view-switch");
-const viewCodeBtn = document.getElementById("view-code");
-const viewSummaryBtn = document.getElementById("view-summary");
-const summaryDot = document.getElementById("summary-dot");
-const summaryListEl = document.getElementById("summary-list");
-const summaryPaneEl = document.getElementById("summary-pane");
-let summaryOrder = []; // unit ids in list order (j/k walk this)
 
-function syncViewSwitch() {
+import type { FoldRegion } from "../../../model.ts";
+import type { Concern, Flow } from "../../../summary/store.ts";
+import type { SummaryView, ViewUnit } from "../../../summary/view.ts";
+import {
+  DATA, HUNK_CONTEXT, VIEWED_CAP, byId, escapeHtml, expandedGaps, isTestFile, linesFromTokens, readPref, state,
+  toggleViewed, viewed, viewedBoxHtml, writePref,
+} from "./shared.ts";
+import {
+  gapRowEl, jumpToLine, leaveCodeView, mainEl, nav, navToggle, regionEl, removedRowEl, render, renderToggles,
+  resizerEl, rowEl, statsEl, tabbarEl, togglesEl, treeEl, filterInput, viewedDivider, viewedWrap,
+} from "./code.ts";
+import { askSync } from "./ask.ts";
+
+type Unit = ViewUnit;
+type ConcernMark = "real" | "dismissed";
+
+const viewSwitch = byId("view-switch");
+const viewCodeBtn = byId("view-code");
+const viewSummaryBtn = byId("view-summary");
+const summaryDot = byId("summary-dot");
+const summaryListEl = byId("summary-list");
+export const summaryPaneEl = byId("summary-pane");
+let summaryOrder: string[] = []; // unit ids in list order (j/k walk this)
+
+export function syncViewSwitch(): void {
   viewSwitch.style.display = DATA.summary ? "" : "none";
   // the summary went away (e.g. a refresh in path mode): leave the Summary view properly
   if (!DATA.summary && state.view === "summary") setView("code");
@@ -19,13 +36,9 @@ function syncViewSwitch() {
 // The tree and the summary list share the sidebar's scroller: each view keeps its own position.
 const navScroll = { code: 0, summary: 0 };
 
-function setView(view) {
+export function setView(view: "code" | "summary"): void {
   if (view === "summary" && !DATA.summary) return;
-  if (state.view === "code") {
-    rememberScroll();
-    // hidden, <main> forgets its scroll: the next render mustn't save that 0 over this
-    renderedPath = null;
-  }
+  if (state.view === "code") leaveCodeView();
   navScroll[state.view] = nav.scrollTop;
   state.view = view;
   viewCodeBtn.setAttribute("aria-pressed", String(view === "code"));
@@ -37,7 +50,7 @@ function setView(view) {
   tabbarEl.style.display = summary ? "none" : "";
   mainEl.style.display = summary ? "none" : "";
   summaryPaneEl.style.display = summary ? "" : "none";
-  filterInput.parentElement.style.display = summary ? "none" : "";
+  filterInput.parentElement!.style.display = summary ? "none" : "";
   sumFilterEl.style.display = summary ? "" : "none";
   treeEl.style.display = summary ? "none" : "";
   summaryListEl.style.display = summary ? "" : "none";
@@ -54,7 +67,7 @@ async function loadSummary() {
   try {
     const res = await fetch("/api/summary");
     if (!res.ok) throw new Error("http " + res.status);
-    const summary = await res.json();
+    const summary: SummaryView | null = await res.json();
     if (summary) DATA.summary = summary;
     summaryDot.style.display = "none"; // only once it's loaded: a failed load is tried again
   } catch (err) {
@@ -78,28 +91,30 @@ async function checkSummaryStamp() {
 }
 window.addEventListener("focus", checkSummaryStamp);
 
-function unitById(id) { return (DATA.summary?.units || []).find((u) => u.id === id) || null; }
-// null on the overview: unit keys (o, m) do nothing there
-function currentUnit() { return state.summaryOverview ? null : unitById(state.summaryActive); }
+export function unitById(id: string | null | undefined): Unit | null {
+  return (DATA.summary?.units || []).find((u) => u.id === id) || null;
+}
+/** The open unit; null on the overview, where unit keys (o, m) do nothing. */
+export function currentUnit(): Unit | null { return state.summaryOverview ? null : unitById(state.summaryActive); }
 
-function unitViewKey(u) { return u.id + "@" + u.hash; }
-function isUnitViewed(u) { return !!u && viewed.units.has(unitViewKey(u)); }
+function unitViewKey(u: Unit) { return u.id + "@" + u.hash; }
+function isUnitViewed(u: Unit | null) { return !!u && viewed.units.has(unitViewKey(u)); }
 
 // Rebuilds the list but patches the pane: re-rendering it would lose its scroll position.
-function toggleUnitViewed(u) {
+export function toggleUnitViewed(u: Unit | null): void {
   if (!u) return;
   toggleViewed("units", unitViewKey(u));
   renderSummaryList();
-  const box = /** @type {HTMLInputElement | null} */ (summaryPaneEl.querySelector("#sum-viewed"));
+  const box = summaryPaneEl.querySelector<HTMLInputElement>("#sum-viewed");
   if (box) box.checked = isUnitViewed(currentUnit());
-  /** @type {NodeListOf<HTMLElement>} */ (summaryPaneEl.querySelectorAll(".ov-chip")).forEach((c) => {
+  summaryPaneEl.querySelectorAll<HTMLElement>(".ov-chip").forEach((c) => {
     c.classList.toggle("viewed", isUnitViewed(unitById(c.dataset.id)));
   });
 }
 
-function unitLabel(u) {
+export function unitLabel(u: Unit): string {
   if (u.name === "(module)") return "imports & module-level";
-  if (u.name === "(file)") return u.displayFile.split("/").pop();
+  if (u.name === "(file)") return u.displayFile.split("/").pop()!;
   return u.name;
 }
 
@@ -108,19 +123,19 @@ function unitLabel(u) {
 // per browser. Keyed by the unit's hash and the concern itself, so a re-summarized
 // unit starts fresh and a reordered list keeps its marks.
 const CONCERN_PREF = "lens.concernMarks";
-const concernMarks = (() => {
+const concernMarks: Map<string, ConcernMark> = (() => {
   try { return new Map(Object.entries(JSON.parse(readPref(CONCERN_PREF) || "{}"))); } catch { return new Map(); }
 })();
-function concernKey(u, c) { return u.id + "@" + u.hash + "#" + c.kind + ":" + c.line + ":" + c.text; }
-function concernMark(u, c) { return concernMarks.get(concernKey(u, c)) || null; }
-function setConcernMark(u, c, mark) {
+function concernKey(u: Unit, c: Concern) { return u.id + "@" + u.hash + "#" + c.kind + ":" + c.line + ":" + c.text; }
+function concernMark(u: Unit, c: Concern): ConcernMark | null { return concernMarks.get(concernKey(u, c)) || null; }
+function setConcernMark(u: Unit, c: Concern, mark: ConcernMark) {
   const key = concernKey(u, c);
   if (concernMarks.get(key) === mark) concernMarks.delete(key);
   else { concernMarks.delete(key); concernMarks.set(key, mark); } // re-insert: the oldest marks drop first
   writePref(CONCERN_PREF, JSON.stringify(Object.fromEntries([...concernMarks].slice(-VIEWED_CAP))));
 }
 /** The unit's concerns the reader hasn't dismissed. */
-function openConcerns(u) {
+function openConcerns(u: Unit) {
   if (!u.summary) return [];
   return u.summary.concerns.filter((c) => concernMark(u, c) !== "dismissed");
 }
@@ -135,53 +150,55 @@ const SIGNALS = {
   breaks: { icon: "↗", one: "may break callers", many: "may break callers" },
   look: { icon: "●", one: "flagged, no reason given", many: "no reason given" },
 };
+type SignalId = keyof typeof SIGNALS;
+const CONCERN_KINDS = ["bug", "risk", "question"] as const;
 
 /** The unit's signal ids, most serious first. */
-function unitSignals(u) {
+function unitSignals(u: Unit): SignalId[] {
   const s = u.summary;
   if (!s) return [];
-  const kinds = new Set(openConcerns(u).map((c) => c.kind));
-  const out = ["bug", "risk", "question"].filter((k) => kinds.has(k));
+  const kinds = new Set<string>(openConcerns(u).map((c) => c.kind));
+  const out: SignalId[] = CONCERN_KINDS.filter((k) => kinds.has(k));
   if (s.breaks.length > 0) out.push("breaks");
   if (s.unexplainedLook) out.push("look");
   return out;
 }
-function isFlagged(u) { return unitSignals(u).length > 0; }
+function isFlagged(u: Unit) { return unitSignals(u).length > 0; }
 
 /** "possible bug", or "confirmed bug" once the reader marked it real */
-function concernLabel(c, mark) { return mark === "real" ? "confirmed " + c.kind : SIGNALS[c.kind].one; }
+function concernLabel(c: Concern, mark: ConcernMark | null) { return mark === "real" ? "confirmed " + c.kind : SIGNALS[c.kind].one; }
 
-function signalTip(u, id) {
-  if (id === "breaks") return "may break callers: " + u.summary.breaks[0].summary;
+function signalTip(u: Unit, id: SignalId) {
+  if (id === "breaks") return "may break callers: " + u.summary!.breaks[0].summary;
   if (id === "look") return SIGNALS.look.one;
-  return SIGNALS[id].one + ": " + openConcerns(u).find((c) => c.kind === id).text;
+  return SIGNALS[id].one + ": " + openConcerns(u).find((c) => c.kind === id)!.text;
 }
 
 // The marker before a unit's name: its most serious signal, or nothing.
-function attnHtml(u) {
+function attnHtml(u: Unit) {
   const top = unitSignals(u)[0];
   if (!top) return "<span></span>";
   return '<span class="sig sig-' + top + '" title="' + escapeHtml(signalTip(u, top)) + '">' + SIGNALS[top].icon + "</span>";
 }
 
-function flowPriority(flow) { return flow.priority || 2; }
-function prioHtml(flow) {
+function flowPriority(flow: Flow) { return flow.priority || 2; }
+function prioHtml(flow: Flow) {
   const p = flowPriority(flow);
   const tip = p === 1 ? "review first" : p === 3 ? "mechanical — folded by default" : "normal priority";
   return '<span class="prio p' + p + '" title="P' + p + ": " + tip + '">P' + p + "</span>";
 }
 
 // ---- list filter: text over name / file / gist ----
-const sumFilterEl = document.getElementById("sum-filter");
-const sumFilterInput = /** @type {HTMLInputElement} */ (sumFilterEl.querySelector("input"));
-const sumFilterClear = /** @type {HTMLElement} */ (sumFilterEl.querySelector("button"));
+const sumFilterEl = byId("sum-filter");
+export const sumFilterInput = sumFilterEl.querySelector("input")!;
+const sumFilterClear = sumFilterEl.querySelector("button")!;
 let sumFilterText = ""; // transient, like the file filter
-let sumSignal = null; // a signal id or "any": the list shows only units flagged that way
+let sumSignal: SignalId | "any" | null = null; // the list shows only units flagged that way
 
 /** Hide tests applies to the summary as to the file tree. */
-function isUnitShown(u) { return !(state.hideTests && isTestFile(u.displayFile)); }
+function isUnitShown(u: Unit) { return !(state.hideTests && isTestFile(u.displayFile)); }
 
-function matchesSumFilter(u) {
+function matchesSumFilter(u: Unit) {
   if (!isUnitShown(u)) return false;
   if (sumSignal === "any" ? !isFlagged(u) : sumSignal !== null && !unitSignals(u).includes(sumSignal)) return false;
   if (sumFilterText === "") return true;
@@ -200,7 +217,7 @@ sumFilterInput.onkeydown = (ev) => {
 };
 sumFilterClear.onclick = () => { sumFilterInput.value = ""; applySumFilter(); };
 
-function renderSummary() {
+export function renderSummary(): void {
   const summary = DATA.summary;
   syncNavVisibilitySummary();
   if (!summary) return;
@@ -216,16 +233,18 @@ function renderSummary() {
   askSync(); // the overview has no unit: the rail's input waits for one
 }
 
+interface Section { flow: Flow; order: number; members: Unit[] }
+
 // List order: flows by priority (then by how many of their units are flagged),
 // then the units in no flow: flagged, routine, not yet summarized / stale.
 // A unit in several flows is listed under each.
-function groupUnits(summary, shown) {
-  const rank = (u) => !u.summary ? 3 : isFlagged(u) ? 0 : 1;
-  const looks = (members) => members.filter(isFlagged).length;
-  const inFlow = new Set();
+function groupUnits(summary: SummaryView, shown: (u: Unit) => boolean): { sections: Section[]; others: Unit[] } {
+  const rank = (u: Unit) => !u.summary ? 3 : isFlagged(u) ? 0 : 1;
+  const looks = (members: Unit[]) => members.filter(isFlagged).length;
+  const inFlow = new Set<string>();
   const sections = summary.flows
     .map((flow, order) => {
-      const all = Object.keys(flow.units).map(unitById).filter(Boolean);
+      const all = Object.keys(flow.units).map(unitById).filter((u): u is Unit => u !== null);
       for (const u of all) inFlow.add(u.id);
       return { flow, order, members: all.filter(shown) };
     })
@@ -237,8 +256,8 @@ function groupUnits(summary, shown) {
 
 // P3 flows start folded; a click on the flow's title flips it. A filter, or the
 // open unit sitting inside, unfolds it.
-const flowOpen = new Map(); // flow title -> open, once the reader toggled it
-function isFlowFolded(section) {
+const flowOpen = new Map<string, boolean>(); // flow title -> open, once the reader toggled it
+function isFlowFolded(section: Section) {
   if (sumFilterText !== "" || sumSignal !== null) return false;
   const explicit = flowOpen.get(section.flow.title);
   if (explicit !== undefined) return !explicit;
@@ -248,12 +267,12 @@ function isFlowFolded(section) {
 
 // The list alone — filtering must not rebuild the pane (and lose its scroll).
 // Returns how many units have a summary.
-function renderSummaryList() {
-  const summary = DATA.summary;
+function renderSummaryList(): number {
+  const summary = DATA.summary!;
   const units = summary.units.filter(isUnitShown); // hide tests: the counts follow the list
   // how many units carry each signal; a filter whose last unit went away (dismissed) lifts
-  const counts = { any: 0 };
-  for (const id of Object.keys(SIGNALS)) counts[id] = 0;
+  const counts = { any: 0 } as Record<SignalId | "any", number>;
+  for (const id of Object.keys(SIGNALS) as SignalId[]) counts[id] = 0;
   for (const u of units) {
     const signals = unitSignals(u);
     if (signals.length > 0) counts.any++;
@@ -270,7 +289,7 @@ function renderSummaryList() {
   // before building the list, so the default unit is highlighted too. A unit
   // the filter hides stays open in the pane.
   if (!state.summaryActive || !unitById(state.summaryActive)) state.summaryActive = summaryOrder[0] || null;
-  const itemHtml = (u, side) => {
+  const itemHtml = (u: Unit, side: string | undefined) => {
     const s = u.summary;
     const isViewed = isUnitViewed(u);
     const cls = "sum-item" + (!state.summaryOverview && u.id === state.summaryActive ? " active" : "") +
@@ -311,50 +330,51 @@ function renderSummaryList() {
   const scrolled = nav.scrollTop; // rebuilding the list must not move it
   summaryListEl.innerHTML = html;
   nav.scrollTop = scrolled;
-  /** @type {NodeListOf<HTMLElement>} */ (summaryListEl.querySelectorAll(".sum-item")).forEach((b) => {
-    b.onclick = () => openSummaryUnit(b.dataset.id);
-    /** @type {HTMLElement} */ (b.querySelector(".viewed-box")).onclick = (ev) => {
+  summaryListEl.querySelectorAll<HTMLElement>(".sum-item").forEach((b) => {
+    b.onclick = () => openSummaryUnit(b.dataset.id!);
+    b.querySelector<HTMLElement>(".viewed-box")!.onclick = (ev) => {
       ev.stopPropagation();
       toggleUnitViewed(unitById(b.dataset.id));
     };
   });
-  /** @type {NodeListOf<HTMLElement>} */ (summaryListEl.querySelectorAll(".sum-section-title.flow")).forEach((b) => {
+  summaryListEl.querySelectorAll<HTMLElement>(".sum-section-title.flow").forEach((b) => {
     b.onclick = () => {
-      flowOpen.set(b.dataset.flow, b.getAttribute("aria-expanded") !== "true");
+      flowOpen.set(b.dataset.flow!, b.getAttribute("aria-expanded") !== "true");
       renderSummaryList();
     };
   });
-  /** @type {HTMLElement} */ (summaryListEl.querySelector(".sum-overview-item")).onclick = showOverview;
-  /** @type {NodeListOf<HTMLElement>} */ (summaryListEl.querySelectorAll(".sig-chip")).forEach((b) => {
-    b.onclick = () => setSignalFilter(b.dataset.sig);
+  summaryListEl.querySelector<HTMLElement>(".sum-overview-item")!.onclick = showOverview;
+  summaryListEl.querySelectorAll<HTMLElement>(".sig-chip").forEach((b) => {
+    b.onclick = () => setSignalFilter(b.dataset.sig as SignalId | "any");
   });
   return summarized;
 }
 
 // One toggle per signal present in the diff, plus "all flagged"
-function signalChipsHtml(counts) {
+function signalChipsHtml(counts: Record<SignalId | "any", number>) {
   if (counts.any === 0) return "";
-  const chip = (id, icon, label) => '<button class="sig-chip' + (id === "any" ? "" : " sig-" + id) + '" data-sig="' + id +
+  const chip = (id: SignalId | "any", icon: string, label: string) => '<button class="sig-chip' + (id === "any" ? "" : " sig-" + id) + '" data-sig="' + id +
     '" aria-pressed="' + (sumSignal === id) + '" title="list only these (click again for all)"><span class="si">' + icon + "</span>" +
     label + '<span class="n">' + counts[id] + "</span></button>";
   return '<div class="sig-chips">' + chip("any", "", "all flagged") +
-    Object.entries(SIGNALS).filter(([id]) => counts[id] > 0).map(([id, sig]) => chip(id, sig.icon, sig.many)).join("") + "</div>";
+    (Object.entries(SIGNALS) as [SignalId, (typeof SIGNALS)[SignalId]][])
+      .filter(([id]) => counts[id] > 0).map(([id, sig]) => chip(id, sig.icon, sig.many)).join("") + "</div>";
 }
 
-function setSignalFilter(id) {
+function setSignalFilter(id: SignalId | "any") {
   sumSignal = sumSignal === id ? null : id;
   renderSummaryList();
-  if (state.summaryOverview) renderSummaryOverview(DATA.summary); // its stat buttons show the filter too
+  if (state.summaryOverview) renderSummaryOverview(DATA.summary!); // its stat buttons show the filter too
 }
 
-function openSummaryUnit(id) {
+export function openSummaryUnit(id: string): void {
   state.summaryOverview = false;
   state.summaryActive = id;
   summaryPaneEl.dataset.browsing = "1";
   renderSummary();
 }
 
-function showOverview() {
+export function showOverview(): void {
   state.summaryOverview = true;
   summaryPaneEl.dataset.browsing = "1";
   renderSummary();
@@ -367,7 +387,7 @@ function syncNavVisibilitySummary() {
   navToggle.style.display = "";
 }
 
-function renderSummaryEmpty(summary) {
+function renderSummaryEmpty(summary: SummaryView) {
   togglesEl.innerHTML = "";
   summaryPaneEl.innerHTML =
     '<div class="sum-empty"><h2>No summary yet</h2>' +
@@ -376,17 +396,17 @@ function renderSummaryEmpty(summary) {
     "<p>Without the skill, any agent with a shell can follow <code>" + escapeHtml(summary.cli) + "</code>. " +
     "When it's done, come back here: the Summary tab gets a dot, or press ↻ refresh.</p>" +
     '<p><button id="browse-units">browse the ' + summary.units.length + " changes without a summary</button></p></div>";
-  document.getElementById("copy-cmd").onclick = async (ev) => {
-    const btn = /** @type {HTMLElement} */ (ev.target);
+  byId("copy-cmd").onclick = async (ev) => {
+    const btn = ev.target as HTMLElement;
     try { await navigator.clipboard.writeText(summary.command); btn.textContent = "copied"; }
     catch { btn.textContent = "select + copy"; }
   };
   // the overview's map and by-file lanes need no summary, so browsing starts there
-  document.getElementById("browse-units").onclick = showOverview;
+  byId("browse-units").onclick = showOverview;
 }
 
 // ⓘ with a hover tip, the same widget as the fold-level help in the toolbar
-function infoHtml(title, text) {
+function infoHtml(title: string, text: string) {
   return '<span class="info" aria-label="' + title + '">&#9432;<span class="tip"><div class="tip-title">' + title + "</div>" + text + "</span></span>";
 }
 const STAT_INFO = {
@@ -402,7 +422,7 @@ const STAT_INFO = {
 };
 
 // The whole diff at a glance: counts, the agent's overview, each flow by layer.
-function renderSummaryOverview(summary) {
+function renderSummaryOverview(summary: SummaryView) {
   const units = summary.units.filter(isUnitShown); // hide tests: the stats follow the lanes
   const files = new Set(units.map((u) => u.displayFile)).size;
   const flagged = units.filter(isFlagged).length;
@@ -411,10 +431,10 @@ function renderSummaryOverview(summary) {
   const stale = units.filter((u) => u.stale).length;
   const bugs = units.reduce((n, u) => n + openConcerns(u).filter((c) => c.kind === "bug").length, 0);
   const { sections, others } = groupUnits(summary, isUnitShown);
-  const stat = (value, label, tone) =>
+  const stat = (value: number, label: string, tone: string) =>
     '<div class="ov-stat' + (value > 0 && tone ? " " + tone : "") + '"><div class="v">' + value + '</div><div class="l">' + label + "</div></div>";
   // a stat whose number filters the list by a signal
-  const filterStat = (value, label, tone, sig) =>
+  const filterStat = (value: number, label: string, tone: string, sig: SignalId | "any") =>
     '<div class="ov-stat' + (value > 0 && tone ? " " + tone : "") + '"><button class="v ov-filter" data-sig="' + sig + '" aria-pressed="' +
     (sumSignal === sig) + '" title="list only these"' + (value > 0 ? "" : " disabled") + ">" + value + '</button><div class="l">' + label + "</div></div>";
 
@@ -443,23 +463,23 @@ function renderSummaryOverview(summary) {
 
   // the lower half flips between the flows and the map
   const lower = state.overviewTab === "map" ? mapHtml(summary) : flowsHtml(sections, others);
-  const tab = (id, label) => '<button class="ov-tab" role="tab" data-tab="' + id + '" aria-selected="' + (state.overviewTab === id) + '">' + label + "</button>";
+  const tab = (id: string, label: string) => '<button class="ov-tab" role="tab" data-tab="' + id + '" aria-selected="' + (state.overviewTab === id) + '">' + label + "</button>";
   html += '<div><div class="ov-tabs" role="tablist">' + tab("flows", "Flows") + tab("map", "Map") +
     '<span class="ov-tabs-note">' + lower.note + '</span></div><div class="ov-lanes">' + lower.lanes + "</div></div>";
 
   togglesEl.innerHTML = ""; // fold chips belong to a unit's code
   delete summaryPaneEl.dataset.unit;
   summaryPaneEl.innerHTML = '<div class="sum-inner">' + html + "</div>";
-  /** @type {NodeListOf<HTMLElement>} */ (summaryPaneEl.querySelectorAll(".ov-chip")).forEach((b) => {
-    b.onclick = () => openSummaryUnit(b.dataset.id);
+  summaryPaneEl.querySelectorAll<HTMLElement>(".ov-chip").forEach((b) => {
+    b.onclick = () => openSummaryUnit(b.dataset.id!);
   });
-  /** @type {NodeListOf<HTMLElement>} */ (summaryPaneEl.querySelectorAll(".ov-filter")).forEach((b) => {
-    b.onclick = () => setSignalFilter(b.dataset.sig);
+  summaryPaneEl.querySelectorAll<HTMLElement>(".ov-filter").forEach((b) => {
+    b.onclick = () => setSignalFilter(b.dataset.sig as SignalId | "any");
   });
-  /** @type {NodeListOf<HTMLElement>} */ (summaryPaneEl.querySelectorAll(".ov-tab")).forEach((b) => {
+  summaryPaneEl.querySelectorAll<HTMLElement>(".ov-tab").forEach((b) => {
     b.onclick = () => {
       const top = summaryPaneEl.scrollTop; // flipping tabs keeps the page where it is
-      state.overviewTab = b.dataset.tab;
+      state.overviewTab = b.dataset.tab === "map" ? "map" : "flows";
       writePref("lens.overviewTab", state.overviewTab);
       renderSummaryOverview(summary);
       summaryPaneEl.scrollTop = top;
@@ -469,7 +489,7 @@ function renderSummaryOverview(summary) {
 }
 
 // Each flow laid out by layer, then the units outside any flow by file.
-function flowsHtml(sections, others) {
+function flowsHtml(sections: Section[], others: Unit[]) {
   let lanes = "";
   for (const { flow, members } of sections) {
     // the path's steps in order, then any layer the path doesn't name
@@ -481,16 +501,16 @@ function flowsHtml(sections, others) {
   if (others.length > 0) {
     lanes += '<div class="ov-lane">' + ovLaneHeadHtml(sections.length > 0 ? "Other changes" : "Changes", plural(others.length, "change"), sections.length > 0) +
       '<div class="ov-layers files">' +
-      [...byFile(others)].map(([file, units]) => ovColumnHtml(file.split("/").pop(), units, file)).join("") + "</div></div>";
+      [...byFile(others)].map(([file, units]) => ovColumnHtml(file.split("/").pop()!, units, file)).join("") + "</div></div>";
   }
   return { note: plural(sections.length, "flow"), lanes };
 }
 
 // Every change where it lives: a card per folder, a column per file, its units in file order.
-function mapHtml(summary) {
-  const startOf = (u) => u.ranges.length > 0 ? u.ranges[0].start : (u.removals[0]?.anchor ?? 0);
+function mapHtml(summary: SummaryView) {
+  const startOf = (u: Unit) => u.ranges.length > 0 ? u.ranges[0].start : (u.removals[0]?.anchor ?? 0);
   const files = byFile(summary.units.filter(isUnitShown).sort((a, b) => a.displayFile.localeCompare(b.displayFile) || startOf(a) - startOf(b)));
-  const dirs = new Map(); // folder -> its [file, units] entries, in path order
+  const dirs = new Map<string, [string, Unit[]][]>(); // folder -> its [file, units] entries, in path order
   for (const entry of files) {
     const dir = entry[0].slice(0, entry[0].lastIndexOf("/") + 1);
     dirs.set(dir, [...(dirs.get(dir) || []), entry]);
@@ -503,17 +523,17 @@ function mapHtml(summary) {
   return { note: plural(files.size, "file") + " across " + plural(dirs.size, "folder"), lanes };
 }
 
-/** @returns {Map<string, any[]>} file -> its units, in the order given */
-function byFile(units) {
-  const files = new Map();
+/** file -> its units, in the order given */
+function byFile(units: Unit[]): Map<string, Unit[]> {
+  const files = new Map<string, Unit[]>();
   for (const u of units) files.set(u.displayFile, [...(files.get(u.displayFile) || []), u]);
   return files;
 }
 
-function plural(n, word) { return n + " " + word + (n === 1 ? "" : "s"); }
+function plural(n: number, word: string) { return n + " " + word + (n === 1 ? "" : "s"); }
 
 // A unit as a tag (overview and map): status stripe, tinted by its top signal, dimmed once viewed.
-function ovChipHtml(u) {
+function ovChipHtml(u: Unit) {
   const top = unitSignals(u)[0];
   return '<button class="ov-chip st-' + u.status + (top ? " look sig-" + top : "") + (isUnitViewed(u) ? " viewed" : "") + '" data-id="' + escapeHtml(u.id) +
     '" title="' + escapeHtml(u.summary ? u.summary.headline : u.id) + '">' +
@@ -521,19 +541,19 @@ function ovChipHtml(u) {
     (top ? attnHtml(u) : "") + "</button>";
 }
 
-function ovColumnHtml(label, units, title) {
+function ovColumnHtml(label: string, units: Unit[], title: string) {
   return '<div class="ov-layer"><div class="ov-layer-l"' + (title ? ' title="' + escapeHtml(title) + '"' : "") + ">" +
     escapeHtml(label) + "</div>" + units.map(ovChipHtml).join("") + "</div>";
 }
 
-function ovLaneHeadHtml(title, count, muted, mono, flow) {
+function ovLaneHeadHtml(title: string, count: string, muted: boolean, mono?: boolean, flow?: Flow) {
   return '<div class="ov-lane-h">' + (flow ? prioHtml(flow) : "") +
     '<span class="t' + (muted ? " muted" : "") + (mono ? " mono" : "") + '">' + escapeHtml(title) + "</span>" +
     (flow && flow.why ? '<span class="why">' + escapeHtml(flow.why) + "</span>" : "") +
     '<span class="n">' + count + "</span></div>";
 }
 
-function renderSummaryUnit(u) {
+function renderSummaryUnit(u: Unit | null) {
   // the same unit again (a toolbar toggle, a verdict): keep the reader's place
   const top = u && summaryPaneEl.dataset.unit === u.id ? summaryPaneEl.scrollTop : 0;
   summaryPaneEl.innerHTML = "";
@@ -545,6 +565,7 @@ function renderSummaryUnit(u) {
   }
   summaryPaneEl.dataset.unit = u.id;
   const s = u.summary;
+  const command = DATA.summary!.command;
   const inner = document.createElement("div");
   inner.className = "sum-inner";
   let html = s
@@ -552,9 +573,9 @@ function renderSummaryUnit(u) {
     : '<h1 class="sum-headline pending">' + escapeHtml(unitLabel(u)) + "</h1>";
   if (u.stale) {
     html += '<div class="sum-note stale">The code changed since this was summarized. Run <code>' +
-      escapeHtml(DATA.summary.command) + "</code> again to update it.</div>";
+      escapeHtml(command) + "</code> again to update it.</div>";
   } else if (!s) {
-    html += '<div class="sum-note">Not summarized yet — run <code>' + escapeHtml(DATA.summary.command) + "</code> in your agent.</div>";
+    html += '<div class="sum-note">Not summarized yet — run <code>' + escapeHtml(command) + "</code> in your agent.</div>";
   }
   if (s && s.concerns.length > 0) {
     html += '<div class="concerns">' + s.concerns.map((c, i) => {
@@ -596,48 +617,47 @@ function renderSummaryUnit(u) {
     (fileIndex >= 0 && u.ranges.length > 0 ? '<button id="open-in-code" title="open in the code view (o)">code view ↗</button>' : "") +
     "</div>";
   inner.innerHTML = html;
-  inner.appendChild(unitCodeEl(u, fileIndex, s));
+  inner.appendChild(unitCodeEl(u, fileIndex));
   summaryPaneEl.appendChild(inner);
 
-  /** @param {string} selector */
-  const all = (selector) => /** @type {NodeListOf<HTMLElement>} */ (inner.querySelectorAll(selector));
-  /** @param {string} selector */
-  const one = (selector) => /** @type {HTMLElement} */ (inner.querySelector(selector));
-  all(".cite").forEach((b) => b.onclick = () => flashCited(inner, b.dataset.line));
+  const all = (selector: string) => inner.querySelectorAll<HTMLElement>(selector);
+  const one = (selector: string) => inner.querySelector<HTMLElement>(selector);
+  all(".cite").forEach((b) => b.onclick = () => flashCited(inner, b.dataset.line!));
   // hovering a scenario points at the line that causes it
   all(".scn").forEach((el) => {
-    el.onmouseenter = () => citedRow(inner, el.dataset.line)?.classList.add("hover-cite");
-    el.onmouseleave = () => citedRow(inner, el.dataset.line)?.classList.remove("hover-cite");
+    el.onmouseenter = () => citedRow(inner, el.dataset.line!)?.classList.add("hover-cite");
+    el.onmouseleave = () => citedRow(inner, el.dataset.line!)?.classList.remove("hover-cite");
   });
   // the verdict buttons, on the cards and on the notes in the code alike
   all(".vbtn").forEach((b) => b.onclick = () => {
-    setConcernMark(u, s.concerns[Number(b.dataset.ci)], b.dataset.mark);
+    setConcernMark(u, s!.concerns[Number(b.dataset.ci)], b.dataset.mark as ConcernMark);
     renderSummaryUnit(u);
     renderSummaryList(); // the markers in the list follow the open concerns
   });
   all(".brk-head").forEach((b) => b.onclick = () => {
-    const box = one('.brk-callers[data-brk="' + b.dataset.brk + '"]');
+    const box = one('.brk-callers[data-brk="' + b.dataset.brk + '"]')!;
     const open = box.style.display === "none";
     box.style.display = open ? "" : "none";
-    b.querySelector(".pk").textContent = open ? "▾" : "▸";
+    b.querySelector(".pk")!.textContent = open ? "▾" : "▸";
   });
   all(".caller").forEach((b) => b.onclick = () => {
-    const box = one('.peek[data-peek="' + b.dataset.peek + '"]');
+    const box = one('.peek[data-peek="' + b.dataset.peek + '"]')!;
     const open = box.style.display === "none";
     box.style.display = open ? "" : "none";
-    b.textContent = (open ? "▾ " : "▸ ") + b.textContent.slice(2);
+    b.textContent = (open ? "▾ " : "▸ ") + b.textContent!.slice(2);
   });
-  /** @type {HTMLInputElement} */ (one("#sum-viewed")).onchange = () => toggleUnitViewed(u);
+  (one("#sum-viewed") as HTMLInputElement).onchange = () => toggleUnitViewed(u);
   const openBtn = one("#open-in-code");
   if (openBtn) openBtn.onclick = () => openUnitInCode(u);
   // the toolbar's fold chips: the categories that fold in this unit's code
-  const regions = [...inner.querySelectorAll(".unit-code .region")].map((el) => ({ category: /** @type {HTMLElement} */ (el).dataset.cat }));
+  const regions = [...inner.querySelectorAll<HTMLElement>(".unit-code .region")].map((el) => ({ category: el.dataset.cat! }));
   renderToggles({ regions });
   summaryPaneEl.scrollTop = top;
   askSync(); // the rows were rebuilt: repaint the kept selection
 }
 
-function unitCodeEl(u, fileIndex, s) {
+function unitCodeEl(u: Unit, fileIndex: number) {
+  const s = u.summary;
   const wrap = document.createElement("div");
   wrap.className = "unit-code";
   const code = document.createElement("div");
@@ -649,12 +669,12 @@ function unitCodeEl(u, fileIndex, s) {
   // a deleted unit is nothing but removed lines: they show even with removed lines hidden
   const showRemoved = state.showRemoved || !file || u.ranges.length === 0;
   // each removed block carries its display anchor (computed by the server)
-  const emitRemoved = (after, container) => {
+  const emitRemoved = (after: number, container: HTMLElement) => {
     if (!showRemoved) return;
     for (const b of u.removals.filter((r) => r.anchor === after)) {
       b.lines.forEach((text, i) => {
         const row = removedRowEl(text, gutter);
-        row.dataset.old = b.oldStart + i;
+        row.dataset.old = String(b.oldStart + i);
         if (cited.has("O" + (b.oldStart + i))) row.classList.add("cited");
         container.appendChild(row);
       });
@@ -665,12 +685,11 @@ function unitCodeEl(u, fileIndex, s) {
   } else {
     const lines = linesFromTokens(file);
     const changed = new Set(u.changedLines);
-    const regionAt = new Map();
+    const regionAt = new Map<number, FoldRegion>();
     for (const r of file.regions) regionAt.set(r.startLine, r);
     const { ranges, gaps } = unitHunks(u, file.regions);
-    // a hidden stretch (hunks only) is a row that expands on click; where the unit's own
-    // ranges break, a plain ⋯
-    // shown ranges and hidden stretches in line order; a jump between them is a plain ⋯
+    // shown ranges and hidden stretches (hunks only: a row that expands on click) in line
+    // order; a jump between them, where the unit's own ranges break, is a plain ⋯
     const segments = [...ranges.map((r) => ({ ...r, gap: null })), ...gaps.map((g) => ({ start: g.start, end: g.end, gap: g }))]
       .sort((a, b) => a.start - b.start);
     segments.forEach((range, si) => {
@@ -686,7 +705,7 @@ function unitCodeEl(u, fileIndex, s) {
       while (l <= range.end) {
         const region = regionAt.get(l);
         if (region && region.endLine <= range.end) {
-          code.appendChild(regionEl(region, lines, changed, gutter, (after, container) => emitRemoved(after, container)));
+          code.appendChild(regionEl(region, lines, changed, gutter, emitRemoved));
           emitRemoved(region.endLine, code);
           l = region.endLine + 1;
           continue;
@@ -714,8 +733,8 @@ function unitCodeEl(u, fileIndex, s) {
     const note = document.createElement("div");
     note.className = "inline-note k-" + c.kind + (mark ? " " + mark : "");
     note.innerHTML = '<div class="n-top"><b>' + SIGNALS[c.kind].icon + " " + concernLabel(c, mark) + "</b>" + verdictHtml(i, mark) + '</div><div class="n-text">' + escapeHtml(c.text) + "</div>";
-    let at = row; // after any note already on this line, so they keep their order
-    while (at.nextElementSibling?.classList.contains("inline-note")) at = /** @type {HTMLElement} */ (at.nextElementSibling);
+    let at: Element = row; // after any note already on this line, so they keep their order
+    while (at.nextElementSibling?.classList.contains("inline-note")) at = at.nextElementSibling;
     at.after(note);
   });
   if (u.renamedFrom) {
@@ -729,8 +748,8 @@ function unitCodeEl(u, fileIndex, s) {
 }
 
 // The reader's call on one concern: real, or dismiss (which hides it from counts and the code)
-function verdictHtml(i, mark) {
-  const btn = (value, label, tip) => '<button class="vbtn v-' + value + '" data-ci="' + i + '" data-mark="' + value +
+function verdictHtml(i: number, mark: ConcernMark | null) {
+  const btn = (value: ConcernMark, label: string, tip: string) => '<button class="vbtn v-' + value + '" data-ci="' + i + '" data-mark="' + value +
     '" aria-pressed="' + (mark === value) + '" title="' + tip + '">' + label + "</button>";
   if (mark === "dismissed") return '<span class="verdict">' + btn("dismissed", "↺ Restore", "bring it back") + "</span>";
   return '<span class="verdict" role="group" aria-label="your call">' +
@@ -738,23 +757,24 @@ function verdictHtml(i, mark) {
     btn("dismissed", "✕ Dismiss", "not a problem: hides it from the code and the counts") + "</span>";
 }
 
-function citeHtml(label) {
+function citeHtml(label: string) {
   return '<button class="cite" data-line="' + escapeHtml(label) + '" title="show this line in the code below">' +
     escapeHtml(label.startsWith("O") ? "−" + label.slice(1) : "L" + label.slice(1)) + "</button>";
 }
 
 /** The code row a label ("N31" / "O16") points at, in the unit's code. */
-function citedRow(container, label) {
+export function citedRow(container: ParentNode, label: string): HTMLElement | null {
   const selector = label.startsWith("O") ? '.row[data-old="' + label.slice(1) + '"]' : '.row[data-line="' + label.slice(1) + '"]';
-  return /** @type {HTMLElement | null} */ (container.querySelector(".unit-code " + selector));
+  return container.querySelector<HTMLElement>(".unit-code " + selector);
 }
 
 // Hunks only: the unit's lines within HUNK_CONTEXT of a change or a removed block, as in the
 // code view, plus the hidden stretches in between — each expands on click (expandedGaps).
-function unitHunks(u, regions) {
-  if (!state.hunksOnly) return { ranges: u.ranges, gaps: [] };
-  const near = new Set();
-  const around = (from, to) => { for (let l = from; l <= to; l++) near.add(l); };
+function unitHunks(u: Unit, regions: FoldRegion[]) {
+  type Gap = { start: number; end: number; key: string };
+  if (!state.hunksOnly) return { ranges: u.ranges, gaps: [] as Gap[] };
+  const near = new Set<number>();
+  const around = (from: number, to: number) => { for (let l = from; l <= to; l++) near.add(l); };
   for (const l of u.changedLines) around(l - HUNK_CONTEXT, l + HUNK_CONTEXT);
   // a removed block shows after its anchor line: keep the lines on both sides
   for (const b of u.removals) around(b.anchor - HUNK_CONTEXT + 1, b.anchor + HUNK_CONTEXT);
@@ -768,7 +788,7 @@ function unitHunks(u, regions) {
     for (let l = r.startLine; l <= r.endLine; l++) if (near.has(l)) { around(r.startLine, r.endLine); break; }
   }
   // runs of hidden lines within each of the unit's ranges; an expanded one shows again
-  const gaps = [];
+  const gaps: Gap[] = [];
   for (const r of u.ranges) {
     for (let l = r.start; l <= r.end; l++) {
       if (near.has(l)) continue;
@@ -778,7 +798,7 @@ function unitHunks(u, regions) {
   }
   for (const g of gaps) g.key = "unit:" + u.id + ":" + g.start;
   const hidden = gaps.filter((g) => !expandedGaps.has(g.key));
-  const ranges = [];
+  const ranges: { start: number; end: number }[] = [];
   for (const r of u.ranges) {
     for (let l = r.start; l <= r.end; l++) {
       if (hidden.some((g) => l >= g.start && l <= g.end)) continue;
@@ -789,7 +809,7 @@ function unitHunks(u, regions) {
   return { ranges, gaps: hidden };
 }
 
-function flashCited(container, label) {
+export function flashCited(container: ParentNode, label: string): void {
   const row = citedRow(container, label);
   if (!row) return;
   const region = row.closest(".region");
@@ -800,10 +820,10 @@ function flashCited(container, label) {
   row.classList.add("flash");
 }
 
-function stepSummary(direction) {
+export function stepSummary(direction: number): void {
   if (summaryOrder.length === 0) return;
   // from the overview, j starts at the top of the list and k at the bottom
-  const pos = state.summaryOverview ? -1 : summaryOrder.indexOf(state.summaryActive);
+  const pos = state.summaryOverview ? -1 : summaryOrder.indexOf(state.summaryActive!);
   state.summaryOverview = false;
   state.summaryActive = pos === -1
     ? summaryOrder[direction > 0 ? 0 : summaryOrder.length - 1]
@@ -812,7 +832,7 @@ function stepSummary(direction) {
   renderSummary();
 }
 
-function openUnitInCode(u) {
+export function openUnitInCode(u: Unit | null): void {
   if (!u) return;
   const fileIndex = DATA.files.findIndex((f) => f.file === u.displayFile);
   if (fileIndex < 0 || u.ranges.length === 0) return;

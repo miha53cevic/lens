@@ -14,5 +14,5 @@
     "types": ["node"]
   },
   "include": ["src/**/*.ts", "test/**/*.ts", "scripts/**/*.ts"],
-  "exclude": ["test/fixtures"]
+  "exclude": ["test/fixtures", "src/render/web/client"]
 }

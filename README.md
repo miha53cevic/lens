@@ -284,9 +284,9 @@ npm test            # typecheck + node --test
 ```
 
 Classifier rules live in `src/classify/typescript.ts` (shared by ts/tsx/js). The viewer
-is `src/render/web/`: `viewer.html`, `viewer.css`, `viewer.js` (Code view),
-`summary.js` (Summary view) and `ask.js` (the Ask rail), which the server inlines into one page. The scripts are
-plain JS type-checked through JSDoc (`tsconfig.viewer.json`, part of `npm test`).
+is `src/render/web/`: `viewer.html`, `viewer.css` and the TypeScript browser code in
+`client/`, which the server bundles with esbuild when it starts and inlines into one page —
+there's no build step. `tsconfig.viewer.json` type-checks it as part of `npm test`.
 Fixture-driven tests are the main defense against a fold hiding a real bug — a rule
 change that suddenly folds more fails loudly.
 

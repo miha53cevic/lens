@@ -1,100 +1,56 @@
-// lens viewer: the Code view (tree, tabs, folds, search, settings, keys).
-// Served inlined into viewer.html together with summary.js and ask.js — one
-// script, so the three files share top-level names. Start-up runs at the end of ask.js.
+// lens viewer: the Code view (tree, tabs, folds, search, settings).
 
-/** @type {import("./server.ts").ViewerPayload} */
-const DATA = /*__LENS_DATA__*/ null;
-
-// Quotes too: the result also goes into attributes (data-id="…", title="…").
-function escapeHtml(s) {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-}
-
-// Tokens come pre-computed from the backend (Shiki): per line, [text, color] pairs.
-function linesFromTokens(file) {
-  if (Array.isArray(file.tokens) && file.tokens.length > 0) {
-    return file.tokens.map((line) =>
-      line.map(([text, color]) =>
-        color
-          ? '<span style="color:' + color + '">' + escapeHtml(text) + "</span>"
-          : escapeHtml(text),
-      ).join(""),
-    );
-  }
-  return file.source.split("\n").map(escapeHtml);
-}
-
-const CAT_COLORS = {
-  "import": "#6ea8fe",
-  "comment": "#9099ab",
-  "guard": "#e9b04d",
-  "logging": "#b585f0",
-  "telemetry": "#4dd4c6",
-  "error-boilerplate": "#f0716e",
-  "accessor": "#7bd88f",
-  "barrel": "#f28fd0",
-  "data": "#e0995a",
-};
-function catColor(cat) { return CAT_COLORS[cat] || "#e9b04d"; }
-
-const state = {
-  active: -1, // set at start-up by openFirstTreeFile
-  // Open editor tabs, vscode-style: at most one is unpinned — the "preview"
-  // tab, reused by the next single-click open. Double-click pins.
-  tabs: [],
-  hiddenCategories: new Set(), // categories toggled to "show" (i.e. not folded)
-  showRemoved: true,
-  view: "code", // "code" | "summary" — Code is always the default
-  // reader preferences (the persisted ones are restored from localStorage)
-  navCollapsed: readPref("lens.navCollapsed") === "1",
-  hideTests: readPref("lens.hideTests") !== "0", // on by default
-  hunksOnly: readPref("lens.hunksOnly") !== "0", // on by default
-  navFilter: "", // sidebar filter query (transient, not persisted)
-  /** @type {string | null} */
-  summaryActive: null, // the Summary view's open unit id
-  summaryOverview: true, // the Summary view shows the overview instead (it opens there)
-  overviewTab: readPref("lens.overviewTab") === "map" ? "map" : "flows", // its lower half: flows or map
-};
+import type { FoldRegion } from "../../../model.ts";
+import {
+  DATA, HUNK_CONTEXT, byId, catColor, escapeHtml, expandedGaps, isTestFile, linesFromTokens, readPref, state,
+  toggleViewed, viewed, viewedBoxHtml, visibleFile, writePref, type ViewFile,
+} from "./shared.ts";
+import { renderSummary, setView, syncViewSwitch } from "./summary.ts";
+import { askSync } from "./ask.ts";
 
 // PR mode: "owner/repo#N — title" in the header and the tab title
-const prLabelEl = document.getElementById("pr-label");
+const prLabelEl = byId("pr-label");
 function syncLabel() {
   prLabelEl.style.display = DATA.label ? "" : "none";
   prLabelEl.textContent = DATA.label || "";
   prLabelEl.title = DATA.label || "";
   document.title = DATA.label ? "lens — " + DATA.label : "lens";
 }
-syncLabel();
 
-const nav = document.getElementById("nav");
-const treeEl = document.getElementById("tree");
-const filterInput = /** @type {HTMLInputElement} */ (document.getElementById("file-filter"));
-const filterClear = document.getElementById("filter-clear");
-const resizerEl = document.getElementById("resizer");
-const navToggle = document.getElementById("nav-toggle");
-const codeEl = document.getElementById("code");
-const statsEl = document.getElementById("stats");
-const togglesEl = document.getElementById("toggles");
-const mainEl = document.querySelector("main");
+export const nav = byId("nav");
+export const treeEl = byId("tree");
+export const filterInput = byId<HTMLInputElement>("file-filter");
+const filterClear = byId("filter-clear");
+export const resizerEl = byId("resizer");
+export const navToggle = byId("nav-toggle");
+export const codeEl = byId("code");
+export const statsEl = byId("stats");
+export const togglesEl = byId("toggles");
+export const mainEl = document.querySelector("main")!;
 
 // ---- editor tabs ----
-const tabbarEl = document.getElementById("tabbar");
+export const tabbarEl = byId("tabbar");
 
 // Every file shares the one scroll container, so each remembers its own
 // reading position, saved and restored by render() — a tab switch comes back
 // where the reader left off, an in-place re-render (theme, toggles) stays put.
 // Keyed by path so positions survive a refresh.
-const scrollMemory = new Map(); // file path -> { top, left }
-let renderedPath = null; // the file currently shown in the code pane
+const scrollMemory = new Map<string, { top: number; left: number }>();
+let renderedPath: string | null = null; // the file currently shown in the code pane
 function rememberScroll() {
   if (renderedPath !== null) {
     scrollMemory.set(renderedPath, { top: mainEl.scrollTop, left: mainEl.scrollLeft });
   }
 }
+/** Leaving the code view: keep its place. Hidden, <main> forgets its scroll — the next render mustn't save that 0 over this. */
+export function leaveCodeView(): void {
+  rememberScroll();
+  renderedPath = null;
+}
 
 // Make sure the file has a tab, without rendering. A new file takes over the
 // preview tab when one exists; otherwise it opens next to the active tab.
-function ensureTab(index, pin) {
+function ensureTab(index: number, pin?: boolean) {
   const existing = state.tabs.find((t) => t.index === index);
   if (existing) {
     if (pin) existing.pinned = true;
@@ -109,7 +65,7 @@ function ensureTab(index, pin) {
   state.tabs.splice(at + 1, 0, { index, pinned: !!pin });
 }
 
-function openFile(index, pin) {
+export function openFile(index: number, pin?: boolean): void {
   revealIfTest(index);
   ensureTab(index, pin);
   state.active = index;
@@ -118,14 +74,14 @@ function openFile(index, pin) {
 
 // A test file opened by name (a tab, a cite, a search hit) shows: "hide tests" goes off for
 // this page instead of render() swapping in another file. The saved preference stays.
-function revealIfTest(index) {
+function revealIfTest(index: number) {
   const file = DATA.files[index];
   if (!state.hideTests || !file || !isTestFile(file.file)) return;
   state.hideTests = false;
   hideTestsBox.checked = false;
 }
 
-function closeTab(index) {
+export function closeTab(index: number): void {
   const at = state.tabs.findIndex((t) => t.index === index);
   if (at === -1) return;
   state.tabs.splice(at, 1);
@@ -136,35 +92,41 @@ function closeTab(index) {
   render();
 }
 
+/** Keep the active preview tab open. */
+export function pinActiveTab(): void {
+  const tab = state.tabs.find((t) => t.index === state.active);
+  if (tab && !tab.pinned) { tab.pinned = true; renderTabs(); }
+}
+
 function renderTabs() {
   tabbarEl.innerHTML = "";
   tabbarEl.style.display = state.tabs.length === 0 ? "none" : "";
   // basenames shared by several open tabs get their directory as a suffix
-  const counts = new Map();
+  const counts = new Map<string, number>();
   for (const t of state.tabs) {
-    const base = DATA.files[t.index].file.split("/").pop();
+    const base = DATA.files[t.index].file.split("/").pop()!;
     counts.set(base, (counts.get(base) || 0) + 1);
   }
   for (const t of state.tabs) {
     const path = DATA.files[t.index].file;
-    const base = path.split("/").pop();
+    const base = path.split("/").pop()!;
     const dir = path.slice(0, Math.max(0, path.length - base.length - 1));
     const el = document.createElement("div");
     el.className = "tab" + (t.index === state.active ? " active" : "") + (t.pinned ? "" : " preview");
     el.title = path + (t.pinned ? "" : " — preview tab: reused by the next open, double-click to keep");
     el.innerHTML =
       '<span class="tab-name">' + escapeHtml(base) + "</span>" +
-      (counts.get(base) > 1 && dir ? '<span class="tab-dir">' + escapeHtml(dir) + "</span>" : "") +
+      (counts.get(base)! > 1 && dir ? '<span class="tab-dir">' + escapeHtml(dir) + "</span>" : "") +
       '<button class="tab-close" title="close (or middle-click)">✕</button>';
     el.onclick = () => openFile(t.index);
     el.ondblclick = () => { t.pinned = true; renderTabs(); };
     el.onauxclick = (ev) => { if (ev.button === 1) closeTab(t.index); };
-    /** @type {HTMLElement} */ (el.querySelector(".tab-close")).onclick = (ev) => { ev.stopPropagation(); closeTab(t.index); };
+    el.querySelector<HTMLElement>(".tab-close")!.onclick = (ev) => { ev.stopPropagation(); closeTab(t.index); };
     tabbarEl.appendChild(el);
   }
 }
 
-function foldedCount(file) {
+function foldedCount(file: ViewFile) {
   let n = 0;
   for (const r of file.regions) {
     if (r.score <= DATA.threshold) n += r.endLine - r.startLine;
@@ -173,30 +135,10 @@ function foldedCount(file) {
 }
 
 // ---- file tree sidebar ----
-const closedDirs = new Set(); // survives re-renders (theme/file switches)
+const closedDirs = new Set<string>(); // survives re-renders (theme/file switches)
 
-// Sidebar width + collapsed state persist per browser via localStorage.
-function readPref(key) { try { return localStorage.getItem(key); } catch { return null; } }
-function writePref(key, value) { try { localStorage.setItem(key, value); } catch {} }
-
-// ---- viewed marks ----
-// What the reader ticked as viewed, per browser. Keyed by content, so a file
-// or unit that changes after it was ticked comes back unticked.
-const VIEWED_CAP = 2000;
-const VIEWED_PREF = { files: "lens.viewedFiles", units: "lens.viewedUnits" };
-function loadViewed(kind) {
-  try { return new Set(JSON.parse(readPref(VIEWED_PREF[kind]) || "[]")); } catch { return new Set(); }
-}
-const viewed = { files: loadViewed("files"), units: loadViewed("units") };
-function toggleViewed(kind, key) {
-  const set = viewed[kind];
-  if (!set.delete(key)) set.add(key);
-  // Sets keep insertion order: the oldest marks drop first
-  writePref(VIEWED_PREF[kind], JSON.stringify([...set].slice(-VIEWED_CAP)));
-}
-
-const fileViewKeys = new WeakMap(); // file object -> key; a refresh brings new objects
-function fileViewKey(file) {
+const fileViewKeys = new WeakMap<ViewFile, string>(); // file object -> key; a refresh brings new objects
+function fileViewKey(file: ViewFile) {
   let key = fileViewKeys.get(file);
   if (!key) {
     // FNV-1a over the source and the removed lines
@@ -208,11 +150,11 @@ function fileViewKey(file) {
   }
   return key;
 }
-function isFileViewed(index) {
+function isFileViewed(index: number) {
   const file = DATA.files[index];
   return !!file && viewed.files.has(fileViewKey(file));
 }
-function toggleFileViewed(index) {
+export function toggleFileViewed(index: number): void {
   const file = DATA.files[index];
   if (!file) return;
   toggleViewed("files", fileViewKey(file));
@@ -220,28 +162,10 @@ function toggleFileViewed(index) {
   syncViewedControl();
 }
 
-// The tick box in tree and summary list rows: a span, since the rows are buttons.
-function viewedBoxHtml(on, title) {
-  return '<span class="viewed-box" role="checkbox" aria-checked="' + on + '" title="' + title + '"></span>';
-}
-
-const expandedGaps = new Set(); // "path:gapStart" — gaps the reviewer opened
-
-// Glob-ish test-file matcher: "*" = within a path segment, "**" = across
-// segments; patterns match anywhere in the path ("*.spec.*", "__tests__/**").
-const testRegexes = (DATA.testFilePatterns || []).map((pattern) => {
-  const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&");
-  const body = escaped.split("**").map((part) => part.replaceAll("*", "[^/]*")).join(".*");
-  return new RegExp("(^|/)" + body + "$");
-});
-function isTestFile(path) {
-  return testRegexes.some((r) => r.test(path));
-}
-const savedWidth = Number(readPref("lens.navWidth"));
-if (savedWidth >= 160 && savedWidth <= 600) nav.style.width = savedWidth + "px";
-
 let hasTree = false;
-let navOrder = []; // file indices in visual tree order, rebuilt by renderNav
+/** The tree has files to show (with hide tests applied). */
+export function treeShown(): boolean { return hasTree; }
+let navOrder: number[] = []; // file indices in visual tree order, rebuilt by renderNav
 function syncNavVisibility() {
   navToggle.style.display = hasTree ? "" : "none";
   const show = hasTree && !state.navCollapsed;
@@ -271,7 +195,7 @@ resizerEl.addEventListener("pointerdown", (down) => {
   resizerEl.setPointerCapture(down.pointerId);
   resizerEl.classList.add("dragging");
   document.body.style.userSelect = "none";
-  const move = (ev) => {
+  const move = (ev: PointerEvent) => {
     const width = Math.min(600, Math.max(160, ev.clientX - nav.getBoundingClientRect().left));
     nav.style.width = width + "px";
   };
@@ -286,14 +210,17 @@ resizerEl.addEventListener("pointerdown", (down) => {
   resizerEl.addEventListener("pointerup", up);
 });
 
-function matchesFilter(path) {
+function matchesFilter(path: string) {
   return state.navFilter === "" || path.toLowerCase().includes(state.navFilter);
 }
 
-function buildTree() {
-  const shown = (path) => visibleFile(path) && matchesFilter(path);
-  /** @type {{ path: string, index: number | null, status: string | null, renamedFrom?: string }[]} */
-  const entries = DATA.files
+type TreeStatus = "added" | "modified" | "deleted" | "excluded" | "renamed";
+interface TreeEntry { path: string; index: number | null; status: TreeStatus | null; renamedFrom?: string }
+interface TreeNode { name: string; dirs: Map<string, TreeNode>; files: (TreeEntry & { name: string })[] }
+
+function buildTree(): TreeNode {
+  const shown = (path: string) => visibleFile(path) && matchesFilter(path);
+  const entries: TreeEntry[] = DATA.files
     .map((f, index) => ({ path: f.file, index, status: f.status || null }))
     .filter((e) => shown(e.path));
   for (const path of (DATA.deleted || []).filter(shown)) {
@@ -306,14 +233,14 @@ function buildTree() {
     entries.push({ path: r.to, index: null, status: "renamed", renamedFrom: r.from });
   }
 
-  const root = { name: "", dirs: new Map(), files: [] };
+  const root: TreeNode = { name: "", dirs: new Map(), files: [] };
   for (const entry of entries) {
     const parts = entry.path.split("/");
-    const name = parts.pop();
+    const name = parts.pop()!;
     let node = root;
     for (const part of parts) {
       if (!node.dirs.has(part)) node.dirs.set(part, { name: part, dirs: new Map(), files: [] });
-      node = node.dirs.get(part);
+      node = node.dirs.get(part)!;
     }
     node.files.push({ ...entry, name });
   }
@@ -322,7 +249,7 @@ function buildTree() {
 }
 
 // Merge single-child directory chains ("src" > "render" > "web" → "src/render/web").
-function compressChains(node) {
+function compressChains(node: TreeNode) {
   for (const [key, childStart] of [...node.dirs]) {
     let child = childStart;
     while (child.dirs.size === 1 && child.files.length === 0) {
@@ -332,10 +259,6 @@ function compressChains(node) {
     if (child !== childStart) { node.dirs.delete(key); node.dirs.set(child.name, child); }
     compressChains(child);
   }
-}
-
-function visibleFile(path) {
-  return !(state.hideTests && isTestFile(path));
 }
 
 function renderNav() {
@@ -356,7 +279,14 @@ function renderNav() {
   renderTreeNode(tree, "", 0, treeEl);
 }
 
-function renderTreeNode(node, path, depth, container) {
+const STATUS_LETTER: Record<TreeStatus, string> = { added: "A", modified: "M", deleted: "D", excluded: "⊘", renamed: "R" };
+const STATUS_TITLE: Record<TreeStatus, string> = {
+  added: "added", modified: "modified", deleted: "deleted in this diff",
+  excluded: "changed, but excluded from analysis (exclude patterns in config)",
+  renamed: "renamed, content unchanged",
+};
+
+function renderTreeNode(node: TreeNode, path: string, depth: number, container: HTMLElement) {
   const indent = 8 + depth * 13;
   const dirs = [...node.dirs.values()].sort((a, b) => a.name.localeCompare(b.name));
   for (const dir of dirs) {
@@ -374,33 +304,28 @@ function renderTreeNode(node, path, depth, container) {
     container.appendChild(row);
     if (!closed) renderTreeNode(dir, dirPath, depth + 1, container);
   }
-  const STATUS_LETTER = { added: "A", modified: "M", deleted: "D", excluded: "⊘", renamed: "R" };
-  const STATUS_TITLE = {
-    added: "added", modified: "modified", deleted: "deleted in this diff",
-    excluded: "changed, but excluded from analysis (exclude patterns in config)",
-    renamed: "renamed, content unchanged",
-  };
   for (const entry of [...node.files].sort((a, b) => a.name.localeCompare(b.name))) {
-    const letter = STATUS_LETTER[entry.status];
-    const isViewed = entry.index !== null && isFileViewed(entry.index);
+    const letter = entry.status ? STATUS_LETTER[entry.status] : undefined;
+    const index = entry.index;
+    const isViewed = index !== null && isFileViewed(index);
     const b = document.createElement("button");
     b.className = "file" + (entry.status ? " " + entry.status : "") +
-      (entry.index !== null && entry.index === state.active ? " active" : "") + (isViewed ? " viewed" : "");
+      (index !== null && index === state.active ? " active" : "") + (isViewed ? " viewed" : "");
     b.style.paddingLeft = (indent + 13) + "px";
     b.title = entry.status === "renamed"
       ? entry.renamedFrom + " → " + entry.path + " — " + STATUS_TITLE.renamed
       : entry.path + (entry.status ? " — " + STATUS_TITLE[entry.status] : "");
     b.innerHTML =
       // files that can't be opened keep the box's width, so names stay aligned
-      (entry.index !== null ? viewedBoxHtml(isViewed, "mark viewed") : '<span class="viewed-box placeholder"></span>') +
+      (index !== null ? viewedBoxHtml(isViewed, "mark viewed") : '<span class="viewed-box placeholder"></span>') +
       '<span class="fname">' + highlightName(entry.name) + "</span>" +
       (letter ? '<span class="status st-' + letter + '">' + letter + "</span>" : "");
-    if (entry.index !== null) {
-      navOrder.push(entry.index);
-      b.onclick = () => openFile(entry.index);
-      b.ondblclick = () => openFile(entry.index, true);
-      const box = /** @type {HTMLElement} */ (b.querySelector(".viewed-box"));
-      box.onclick = (ev) => { ev.stopPropagation(); toggleFileViewed(entry.index); };
+    if (index !== null) {
+      navOrder.push(index);
+      b.onclick = () => openFile(index);
+      b.ondblclick = () => openFile(index, true);
+      const box = b.querySelector<HTMLElement>(".viewed-box")!;
+      box.onclick = (ev) => { ev.stopPropagation(); toggleFileViewed(index); };
       box.ondblclick = (ev) => ev.stopPropagation();
     } else {
       b.disabled = true;
@@ -410,7 +335,7 @@ function renderTreeNode(node, path, depth, container) {
 }
 
 // Wrap the filter match in the filename (matches on full path may not appear here).
-function highlightName(name) {
+function highlightName(name: string) {
   if (state.navFilter === "") return escapeHtml(name);
   const at = name.toLowerCase().indexOf(state.navFilter);
   if (at === -1) return escapeHtml(name);
@@ -420,13 +345,13 @@ function highlightName(name) {
 }
 
 /** Where the folds on screen live: the code view's file or the summary's unit. */
-function foldScope() {
-  return state.view === "summary" ? document.getElementById("summary-pane") : codeEl;
+function foldScope(): HTMLElement {
+  return state.view === "summary" ? byId("summary-pane") : codeEl;
 }
 
-/** @param {{ regions: { category: string }[] }} file  a file, or a summary unit's share of one */
-function renderToggles(file) {
-  const categories = [...new Set(file.regions.map(r => r.category))];
+/** The fold chips: a file's, or a summary unit's share of one. */
+export function renderToggles(file: { regions: { category: string }[] }): void {
+  const categories = [...new Set(file.regions.map((r) => r.category))];
   togglesEl.innerHTML = categories.length ? '<span class="show-label">FOLDS</span>' : "";
   for (const cat of categories) {
     const label = document.createElement("label");
@@ -438,7 +363,7 @@ function renderToggles(file) {
     box.checked = state.hiddenCategories.has(cat);
     box.onchange = () => {
       if (box.checked) state.hiddenCategories.add(cat); else state.hiddenCategories.delete(cat);
-      foldScope().querySelectorAll('.region[data-cat="' + cat + '"]').forEach(el =>
+      foldScope().querySelectorAll('.region[data-cat="' + cat + '"]').forEach((el) =>
         el.classList.toggle("open", box.checked));
     };
     const dot = document.createElement("span");
@@ -450,7 +375,7 @@ function renderToggles(file) {
   }
 }
 
-function render() {
+export function render(): void {
   if (state.view === "summary") { renderSummary(); return; }
   rememberScroll();
   renderedPath = null; // set again at the end, once a file actually renders
@@ -486,43 +411,43 @@ function render() {
 
   const lines = linesFromTokens(file);
   const changed = new Set(file.changedLines || []);
-  const regionAt = new Map();
+  const regionAt = new Map<number, FoldRegion>();
   for (const r of file.regions) regionAt.set(r.startLine, r);
 
   // Old-side lines the diff removed, keyed by the new-side line they follow.
-  const removedAfter = new Map();
+  const removedAfter = new Map<number, { text: string; old: number }[]>();
   if (state.showRemoved) {
     for (const block of file.removals || []) {
       const existing = removedAfter.get(block.afterLine) || [];
       removedAfter.set(block.afterLine, existing.concat(block.lines.map((text, i) => ({ text, old: block.oldStart + i }))));
     }
   }
-  const emitRemoved = (afterLine, container, gutter) => {
+  const emitRemoved = (afterLine: number, container: HTMLElement) => {
     for (const { text, old } of removedAfter.get(afterLine) || []) {
       const row = removedRowEl(text, gutter);
-      row.dataset.old = old; // its old-side line, as in the Summary view (the Ask rail sends it)
+      row.dataset.old = String(old); // its old-side line, as in the Summary view (the Ask rail sends it)
       container.appendChild(row);
     }
   };
 
   const { windows, hiddenGaps } = computeHunks(file);
-  const inWindow = (start, end) =>
+  const inWindow = (start: number, end: number) =>
     windows === null || windows.some((w) => start <= w.end && w.start <= end);
-  const gapAt = (line) => hiddenGaps.find((g) => line >= g.start && line <= g.end);
+  const gapAt = (line: number) => hiddenGaps.find((g) => line >= g.start && line <= g.end);
 
   const gutter = String(file.lineCount).length;
   codeEl.innerHTML = "";
   if (file.parseError) {
     codeEl.innerHTML = '<div class="notice">⚠ folding disabled — this file has syntax errors</div>';
   }
-  emitRemoved(0, codeEl, gutter);
+  emitRemoved(0, codeEl);
   let lineNo = 1;
   let hiddenTotal = 0;
   while (lineNo <= file.lineCount) {
     const region = regionAt.get(lineNo);
     if (region && inWindow(region.startLine, region.endLine)) {
       codeEl.appendChild(regionEl(region, lines, changed, gutter, emitRemoved));
-      emitRemoved(region.endLine, codeEl, gutter);
+      emitRemoved(region.endLine, codeEl);
       lineNo = region.endLine + 1;
       continue;
     }
@@ -535,7 +460,7 @@ function render() {
       continue;
     }
     codeEl.appendChild(rowEl(lineNo, lines[lineNo - 1] ?? "", changed.has(lineNo), gutter));
-    emitRemoved(lineNo, codeEl, gutter);
+    emitRemoved(lineNo, codeEl);
     lineNo++;
   }
   lastHiddenTotal = hiddenTotal;
@@ -547,12 +472,11 @@ function render() {
   askSync(); // the rows were rebuilt: repaint the kept selection (or drop it for another file)
 }
 
-/** Lines of context around each change in hunks-only mode (code view and summary) */
-const HUNK_CONTEXT = 3;
+interface LineSpan { start: number; end: number }
 
 // Hunks-only windows: ±HUNK_CONTEXT lines around every change/removal anchor, merged;
 // hiddenGaps are the non-expanded stretches in between (ids stable across expansion).
-function computeHunks(file) {
+function computeHunks(file: ViewFile): { windows: LineSpan[] | null; hiddenGaps: LineSpan[] } {
   const hasAnchors = (file.changedLines || []).length > 0 || (file.removals || []).length > 0;
   if (!state.hunksOnly || !hasAnchors) return { windows: null, hiddenGaps: [] };
 
@@ -571,7 +495,7 @@ function computeHunks(file) {
       }
     }
   }
-  const windows = [];
+  const windows: LineSpan[] = [];
   for (const w of raw.sort((a, b) => a.start - b.start)) {
     const start = Math.max(1, w.start);
     const end = Math.min(file.lineCount, w.end);
@@ -580,7 +504,7 @@ function computeHunks(file) {
     else windows.push({ start, end });
   }
   let cursor = 1;
-  const hiddenGaps = [];
+  const hiddenGaps: LineSpan[] = [];
   for (const w of [...windows]) {
     if (w.start > cursor) {
       const gap = { start: cursor, end: w.start - 1 };
@@ -597,7 +521,7 @@ function computeHunks(file) {
   return { windows, hiddenGaps };
 }
 
-function gapRowEl(count, key, gutter) {
+export function gapRowEl(count: number, key: string, gutter: number): HTMLElement {
   const row = document.createElement("div");
   row.className = "row gap";
   row.title = "click to expand";
@@ -634,13 +558,13 @@ function updateStats() {
 
 // Threshold changes only flip classes — no DOM rebuild, no scroll reset.
 function applyThreshold() {
-  /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll(".region")).forEach((el) => {
+  document.querySelectorAll<HTMLElement>(".region").forEach((el) => {
     el.classList.toggle("pinned", Number(el.dataset.score) > DATA.threshold);
   });
   updateStats();
 }
 
-function removedRowEl(text, gutter) {
+export function removedRowEl(text: string, gutter: number): HTMLElement {
   const row = document.createElement("div");
   row.className = "row removed";
   row.innerHTML =
@@ -650,10 +574,10 @@ function removedRowEl(text, gutter) {
   return row;
 }
 
-function rowEl(lineNo, html, isChanged, gutter) {
+export function rowEl(lineNo: number, html: string, isChanged: boolean, gutter: number): HTMLElement {
   const row = document.createElement("div");
   row.className = "row";
-  row.dataset.line = lineNo;
+  row.dataset.line = String(lineNo);
   row.innerHTML =
     '<span class="num">' + String(lineNo).padStart(gutter) + "</span>" +
     '<span class="mark' + (isChanged ? " changed" : "") + '"></span>' +
@@ -661,13 +585,16 @@ function rowEl(lineNo, html, isChanged, gutter) {
   return row;
 }
 
-function regionEl(region, lines, changed, gutter, emitRemoved) {
+export function regionEl(
+  region: FoldRegion, lines: string[], changed: Set<number>, gutter: number,
+  emitRemoved: (afterLine: number, container: HTMLElement) => void,
+): HTMLElement {
   const wrap = document.createElement("div");
   wrap.className = "region" +
     (state.hiddenCategories.has(region.category) ? " open" : "") +
     (region.score > DATA.threshold ? " pinned" : "");
   wrap.dataset.cat = region.category;
-  wrap.dataset.score = region.score;
+  wrap.dataset.score = String(region.score);
 
   let touchesChange = false;
   for (let l = region.startLine; l <= region.endLine; l++) if (changed.has(l)) touchesChange = true;
@@ -688,7 +615,7 @@ function regionEl(region, lines, changed, gutter, emitRemoved) {
   for (let l = region.startLine; l <= region.endLine; l++) {
     body.appendChild(rowEl(l, lines[l - 1] ?? "", changed.has(l), gutter));
     // removals anchored at endLine render after the region, in the main flow
-    if (l < region.endLine) emitRemoved(l, body, gutter);
+    if (l < region.endLine) emitRemoved(l, body);
   }
   wrap.appendChild(head);
   wrap.appendChild(body);
@@ -696,17 +623,10 @@ function regionEl(region, lines, changed, gutter, emitRemoved) {
 }
 
 // ---- theme switching ----
-const themeSelect = /** @type {HTMLSelectElement} */ (document.getElementById("theme-select"));
-for (const name of DATA.themes) {
-  const option = document.createElement("option");
-  option.value = name;
-  option.textContent = name;
-  if (name === DATA.theme) option.selected = true;
-  themeSelect.appendChild(option);
-}
+const themeSelect = byId<HTMLSelectElement>("theme-select");
 // A light code theme flips the whole chrome to the light palette, so the
 // header/sidebar/modals match instead of boxing a bright pane in dark panels.
-function isLightColor(color) {
+function isLightColor(color: string) {
   // longest-first: themes report #rgb, #rgba, #rrggbb, or #rrggbbaa
   const m = /^#([0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{4}|[0-9a-f]{3})$/i.exec((color || "").trim());
   if (!m) return false;
@@ -715,17 +635,17 @@ function isLightColor(color) {
   const [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16));
   return 0.299 * r + 0.587 * g + 0.114 * b > 140;
 }
-function applyThemeColors(fg, bg) {
+function applyThemeColors(fg: string, bg: string) {
   document.documentElement.style.setProperty("--code-fg", fg);
   document.documentElement.style.setProperty("--code-bg", bg);
   document.documentElement.dataset.appearance = isLightColor(bg) ? "light" : "dark";
 }
-async function switchTheme(theme) {
+async function switchTheme(theme: string) {
   themeSelect.disabled = true;
   try {
     const res = await fetch("/api/tokens?theme=" + encodeURIComponent(theme));
     if (!res.ok) throw new Error("http " + res.status);
-    const entry = await res.json();
+    const entry: { theme: string; fg: string; bg: string; tokens: ViewFile["tokens"][] } = await res.json();
     DATA.theme = entry.theme;
     DATA.fg = entry.fg;
     DATA.bg = entry.bg;
@@ -752,24 +672,15 @@ async function switchTheme(theme) {
 themeSelect.onchange = async () => {
   if (await switchTheme(themeSelect.value)) writePref("lens.theme", DATA.theme);
 };
-applyThemeColors(DATA.fg, DATA.bg);
-
-// Restore the saved theme choice — unless --theme pinned this run's theme.
-const savedTheme = readPref("lens.theme");
-if (!DATA.themePinned && savedTheme && savedTheme !== DATA.theme) {
-  switchTheme(savedTheme).then((ok) => {
-    if (!ok) writePref("lens.theme", DATA.theme); // stale/unknown theme: forget it
-  });
-}
 
 // ---- fold threshold select ----
-const thresholdSelect = /** @type {HTMLSelectElement} */ (document.getElementById("threshold"));
-const thresholdTipEl = document.getElementById("threshold-tip");
+const thresholdSelect = byId<HTMLSelectElement>("threshold");
+const thresholdTipEl = byId("threshold-tip");
 
 // Lowest score seen per category across all files — the ground truth for
 // what each slider level actually folds in THIS run.
 function categoryScores() {
-  const scores = new Map();
+  const scores = new Map<string, number>();
   for (const f of DATA.files) {
     for (const r of f.regions) {
       scores.set(r.category, Math.min(scores.get(r.category) ?? 99, r.score));
@@ -780,7 +691,7 @@ function categoryScores() {
 
 function renderThresholdTip() {
   const scores = categoryScores();
-  const rows = [{ level: -1, label: "off", text: "nothing folds \u2014 the plain file" }];
+  const rows = [{ level: -1, label: "off", text: "nothing folds — the plain file" }];
   for (let t = 0; t <= 3; t++) {
     const added = [...scores].filter(([, s]) => s === t).map(([c]) => c);
     rows.push({
@@ -798,8 +709,6 @@ function renderThresholdTip() {
     '<div class="tip-note">TODO/FIXME comments and lens:keep regions never fold</div>';
 }
 
-thresholdSelect.value = String(DATA.threshold);
-renderThresholdTip();
 thresholdSelect.onchange = () => {
   DATA.threshold = Number(thresholdSelect.value);
   renderThresholdTip();
@@ -807,9 +716,8 @@ thresholdSelect.onchange = () => {
 };
 
 // ---- hunks-only toggle (diff mode only) ----
-const hunksWrap = document.getElementById("hunks-wrap");
-const hunksBox = /** @type {HTMLInputElement} */ (document.getElementById("hunks-only"));
-hunksBox.checked = state.hunksOnly;
+export const hunksWrap = byId("hunks-wrap");
+export const hunksBox = byId<HTMLInputElement>("hunks-only");
 hunksBox.onchange = () => {
   state.hunksOnly = hunksBox.checked;
   writePref("lens.hunksOnly", state.hunksOnly ? "1" : "0");
@@ -818,9 +726,8 @@ hunksBox.onchange = () => {
 };
 
 // ---- hide-tests toggle ----
-const testsWrap = document.getElementById("tests-wrap");
-const hideTestsBox = /** @type {HTMLInputElement} */ (document.getElementById("hide-tests"));
-hideTestsBox.checked = state.hideTests;
+export const testsWrap = byId("tests-wrap");
+export const hideTestsBox = byId<HTMLInputElement>("hide-tests");
 hideTestsBox.onchange = () => {
   state.hideTests = hideTestsBox.checked;
   writePref("lens.hideTests", state.hideTests ? "1" : "0");
@@ -828,20 +735,19 @@ hideTestsBox.onchange = () => {
 };
 
 // ---- removed-lines toggle (diff mode only) ----
-const removedWrap = document.getElementById("removed-wrap");
-const showRemovedBox = /** @type {HTMLInputElement} */ (document.getElementById("show-removed"));
+export const removedWrap = byId("removed-wrap");
+export const showRemovedBox = byId<HTMLInputElement>("show-removed");
 function syncDiffControls() {
   const isDiff = isDiffMode();
   removedWrap.style.display = isDiff ? "" : "none";
   hunksWrap.style.display = isDiff ? "" : "none";
 }
 showRemovedBox.onchange = () => { state.showRemoved = showRemovedBox.checked; render(); };
-syncDiffControls();
 
 // ---- viewed toggle (the active file) ----
-const viewedWrap = document.getElementById("viewed-wrap");
-const viewedDivider = document.getElementById("viewed-divider");
-const viewedBox = /** @type {HTMLInputElement} */ (document.getElementById("viewed"));
+export const viewedWrap = byId("viewed-wrap");
+export const viewedDivider = byId("viewed-divider");
+const viewedBox = byId<HTMLInputElement>("viewed");
 function syncViewedControl() {
   const open = !!DATA.files[state.active];
   viewedWrap.style.display = open ? "" : "none";
@@ -851,14 +757,14 @@ function syncViewedControl() {
 viewedBox.onchange = () => toggleFileViewed(state.active);
 
 // ---- settings modal ----
-const settingsModal = /** @type {HTMLDialogElement} */ (document.getElementById("settings-modal"));
-const settingsBody = document.getElementById("settings-body");
-document.getElementById("settings-btn").onclick = () => {
+const settingsModal = byId<HTMLDialogElement>("settings-modal");
+const settingsBody = byId("settings-body");
+byId("settings-btn").onclick = () => {
   renderSettings();
   settingsModal.showModal();
 };
 
-function codeList(items) {
+function codeList(items: readonly (string | number)[] | undefined) {
   if (!items || items.length === 0) return '<span class="set-source">none</span>';
   return '<span class="set-list">' + items.map((i) => "<code>" + escapeHtml(String(i)) + "</code>").join("") + "</span>";
 }
@@ -918,8 +824,7 @@ function renderSettings() {
 }
 
 // ---- manual refresh ----
-const refreshBtn = /** @type {HTMLButtonElement} */ (document.getElementById("refresh"));
-refreshBtn.style.display = DATA.canRefresh ? "" : "none";
+export const refreshBtn = byId<HTMLButtonElement>("refresh");
 refreshBtn.onclick = async () => {
   refreshBtn.disabled = true;
   refreshBtn.textContent = "…";
@@ -959,8 +864,8 @@ refreshBtn.onclick = async () => {
 };
 
 // ---- end session: stop the server and leave a farewell page ----
-document.getElementById("end-session").onclick = async (ev) => {
-  /** @type {HTMLButtonElement} */ (ev.target).disabled = true;
+byId("end-session").onclick = async (ev) => {
+  (ev.target as HTMLButtonElement).disabled = true;
   try {
     await fetch("/api/shutdown", { method: "POST" });
   } catch { /* the server may drop the connection while dying — that's success */ }
@@ -970,33 +875,35 @@ document.getElementById("end-session").onclick = async (ev) => {
 
 // expand/collapse all keep the category chips in sync with the regions — the
 // folds on screen, in the code view or a summary unit alike
-document.getElementById("expand-all").onclick = () => {
+export function expandAll(): void {
   // the code view's whole file, folds inside collapsed hunk gaps included; a summary unit's folds on screen
   const file = state.view === "code" ? DATA.files[state.active] : null;
   if (file) for (const r of file.regions) state.hiddenCategories.add(r.category);
-  /** @type {NodeListOf<HTMLElement>} */ (foldScope().querySelectorAll(".region")).forEach((el) => {
-    state.hiddenCategories.add(el.dataset.cat);
+  foldScope().querySelectorAll<HTMLElement>(".region").forEach((el) => {
+    state.hiddenCategories.add(el.dataset.cat!);
     el.classList.add("open");
   });
-  togglesEl.querySelectorAll("input").forEach(b => (b.checked = true));
-};
-document.getElementById("collapse-all").onclick = () => {
+  togglesEl.querySelectorAll("input").forEach((b) => (b.checked = true));
+}
+export function collapseAll(): void {
   state.hiddenCategories.clear();
-  togglesEl.querySelectorAll("input").forEach(b => (b.checked = false));
-  foldScope().querySelectorAll(".region").forEach(el => el.classList.remove("open"));
-};
+  togglesEl.querySelectorAll("input").forEach((b) => (b.checked = false));
+  foldScope().querySelectorAll(".region").forEach((el) => el.classList.remove("open"));
+}
+byId("expand-all").onclick = expandAll;
+byId("collapse-all").onclick = collapseAll;
 
 // ---- global search (⌘P) ----
-const searchModal = /** @type {HTMLDialogElement} */ (document.getElementById("search-modal"));
-const searchInput = /** @type {HTMLInputElement} */ (document.getElementById("search-input"));
-const searchResultsEl = document.getElementById("search-results");
-const searchWordBox = /** @type {HTMLInputElement} */ (document.getElementById("search-word"));
-const searchCaseBox = /** @type {HTMLInputElement} */ (document.getElementById("search-case"));
+const searchModal = byId<HTMLDialogElement>("search-modal");
+const searchInput = byId<HTMLInputElement>("search-input");
+const searchResultsEl = byId("search-results");
+const searchWordBox = byId<HTMLInputElement>("search-word");
+const searchCaseBox = byId<HTMLInputElement>("search-case");
 const SEARCH_LIMIT = 500;
 
 // Plain-text lines per file, split lazily once — sources never change between refreshes.
-const sourceLineCache = new Map();
-function sourceLines(fileIndex) {
+const sourceLineCache = new Map<number, string[]>();
+function sourceLines(fileIndex: number) {
   let lines = sourceLineCache.get(fileIndex);
   if (!lines) {
     lines = (DATA.files[fileIndex].source || "").split("\n");
@@ -1005,13 +912,14 @@ function sourceLines(fileIndex) {
   return lines;
 }
 
-let searchHits = []; // { fileIndex, line (1-based), col, len }
+interface SearchHit { fileIndex: number; line: number; col: number; len: number }
+let searchHits: SearchHit[] = []; // line is 1-based
 let searchSel = 0;
 // Find-usages (alt-click) jumps pin the tab being read — that search is a
 // detour the reader returns from. Plain ⌘P search keeps the preview behavior.
 let searchPinsOrigin = false;
 
-function openSearch(query, opts) {
+export function openSearch(query?: string, opts?: { word?: boolean; matchCase?: boolean; pinOrigin?: boolean }): void {
   searchPinsOrigin = !!opts?.pinOrigin;
   if (typeof query === "string") searchInput.value = query;
   if (opts) {
@@ -1024,7 +932,7 @@ function openSearch(query, opts) {
   runSearch();
 }
 
-function escapeRegExp(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
+function escapeRegExp(s: string) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
 
 function runSearch() {
   const query = searchInput.value;
@@ -1098,10 +1006,10 @@ function renderSearchResults() {
   }
 }
 
-function moveSearchSel(delta) {
+function moveSearchSel(delta: number) {
   if (searchHits.length === 0) return;
   searchSel = (searchSel + delta + searchHits.length) % searchHits.length;
-  /** @type {NodeListOf<HTMLElement>} */ (searchResultsEl.querySelectorAll(".search-hit")).forEach((el) => {
+  searchResultsEl.querySelectorAll<HTMLElement>(".search-hit").forEach((el) => {
     const selected = Number(el.dataset.idx) === searchSel;
     el.classList.toggle("selected", selected);
     if (selected) el.scrollIntoView({ block: "nearest" });
@@ -1119,11 +1027,11 @@ searchInput.onkeydown = (ev) => {
     if (hit) { searchModal.close(); jumpToLine(hit.fileIndex, hit.line, searchPinsOrigin); }
   }
 };
-document.getElementById("search-btn").onclick = () => openSearch();
+byId("search-btn").onclick = () => openSearch();
 
 // Show the target line: expand a hidden hunks-gap or a fold covering it,
 // scroll it centered, and flash it.
-function jumpToLine(fileIndex, line, pinOrigin) {
+export function jumpToLine(fileIndex: number, line: number, pinOrigin?: boolean): void {
   // search hits and "code view ↗" can come from the Summary view
   if (state.view !== "code") setView("code");
   // Pin the preview tab being read before a find-usages jump replaces it,
@@ -1142,13 +1050,13 @@ function jumpToLine(fileIndex, line, pinOrigin) {
     if (gap) expandedGaps.add(file.file + ":" + gap.start);
   }
   render();
-  const row = codeEl.querySelector('.row[data-line="' + line + '"]');
+  const row = codeEl.querySelector<HTMLElement>('.row[data-line="' + line + '"]');
   if (!row) return;
   const region = row.closest(".region");
   if (region) region.classList.add("open");
   row.scrollIntoView({ block: "center" });
   row.classList.remove("flash");
-  void (/** @type {HTMLElement} */ (row)).offsetWidth; // restart the animation on repeated jumps to the same line
+  void row.offsetWidth; // restart the animation on repeated jumps to the same line
   row.classList.add("flash");
 }
 
@@ -1156,7 +1064,7 @@ function jumpToLine(fileIndex, line, pinOrigin) {
 codeEl.addEventListener("click", (ev) => {
   if (!ev.altKey) return;
   if (ev.target instanceof Element && ev.target.closest(".pill-row, .row.gap, .num")) return;
-  let node = null, offset = 0;
+  let node: Node | null = null, offset = 0;
   if (document.caretPositionFromPoint) {
     const pos = document.caretPositionFromPoint(ev.clientX, ev.clientY);
     if (pos) { node = pos.offsetNode; offset = pos.offset; }
@@ -1165,7 +1073,7 @@ codeEl.addEventListener("click", (ev) => {
     if (range) { node = range.startContainer; offset = range.startOffset; }
   }
   if (!node || node.nodeType !== Node.TEXT_NODE) return;
-  const text = node.textContent;
+  const text = node.textContent ?? "";
   const WORD = /[A-Za-z0-9_$]/;
   let start = offset, end = offset;
   while (start > 0 && WORD.test(text[start - 1])) start--;
@@ -1175,10 +1083,6 @@ codeEl.addEventListener("click", (ev) => {
   ev.preventDefault();
   openSearch(word, { word: true, matchCase: true, pinOrigin: true });
 });
-
-// ---- keyboard shortcuts ----
-const keysModal = /** @type {HTMLDialogElement} */ (document.getElementById("keys-modal"));
-document.getElementById("keys-btn").onclick = () => keysModal.showModal();
 
 /**
  * The top file of the tree as displayed (dirs first, sorted). When the tree
@@ -1192,14 +1096,14 @@ function firstTreeFile() {
   return visible >= 0 ? visible : DATA.files.length > 0 ? 0 : -1;
 }
 
-function openFirstTreeFile() {
+export function openFirstTreeFile(): void {
   const first = firstTreeFile();
   if (first < 0) return;
   state.tabs = [{ index: first, pinned: false }];
   state.active = first;
 }
 
-function stepFile(direction) {
+export function stepFile(direction: number): void {
   // Walk the tree exactly as displayed (dirs-first, sorted, collapsed dirs
   // skipped); when the tree is hidden, fall back to plain file order.
   const order = navOrder.length > 0
@@ -1215,71 +1119,37 @@ function stepFile(direction) {
     : order[(pos + direction + order.length) % order.length]);
 }
 
-function stepThreshold(delta) {
+export function stepThreshold(delta: number): void {
   const next = Math.max(-1, Math.min(3, DATA.threshold + delta));
   if (next === DATA.threshold) return;
   thresholdSelect.value = String(next);
   thresholdSelect.dispatchEvent(new Event("change"));
 }
 
-document.addEventListener("keydown", (ev) => {
-  // ⌘P / Ctrl+P opens the search palette from anywhere (and suppresses print)
-  if ((ev.metaKey || ev.ctrlKey) && !ev.altKey && !ev.shiftKey && ev.key.toLowerCase() === "p") {
-    ev.preventDefault();
-    openSearch();
-    return;
+/** Start-up: the controls take the payload's and the saved preferences' values. */
+export function initCode(): void {
+  syncLabel();
+  const savedWidth = Number(readPref("lens.navWidth"));
+  if (savedWidth >= 160 && savedWidth <= 600) nav.style.width = savedWidth + "px";
+  for (const name of DATA.themes) {
+    const option = document.createElement("option");
+    option.value = name;
+    option.textContent = name;
+    if (name === DATA.theme) option.selected = true;
+    themeSelect.appendChild(option);
   }
-  if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
-  // keys go to text fields and selects; a clicked checkbox (viewed, a fold chip) keeps focus but takes no letters
-  const target = ev.target;
-  if (target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return;
-  if (target instanceof HTMLInputElement && target.type !== "checkbox") return;
-  if (document.querySelector("dialog[open]")) return; // Esc closes natively
-
-  if (ev.key === "v" && DATA.summary) { setView(state.view === "summary" ? "code" : "summary"); return; }
-  if (state.view === "summary") {
-    if (ev.key === "j") { stepSummary(1); return; }
-    if (ev.key === "k") { stepSummary(-1); return; }
-    if (ev.key === "o") { openUnitInCode(currentUnit()); return; }
-    if (ev.key === "m") { toggleUnitViewed(currentUnit()); return; }
-    if (ev.key === "g") { showOverview(); return; }
-    if (ev.key === "/") {
-      if (state.navCollapsed) navToggle.click();
-      sumFilterInput.focus();
-      ev.preventDefault();
-      return;
-    }
-    // the toolbar's keys act on the open unit's code; file and tab keys don't apply here
-    if (!["?", "x", "s", "r", "e", "c", "[", "]", "h", "t", "a", "\\"].includes(ev.key)) return;
+  applyThemeColors(DATA.fg, DATA.bg);
+  // Restore the saved theme choice — unless --theme pinned this run's theme.
+  const savedTheme = readPref("lens.theme");
+  if (!DATA.themePinned && savedTheme && savedTheme !== DATA.theme) {
+    switchTheme(savedTheme).then((ok) => {
+      if (!ok) writePref("lens.theme", DATA.theme); // stale/unknown theme: forget it
+    });
   }
-  switch (ev.key) {
-    case "?": keysModal.showModal(); ev.preventDefault(); break;
-    case "j": stepFile(1); break;
-    case "k": stepFile(-1); break;
-    case "w": if (state.active >= 0) closeTab(state.active); break;
-    case "m": toggleFileViewed(state.active); break;
-    case "o": {
-      const tab = state.tabs.find((t) => t.index === state.active);
-      if (tab && !tab.pinned) { tab.pinned = true; renderTabs(); }
-      break;
-    }
-    case "/":
-      if (hasTree) {
-        if (state.navCollapsed) navToggle.click();
-        filterInput.focus();
-        ev.preventDefault();
-      }
-      break;
-    case "s": if (hasTree) navToggle.click(); break;
-    case "e": document.getElementById("expand-all").click(); break;
-    case "c": document.getElementById("collapse-all").click(); break;
-    case "[": stepThreshold(-1); break;
-    case "]": stepThreshold(1); break;
-    case "h": if (hunksWrap.style.display !== "none") hunksBox.click(); break;
-    case "x": if (removedWrap.style.display !== "none") showRemovedBox.click(); break;
-    case "t": if (testsWrap.style.display !== "none") hideTestsBox.click(); break;
-    case "r": if (refreshBtn.style.display !== "none") refreshBtn.click(); break;
-    case "a": askOpenAndFocus(); ev.preventDefault(); break; // the "a" mustn't land in the textarea
-    case "\\": askSetOpen(!askState.open); break;
-  }
-});
+  thresholdSelect.value = String(DATA.threshold);
+  renderThresholdTip();
+  hunksBox.checked = state.hunksOnly;
+  hideTestsBox.checked = state.hideTests;
+  syncDiffControls();
+  refreshBtn.style.display = DATA.canRefresh ? "" : "none";
+}

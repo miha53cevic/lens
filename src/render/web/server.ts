@@ -8,6 +8,7 @@ import type { SummaryView } from "../../summary/view.ts";
 import { removeServerInfo, writeServerInfo } from "../../ask/discovery.ts";
 import { createAskRoutes } from "../../ask/routes.ts";
 import { isLocalRequest, sendJson } from "./http.ts";
+import { bundleViewer } from "./bundle.ts";
 import {
   highlightSource,
   isBundledTheme,
@@ -58,7 +59,7 @@ export interface ViewerOptions {
   themePinned: boolean;
 }
 
-/** What the page gets as DATA (viewer.js) — ViewerInput made serializable, plus tokens. */
+/** What the page gets as DATA (client/shared.ts) — ViewerInput made serializable, plus tokens. */
 export interface ViewerPayload {
   threshold: number;
   theme: string;
@@ -88,13 +89,14 @@ interface ThemeTokens {
 
 const webDir = dirname(fileURLToPath(import.meta.url));
 
-/** viewer.html with its stylesheet and scripts inlined: one self-contained page. */
-function loadTemplate(): string {
+/** viewer.html with its stylesheet and the bundled viewer script inlined: one self-contained page. */
+async function loadTemplate(): Promise<string> {
   const read = (name: string) => readFileSync(join(webDir, name), "utf8");
+  const script = await bundleViewer();
   // Function replacements: plain strings would expand $-sequences in the code.
   return read("viewer.html")
     .replace("/*__LENS_CSS__*/", () => read("viewer.css"))
-    .replace("/*__LENS_JS__*/", () => read("viewer.js") + "\n" + read("summary.js") + "\n" + read("ask.js"));
+    .replace("/*__LENS_JS__*/", () => script);
 }
 
 export async function serveViewer(
@@ -161,7 +163,7 @@ export async function serveViewer(
 
   // Warm the initial theme before accepting requests.
   await tokensFor(opts.theme);
-  const template = loadTemplate();
+  const template = await loadTemplate();
 
   // Serialized pages are cached per theme — payloads can be MBs, and
   // stringifying them on every reload is waste. Cleared on refresh.
@@ -172,7 +174,7 @@ export async function serveViewer(
     const cur = current;
     const data = JSON.stringify(await payloadFor(theme)).replace(/</g, "\\u003c");
     // Function replacement: a plain string would expand $-sequences in the payload.
-    const html = template.replace("/*__LENS_DATA__*/ null", () => data);
+    const html = template.replace("/*__LENS_DATA__*/", () => data);
     if (cur === current) htmlCache.set(theme, html); // not a page of the files from before a ↻ refresh
     return html;
   }

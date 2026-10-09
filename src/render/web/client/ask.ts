@@ -1,40 +1,44 @@
-// lens viewer: the Ask rail. Inlined after viewer.js and summary.js (see there).
+// lens viewer: the Ask rail.
 
 // One chat per lens session, answered by the reader's own agent through
 // `lens ask listen` / `lens ask reply` — lens never calls an AI. A question is
 // about the open change (the Summary tab's unit, or the Code tab's file) plus
 // the reader's current code selection, if any.
 
-const askBtn = document.getElementById("ask-btn");
-const askRail = document.getElementById("ask-rail");
-const askResizer = document.getElementById("ask-resizer");
-const askThreadEl = document.getElementById("ask-thread");
-const askChipsEl = document.getElementById("ask-chips");
-const askInput = /** @type {HTMLTextAreaElement} */ (document.getElementById("ask-input"));
-const askSendBtn = /** @type {HTMLButtonElement} */ (document.getElementById("ask-send"));
-const askStatusEl = document.getElementById("ask-status");
-const askHintEl = document.getElementById("ask-hint");
+import type { AskCite, AskQuestion, AskSelection, AskState } from "../../../ask/session.ts";
+import { DATA, byId, escapeHtml, readPref, state, writePref } from "./shared.ts";
+import { codeEl, jumpToLine, openFile } from "./code.ts";
+import { citedRow, currentUnit, flashCited, openSummaryUnit, setView, summaryPaneEl, unitById, unitLabel } from "./summary.ts";
+
+const askBtn = byId("ask-btn");
+const askRail = byId("ask-rail");
+const askResizer = byId("ask-resizer");
+const askThreadEl = byId("ask-thread");
+const askChipsEl = byId("ask-chips");
+const askInput = byId<HTMLTextAreaElement>("ask-input");
+const askSendBtn = byId<HTMLButtonElement>("ask-send");
+const askStatusEl = byId("ask-status");
+const askHintEl = byId("ask-hint");
 
 const ASK_POLL_MS = 1000;
 const ASK_MAX_LINES = 400;
 const ASK_MAX_INPUT_ROWS = 8;
 const ASK_GONE = "the lens viewer isn't running anymore";
 
-const askState = {
+/** The reader's kept selection, tied to the change it was made in. */
+type KeptSelection = AskSelection & { key: string };
+
+export const askState = {
   open: readPref("lens.askOpen") === "1",
-  /** @type {{ listening: boolean, questions: any[] }} */
-  data: { listening: false, questions: [] },
+  data: { listening: false, questions: [] } as AskState,
   dataJson: "",
   /** The reader's last code selection: kept while they type, dropped on a plain click in the code or a new change */
-  /** @type {{ key: string, file: string, lines: { n: number | null, side: "new" | "old", text: string }[] } | null} */
-  sel: null,
-  /** @type {ReturnType<typeof setTimeout> | null} */
-  timer: null,
+  sel: null as KeptSelection | null,
+  timer: null as ReturnType<typeof setTimeout> | null,
   busy: false, // a send or copy in flight
   copied: false,
   /** The last send failed (or the server is gone): shown in the hint line until the reader types again */
-  /** @type {string | null} */
-  error: null,
+  error: null as string | null,
 };
 
 // ---- what a question is about ----
@@ -43,22 +47,22 @@ const askState = {
 function askContext() {
   if (state.view === "summary") {
     const u = currentUnit();
-    return u ? { key: "u:" + u.id, file: u.displayFile, unitId: u.id, label: unitLabel(u) } : null;
+    return u ? { key: "u:" + u.id, file: u.displayFile, unitId: u.id as string | null, label: unitLabel(u) } : null;
   }
   const f = DATA.files[state.active];
   // the file's name: the selection chip next to it carries the full path
-  return f ? { key: "f:" + f.file, file: f.file, unitId: null, label: f.file.split("/").pop() } : null;
+  return f ? { key: "f:" + f.file, file: f.file, unitId: null, label: f.file.split("/").pop()! } : null;
 }
 
 /** The code the selection can come from in the current view. */
-function askCodeRoot() {
+function askCodeRoot(): Element | null {
   return state.view === "summary" ? summaryPaneEl.querySelector(".unit-code") : codeEl;
 }
 
 /** "src/a.ts:43–44" — the same wording as the agent's text (src/ask/context.ts). */
-function askSelLabel(sel) {
-  const nums = (side) => sel.lines.filter((l) => l.side === side && l.n !== null).map((l) => l.n);
-  const span = (ns) => (ns[0] === ns[ns.length - 1] ? String(ns[0]) : ns[0] + "–" + ns[ns.length - 1]);
+function askSelLabel(sel: AskSelection) {
+  const nums = (side: "new" | "old") => sel.lines.filter((l) => l.side === side && l.n !== null).map((l) => l.n!);
+  const span = (ns: number[]) => (ns[0] === ns[ns.length - 1] ? String(ns[0]) : ns[0] + "–" + ns[ns.length - 1]);
   const fresh = nums("new"), old = nums("old");
   if (fresh.length > 0) return sel.file + ":" + span(fresh);
   if (old.length > 0) return sel.file + " (removed lines " + span(old) + ")";
@@ -74,36 +78,35 @@ document.addEventListener("selectionchange", () => {
   if (!sel || sel.rangeCount === 0 || !root || !ctx) return;
   if (!root.contains(sel.anchorNode) || !root.contains(sel.focusNode)) return;
   if (sel.isCollapsed) { askSetSel(null); return; }
-  const rowOf = (node) => (node instanceof Element ? node : node.parentElement)?.closest(".row");
-  const rows = [...root.querySelectorAll(".row")].filter((r) => !r.matches(".pill-row, .gap, .unit-gap"));
+  const rowOf = (node: Node) => (node instanceof Element ? node : node.parentElement)?.closest(".row");
+  const rows = [...root.querySelectorAll<HTMLElement>(".row")].filter((r) => !r.matches(".pill-row, .gap, .unit-gap"));
   // [first, last] row index an end of the selection covers: an end on a fold's pill takes in its
   // region; one off the rows (a ⋯ row, blank space under the code) counts as the gap between the
   // rows around it — the first row after it when it starts the range, the last before when it ends it
-  const span = (node, offset) => {
+  const span = (node: Node, offset: number): [number, number] => {
     const row = rowOf(node);
-    const i = rows.indexOf(row);
+    const i = rows.indexOf(row as HTMLElement);
     if (i >= 0) return [i, i];
-    const inRegion = [...(row?.closest(".region")?.querySelectorAll(".row") ?? [])].map((r) => rows.indexOf(r)).filter((x) => x >= 0);
+    const inRegion = [...(row?.closest(".region")?.querySelectorAll<HTMLElement>(".row") ?? [])].map((r) => rows.indexOf(r)).filter((x) => x >= 0);
     if (inRegion.length > 0) return [Math.min(...inRegion), Math.max(...inRegion)];
     const at = document.createRange();
     at.setStart(node, offset);
     const after = rows.filter((r) => at.comparePoint(r, 0) < 0).length;
     return [after, after - 1];
   };
-  const a = span(sel.anchorNode, sel.anchorOffset), b = span(sel.focusNode, sel.focusOffset);
+  const a = span(sel.anchorNode!, sel.anchorOffset), b = span(sel.focusNode!, sel.focusOffset);
   const from = Math.min(a[0], b[0]), to = Math.max(a[1], b[1]);
   if (from > to) { askSetSel(null); return; } // nothing but ⋯ rows and blank space
   const picked = rows.slice(from, to + 1).slice(0, ASK_MAX_LINES);
-  const lines = picked.map((r) => {
-    const el = /** @type {HTMLElement} */ (r);
+  const lines = picked.map((el) => {
     const n = el.dataset.line ?? el.dataset.old;
-    const text = el.lastElementChild ? el.lastElementChild.textContent : "";
-    return { n: n ? Number(n) : null, side: el.classList.contains("removed") ? "old" : "new", text: text === " " ? "" : text };
+    const text = el.lastElementChild ? el.lastElementChild.textContent ?? "" : "";
+    return { n: n ? Number(n) : null, side: el.classList.contains("removed") ? "old" as const : "new" as const, text: text === " " ? "" : text };
   });
   askSetSel({ key: ctx.key, file: ctx.file, lines });
 });
 
-function askSetSel(sel) {
+function askSetSel(sel: KeptSelection | null) {
   askState.sel = sel;
   askPaintSel();
   askRenderComposer();
@@ -123,7 +126,7 @@ function askPaintSel() {
 }
 
 /** After every render of either view: drop a selection from another change, repaint, update the chips. */
-function askSync() {
+export function askSync(): void {
   const ctx = askContext();
   if (askState.sel && (!ctx || askState.sel.key !== ctx.key)) askState.sel = null;
   askPaintSel();
@@ -132,7 +135,7 @@ function askSync() {
 
 // ---- the rail ----
 
-function askSetOpen(open) {
+export function askSetOpen(open: boolean): void {
   askState.open = open;
   writePref("lens.askOpen", open ? "1" : "0");
   askRail.style.display = askResizer.style.display = open ? "" : "none";
@@ -143,20 +146,20 @@ function askSetOpen(open) {
   }
 }
 
-function askOpenAndFocus() {
+export function askOpenAndFocus(): void {
   if (!askState.open) askSetOpen(true);
   askInput.focus();
 }
 
 askBtn.onclick = () => askSetOpen(!askState.open);
-document.getElementById("ask-close").onclick = () => askSetOpen(false);
+byId("ask-close").onclick = () => askSetOpen(false);
 
 askResizer.addEventListener("pointerdown", (down) => {
   down.preventDefault();
   askResizer.setPointerCapture(down.pointerId);
   askResizer.classList.add("dragging");
   document.body.style.userSelect = "none";
-  const move = (ev) => {
+  const move = (ev: PointerEvent) => {
     const width = Math.min(720, Math.max(280, askRail.getBoundingClientRect().right - ev.clientX));
     askRail.style.width = width + "px";
   };
@@ -203,8 +206,8 @@ async function askPoll() {
 }
 
 function askBody() {
-  const ctx = askContext();
-  const sel = askState.sel && ctx && askState.sel.key === ctx.key ? { file: askState.sel.file, lines: askState.sel.lines } : null;
+  const ctx = askContext()!;
+  const sel = askState.sel && askState.sel.key === ctx.key ? { file: askState.sel.file, lines: askState.sel.lines } : null;
   return { text: askInput.value, file: ctx.file, unitId: ctx.unitId, label: ctx.label, selection: sel };
 }
 
@@ -229,7 +232,7 @@ async function askSend() {
       setTimeout(() => { askState.copied = false; askRenderComposer(); }, 1500);
     }
   } catch (err) {
-    askState.error = "couldn't send: " + err.message;
+    askState.error = "couldn't send: " + (err as Error).message;
   } finally {
     askState.busy = false;
   }
@@ -276,7 +279,7 @@ function askRenderComposer() {
   askSendBtn.disabled = !ctx || !askInput.value.trim() || (listening && !!waiting) || askState.busy;
 }
 
-function askRenderThread() {
+export function askRenderThread(): void {
   const nearBottom = askThreadEl.scrollHeight - askThreadEl.scrollTop - askThreadEl.clientHeight < 40;
   const qs = askState.data.questions;
   if (qs.length === 0) {
@@ -301,21 +304,20 @@ function askRenderThread() {
     if (q.stale) html += '<div class="ask-stale">↻ the code changed since this was asked</div>';
     return html;
   }).join("");
-  askThreadEl.querySelectorAll(".ask-goto").forEach((b) => {
-    /** @type {HTMLElement} */ (b).onclick = () => askGoto(qs[Number(/** @type {HTMLElement} */ (b).dataset.q)]);
+  askThreadEl.querySelectorAll<HTMLElement>(".ask-goto").forEach((b) => {
+    b.onclick = () => askGoto(qs[Number(b.dataset.q)]);
   });
-  askThreadEl.querySelectorAll(".ask-cite").forEach((b) => {
-    const el = /** @type {HTMLElement} */ (b);
-    el.onclick = () => askOpenCite(el.dataset.file, Number(el.dataset.line));
+  askThreadEl.querySelectorAll<HTMLElement>(".ask-cite").forEach((el) => {
+    el.onclick = () => askOpenCite(el.dataset.file!, Number(el.dataset.line));
   });
   if (nearBottom) askThreadEl.scrollTop = askThreadEl.scrollHeight;
 }
 
 /** "waiting for agent · 6s", ticking with the poll. */
 function askRenderWaitTimes() {
-  askThreadEl.querySelectorAll(".ask-wait").forEach((el) => {
-    const secs = Math.round((Date.now() - Number(/** @type {HTMLElement} */ (el).dataset.asked)) / 1000);
-    el.lastChild.textContent = "waiting for agent · " + secs + "s";
+  askThreadEl.querySelectorAll<HTMLElement>(".ask-wait").forEach((el) => {
+    const secs = Math.round((Date.now() - Number(el.dataset.asked)) / 1000);
+    el.lastChild!.textContent = "waiting for agent · " + secs + "s";
   });
 }
 
@@ -323,8 +325,8 @@ function askRenderWaitTimes() {
  * The little markdown agents write: fenced code, paragraphs, - / 1. lists,
  * `code` and **bold**. Escaped first; valid cites become buttons.
  */
-function askMarkdown(md, cites) {
-  const inline = (s) => {
+function askMarkdown(md: string, cites: AskCite[]) {
+  const inline = (s: string) => {
     let h = escapeHtml(s)
       .replace(/`([^`]+)`/g, "<code>$1</code>")
       .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
@@ -337,7 +339,7 @@ function askMarkdown(md, cites) {
     }
     return h;
   };
-  const out = [];
+  const out: string[] = [];
   const parts = md.split(/^```[^\n]*\n([\s\S]*?)^```\s*$/m);
   parts.forEach((part, i) => {
     if (i % 2 === 1) { out.push("<pre><code>" + escapeHtml(part.replace(/\n$/, "")) + "</code></pre>"); return; }
@@ -357,7 +359,7 @@ function askMarkdown(md, cites) {
 }
 
 /** A cite: flash it in the open unit's code when it's there, else jump to it in the code view. */
-function askOpenCite(file, line) {
+function askOpenCite(file: string, line: number) {
   if (state.view === "summary") {
     const u = currentUnit();
     if (u && u.displayFile === file && citedRow(summaryPaneEl, "N" + line)) { flashCited(summaryPaneEl, "N" + line); return; }
@@ -367,7 +369,7 @@ function askOpenCite(file, line) {
 }
 
 /** A question's change chip: back to that unit, or that file. */
-function askGoto(q) {
+function askGoto(q: AskQuestion) {
   if (q.unitId && unitById(q.unitId)) {
     if (state.view !== "summary") setView("summary");
     openSummaryUnit(q.unitId);
@@ -379,12 +381,9 @@ function askGoto(q) {
   openFile(index);
 }
 
-// ---- start-up: last, after all three files' top-level declarations have run ----
-
-askRail.style.width = (Number(readPref("lens.askWidth")) || 360) + "px";
-askSetOpen(askState.open);
-askRenderThread();
-openFirstTreeFile();
-syncViewSwitch();
-render();
-if (location.hash === "#summary" && DATA.summary) setView("summary");
+/** Start-up: the rail as the reader left it. */
+export function initAsk(): void {
+  askRail.style.width = (Number(readPref("lens.askWidth")) || 360) + "px";
+  askSetOpen(askState.open);
+  askRenderThread();
+}
