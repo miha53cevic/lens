@@ -73,6 +73,8 @@ export interface LensState {
   /** Flow title -> open, once the reader toggled it */
   flowOpen: ReadonlyMap<string, boolean>;
   concernMarks: ReadonlyMap<string, ConcernMark>;
+  /** Where the last jump landed: that row stays marked until the next jump */
+  landed: { path: string; label: string } | null;
   // Ask rail
   ask: {
     open: boolean;
@@ -142,6 +144,7 @@ const initialState: LensState = {
   sumSignal: null,
   flowOpen: new Map(),
   concernMarks: loadMarks(),
+  landed: null,
   ask: {
     open: readPref('lens.askOpen') === '1',
     width: savedWidth('lens.askWidth', 280, 720, 360),

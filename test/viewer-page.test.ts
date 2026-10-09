@@ -447,6 +447,24 @@ pageTest('search lists where a name is defined, then its usages; Enter jumps, ev
   assert.ok($('#code .row[data-line="14"]').classList.contains('flash'), 'line 14 was hidden: its stretch opened');
 });
 
+pageTest('the row a jump lands on stays marked after the flash, until the next jump', async () => {
+  const landed = () => $$('#code .row.landed').map((row) => row.dataset.line ?? '−' + row.dataset.old);
+  await key('p', { ctrlKey: true });
+  await type($('#search-input'), 'toOrder');
+  fireEvent.keyDown($('#search-input'), { key: 'Enter' });
+  await settle();
+  assert.deepEqual(landed(), ['14']);
+  await key('e'); // the rows re-render: the mark is state, so it stays
+  assert.deepEqual(landed(), ['14']);
+  await click($$('.code-pane .ruler .tick')[0]);
+  assert.deepEqual(landed(), ['−9'], 'a ruler jump moves it');
+  await key('v');
+  await key('j');
+  assert.equal($$('.unit-code .row.landed').length, 1, 'the unit shows the same file: the mark is there too');
+  await click($('.cite'));
+  assert.equal($$('.unit-code .row.landed').length, 1, 'a cite moves it');
+});
+
 pageTest('tabs: a double-click keeps a tab, w closes the active one, and a refresh keeps them', async (page) => {
   await key('t');
   fireEvent.dblClick($$('#tree .file').find((file) => file.textContent!.includes('orders.test.ts'))!);

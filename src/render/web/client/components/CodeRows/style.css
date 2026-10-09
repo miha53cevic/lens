@@ -152,17 +152,33 @@
   opacity: 1;
 }
 
-/* a jump lands: the line flashes */
+/* a jump lands: the line flashes, then stays marked (an accent bar and number) until the next jump */
+.row.landed {
+  background: color-mix(in oklab, var(--accent) 10%, transparent);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.row.landed .num {
+  color: var(--accent);
+  font-weight: 700;
+}
 .row.flash {
-  animation: line-flash 1.6s ease-out;
+  animation: line-flash 2.2s ease-out;
 }
 @keyframes line-flash {
   0%,
-  45% {
-    background: color-mix(in oklab, var(--accent) 28%, transparent);
+  10%,
+  30% {
+    background: color-mix(in oklab, var(--accent) 34%, transparent);
+    box-shadow:
+      inset 3px 0 0 var(--accent),
+      inset 0 0 0 1px var(--selected-ring);
+  }
+  20% {
+    background: color-mix(in oklab, var(--accent) 16%, transparent);
   }
   100% {
-    background: transparent;
+    background: color-mix(in oklab, var(--accent) 10%, transparent);
+    box-shadow: inset 3px 0 0 var(--accent);
   }
 }
 

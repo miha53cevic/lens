@@ -5,8 +5,7 @@ import type { CodeItem } from '../rows.ts';
 import { useLens } from '../store.ts';
 import { isRegionOpen } from '../model/plans.ts';
 import { rulerTicks, type RegionShows } from '../model/ruler.ts';
-import { openFoldAround } from '../actions/folds.ts';
-import { flashRow } from '../shared.ts';
+import { landOn } from '../actions/views.ts';
 import './OverviewRuler.css';
 
 interface OverviewRulerProps {
@@ -48,9 +47,7 @@ export function OverviewRuler({ path, items, changedLines, flagged }: OverviewRu
     const line = label.slice(1);
     const selector = label.startsWith('N') ? '.row[data-line="' + line + '"]' : '.row[data-old="' + line + '"]';
     const row = event.currentTarget.closest('.code-card')?.querySelector<HTMLElement>(selector);
-    if (!row) return;
-    openFoldAround(row, path);
-    flashRow(row);
+    if (row) landOn(row, path, label);
   };
   return (
     <div className='ruler' aria-hidden='true'>

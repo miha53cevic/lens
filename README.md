@@ -85,6 +85,8 @@ explicitly is always analyzed.
   find its usages. When a loaded file declares the name (a top-level function, class,
   const, type or enum, or a class member), *Defined at* lists that first. It matches by
   name only, as a text search would: no types, no imports followed.
+- **Jumps** (a search hit, a ruler tick, a cite) flash the line they land on, and leave
+  it marked with an accent bar and line number until the next jump.
 - **Reload** (`r`) re-runs the analysis — new file contents, a fresh `git diff`, edits
   to `.lens.json` — without restarting the server. *Settings* in ⋯ shows the effective
   config.

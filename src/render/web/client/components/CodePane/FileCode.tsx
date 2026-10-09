@@ -1,5 +1,6 @@
 import { TriangleAlert } from 'lucide-react';
 import { useCallback, useMemo } from 'react';
+import clsx from 'clsx';
 import { useLens } from '../../store.ts';
 import { activeFile, filePlan } from '../../model/plans.ts';
 import { askSelLabels } from '../../ask/selection.ts';
@@ -16,26 +17,31 @@ const NO_FLAGS: ReadonlyMap<string, string> = new Map();
 
 /** The open file's code card, or why there's none. */
 export function FileCode() {
-  const { file, plan, hiddenAsTest, fileCount, listedOnly, selection, showRemoved, wordDiff } = useLens((state) => {
-    const file = activeFile(state);
-    return {
-      file,
-      plan: file ? filePlan(state, file) : null,
-      hiddenAsTest: !!file && state.hideTests && isTestFile(file.file),
-      fileCount: state.data.files.length,
-      listedOnly: listedOnlyCount(state.data),
-      selection: askSelection(state),
-      showRemoved: state.showRemoved,
-      wordDiff: state.wordDiff,
-    };
-  });
-  // the kept Ask selection's rows are tinted: the browser's own highlight goes once the rail's input has focus
-  const marks = useMemo(
-    () => ({ classes: new Map(askSelLabels(selection).map((label) => [label, 'ask-sel'])) }),
-    [selection],
+  const { file, plan, hiddenAsTest, fileCount, listedOnly, selection, showRemoved, wordDiff, landed } = useLens(
+    (state) => {
+      const file = activeFile(state);
+      return {
+        file,
+        plan: file ? filePlan(state, file) : null,
+        hiddenAsTest: !!file && state.hideTests && isTestFile(file.file),
+        fileCount: state.data.files.length,
+        listedOnly: listedOnlyCount(state.data),
+        selection: askSelection(state),
+        showRemoved: state.showRemoved,
+        wordDiff: state.wordDiff,
+        landed: state.landed,
+      };
+    },
   );
-  const changedLines = useMemo(() => new Set(file?.changedLines || []), [file]);
+  // the kept Ask selection's rows are tinted (the browser's own highlight goes once the rail's input
+  // has focus), and the row the last jump landed on stays marked
   const path = file?.file ?? null;
+  const marks = useMemo(() => {
+    const classes = new Map(askSelLabels(selection).map((label) => [label, 'ask-sel']));
+    if (landed && landed.path === path) classes.set(landed.label, clsx(classes.get(landed.label), 'landed'));
+    return { classes };
+  }, [selection, landed, path]);
+  const changedLines = useMemo(() => new Set(file?.changedLines || []), [file]);
   // stable per file: a new callback would run again on every render and reset the scroll
   const restoreScroll = useCallback((body: HTMLDivElement | null) => restoreFileScroll(body, path), [path]);
 
