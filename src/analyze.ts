@@ -61,16 +61,17 @@ export async function analyze(
   }
 
   let summary: SummaryView | null = null;
-  let reloadSummary: (() => SummaryView | null) | null = null;
-  let stamp: (() => number | null) | null = null;
+  let latestSummary: (() => SummaryView) | null = null;
   if (diff && withSummary && command !== "paths") {
     try {
       const units = await collectUnits(diff, config, cwd);
       const { root } = diff;
       const key = summaryKey(command, args);
-      reloadSummary = () => buildSummaryView({ root, cwd, command, args, units });
-      stamp = () => summaryStamp(root, key);
-      summary = reloadSummary();
+      const build = () => buildSummaryView({ root, cwd, command, args, units });
+      let view = build();
+      // summary.json's mtime is cheap to check; rebuild only after a submit
+      latestSummary = () => (summaryStamp(root, key) === view.stamp ? view : (view = build()));
+      summary = view;
     } catch (err) {
       console.error(`lens: summary mode unavailable: ${(err as Error).message}`);
     }
@@ -88,8 +89,7 @@ export async function analyze(
     configSource: findConfigPath(cwd),
     label: diff ? diff.label : null,
     summary,
-    reloadSummary,
-    summaryStamp: stamp,
+    latestSummary,
   };
 }
 
