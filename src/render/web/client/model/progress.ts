@@ -82,5 +82,5 @@ const buildUnitProgress = memo(
 export function unitProgress(state: LensState): Progress | null {
   const list = listModel(state);
   if (!list) return null;
-  return buildUnitProgress(list, state.viewedUnits, state.summaryOverview ? null : list.activeId);
+  return buildUnitProgress(list, state.viewedUnits, state.summaryUnit === null ? null : list.activeId);
 }

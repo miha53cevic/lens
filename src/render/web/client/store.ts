@@ -57,9 +57,8 @@ export interface LensState {
   /** The search palette (⌘P). The <dialog> itself knows whether it's open. */
   search: { query: string; word: boolean; matchCase: boolean; pinOrigin: boolean; selected: number };
   // Summary tab
-  summaryActive: string | null;
-  /** The Summary tab shows the overview (it opens there) */
-  summaryOverview: boolean;
+  /** The open unit's id; null: the overview (the tab opens there) */
+  summaryUnit: string | null;
   /** The reader went past the "No summary yet" page */
   summaryBrowsing: boolean;
   /** A newer summary waits on the server */
@@ -77,8 +76,6 @@ export interface LensState {
     open: boolean;
     width: number;
     data: AskState;
-    /** The JSON of the last poll, to skip re-rendering when nothing changed */
-    dataJson: string;
     selection: KeptSelection | null;
     /** The last send failed (or the server is gone): shown until the reader types again */
     error: string | null;
@@ -134,8 +131,7 @@ const initialState: LensState = {
   viewedFiles: loadSet(VIEWED_PREF.files),
   viewedUnits: loadSet(VIEWED_PREF.units),
   search: { query: '', word: false, matchCase: false, pinOrigin: false, selected: 0 },
-  summaryActive: null,
-  summaryOverview: true,
+  summaryUnit: null,
   summaryBrowsing: false,
   summaryDot: false,
   summaryChecking: false,
@@ -147,7 +143,6 @@ const initialState: LensState = {
     open: readPref('lens.askOpen') === '1',
     width: savedWidth('lens.askWidth', 280, 720, 360),
     data: { listening: false, questions: [] },
-    dataJson: '',
     selection: null,
     error: null,
     tick: 0,

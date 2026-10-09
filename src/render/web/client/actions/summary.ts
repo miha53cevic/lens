@@ -9,11 +9,11 @@ import { openFoldAround } from './folds.ts';
 import { jumpToLine } from './views.ts';
 
 export function openSummaryUnit(unitId: string): void {
-  update({ summaryOverview: false, summaryActive: unitId, summaryBrowsing: true });
+  update({ summaryUnit: unitId, summaryBrowsing: true });
 }
 
 export function showOverview(): void {
-  update({ summaryOverview: true, summaryBrowsing: true });
+  update({ summaryUnit: null, summaryBrowsing: true });
 }
 
 export function stepSummary(direction: number): void {
@@ -21,7 +21,7 @@ export function stepSummary(direction: number): void {
   const list = listModel(state);
   if (!list || list.order.length === 0) return;
   // from the overview, j starts at the top of the list and k at the bottom
-  const position = state.summaryOverview ? -1 : list.order.indexOf(list.activeId!);
+  const position = state.summaryUnit === null ? -1 : list.order.indexOf(list.activeId!);
   // stops at the first and the last change: no wrapping around
   const target = position === -1 ? (direction > 0 ? 0 : list.order.length - 1) : position + direction;
   if (target >= 0 && target < list.order.length) openSummaryUnit(list.order[target]);

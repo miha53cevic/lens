@@ -10,7 +10,7 @@ import { UnitItem } from './UnitItem.tsx';
 
 /** The Summary tab's list: flows (the agent's priority orders them), then the changes in no flow. */
 export function SummaryList() {
-  const { list, overview } = useLens((state) => ({ list: listModel(state)!, overview: state.summaryOverview }));
+  const { list, overview } = useLens((state) => ({ list: listModel(state)!, overview: state.summaryUnit === null }));
   const isActive = (unitId: string) => !overview && unitId === list.activeId;
 
   return (
