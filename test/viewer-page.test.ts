@@ -11,6 +11,7 @@ import { analyze } from '../src/analyze.ts';
 import { loadConfig } from '../src/config.ts';
 import { bundleViewer } from '../src/render/web/bundle.ts';
 import { highlightFiles, viewerPayload, type ViewerPayload } from '../src/render/web/server.ts';
+import { themeSwatch } from '../src/render/highlight.ts';
 import { writeStored, type StoredSummary } from '../src/summary/store.ts';
 import type { AskState } from '../src/ask/session.ts';
 import { makeViewerRepo } from './fixtures/viewerRepo.ts';
@@ -22,7 +23,7 @@ let lightTokens: unknown;
 
 before(async () => {
   repo = makeViewerRepo();
-  bundle = await bundleViewer();
+  bundle = (await bundleViewer()).script;
   const input = await analyze('diff', [], repo, loadConfig(repo));
   const unit = (name: string) => input.summary!.units.find((candidate) => candidate.name === name)!;
   const findOrders = unit('findOrders'),
@@ -54,7 +55,7 @@ before(async () => {
   };
   writeStored(repo, 'diff', stored);
   input.summary = input.reloadSummary!();
-  const themes = ['github-dark', 'github-light'];
+  const themes = await Promise.all(['github-dark', 'github-light'].map(themeSwatch));
   payload = viewerPayload(input, await highlightFiles(input.files, 'github-dark'), themes, {
     themePinned: true,
     canRefresh: true,
@@ -202,10 +203,12 @@ pageTest('the page opens on the first file of the tree, folded, hunks only', asy
     $$('#code .row.gap').map((gap) => gap.lastElementChild!.textContent),
     ['⋯ 5 unchanged lines', '⋯ 1 unchanged line', '⋯ 7 unchanged lines'],
   );
-  assert.equal(
-    $('#stats').textContent,
-    '2 files changed · src/orders.ts — 27 lines, 4 folded (−15%) · 13 unchanged hidden',
-  );
+  // the code card's header: the file's status, its path, the lines the diff added and removed
+  assert.equal($('.code-head .status-badge').textContent, 'MModified');
+  assert.equal($('.code-head .code-path').textContent, 'src/orders.ts');
+  assert.equal($('.code-head .counts').textContent, '+2−5');
+  assert.equal($('#tree .file .status-letter').textContent, 'M');
+  assert.equal($('#nav .progress-count').textContent, '0 of 1');
 });
 
 pageTest('a fold opens on a click; expand all, collapse all and a fold chip act on all of them', async () => {
@@ -234,8 +237,7 @@ pageTest('a fold opens on a click; expand all, collapse all and a fold chip act 
 });
 
 pageTest('the fold level pins the regions scored above it', async () => {
-  fireEvent.change($('#threshold'), { target: { value: '0' } });
-  await settle();
+  await click($('#threshold [data-value="0"]'));
   assert.deepEqual(
     $$('#code .region.pinned').map((region) => region.dataset.cat),
     ['guard', 'logging'],
@@ -243,7 +245,8 @@ pageTest('the fold level pins the regions scored above it', async () => {
   );
   await key(']');
   assert.equal($$('#code .region.pinned').length, 0);
-  assert.equal(($('#threshold') as HTMLSelectElement).value, '1');
+  assert.equal($('#threshold [aria-checked="true"]').dataset.value, '1');
+  assert.equal($('#threshold-hint').textContent, 'Level 1 folds import, guard, logging. [ ]');
 });
 
 pageTest('hunks only: a click shows a hidden stretch, h shows the whole file', async () => {
@@ -280,7 +283,7 @@ test('a viewed mark sticks, and survives a reload', async () => {
   try {
     await key('m');
     assert.ok($('#tree .file').classList.contains('viewed'));
-    assert.ok(($('#viewed') as HTMLInputElement).checked);
+    assert.equal($('#nav .progress-count').textContent, '1 of 1');
     saved = localStorage.getItem('lens.viewedFiles')!;
     assert.match(saved, /src\/orders\.ts@/);
   } finally {
@@ -292,6 +295,46 @@ test('a viewed mark sticks, and survives a reload', async () => {
   } finally {
     await close();
   }
+});
+
+pageTest('the review pill marks the file viewed and opens the next one, until every file is', async () => {
+  const pill = () => $('#review-next').textContent!.trim();
+  await key('t'); // the test file shows too: two files
+  assert.equal($('#nav .progress-count').textContent, '0 of 2');
+  assert.equal(pill(), 'Viewed · next file');
+  await click($('#review-next'));
+  assert.equal($('.tab.active .tab-name').textContent, 'orders.test.ts', 'the next file not viewed yet');
+  assert.equal($('#nav .progress-count').textContent, '1 of 2');
+  assert.equal(pill(), 'Mark viewed', 'the last one left');
+  await click($('#review-next'));
+  assert.equal(pill(), 'All 2 files viewed');
+  await click($('#review-undo'));
+  assert.equal($('#nav .progress-count').textContent, '1 of 2');
+  await click($('#review-prev'));
+  assert.equal($('.tab.active .tab-name').textContent, 'orders.ts');
+  assert.equal(pill(), 'Viewed', 'already viewed: no mark, Undo and Next instead');
+});
+
+pageTest('the ⋯ menu holds the view settings; one away from its default marks the button', async () => {
+  assert.equal($$('#more-btn .trigger-dot').length, 0);
+  await click($('#hunks-only'));
+  assert.equal($('#hunks-only').getAttribute('aria-checked'), 'false');
+  assert.equal($$('#code .row.gap').length, 0, 'the whole file');
+  assert.ok($('#more-btn .trigger-dot'));
+  await click($('#keys-btn'));
+  assert.ok(($('#keys-modal') as HTMLDialogElement).open);
+});
+
+pageTest("a light theme from the theme menu turns the page light, with the theme's accent", async (page) => {
+  assert.equal(document.documentElement.dataset.appearance, 'dark');
+  await click($('#theme-github-light'));
+  await settle();
+  assert.ok(page.requests.some((request) => request.path === '/api/tokens'));
+  assert.equal(document.documentElement.dataset.appearance, 'light');
+  assert.equal(
+    document.documentElement.style.getPropertyValue('--theme-accent'),
+    (lightTokens as { accent: string }).accent,
+  );
 });
 
 pageTest(
@@ -369,13 +412,29 @@ pageTest(
       ['findOrders', 'legacyTotal'],
       "the test file's unit hides with the tests",
     );
-    assert.equal($('.sum-head .legend').textContent, '2 flagged');
+    assert.equal($('.progress .legend').textContent, '2 flagged');
     assert.ok($('.sum-overview-item').classList.contains('active'));
-    assert.ok($$('.ov-stat').some((stat) => stat.textContent!.startsWith('1possible bug')));
+    assert.deepEqual(
+      $$('.ov-stat').map((stat) => stat.textContent),
+      ['1 possible bug', '1 question'],
+    );
   },
   {},
   '#summary',
 );
+
+pageTest('on the Summary tab the pill starts the review, and marks each change reviewed on the way', async () => {
+  const pill = () => $('#review-next').textContent!.trim();
+  await key('v');
+  assert.equal(pill(), 'Start review');
+  await click($('#review-next'));
+  assert.equal($('.sum-headline').textContent, 'findOrders skips deleted orders');
+  assert.equal(pill(), 'Reviewed · next change');
+  await click($('#review-next'));
+  assert.equal($('.sum-item.active .name').textContent, 'legacyTotal');
+  assert.equal($('#nav .progress-count').textContent, '1 of 2');
+  assert.equal($('.sum-item:not(.active) .viewed-box').getAttribute('aria-checked'), 'true');
+});
 
 pageTest("a unit's code has the Code view's folds, hunks and toolbar keys", async () => {
   await key('v');
@@ -408,7 +467,7 @@ pageTest("a concern sits under its line; dismissing it drops the note and the un
   await click($('.concern .vbtn.v-dismissed'));
   assert.equal($$('.inline-note').length, 0);
   assert.ok($('.concern').classList.contains('dismissed'));
-  assert.equal($('.sum-head .legend').textContent, '1 flagged');
+  assert.equal($('.progress .legend').textContent, '1 flagged');
   assert.equal($$('.sum-item.active .sig').length, 0);
   assert.match(localStorage.getItem('lens.concernMarks')!, /dismissed/);
 });
@@ -529,5 +588,5 @@ pageTest('⏻ end stops the server and leaves a note', async (page) => {
   await click($('#end-session'));
   assert.ok(page.requests.some((request) => request.method === 'POST' && request.path === '/api/shutdown'));
   // (screen binds to the document at import, before happy-dom is there)
-  assert.equal(within(document.body).getByText(/session ended/).className, 'ended');
+  assert.equal(within(document.body).getByText(/Session ended/).className, 'ended');
 });

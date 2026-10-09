@@ -1,0 +1,166 @@
+/*
+ * The code's rows, in both views. Rows are memoized and their lines are prebuilt HTML:
+ * keep these rules cheap (no :has() on rows) so big files stay fast.
+ */
+
+.code {
+  --row-h: 1.75;
+  min-width: max-content;
+  padding: 6px 0 var(--space-3);
+  color: var(--code-fg);
+  font: 12.5px / var(--row-h) var(--font-mono);
+}
+
+.row {
+  display: flex;
+  gap: 1.1rem;
+  padding: 0 var(--space-5) 0 var(--space-4);
+  white-space: pre;
+}
+.row:hover {
+  background: color-mix(in oklab, var(--code-fg) 5%, transparent);
+}
+.num {
+  flex: none;
+  min-width: 3.2ch;
+  color: var(--faint);
+  text-align: right;
+  user-select: none;
+}
+/* the changed-lines bar between the number and the code */
+.mark {
+  flex: none;
+  width: 3px;
+  margin: 0 -0.8rem 0 -0.35rem;
+  border-radius: 2px;
+}
+.mark.changed {
+  background: var(--add);
+}
+
+.row.changed {
+  background: var(--add-bg);
+}
+.row.removed {
+  background: var(--del-bg);
+  color: color-mix(in oklab, var(--code-fg) 72%, var(--del));
+}
+.row.removed:hover {
+  background: color-mix(in oklab, var(--del) 17%, transparent);
+}
+.row.removed .num {
+  color: var(--del);
+}
+.row.removed .mark {
+  background: var(--del);
+  opacity: 0.7;
+}
+
+/* hunks only: the hidden stretch, one click from showing */
+.row.gap {
+  margin: 4px 0;
+  border-block: 1px dashed var(--line);
+  background: color-mix(in oklab, var(--surface-2) 55%, transparent);
+  color: var(--faint);
+  font: var(--text-xs) / 2 var(--font-sans);
+  cursor: pointer;
+  user-select: none;
+}
+.row.gap:hover {
+  color: var(--text);
+}
+.row.gap .num,
+.unit-gap .num {
+  font-family: var(--font-mono);
+}
+
+/* a fold: a pill that quotes what it hides */
+.pill-row {
+  align-items: baseline;
+  cursor: pointer;
+}
+/* baseline alignment collapses the empty gutter mark: stretch it back */
+.pill-row .mark {
+  align-self: stretch;
+}
+.pill {
+  --cat: var(--accent);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.7ch;
+  padding: 0 10px;
+  border-radius: var(--radius-full);
+  background: var(--surface-2);
+  color: var(--muted);
+  font: var(--text-xs) / 1.75 var(--font-sans);
+  transition:
+    background var(--motion),
+    color var(--motion);
+}
+.pill-row:hover .pill {
+  background: color-mix(in oklab, var(--cat) 16%, var(--surface-2));
+  color: var(--text);
+}
+.pill .cat {
+  color: var(--cat);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.pill .caret {
+  align-self: center;
+  color: var(--cat);
+}
+/* category hues are picked for dark backgrounds: darken small text on light ones */
+:root[data-appearance='light'] .pill .cat,
+:root[data-appearance='light'] .pill .caret {
+  color: color-mix(in oklab, var(--cat) 62%, #333a45);
+}
+.region.open .pill .caret {
+  transform: rotate(90deg);
+}
+.region .body {
+  display: none;
+}
+.region.open .body {
+  display: block;
+  opacity: 0.62;
+}
+.region.pinned > .pill-row {
+  display: none;
+}
+.region.pinned > .body {
+  display: block;
+  opacity: 1;
+}
+/* a summary concern's note lives in this fold: it stays open whatever the fold controls say */
+.region.has-note > .pill-row {
+  display: none;
+}
+.region.has-note > .body {
+  display: block;
+  opacity: 1;
+}
+
+/* a jump lands: the line flashes */
+.row.flash {
+  animation: line-flash 1.6s ease-out;
+}
+@keyframes line-flash {
+  0%,
+  45% {
+    background: color-mix(in oklab, var(--accent) 28%, transparent);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+/* the reader's selection, kept for the Ask rail */
+.row.ask-sel {
+  background: color-mix(in oklab, var(--question) 18%, transparent);
+}
+.row.ask-sel .num {
+  color: var(--question);
+}

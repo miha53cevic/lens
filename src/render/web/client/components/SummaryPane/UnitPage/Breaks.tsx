@@ -16,6 +16,7 @@ export function Breaks({ breaks }: { breaks: PossibleBreak[] }) {
 
   return (
     <div className='breaks'>
+      <div className='section-label'>Callers it may break</div>
       {breaks.flatMap((possibleBreak, breakIndex) => {
         const open = isOpen('b' + breakIndex);
         return [

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { highlightSource, isBundledTheme, SUGGESTED_THEMES } from "../src/render/highlight.ts";
+import { highlightSource, isBundledTheme, SUGGESTED_THEMES, themeAccent } from "../src/render/highlight.ts";
 import { DEFAULT_CONFIG } from "../src/config.ts";
 
 const DEFAULT_THEME = DEFAULT_CONFIG.theme;
@@ -39,6 +39,13 @@ test("themes switch colors; unknown themes are rejected", async () => {
     () => highlightSource(source, "typescript", "not-a-theme"),
     /unknown theme/,
   );
+});
+
+test("the viewer's accent is the theme's function-name color, matched as TextMate does", async () => {
+  assert.equal((await themeAccent("vesper")).toLowerCase(), "#ffc799", "an exact entity.name.function rule");
+  assert.equal(await themeAccent("github-light"), "#6f42c1", "entity.name covers entity.name.function");
+  assert.equal(await themeAccent("min-light"), "#6f42c1", "no function rule: support.function");
+  await assert.rejects(() => themeAccent("not-a-theme"), /unknown theme/);
 });
 
 test("non-classified languages: shiki colors when known, plain when not", async () => {

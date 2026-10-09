@@ -6,7 +6,7 @@ import { SignalIcon } from '../../SignalIcon.tsx';
 import { Cite } from './Cite.tsx';
 import { Verdict } from './Verdict.tsx';
 
-/** The agent's concerns, each with the reader's verdict. */
+/** The agent's concerns, each a callout with the reader's verdict. */
 export function Concerns({ unit, concerns }: { unit: Unit; concerns: Concern[] }) {
   const marks = useLens((state) => state.concernMarks);
   return (
@@ -15,13 +15,14 @@ export function Concerns({ unit, concerns }: { unit: Unit; concerns: Concern[] }
         const mark = concernMark(marks, unit, concern);
         return (
           <div key={concernIndex} className={clsx('concern', 'k-' + concern.kind, mark)}>
-            <span className='ic'>
-              <SignalIcon signal={concern.kind} />
-            </span>
-            <span className='kind'>{concernLabel(concern, mark)}</span>
-            <Cite label={concern.line} />
-            <Verdict unit={unit} concern={concern} concernIndex={concernIndex} mark={mark} />
+            <div className='concern-top'>
+              <span className='kind'>
+                <SignalIcon signal={concern.kind} /> {concernLabel(concern, mark)}
+              </span>
+              <Cite label={concern.line} />
+            </div>
             <div className='text'>{concern.text}</div>
+            <Verdict unit={unit} concern={concern} concernIndex={concernIndex} mark={mark} />
           </div>
         );
       })}

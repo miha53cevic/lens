@@ -1,0 +1,27 @@
+/* the Code view: the open file as one card on the page, its header kept in sight */
+.code-pane {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  padding: 0 22px 96px;
+  background: var(--bg);
+  /* the header's width follows the pane, not the card (cqw) */
+  container-type: inline-size;
+}
+
+/* as wide as the longest line, at least as wide as the pane */
+.code-pane .code-card {
+  display: flow-root;
+  width: max-content;
+  min-width: 100%;
+}
+
+/* the header stays in sight, however far the code scrolls */
+.code-pane .code-head {
+  position: sticky;
+  top: 0;
+  left: 22px;
+  z-index: 4;
+  width: 100cqw;
+  max-width: 100%;
+}

@@ -6,8 +6,11 @@ import { askSelLabels } from '../../ask/selection.ts';
 import { askSelection } from '../../model/askContext.ts';
 import { isTestFile, linesFromTokens, listedOnlyCount } from '../../shared.ts';
 import { CodeRows } from '../CodeRows/index.tsx';
+import { CodeCard } from '../CodeCard.tsx';
+import { FileHead } from './FileHead.tsx';
+import { findUsages } from './util.ts';
 
-/** The open file's rows, or why there are none. */
+/** The open file's code card, or why there's none. */
 export function FileCode() {
   const { file, plan, hiddenAsTest, fileCount, listedOnly, selection } = useLens((state) => {
     const file = activeFile(state);
@@ -31,31 +34,33 @@ export function FileCode() {
     return (
       <div className='empty'>
         {fileCount > 0
-          ? 'no file open — pick one from the tree'
+          ? 'No file open: pick one from the tree.'
           : listedOnly > 0
-            ? 'nothing to analyze — this diff only renamed, deleted, or excluded files (see the tree)'
-            : 'no supported files found'}
+            ? 'Nothing to analyze: this diff only renamed, deleted or excluded files (see the tree).'
+            : 'No supported files found.'}
       </div>
     );
   }
   if (hiddenAsTest) {
-    return <div className='empty'>every file here is a test file — untick "hide tests" to see them</div>;
+    return <div className='empty'>Every file here is a test file. Turn off "Hide tests" in ⋯ to see them.</div>;
   }
   return (
-    <>
+    <CodeCard status={file.status} head={<FileHead file={file} />}>
       {file.parseError && (
         <div className='notice'>
-          <TriangleAlert size={13} /> folding disabled — this file has syntax errors
+          <TriangleAlert size={13} /> Folding is off: this file has syntax errors.
         </div>
       )}
-      <CodeRows
-        path={file.file}
-        items={plan.items}
-        lines={linesFromTokens(file)}
-        changedLines={changedLines}
-        gutter={String(file.lineCount).length}
-        marks={marks}
-      />
-    </>
+      <div className='code' id='code' onClick={findUsages}>
+        <CodeRows
+          path={file.file}
+          items={plan.items}
+          lines={linesFromTokens(file)}
+          changedLines={changedLines}
+          gutter={String(file.lineCount).length}
+          marks={marks}
+        />
+      </div>
+    </CodeCard>
   );
 }

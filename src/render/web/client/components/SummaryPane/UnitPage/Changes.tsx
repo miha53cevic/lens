@@ -1,3 +1,4 @@
+import { ArrowRight } from 'lucide-react';
 import type { ChangeRow } from '../../../../../../summary/store.ts';
 import { Cite } from './Cite.tsx';
 
@@ -7,45 +8,31 @@ interface ChangesProps {
   onHover: (cite: string | null) => void;
 }
 
-/** What behaves differently: When / Before / Now, each pointing at the line that causes it. */
+/** What behaves differently, one sentence per situation: when …, what it did, what it does now, and the line that causes it. */
 export function Changes({ changes, onHover }: ChangesProps) {
   return (
     <div className='chg'>
-      <div className='chg-label'>
-        <span className='t'>What behaves differently</span>
-        <span className='cap'>situations where the code now does something else</span>
-      </div>
+      <div className='section-label'>What behaves differently</div>
       {changes.map((change, changeIndex) => (
-        <div
+        <p
           key={changeIndex}
           className='scn'
           data-line={change.line}
           onMouseEnter={() => onHover(change.line)}
           onMouseLeave={() => onHover(null)}
         >
-          <div className='scn-h'>
-            <span className='w'>when</span>
-            <span className='sit'>{change.when}</span>
-            <Cite label={change.line} />
-          </div>
-          {change.before && (
-            <div className='scn-l was'>
-              <span className='s'>−</span>
-              <span className='tx'>{change.before}</span>
-            </div>
-          )}
-          <div className='scn-l is'>
-            <span className='s'>+</span>
-            <span>
-              {!change.before && (
-                <span className='new-b' title="behavior that didn't exist before">
-                  new
-                </span>
-              )}
-              {change.now}
+          <span className='when'>When {change.when}:</span>{' '}
+          {change.before ? (
+            <>
+              <del>{change.before}</del> <ArrowRight size={12} className='to' />{' '}
+            </>
+          ) : (
+            <span className='new-b' title="behavior that didn't exist before">
+              new
             </span>
-          </div>
-        </div>
+          )}
+          <ins>{change.now}</ins> <Cite label={change.line} />
+        </p>
       ))}
     </div>
   );

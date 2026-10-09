@@ -3,6 +3,8 @@ import clsx from 'clsx';
 import { useLens } from '../store.ts';
 import { baseName, hiddenStyle } from '../shared.ts';
 import { closeTab, openFile, pinTab } from '../actions/tabs.ts';
+import { StatusLetter } from '../ui/FileStatus.tsx';
+import './Tabs.css';
 
 /** The Code view's editor tabs. */
 export function Tabs() {
@@ -22,7 +24,8 @@ export function Tabs() {
   return (
     <div className='tabbar' id='tabbar' style={hiddenStyle(hidden)}>
       {tabs.map((tab) => {
-        const path = files[tab.index].file;
+        const file = files[tab.index];
+        const path = file.file;
         const name = baseName(path);
         const dir = path.slice(0, Math.max(0, path.length - name.length - 1));
         return (
@@ -36,6 +39,7 @@ export function Tabs() {
               if (event.button === 1) closeTab(tab.index);
             }}
           >
+            {file.status && <StatusLetter status={file.status} />}
             <span className='tab-name'>{name}</span>
             {baseNameCounts.get(name)! > 1 && dir && <span className='tab-dir'>{dir}</span>}
             <button

@@ -8,7 +8,8 @@ import { toggleDir } from '../../actions/sidebar.ts';
 import { toggleFileViewed } from '../../actions/viewed.ts';
 import { fileViewKey, type ViewFile } from '../../shared.ts';
 import { ViewedBox } from '../ViewedBox.tsx';
-import { STATUS_LETTER, STATUS_TITLE } from './const.ts';
+import { StatusLetter } from '../../ui/FileStatus.tsx';
+import { STATUS_TITLE } from './const.ts';
 
 interface TreeContext {
   filter: string;
@@ -63,7 +64,6 @@ function addRows(node: TreeDir, path: string, depth: number, context: TreeContex
 
 function FileRow({ entry, indent, context }: { entry: TreeFile; indent: number; context: TreeContext }) {
   const fileIndex = entry.index;
-  const letter = entry.status ? STATUS_LETTER[entry.status] : undefined;
   const viewed = fileIndex !== null && context.viewedFiles.has(fileViewKey(context.files[fileIndex]));
   const title =
     entry.status === 'renamed'
@@ -92,7 +92,7 @@ function FileRow({ entry, indent, context }: { entry: TreeFile; indent: number; 
       <span className='fname'>
         <FilterMatch name={entry.name} filter={context.filter} />
       </span>
-      {letter && <span className={'status st-' + letter}>{letter}</span>}
+      {entry.status && <StatusLetter status={entry.status} />}
     </button>
   );
 }

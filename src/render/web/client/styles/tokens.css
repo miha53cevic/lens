@@ -1,0 +1,93 @@
+/*
+ * The design tokens. Three tiers:
+ *   1. inputs — the code theme's colors (main.tsx sets them from the payload) and the scales
+ *   2. semantic — what components use: surfaces, text, lines, accent, diff and signal colors,
+ *      mixed from the inputs so the chrome matches any Shiki theme
+ *   3. component — the few a part needs (--row-h, --pill-*), defined next to that part
+ * Components use tier 2 and the scales, never raw colors.
+ */
+
+:root {
+  /* ---- inputs: the code theme (vesper's until main.tsx sets the real ones) ---- */
+  --code-bg: #101010;
+  --code-fg: #ffffff;
+  --theme-accent: #ffc799;
+
+  /* ---- scales ---- */
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-serif: 'Iowan Old Style', Charter, 'Source Serif 4', Georgia, serif;
+  --font-mono: ui-monospace, 'Cascadia Code', SFMono-Regular, Menlo, monospace;
+
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-md: 13px;
+  --text-lg: 15px;
+  --text-xl: 20px;
+  --text-2xl: 27px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 48px;
+
+  --radius-sm: 5px;
+  --radius-md: 8px;
+  --radius-lg: 14px;
+  --radius-full: 999px;
+
+  --control-h: 30px;
+  --control-h-sm: 24px;
+  --motion: 120ms ease-out;
+
+  /* ---- semantic: the same for light and dark themes ---- */
+  --surface: var(--code-bg);
+  --line: color-mix(in oklab, var(--code-fg) 13%, var(--code-bg));
+  --line-strong: color-mix(in oklab, var(--code-fg) 24%, var(--code-bg));
+  --muted: color-mix(in oklab, var(--text) 64%, var(--code-bg));
+  --faint: color-mix(in oklab, var(--text) 42%, var(--code-bg));
+  --accent: var(--theme-accent);
+  --accent-fg: var(--code-bg);
+  --accent-soft: color-mix(in oklab, var(--accent) 16%, transparent);
+  --focus: var(--accent);
+  --add-bg: color-mix(in oklab, var(--add) 10%, transparent);
+  --del-bg: color-mix(in oklab, var(--del) 11%, transparent);
+
+  /* ---- semantic: dark themes ---- */
+  --bg: color-mix(in oklab, var(--code-bg) 82%, #000);
+  --surface-2: color-mix(in oklab, var(--code-bg) 90%, var(--code-fg));
+  /* menus, tooltips, the review pill: lifted off the page */
+  --raised: color-mix(in oklab, var(--code-bg) 92%, var(--code-fg));
+  --text: color-mix(in oklab, var(--code-fg) 90%, #fff);
+  --shadow: #000000b0;
+  --add: #6cc58f;
+  --mod: #e0b45c;
+  --del: #f0855a;
+  --ren: #8fb3ff;
+  --bug: #f0855a;
+  --risk: #e0b45c;
+  --question: #8fb3ff;
+  --breaks: #c4a5ff;
+  color-scheme: dark;
+}
+
+/* a light code theme: warm paper around the code */
+:root[data-appearance='light'] {
+  --bg: color-mix(in oklab, var(--code-bg) 94%, #9c7f3c);
+  --surface-2: color-mix(in oklab, var(--code-bg) 89%, #9c7f3c);
+  --raised: var(--code-bg);
+  --text: color-mix(in oklab, var(--code-fg) 78%, #000);
+  --shadow: #1c223038;
+  --add: #1f8a4c;
+  --mod: #a16207;
+  --del: #c2410c;
+  --ren: #2563eb;
+  --bug: #c2410c;
+  --risk: #b45309;
+  --question: #2563eb;
+  --breaks: #7c3aed;
+  color-scheme: light;
+}

@@ -1,0 +1,135 @@
+/* The page itself: reset, type, focus, scrollbars, and the few helpers every area uses. */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* React's root: its children lay out as the body's own */
+#root {
+  display: contents;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+/* buttons look like nothing until a component styles them (ui/Button for the usual look) */
+button {
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* one focus ring for everything, on keyboard focus only */
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+code {
+  font-family: var(--font-mono);
+}
+
+kbd {
+  display: inline-block;
+  min-width: 18px;
+  padding: 2px 5px;
+  border: 1px solid var(--line-strong);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--muted);
+  font: 600 10.5px/1 var(--font-mono);
+  text-align: center;
+}
+
+/* icons (lucide) take the text's color and sit on its line */
+svg.lucide {
+  flex: none;
+  vertical-align: -0.15em;
+}
+
+.spacer {
+  flex: 1;
+}
+
+/* a caret that turns when its section opens */
+.caret,
+.pk {
+  transition: transform var(--motion);
+}
+.caret.open,
+.pk.open {
+  transform: rotate(90deg);
+}
+
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ended {
+  display: grid;
+  place-items: center;
+  height: 100vh;
+  color: var(--muted);
+}
+
+.empty {
+  padding: var(--space-8);
+  color: var(--muted);
+  text-align: center;
+}
+
+.no-match {
+  padding: var(--space-2) var(--space-3);
+  color: var(--muted);
+  font-style: italic;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border: 2px solid var(--bg);
+  border-radius: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}

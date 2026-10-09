@@ -5,6 +5,7 @@ import type { ViewUnit } from '../../../../summary/view.ts';
 import type { LensState } from '../store.ts';
 import { memo, type ViewFile } from '../shared.ts';
 import { type CodeItem, fileSpans, hiddenCount, planCode, type RemovedLine, unitSpans } from '../rows.ts';
+import { currentUnit, summaryPage } from './summaryList.ts';
 
 /** "category|path:startLine" — a fold chip resets its category's one-by-one folds by the prefix. */
 export function regionKey(path: string, region: FoldRegion): string {
@@ -52,12 +53,6 @@ export function activeFile(state: LensState): ViewFile | null {
   return state.data.files[state.active] ?? null;
 }
 
-export function foldedCount(file: ViewFile, threshold: number): number {
-  let folded = 0;
-  for (const region of file.regions) if (region.score <= threshold) folded += region.endLine - region.startLine;
-  return folded;
-}
-
 export interface UnitPlan {
   file: ViewFile | null;
   items: CodeItem[];
@@ -95,4 +90,18 @@ export function unitFile(state: LensState, unit: ViewUnit): ViewFile | null {
 
 export function unitPlan(state: LensState, unit: ViewUnit): UnitPlan {
   return buildUnitPlan(unit, unitFile(state, unit), state.hunksOnly, state.expandedGaps, state.showRemoved);
+}
+
+// memoized, one per source: a selector gets the same array back while the code stays the same
+const fileCategories = memo((regions: FoldRegion[]) => [...new Set(regions.map((region) => region.category))]);
+const unitCategories = memo((items: CodeItem[]) => [...new Set(planRegions(items).map((region) => region.category))]);
+
+/** The categories that fold in the code on screen (the fold chips): the open file's, or the open unit's code's. */
+export function foldCategories(state: LensState): string[] {
+  if (state.view === 'code') {
+    const file = activeFile(state);
+    return file ? fileCategories(file.regions) : [];
+  }
+  const unit = summaryPage(state) === 'unit' ? currentUnit(state) : null;
+  return unit ? unitCategories(unitPlan(state, unit).items) : [];
 }

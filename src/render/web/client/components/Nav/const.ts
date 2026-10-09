@@ -1,13 +1,6 @@
 import type { TreeStatus } from '../../model/tree.ts';
 
-export const STATUS_LETTER: Record<TreeStatus, string> = {
-  added: 'A',
-  modified: 'M',
-  deleted: 'D',
-  excluded: '⊘',
-  renamed: 'R',
-};
-
+/** A tree row's tooltip: what its status letter means. */
 export const STATUS_TITLE: Record<TreeStatus, string> = {
   added: 'added',
   modified: 'modified',

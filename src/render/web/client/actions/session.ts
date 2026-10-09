@@ -1,4 +1,4 @@
-// The session: the theme, ↻ refresh, ⏻ end.
+// The session: the theme, reload, end.
 
 import type { ViewerPayload } from '../../server.ts';
 import { getState, update } from '../store.ts';
@@ -6,7 +6,7 @@ import type { ViewFile } from '../shared.ts';
 import { firstTreeFile } from '../model/tree.ts';
 import { withTab } from './tabs.ts';
 
-type ThemeTokens = { theme: string; fg: string; bg: string; tokens: ViewFile['tokens'][] };
+type ThemeTokens = { theme: string; fg: string; bg: string; accent: string; tokens: ViewFile['tokens'][] };
 
 export async function switchTheme(theme: string): Promise<boolean> {
   update({ themeBusy: true });
@@ -21,7 +21,11 @@ export async function switchTheme(theme: string): Promise<boolean> {
         theme: entry.theme,
         fg: entry.fg,
         bg: entry.bg,
-        themes: state.data.themes.includes(entry.theme) ? state.data.themes : [...state.data.themes, entry.theme],
+        accent: entry.accent,
+        // a theme from the saved choice that isn't in the menu yet joins it
+        themes: state.data.themes.some((swatch) => swatch.name === entry.theme)
+          ? state.data.themes
+          : [...state.data.themes, { name: entry.theme, bg: entry.bg, accent: entry.accent }],
         files: state.data.files.map((file, fileIndex) => ({ ...file, tokens: entry.tokens[fileIndex] })),
       },
     }));

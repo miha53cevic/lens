@@ -1,0 +1,63 @@
+/* the Code view's editor tabs: soft pills over the code card */
+.tabbar {
+  display: flex;
+  flex: none;
+  gap: 4px;
+  overflow-x: auto;
+  padding: var(--space-3) 22px var(--space-2);
+  background: var(--bg);
+  scrollbar-width: none;
+}
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: none;
+  max-width: 260px;
+  padding: 3px 4px 3px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-full);
+  color: var(--muted);
+  font: var(--text-sm) / 1.5 var(--font-mono);
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+.tab:hover {
+  color: var(--text);
+}
+.tab.active {
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--text);
+}
+.tab.preview .tab-name {
+  font-style: italic;
+}
+.tab-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tab-dir {
+  overflow: hidden;
+  color: var(--faint);
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+}
+.tab-close {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  color: var(--muted);
+  visibility: hidden;
+}
+.tab-close:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.tab:hover .tab-close,
+.tab.active .tab-close {
+  visibility: visible;
+}

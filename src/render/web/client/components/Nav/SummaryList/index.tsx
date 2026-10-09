@@ -1,4 +1,4 @@
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, FileText } from 'lucide-react';
 import clsx from 'clsx';
 import { useLens } from '../../../store.ts';
 import { listModel } from '../../../model/summaryList.ts';
@@ -11,26 +11,18 @@ import { UnitItem } from './UnitItem.tsx';
 /** The Summary tab's list: flows by priority, then the changes in no flow. */
 export function SummaryList() {
   const { list, overview } = useLens((state) => ({ list: listModel(state)!, overview: state.summaryOverview }));
-  const filtered = list.text !== '' || list.signal !== null;
-  const title = filtered
-    ? list.shownCount + ' of ' + list.units.length + ' changes'
-    : list.units.length + (list.units.length === 1 ? ' change' : ' changes');
   const isActive = (unitId: string) => !overview && unitId === list.activeId;
 
   return (
     <>
-      <div className='sum-head'>
-        <span className='title'>{title}</span>
-        <span className='legend'>{list.summarized === 0 ? 'not summarized yet' : list.counts.any + ' flagged'}</span>
-      </div>
       <button
         className={clsx('sum-overview-item', overview && 'active')}
         title='the whole diff at a glance (g)'
         onClick={showOverview}
       >
-        <span className='ico' />
+        <FileText size={14} className='ico' />
         Overview
-        <span className='key'>g</span>
+        <kbd>g</kbd>
       </button>
       <SignalChips counts={list.counts} signal={list.signal} />
       {list.sections.map(({ flow, members }) => {

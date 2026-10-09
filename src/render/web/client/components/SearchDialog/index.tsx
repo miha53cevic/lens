@@ -4,6 +4,7 @@ import { useLens } from '../../store.ts';
 import { jumpToHit, moveSearchSelection, setSearch } from '../../actions/dialogs.ts';
 import { Results } from './Results.tsx';
 import { findHits } from './util.ts';
+import './style.css';
 
 export function SearchDialog() {
   const { search, hits } = useLens((state) => ({

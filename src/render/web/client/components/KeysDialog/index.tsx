@@ -2,6 +2,7 @@ import { Fragment, useState } from 'react';
 import { useLens } from '../../store.ts';
 import { ModalHead } from '../ModalHead.tsx';
 import { KEY_TABS, type KeyTab } from './const.ts';
+import './style.css';
 
 /** The ? help: every keyboard shortcut, in tabs: Global, Code, Summary (with a summary only). */
 export function KeysDialog() {
@@ -12,7 +13,7 @@ export function KeysDialog() {
 
   return (
     <dialog id='keys-modal'>
-      <ModalHead title='keyboard shortcuts' />
+      <ModalHead title='Keyboard shortcuts' />
       <div className='modal-body'>
         <div className='key-tabs' role='tablist'>
           {tabs.map((keyTab) => (

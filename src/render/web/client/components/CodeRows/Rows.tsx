@@ -16,7 +16,7 @@ interface LineRowProps {
 
 export const LineRow = memo(function LineRow({ line, html, changed, gutter, extraClass }: LineRowProps) {
   return (
-    <div className={clsx('row', extraClass)} data-line={line}>
+    <div className={clsx('row', changed && 'changed', extraClass)} data-line={line}>
       <span className='num'>{String(line).padStart(gutter)}</span>
       <span className={clsx('mark', changed && 'changed')} />
       <span dangerouslySetInnerHTML={{ __html: html || ' ' }} />

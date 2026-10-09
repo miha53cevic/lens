@@ -1,11 +1,12 @@
-// The Code view: the open file's code.
+// The Code view: the open file's code card.
 
 import { useCallback } from 'react';
 import { useLens } from '../../store.ts';
 import { activeFile } from '../../model/plans.ts';
 import { FileCode } from './FileCode.tsx';
-import { findUsages, restoreFileScroll, saveFileScroll } from './util.ts';
+import { restoreFileScroll, saveFileScroll } from './util.ts';
 import { hiddenStyle } from '../../shared.ts';
+import './style.css';
 
 export function CodePane() {
   const { shown, path } = useLens((state) => {
@@ -18,14 +19,13 @@ export function CodePane() {
 
   return (
     <main
+      className='code-pane'
       key={path ?? 'none'}
       ref={restoreScroll}
       style={hiddenStyle(!shown)}
       onScroll={(event) => saveFileScroll(event.currentTarget, path)}
     >
-      <div className='code' id='code' onClick={findUsages}>
-        {shown && <FileCode />}
-      </div>
+      {shown && <FileCode />}
     </main>
   );
 }

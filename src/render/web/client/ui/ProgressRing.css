@@ -1,0 +1,36 @@
+.progress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-1) var(--space-2) var(--space-3);
+}
+.progress svg {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  transform: rotate(-90deg);
+}
+.progress circle {
+  fill: none;
+  stroke-width: 4;
+}
+.progress .track {
+  stroke: var(--line);
+}
+.progress .fill {
+  stroke: var(--add);
+  stroke-linecap: round;
+  transition: stroke-dasharray 300ms ease-out;
+}
+.progress-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: 1.35;
+}
+.progress-count {
+  color: var(--text);
+  font-size: var(--text-lg);
+}

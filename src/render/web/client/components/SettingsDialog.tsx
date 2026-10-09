@@ -1,6 +1,7 @@
 import { useLens } from '../store.ts';
 import { catColor } from '../shared.ts';
 import { ModalHead } from './ModalHead.tsx';
+import './SettingsDialog.css';
 
 function CodeList({ items }: { items: readonly (string | number)[] | undefined }) {
   if (!items || items.length === 0) return <span className='set-source'>none</span>;
@@ -38,7 +39,7 @@ export function SettingsDialog() {
 
   return (
     <dialog id='settings-modal'>
-      <ModalHead title='settings' />
+      <ModalHead title='Settings' />
       <div className='modal-body' id='settings-body'>
         <div className='set-section'>
           <h3>config source</h3>
@@ -141,7 +142,7 @@ export function SettingsDialog() {
           <CodeList items={config.exclude} />
         </div>
         <div className='set-note'>
-          edit .lens.json and press ↻ refresh to apply changes without restarting — see the lens README for every field
+          Edit .lens.json and press reload (r) to apply changes without restarting. The lens README lists every field.
         </div>
       </div>
     </dialog>

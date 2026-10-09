@@ -12,11 +12,14 @@ import {
 import type { FileFoldModel, RemovedBlock } from '../src/model.ts';
 import type { ViewUnit } from '../src/summary/view.ts';
 
-test("the viewer's browser code bundles into one script that is safe to inline", async () => {
-  const script = await bundleViewer();
+test("the viewer's browser code bundles into one script and one stylesheet, both safe to inline", async () => {
+  const { script, css } = await bundleViewer();
   assert.ok(script.length > 1000, 'the bundle has the viewer in it');
   assert.doesNotMatch(script, /<\/script/i, 'nothing in it ends the inline <script> early');
   assert.doesNotMatch(script, /\bimport\s*\(|^import /m, 'no imports are left for the browser to resolve');
+  assert.match(css, /--surface:/, 'the stylesheet has the design tokens');
+  assert.doesNotMatch(css, /@import/, 'every stylesheet is bundled in');
+  assert.doesNotMatch(css, /<\/style/i, 'nothing in it ends the inline <style> early');
 });
 
 // "L3" a line, "-5" a removed line (its old-side number), "R2-4[…]" a fold, "gap:14-20", "⋯" a break

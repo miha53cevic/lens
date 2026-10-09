@@ -1,0 +1,302 @@
+/* the sidebar: the tree or the list of changes, under the review's progress */
+nav {
+  flex: none;
+  width: 270px;
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: var(--space-4) var(--space-3) var(--space-6) var(--space-3);
+  background: var(--bg);
+  font-size: var(--text-sm);
+}
+
+/* ---- the filter ---- */
+.nav-filter {
+  position: sticky;
+  top: calc(-1 * var(--space-4));
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  margin: 0 2px var(--space-2);
+  padding: 0 6px 0 var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  color: var(--faint);
+}
+.nav-filter:focus-within {
+  border-color: color-mix(in oklab, var(--accent) 55%, var(--line));
+}
+.nav-filter input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: none;
+  color: var(--text);
+  font-size: var(--text-sm);
+}
+.nav-filter input::placeholder {
+  color: var(--faint);
+}
+.nav-filter button {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  color: var(--muted);
+}
+.nav-filter button:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+/* ---- the file tree ---- */
+nav .dir {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px var(--space-2) 2px;
+  overflow: hidden;
+  color: var(--muted);
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  user-select: none;
+}
+nav .dir:hover {
+  color: var(--text);
+}
+nav .file {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr) 12px;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: 4px 6px 4px var(--space-2);
+  border-radius: var(--radius-md);
+  color: var(--muted);
+  font: var(--text-sm) / 1.5 var(--font-mono);
+  text-align: left;
+}
+nav .file:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--surface) 60%, transparent);
+  color: var(--text);
+}
+nav .file.active {
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--line);
+  color: var(--text);
+}
+nav .file .fname {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+nav .file .fname .hl {
+  color: var(--accent);
+}
+nav .file.viewed .fname {
+  opacity: 0.55;
+}
+nav .file.deleted .fname {
+  text-decoration: line-through;
+  text-decoration-color: var(--del);
+}
+nav .file.excluded {
+  opacity: 0.6;
+}
+nav .file.excluded .fname {
+  font-style: italic;
+}
+nav .file:disabled {
+  opacity: 1;
+  cursor: default;
+}
+nav .file.excluded:disabled {
+  opacity: 0.6;
+}
+
+/* ---- the Summary tab's list ---- */
+.legend {
+  color: var(--faint);
+  font-size: var(--text-xs);
+}
+
+.sum-overview-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  margin: 2px 0 var(--space-1);
+  padding: 6px var(--space-2);
+  border-radius: var(--radius-md);
+  color: var(--muted);
+  font-weight: 500;
+  text-align: left;
+}
+.sum-overview-item kbd {
+  margin-left: auto;
+}
+.sum-overview-item:hover {
+  background: color-mix(in oklab, var(--surface) 60%, transparent);
+  color: var(--text);
+}
+.sum-overview-item.active {
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--line);
+  color: var(--text);
+}
+.sum-overview-item.active .ico {
+  color: var(--accent);
+}
+
+/* the signal filters: one per reason a change is flagged */
+.sig-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: var(--space-1) 2px var(--space-2);
+}
+.sig-chip {
+  --sig: var(--text);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-full);
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+.sig-chip .si {
+  display: inline-flex;
+  color: var(--sig);
+}
+.sig-chip .n {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.sig-chip:hover {
+  border-color: color-mix(in oklab, var(--sig) 50%, var(--line));
+  color: var(--text);
+}
+.sig-chip[aria-pressed='true'] {
+  border-color: color-mix(in oklab, var(--sig) 60%, transparent);
+  background: color-mix(in oklab, var(--sig) 14%, transparent);
+  color: var(--text);
+}
+
+.sum-section {
+  padding: var(--space-2) 0 2px;
+}
+.sum-section-title {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  padding: 6px 6px 4px;
+  text-align: left;
+}
+.sum-section-title.flow {
+  align-items: center;
+}
+.sum-section-title .t {
+  color: var(--text);
+  font: 700 14px/1.3 var(--font-serif);
+}
+.sum-section-title.flow:hover .t {
+  text-decoration: underline;
+  text-decoration-color: var(--line-strong);
+}
+.sum-section-title .sub {
+  color: var(--faint);
+  font-size: var(--text-xs);
+}
+.sum-section-title .caret {
+  flex: none;
+  color: var(--faint);
+}
+.sum-section-title .flow-name {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.sum-section.folded .t {
+  color: var(--muted);
+}
+.sum-why {
+  padding: 0 6px 6px 26px;
+  color: var(--faint);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+}
+.prio {
+  flex: none;
+  align-self: center;
+  padding: 1px 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  color: var(--muted);
+  font: 700 9.5px/1.2 var(--font-mono);
+}
+.prio.p1 {
+  border-color: color-mix(in oklab, var(--bug) 55%, transparent);
+  color: var(--bug);
+}
+.prio.p3 {
+  opacity: 0.7;
+}
+
+.sum-item {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto auto;
+  align-items: center;
+  column-gap: var(--space-2);
+  width: 100%;
+  padding: 5px 6px;
+  border-radius: var(--radius-md);
+  color: var(--muted);
+  text-align: left;
+}
+.sum-item:hover {
+  background: color-mix(in oklab, var(--surface) 60%, transparent);
+  color: var(--text);
+}
+.sum-item.active {
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--line);
+  color: var(--text);
+}
+.sum-item .name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.sum-item .side {
+  max-width: 80px;
+  overflow: hidden;
+  color: var(--faint);
+  font-size: 10.5px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.sum-item .gist.stale {
+  grid-column: 2 / -1;
+  color: var(--mod);
+  font-size: var(--text-xs);
+}
+.sum-item.pending .name {
+  opacity: 0.6;
+}
+.sum-item.viewed .name {
+  opacity: 0.55;
+}

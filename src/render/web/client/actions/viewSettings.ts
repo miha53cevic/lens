@@ -1,4 +1,4 @@
-// The toolbar's toggles and the fold level.
+// The view settings (the header's ⋯ menu): hunks only, removed lines, hide tests, the fold level.
 
 import { getState, update } from '../store.ts';
 import { writePref } from '../shared.ts';

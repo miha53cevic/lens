@@ -6,6 +6,7 @@ import { EmptyPage } from './EmptyPage.tsx';
 import { Overview } from './Overview/index.tsx';
 import { UnitPage } from './UnitPage/index.tsx';
 import { hiddenStyle } from '../../shared.ts';
+import './style.css';
 
 export function SummaryPane() {
   const { shown, page, unit, browsing } = useLens((state) => {

@@ -74,7 +74,7 @@ export function Composer() {
             event.preventDefault();
             send();
           } else if (event.key === 'Escape') {
-            event.currentTarget.blur(); // back to the code: j/k and the toolbar keys work again
+            event.currentTarget.blur(); // back to the code: j/k and the view keys work again
           }
         }}
       />

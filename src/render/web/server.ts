@@ -11,6 +11,9 @@ import { isLocalRequest, sendJson } from "./http.ts";
 import { bundleViewer } from "./bundle.ts";
 import {
   highlightSource,
+  themeAccent,
+  themeSwatch,
+  type ThemeSwatch,
   isBundledTheme,
   shikiLangForFile,
   SUGGESTED_THEMES,
@@ -63,9 +66,12 @@ export interface ViewerOptions {
 export interface ViewerPayload {
   threshold: number;
   theme: string;
-  themes: string[];
+  /** The theme menu's themes, each with its colors */
+  themes: ThemeSwatch[];
   fg: string;
   bg: string;
+  /** The theme's function-name color: the viewer's accent */
+  accent: string;
   files: (ViewerFile & { tokens: ViewerToken[][] })[];
   deleted: string[];
   excluded: string[];
@@ -83,6 +89,7 @@ export interface ThemeTokens {
   theme: string;
   fg: string;
   bg: string;
+  accent: string;
   /** tokens[fileIndex] — aligned with the files array */
   tokens: ViewerToken[][][];
 }
@@ -94,6 +101,7 @@ export async function highlightFiles(files: ViewerFile[], theme: string): Promis
   );
   return {
     theme,
+    accent: await themeAccent(theme),
     fg: results[0]?.fg ?? "#ffffff",
     bg: results[0]?.bg ?? "#000000",
     tokens: results.map((r) => r.tokens),
@@ -102,7 +110,7 @@ export async function highlightFiles(files: ViewerFile[], theme: string): Promis
 
 /** The page's payload: the analysis, made serializable, with one theme's tokens. */
 export function viewerPayload(
-  input: ViewerInput, t: ThemeTokens, themes: string[], opts: { themePinned: boolean; canRefresh: boolean },
+  input: ViewerInput, t: ThemeTokens, themes: ThemeSwatch[], opts: { themePinned: boolean; canRefresh: boolean },
 ): ViewerPayload {
   return {
     threshold: input.threshold,
@@ -110,6 +118,7 @@ export function viewerPayload(
     themes,
     fg: t.fg,
     bg: t.bg,
+    accent: t.accent,
     files: input.files.map((f, i) => ({ ...f, tokens: t.tokens[i] })),
     deleted: input.deleted,
     excluded: input.excluded,
@@ -126,13 +135,12 @@ export function viewerPayload(
 
 const webDir = dirname(fileURLToPath(import.meta.url));
 
-/** viewer.html with its stylesheet and the bundled viewer script inlined: one self-contained page. */
+/** viewer.html with the bundled viewer's stylesheet and script inlined: one self-contained page. */
 async function loadTemplate(): Promise<string> {
-  const read = (name: string) => readFileSync(join(webDir, name), "utf8");
-  const script = await bundleViewer();
+  const { script, css } = await bundleViewer();
   // Function replacements: plain strings would expand $-sequences in the code.
-  return read("viewer.html")
-    .replace("/*__LENS_CSS__*/", () => read("viewer.css"))
+  return readFileSync(join(webDir, "viewer.html"), "utf8")
+    .replace("/*__LENS_CSS__*/", () => css)
     .replace("/*__LENS_JS__*/", () => script);
 }
 
@@ -161,9 +169,9 @@ export async function serveViewer(
     return entry;
   }
 
-  const themes = SUGGESTED_THEMES.includes(opts.theme)
-    ? SUGGESTED_THEMES
-    : [opts.theme, ...SUGGESTED_THEMES];
+  const themes = await Promise.all(
+    (SUGGESTED_THEMES.includes(opts.theme) ? SUGGESTED_THEMES : [opts.theme, ...SUGGESTED_THEMES]).map(themeSwatch),
+  );
 
   async function payloadFor(theme: string): Promise<ViewerPayload> {
     // tokensFor highlights the files current now; a ↻ refresh during the await mustn't mix them

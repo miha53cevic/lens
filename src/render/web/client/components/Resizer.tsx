@@ -1,5 +1,6 @@
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { hiddenStyle } from '../shared.ts';
+import './Resizer.css';
 
 interface ResizerProps {
   id: string;

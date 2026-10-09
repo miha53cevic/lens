@@ -1,36 +1,28 @@
 import type { LensState } from '../../store.ts';
-import { activeFile, filePlan, foldedCount, planRegions, unitPlan } from '../../model/plans.ts';
-import { currentUnit, summaryPage } from '../../model/summaryList.ts';
-import { isDiffMode, listedOnlyCount } from '../../shared.ts';
+import { memo } from '../../shared.ts';
 
-/** "3 files changed · src/a.ts — 120 lines, 14 folded (−12%) · 80 unchanged hidden" */
-export function statsText(state: LensState): string {
-  const file = activeFile(state);
-  if (!file) return '';
-  const changedFiles = isDiffMode(state.data) ? state.data.files.length + listedOnlyCount(state.data) : 0;
-  const folded = foldedCount(file, state.threshold);
-  const percent = file.lineCount ? Math.round((folded / file.lineCount) * 100) : 0;
-  const hiddenLines = filePlan(state, file).hidden;
-  return (
-    (changedFiles > 0 ? changedFiles + (changedFiles === 1 ? ' file' : ' files') + ' changed · ' : '') +
-    file.file +
-    ' — ' +
-    file.lineCount +
-    ' lines, ' +
-    folded +
-    ' folded (−' +
-    percent +
-    '%)' +
-    (hiddenLines > 0 ? ' · ' + hiddenLines + ' unchanged hidden' : '')
-  );
+const lowestScores = memo((files: LensState['data']['files']) => {
+  const lowest = new Map<string, number>();
+  for (const file of files) {
+    for (const region of file.regions) {
+      lowest.set(region.category, Math.min(lowest.get(region.category) ?? 99, region.score));
+    }
+  }
+  return lowest;
+});
+
+/** What the fold level folds in this run: "Level 1 folds import, guard, logging." */
+export function foldLevelHint(state: LensState): string {
+  if (state.threshold < 0) return 'Nothing folds: the plain file.';
+  const folded = [...lowestScores(state.data.files)]
+    .filter(([, score]) => score <= state.threshold)
+    .map(([category]) => category);
+  return folded.length > 0
+    ? 'Level ' + state.threshold + ' folds ' + folded.join(', ') + '.'
+    : 'Nothing folds at level ' + state.threshold + ' in this run.';
 }
 
-/** The categories that fold in the code on screen: the file's, or the open unit's code's. */
-export function chipCategories(state: LensState): string[] {
-  if (state.view === 'code') {
-    const file = activeFile(state);
-    return file ? [...new Set(file.regions.map((region) => region.category))] : [];
-  }
-  const unit = summaryPage(state) === 'unit' ? currentUnit(state) : null;
-  return unit ? [...new Set(planRegions(unitPlan(state, unit).items).map((region) => region.category))] : [];
+/** A view setting is away from its default: the ⋯ button shows a dot. */
+export function viewSettingsChanged(state: LensState): boolean {
+  return state.threshold !== state.data.config.threshold || !state.hunksOnly || !state.showRemoved || !state.hideTests;
 }

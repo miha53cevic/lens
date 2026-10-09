@@ -1,9 +1,11 @@
+import './ViewedBox.css';
+
 interface ViewedBoxProps {
   checked: boolean;
   onToggle: () => void;
 }
 
-/** The tick box in tree and summary list rows: a span, since the rows are buttons. */
+/** The tick box in tree rows (a dot in the summary list): a span, since the rows are buttons. */
 export function ViewedBox({ checked, onToggle }: ViewedBoxProps) {
   return (
     <span

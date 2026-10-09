@@ -1,0 +1,217 @@
+/* the Ask rail: a chat with the reader's agent about the open change */
+#ask-rail {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  width: 360px;
+  min-width: 0;
+  background: var(--bg);
+  font-size: 12.5px;
+}
+.ask-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: none;
+  height: 44px;
+  padding: 0 6px 0 var(--space-4);
+  border-bottom: 1px solid var(--line);
+}
+.ask-title {
+  font: 700 var(--text-lg) var(--font-serif);
+}
+.ask-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+.ask-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--faint);
+}
+.ask-dot.on {
+  background: var(--add);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--add) 22%, transparent);
+}
+
+.ask-thread {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-3);
+  overflow-y: auto;
+  padding: var(--space-4);
+}
+.ask-empty {
+  color: var(--muted);
+  line-height: 1.55;
+}
+.ask-empty code {
+  padding: 0 4px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  color: var(--text);
+}
+.ask-q {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-self: flex-end;
+  max-width: 92%;
+  padding: var(--space-2) 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg) var(--radius-lg) 4px var(--radius-lg);
+  background: var(--surface);
+}
+.ask-text {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.ask-a {
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.ask-a p {
+  margin: 0 0 var(--space-2);
+}
+.ask-a ul,
+.ask-a ol {
+  margin: 0 0 var(--space-2);
+  padding-left: 1.2rem;
+}
+.ask-a code {
+  padding: 0 4px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  font-size: 11.5px;
+}
+.ask-a pre {
+  margin: 0 0 var(--space-2);
+  padding: var(--space-2) 10px;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+.ask-a pre code {
+  padding: 0;
+  background: none;
+}
+.ask-a .cite {
+  vertical-align: 1px;
+}
+.ask-who {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+  color: var(--faint);
+  font-size: var(--text-xs);
+}
+.ask-spin {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border: 2px solid color-mix(in oklab, var(--accent) 30%, transparent);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+.ask-q.stale,
+.ask-a.stale {
+  opacity: 0.55;
+}
+.ask-stale {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--line);
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+.ask-composer {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: 10px var(--space-3) var(--space-3);
+  border-top: 1px solid var(--line);
+}
+.ask-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.ask-chips:empty {
+  display: none;
+}
+.ask-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 0 7px;
+  overflow: hidden;
+  border: 1px solid color-mix(in oklab, var(--question) 50%, transparent);
+  border-radius: var(--radius-full);
+  background: color-mix(in oklab, var(--question) 12%, transparent);
+  color: var(--text);
+  font: 10.5px / 18px var(--font-mono);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.ask-chip.unit {
+  border-color: var(--line-strong);
+  background: var(--surface);
+}
+button.ask-chip:hover {
+  border-color: var(--accent);
+}
+#ask-input {
+  width: 100%;
+  min-height: 0;
+  padding: var(--space-2) 10px;
+  resize: none;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  line-height: 1.45;
+}
+#ask-input:focus {
+  border-color: color-mix(in oklab, var(--accent) 65%, var(--line));
+  outline: none;
+}
+#ask-input:disabled {
+  opacity: 0.6;
+}
+.ask-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.ask-hint {
+  color: var(--faint);
+  font-size: var(--text-xs);
+}
+.ask-hint.error {
+  color: var(--del);
+}
+#ask-send {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: var(--control-h);
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-weight: 600;
+}
+#ask-send:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--accent) 88%, var(--text));
+}
