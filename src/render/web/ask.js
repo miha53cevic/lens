@@ -76,9 +76,18 @@ document.addEventListener("selectionchange", () => {
   if (sel.isCollapsed) { askSetSel(null); return; }
   const rowOf = (node) => (node instanceof Element ? node : node.parentElement)?.closest(".row");
   const rows = [...root.querySelectorAll(".row")].filter((r) => !r.matches(".pill-row, .gap, .unit-gap"));
-  const a = rows.indexOf(rowOf(sel.anchorNode)), b = rows.indexOf(rowOf(sel.focusNode));
-  if (a < 0 || b < 0) return;
-  const picked = rows.slice(Math.min(a, b), Math.max(a, b) + 1).slice(0, ASK_MAX_LINES);
+  // [first, last] row index an end of the selection covers: an end on a fold's pill takes in its region
+  const span = (node) => {
+    const row = rowOf(node);
+    const i = rows.indexOf(row);
+    if (i >= 0) return [i, i];
+    const inRegion = [...(row?.closest(".region")?.querySelectorAll(".row") ?? [])].map((r) => rows.indexOf(r)).filter((x) => x >= 0);
+    return inRegion.length > 0 ? [Math.min(...inRegion), Math.max(...inRegion)] : null;
+  };
+  const a = span(sel.anchorNode), b = span(sel.focusNode);
+  // an end on a hidden stretch's ⋯ row: no lines to name, so no kept selection either
+  if (!a || !b) { askSetSel(null); return; }
+  const picked = rows.slice(Math.min(a[0], b[0]), Math.max(a[1], b[1]) + 1).slice(0, ASK_MAX_LINES);
   const lines = picked.map((r) => {
     const el = /** @type {HTMLElement} */ (r);
     const n = el.dataset.line ?? el.dataset.old;
