@@ -42,7 +42,8 @@
 
   "keepCommentMarkers": [
     "TODO", "FIXME", "HACK", "XXX",
-    "eslint-disable", "@ts-ignore", "@ts-expect-error", "@ts-nocheck", "biome-ignore"
+    "eslint-disable", "@ts-ignore", "@ts-expect-error", "@ts-nocheck", "@ts-check", "biome-ignore",
+    "prettier-ignore", "<reference"
   ],
   "keepDirective": "lens:keep",
 

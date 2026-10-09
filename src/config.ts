@@ -52,7 +52,8 @@ function sanitize(raw: unknown, from: string): Partial<LensConfig> & { base?: bo
     out.callPatterns = r.callPatterns.filter((p): p is CallPattern => {
       const ok = typeof p === "object" && p !== null &&
         typeof p.category === "string" &&
-        Array.isArray(p.receivers) && p.receivers.length > 0;
+        Array.isArray(p.receivers) && p.receivers.length > 0 && p.receivers.every((r: unknown) => typeof r === "string") &&
+        (p.methods === undefined || (Array.isArray(p.methods) && p.methods.every((m: unknown) => typeof m === "string")));
       if (!ok) console.error(`lens: ignoring invalid callPatterns entry in ${from}`);
       return ok;
     });

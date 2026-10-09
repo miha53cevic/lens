@@ -35,14 +35,17 @@ export interface ChangeContext {
   rows: ChangeRow[] | null;
   /** Whole-file questions in diff mode: the changed new-side lines */
   changedLines: number[];
+  /** The shown code's git blob (PR, ref ranges): the agent reads that, not the working tree */
+  blob: string | null;
 }
 
 export function changeContext(input: ViewerInput, q: Pick<AskQuestion, "file" | "unitId" | "label">): ChangeContext {
   const file = relPath(input.root, join(input.cwd, q.file));
   const source = input.files.find((f) => f.file === q.file);
+  const blob = source?.blob ?? null;
   const unit = q.unitId ? input.summary?.units.find((u) => u.id === q.unitId) : undefined;
-  if (unit) return { file, label: q.label, rows: unitRows(unit, source ? source.source.split("\n") : []), changedLines: [] };
-  return { file, label: q.label, rows: null, changedLines: source?.changedLines ?? [] };
+  if (unit) return { file, label: q.label, rows: unitRows(unit, source ? source.source.split("\n") : []), changedLines: [], blob };
+  return { file, label: q.label, rows: null, changedLines: source?.changedLines ?? [], blob };
 }
 
 function unitRows(u: ViewUnit, lines: string[]): ChangeRow[] {
@@ -127,17 +130,19 @@ export function questionText(
       sel.lines.map((l) => rowText(l, l.side === "old" ? "−" : " ", width)).join("\n"));
   }
 
+  // the viewer shows a commit's code (PR, ref range): the working tree may hold other code
+  const readIt = change.blob ? `read it with \`git show ${change.blob}\` — not from disk, which may differ` : "read it from disk";
   if (change.rows) {
     const rows = change.rows.slice(0, MAX_CHANGE_LINES);
     const width = Math.max(...rows.map((r) => String(r.n ?? "").length), 1);
     const more = change.rows.length - rows.length;
     out.push(`THE CHANGE  ${change.label} — changed lines marked +, removed lines marked −\n` +
       rows.map((r) => rowText(r, r.side === "old" ? "−" : r.changed ? "+" : " ", width)).join("\n") +
-      (more > 0 ? `\n  … ${more} more lines — read ${change.file}` : ""));
+      (more > 0 ? `\n  … ${more} more lines — ${readIt}` : ""));
   } else {
     out.push(`THE FILE  ${change.file}` +
       (change.changedLines.length > 0 ? ` — changed lines ${ranges(change.changedLines)}` : "") +
-      "\n  (read it from disk)");
+      `\n  (${readIt})`);
   }
 
   if (!opts.forCopy) {

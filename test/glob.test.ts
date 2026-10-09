@@ -26,3 +26,13 @@ test("* does not cross path segments", () => {
   assert.ok(matchesAny("src/a.ts", regexes));
   assert.ok(!matchesAny("src/deep/a.ts", regexes));
 });
+
+test("**/ also matches no directory at all", () => {
+  const regexes = compilePatterns(["**/*.test.ts", "src/**/x.ts", "**/__tests__/**"]);
+  assert.ok(matchesAny("x.test.ts", regexes));
+  assert.ok(matchesAny("a/b/x.test.ts", regexes));
+  assert.ok(matchesAny("src/x.ts", regexes));
+  assert.ok(matchesAny("src/a/b/x.ts", regexes));
+  assert.ok(!matchesAny("srcx.ts", regexes));
+  assert.ok(matchesAny("__tests__/a.ts", regexes));
+});

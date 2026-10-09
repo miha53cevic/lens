@@ -1,5 +1,5 @@
 import { readdirSync, statSync, existsSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 import { analyzeSource } from "./classify/index.ts";
 import { findConfigPath } from "./config.ts";
 import type { DiffTarget } from "./git.ts";
@@ -54,14 +54,12 @@ export async function analyze(
     sourcesByPath.set(target.file, source);
     const display = shown(target.file);
     // Unsupported file types (diff mode only) are shown without folding.
-    const fileModel: FileFoldModel | null = languageForFile(target.file)
-      ? await analyzeSource(display, source, config)
-      : { file: display, language: null, lineCount: source.split("\n").length, regions: [] };
-    if (!fileModel) continue;
+    const fileModel: FileFoldModel = await analyzeSource(display, source, config)
+      ?? { file: display, language: null, lineCount: source.split("\n").length, regions: [] };
     if (target.changedLines) fileModel.changedLines = target.changedLines;
     if (target.status) fileModel.status = target.status;
     if (target.removals?.length) fileModel.removals = target.removals;
-    files.push({ ...fileModel, source });
+    files.push({ ...fileModel, source, ...(target.newBlob ? { blob: target.newBlob } : {}) });
   }
 
   let summary: SummaryView | null = null;
@@ -100,12 +98,13 @@ export async function analyze(
 
 function collectFiles(paths: string[]): string[] {
   const files: string[] = [];
-  const visit = (p: string) => {
+  // a directory passed by name is walked even if it's one the walk would skip
+  const visit = (p: string, named: boolean) => {
     const stats = statSync(p);
     if (stats.isDirectory()) {
-      const name = p.split("/").pop() ?? "";
-      if (SKIP_DIRS.has(name) || (name.startsWith(".") && name !== "." && name !== "..")) return;
-      for (const entry of readdirSync(p).sort()) visit(join(p, entry));
+      const name = basename(p);
+      if (!named && (SKIP_DIRS.has(name) || name.startsWith("."))) return;
+      for (const entry of readdirSync(p).sort()) visit(join(p, entry), false);
     } else if (languageForFile(p)) {
       files.push(p);
     }
@@ -117,7 +116,7 @@ function collectFiles(paths: string[]): string[] {
       if (!languageForFile(abs)) console.error(`lens: skipping unsupported file ${p}`);
       else files.push(abs);
     } else {
-      visit(abs);
+      visit(abs, true);
     }
   }
   return files;

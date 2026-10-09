@@ -61,7 +61,8 @@ explicitly is always analyzed.
   yaml, …) get change markers and syntax colors, just no folding. Removed lines show
   inline, struck through, where they were deleted (`x` hides them). **Hunks only**
   (`h`, on by default) shows just the changes with 3 lines of context, PR-style;
-  click a `⋯` row to show what it hides. **Hide tests** (`t`) is on by default too. Lockfiles and
+  click a `⋯` row to show what it hides. **Hide tests** (`t`) is on by default too; opening a
+  test file anyway (a tab, a search hit, an Ask cite) turns it off for that page. Lockfiles and
   minified files (`exclude`) are listed as dimmed `⊘` rows without being read; pure
   renames show as `R` rows.
 - **Search**: ⌘P (Ctrl+P) searches across all loaded files; ⌥-click an identifier to
@@ -200,18 +201,18 @@ viewer's slider switches the threshold live.
 | 0         | zero-signal scaffolding: imports, comments, barrel files |
 | 1         | **default** — also guards, logging, telemetry, log-and-rethrow catches, accessors, constant data |
 | 2–3       | nothing extra by default — headroom for categories you score 2–3 |
-| —         | score 4 never folds: TODO/FIXME comments and `lens:keep` regions |
+| —         | score 4 never folds: TODO/FIXME comments (and any region holding one) and `lens:keep` regions |
 
 | category            | what folds (conservatively) |
 | ------------------- | --------------------------- |
 | `import`            | contiguous imports and `export … from` re-exports |
 | `comment`           | whole-line comments and doc blocks — work markers and suppressions (`eslint-disable`, `@ts-ignore`, …) stay visible |
 | `guard`             | an else-less `if` whose body only exits (throw/return/continue/break), optionally with a log line |
-| `logging`           | `console.*` / `logger.*` calls whose result is unused |
+| `logging`           | `console.*` / `logger.*` calls whose result is unused and whose arguments do no work (no `await`, `=`, `++`) |
 | `telemetry`         | fire-and-forget `metrics.*` / `telemetry.*` / `analytics.*` calls |
 | `error-boilerplate` | catch blocks that only log and/or rethrow |
-| `accessor`          | getters/setters and one-statement delegation methods |
-| `barrel`            | files that are only imports and re-exports fold to one pill |
+| `accessor`          | getters/setters that only return or store a value, and one-statement delegation methods |
+| `barrel`            | files that are only imports and re-exports fold to one pill (it names side-effect imports: `; runs polyfills`) |
 | `data`              | pure-literal constants: lookup maps, option objects, literal enums, runs of one-liner consts (3+ lines) |
 
 Guards fold regardless of what they return — judging whether a guard hides a bug is
@@ -246,13 +247,14 @@ reaches 2, and **adds** an `audit` category next to the built-in call patterns.
 | `categories` | all `true` | per-category switch; `false` never folds it |
 | `scores` | 0 for import/comment/barrel, 1 otherwise | importance per category, 0–3 (4 is reserved for never-fold) |
 | `callPatterns` | logging, telemetry | fire-and-forget calls to fold, see below |
-| `keepCommentMarkers` | TODO, FIXME, HACK, XXX, lint/type suppressions | comments containing these never fold |
+| `keepCommentMarkers` | TODO, FIXME, HACK, XXX, lint/type/format suppressions, `@ts-check`, `/// <reference` | comments containing these never fold, nor does a region holding one |
 | `keepDirective` | `"lens:keep"` | a region containing it, or right below it, never folds |
 | `testFilePatterns` | `*.spec.*`, `*.test.*`, `__tests__/**` | what the viewer's **hide tests** toggle hides, and which files summary mode treats as tests |
 | `exclude` | lockfiles, `*.min.js`, `*.min.css`, `*.map` | diff mode lists these as `⊘` without reading them; directory walks skip them (a file passed explicitly is always analyzed) |
 
-Path patterns: `*` matches within a segment, `**` across segments, and a pattern
-matches anywhere in the path (`*.min.js` matches `dist/app.min.js`).
+Path patterns: `*` matches within a segment, `**` across segments (`**/` also matches
+no directory: `src/**/x.ts` matches `src/x.ts`), and a pattern matches anywhere in the
+path (`*.min.js` matches `dist/app.min.js`).
 
 **`callPatterns`** fold expression statements `<receiver>.<method>(...)` whose result
 is unused:

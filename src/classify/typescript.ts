@@ -96,6 +96,16 @@ export function classify(root: Node, source: string, config: LensConfig): FoldRe
       }
     }
   }
+  // A keep-marker comment (TODO, @ts-ignore, …) pins whatever region took it
+  // in — a guard's leading comment, a catch body, an object literal.
+  const keep = ctx.keepMarkers;
+  if (keep) {
+    const markers: Node[] = [];
+    walk(root, (n) => { if (n.type === "comment" && keep.test(n.text)) markers.push(n); });
+    for (const region of accepted) {
+      if (markers.some((c) => startLine(c) <= region.endLine && region.startLine <= endLine(c))) region.score = 4;
+    }
+  }
   return accepted;
 }
 
@@ -120,6 +130,19 @@ function ownsWholeLines(n: Node, lines: string[]): boolean {
   return before.trim() === "" && after.trim() === "";
 }
 
+const EFFECTS = new Set([
+  "await_expression", "assignment_expression", "augmented_assignment_expression", "update_expression", "yield_expression",
+]);
+const FUNCTIONS = new Set(["arrow_function", "function_expression", "function", "generator_function"]);
+
+/**
+ * The expression does work beyond computing a value: await, assignment, ++/--, yield —
+ * callbacks included, since `list.forEach((i) => { seen[i] = true; })` runs them now.
+ */
+function hasEffects(n: Node): boolean {
+  return EFFECTS.has(n.type) || namedChildren(n).some(hasEffects);
+}
+
 function onlyBlankBetween(a: Node, b: Node, lines: string[]): boolean {
   for (let row = a.endPosition.row + 1; row < b.startPosition.row; row++) {
     if ((lines[row] ?? "").trim() !== "") return false;
@@ -136,6 +159,11 @@ function plural(n: number, word: string): string {
   return `${n} ${word}${n === 1 ? "" : "s"}`;
 }
 
+/** The first `max` names, then "…" if there are more. */
+function listNames(names: string[], max: number): string {
+  return names.slice(0, max).join(", ") + (names.length > max ? ", …" : "");
+}
+
 function lineSpan(startL: number, endL: number): string {
   const n = endL - startL + 1;
   return n > 1 ? ` (${n} lines)` : "";
@@ -150,9 +178,17 @@ function escapeRegExp(s: string): string {
 function importRegions(root: Node, ctx: RuleContext): FoldRegion[] {
   // Re-exports (`export { x } from "y"`) group with imports rather than
   // breaking up the run; whole-file barrels are handled by the barrel rule.
+  // only ones no code shares a line with: `import "./polyfill"; main();` keeps main() in view
+  // (a trailing comment is fine)
+  const ownsLines = (c: Node) => {
+    const before = (ctx.lines[c.startPosition.row] ?? "").slice(0, c.startPosition.column);
+    const after = (ctx.lines[c.endPosition.row] ?? "").slice(c.endPosition.column).trim();
+    return before.trim() === "" && /^(\/\/.*|\/\*(?:(?!\*\/).)*\*\/)?$/.test(after);
+  };
   const importish = namedChildren(root).filter((c) =>
-    c.type === "import_statement" ||
-    (c.type === "export_statement" && c.childForFieldName("source") !== null),
+    (c.type === "import_statement" ||
+      (c.type === "export_statement" && c.childForFieldName("source") !== null)) &&
+    ownsLines(c),
   );
   const groups: Node[][] = [];
   for (const stmt of importish) {
@@ -163,8 +199,6 @@ function importRegions(root: Node, ctx: RuleContext): FoldRegion[] {
   }
   return groups.map((group) => {
     const names = group.map(shortModuleName).filter(Boolean);
-    const shown = names.slice(0, 5);
-    const suffix = names.length > shown.length ? ", …" : "";
     const reexports = group.filter((s) => s.type === "export_statement").length;
     const imports = group.length - reexports;
     const label =
@@ -176,7 +210,7 @@ function importRegions(root: Node, ctx: RuleContext): FoldRegion[] {
       endLine: endLine(group[group.length - 1]),
       category: "import" as const,
       score: ctx.score("import"),
-      summary: `${label} — ${shown.join(", ")}${suffix}`,
+      summary: `${label} — ${listNames(names, 5)}`,
     };
   });
 }
@@ -266,7 +300,8 @@ function guardRegions(root: Node, ctx: RuleContext): FoldRegion[] {
 
     for (const stmt of namedChildren(node)) {
       if (stmt.type === "comment") {
-        pendingComments.push(stmt);
+        // a trailing comment (`const a = f(x); // why`) belongs to its line, not to the guard below
+        if (ownsWholeLines(stmt, ctx.lines)) pendingComments.push(stmt);
         continue;
       }
       const guard = asGuard(stmt, ctx);
@@ -289,6 +324,9 @@ function guardRegions(root: Node, ctx: RuleContext): FoldRegion[] {
 function asGuard(stmt: Node, ctx: RuleContext): { exits: string[]; logged: boolean } | null {
   if (stmt.type !== "if_statement") return null;
   if (stmt.childForFieldName("alternative")) return null;
+  // `if (await limiter.consume(id))`, `if (attempts++ > max)`: the check itself does work
+  const condition = stmt.childForFieldName("condition");
+  if (condition && hasEffects(condition)) return null;
   const consequence = stmt.childForFieldName("consequence");
   if (!consequence) return null;
   const statements =
@@ -310,6 +348,11 @@ function asGuard(stmt: Node, ctx: RuleContext): { exits: string[]; logged: boole
 }
 
 function exitDescription(s: Node): string | null {
+  // `throw await rollback(tx)`, `return (cache = load())`: the exit does real work
+  // (returning a function only creates it: `return async () => { await cleanup(); }` runs later)
+  const value = namedChildren(s)[0];
+  if ((s.type === "throw_statement" || s.type === "return_statement") && value && !FUNCTIONS.has(value.type) &&
+      hasEffects(value)) return null;
   if (s.type === "throw_statement") {
     const arg = namedChildren(s)[0];
     if (arg?.type === "new_expression") {
@@ -322,8 +365,8 @@ function exitDescription(s: Node): string | null {
     const arg = namedChildren(s)[0];
     return arg ? `return ${truncate(arg.text, 24)}` : "return";
   }
-  if (s.type === "continue_statement") return "continue";
-  if (s.type === "break_statement") return "break";
+  // with its label: `continue outer` skips more than the inner loop's rest
+  if (s.type === "continue_statement" || s.type === "break_statement") return s.text.replace(/;$/, "");
   return null;
 }
 
@@ -408,6 +451,8 @@ function asCallTo(stmt: Node, receiverPattern: RegExp, methods: Set<string> | nu
 
   let firstStringArg: string | null = null;
   const args = expr.childForFieldName("arguments");
+  // `logger.info(await save())`, `console.log(i++)`: the arguments do the work
+  if (args && hasEffects(args)) return null;
   const firstArg = args ? namedChildren(args)[0] : undefined;
   if (firstArg) {
     // Use the first string literal in the first argument, so previews survive
@@ -493,6 +538,9 @@ function isPureLiteral(node: Node): boolean {
     return namedChildren(n).every((prop) => {
       if (prop.type === "comment") return true;
       if (prop.type !== "pair") return false; // shorthand/spread/method = behavior
+      // a computed key is code too: `[makeKey()]: 1`
+      const key = prop.childForFieldName("key");
+      if (key?.type === "computed_property_name" && !namedChildren(key).every(isPureLiteral)) return false;
       const value = prop.childForFieldName("value");
       return value !== null && isPureLiteral(value);
     });
@@ -573,11 +621,10 @@ function dataRegions(root: Node, ctx: RuleContext): FoldRegion[] {
       if (run) {
         const span = endLine(run.last) - startLine(run.first) + 1;
         if (span >= 3) {
-          const summary = run.entries.length === 1
-            ? run.entries[0].singleDesc + lineSpan(startLine(run.first), endLine(run.last))
-            : `${plural(run.entries.length, "constant")} — ${
-                run.entries.flatMap((e) => e.names).slice(0, 4).join(", ")
-              }${run.entries.flatMap((e) => e.names).length > 4 ? ", …" : ""}${lineSpan(startLine(run.first), endLine(run.last))}`;
+          const names = run.entries.flatMap((e) => e.names);
+          const summary = (names.length === 1
+            ? run.entries[0].singleDesc
+            : `${plural(names.length, "constant")} — ${listNames(names, 4)}`) + lineSpan(startLine(run.first), endLine(run.last));
           regions.push({
             startLine: startLine(run.first),
             endLine: endLine(run.last),
@@ -617,14 +664,12 @@ function accessorRegions(root: Node, ctx: RuleContext): FoldRegion[] {
     let run: { first: Node; last: Node; names: string[] } | null = null;
     const flush = () => {
       if (run) {
-        const shown = run.names.slice(0, 4);
-        const suffix = run.names.length > shown.length ? ", …" : "";
         regions.push({
           startLine: startLine(run.first),
           endLine: endLine(run.last),
           category: "accessor",
           score: ctx.score("accessor"),
-          summary: `${plural(run.names.length, "accessor")} — ${shown.join(", ")}${suffix}${lineSpan(startLine(run.first), endLine(run.last))}`,
+          summary: `${plural(run.names.length, "accessor")} — ${listNames(run.names, 4)}${lineSpan(startLine(run.first), endLine(run.last))}`,
         });
       }
       run = null;
@@ -645,7 +690,7 @@ function accessorRegions(root: Node, ctx: RuleContext): FoldRegion[] {
 }
 
 /**
- * Getters/setters with a single-statement body, trivial property returns, and
+ * Getters/setters that only return or store a value, trivial property returns, and
  * genuine delegation — a one-call body that forwards to a same-named callee or
  * passes the method's own parameters through verbatim. Constructors, static
  * members (usually factories: fromEntity, of, parse), one-liners with real
@@ -664,12 +709,17 @@ function asAccessor(member: Node): string | null {
   const stmt = statements[0];
   const expr = namedChildren(stmt)[0];
 
-  if (keywords.includes("get")) return stmt.type === "return_statement" ? `get ${name}` : null;
-  if (keywords.includes("set")) return stmt.type === "expression_statement" ? `set ${name}` : null;
-
   // trivial property return: `return this._x`
-  if (stmt.type === "return_statement" &&
-      (expr?.type === "member_expression" || expr?.type === "identifier")) return `${name}()`;
+  const plainReturn = stmt.type === "return_statement" &&
+    (expr?.type === "member_expression" || expr?.type === "identifier");
+  if (keywords.includes("get")) return plainReturn ? `get ${name}` : null;
+  // trivial store of its own parameter: `this._x = v`
+  if (keywords.includes("set")) {
+    const param = namedChildren(member.childForFieldName("parameters") ?? body)[0]?.childForFieldName("pattern")?.text;
+    return expr?.type === "assignment_expression" && param !== undefined && expr.childForFieldName("right")?.text === param
+      ? `set ${name}` : null;
+  }
+  if (plainReturn) return `${name}()`;
   // delegation: the whole method is one forwarding call, returned or bare
   if ((stmt.type === "return_statement" || stmt.type === "expression_statement") &&
       expr?.type === "call_expression" && isForwardingCall(expr, member, name)) return `${name}()`;
@@ -677,24 +727,31 @@ function asAccessor(member: Node): string | null {
 }
 
 /**
- * A call forwards when the callee shares the method's name (`close() {
- * this.socket.close(); }`) or the arguments are exactly the method's own
- * parameters, verbatim and in order (`send(msg) { this.bus.send(msg); }`).
+ * A call forwards when its arguments are exactly the method's own parameters,
+ * verbatim and in order, and either the callee shares the method's name
+ * (`close() { this.socket.close(); }`) or there is at least one parameter
+ * (`send(msg) { this.bus.send(msg); }`).
  */
 function isForwardingCall(call: Node, member: Node, methodName: string): boolean {
   const fn = call.childForFieldName("function");
   const calleeName = fn?.type === "member_expression" ? fn.childForFieldName("property")?.text
     : fn?.type === "identifier" ? fn.text
     : undefined;
-  if (calleeName === methodName) return true;
 
+  // either way the arguments are the parameters, verbatim: `save(e) { this.db.save(e, { force: true }) }`
+  // or `load(id, retries = 3) { this.repo.load(id) }` adds or drops something the pill wouldn't show
   const paramsNode = member.childForFieldName("parameters");
   const argsNode = call.childForFieldName("arguments");
   if (!paramsNode || !argsNode) return false;
-  const params = namedChildren(paramsNode).map((p) => p.childForFieldName("pattern")?.text ?? "");
+  const paramNodes = namedChildren(paramsNode);
+  // a default (`retries = 3`) is a value the pill wouldn't show
+  if (paramNodes.some((p) => p.childForFieldName("value") !== null)) return false;
+  const params = paramNodes.map((p) => p.childForFieldName("pattern")?.text ?? "");
   const args = namedChildren(argsNode);
-  return params.length > 0 && params.length === args.length &&
-    args.every((a, i) => a.type === "identifier" && a.text === params[i]);
+  // `...args` passes through as `...args`
+  const verbatim = params.length === args.length &&
+    args.every((a, i) => (a.type === "identifier" || a.type === "spread_element") && a.text === params[i]);
+  return verbatim && (calleeName === methodName || params.length > 0);
 }
 
 // ---------- rule: barrel files ----------
@@ -707,8 +764,13 @@ function barrelRegions(root: Node, ctx: RuleContext): FoldRegion[] {
 
   let reexports = 0;
   const names: string[] = [];
+  const sideEffects: string[] = [];
   for (const stmt of statements) {
-    if (stmt.type === "import_statement") continue;
+    if (stmt.type === "import_statement") {
+      // a side-effect import (`import "reflect-metadata"`) runs code: the pill names it
+      if (!namedChildren(stmt).some((c) => c.type === "import_clause")) sideEffects.push(shortModuleName(stmt));
+      continue;
+    }
     if (stmt.type === "export_statement" && stmt.childForFieldName("source")) {
       reexports++;
       const name = shortModuleName(stmt);
@@ -719,13 +781,12 @@ function barrelRegions(root: Node, ctx: RuleContext): FoldRegion[] {
   }
   if (reexports === 0) return [];
 
-  const shown = names.slice(0, 5);
-  const suffix = names.length > shown.length ? ", …" : "";
   return [{
     startLine: 1,
     endLine: endLine(all[all.length - 1]),
     category: "barrel",
     score: ctx.score("barrel"),
-    summary: `barrel file — re-exports ${plural(reexports, "module")}: ${shown.join(", ")}${suffix}`,
+    summary: `barrel file — re-exports ${plural(reexports, "module")}: ${listNames(names, 5)}` +
+      (sideEffects.length > 0 ? `; runs ${listNames(sideEffects, 3)}` : ""),
   }];
 }

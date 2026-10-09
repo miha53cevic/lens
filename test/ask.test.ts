@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
-import { createServer, type Server } from "node:http";
+import { createServer, type IncomingMessage, type Server } from "node:http";
 import { existsSync, mkdtempSync, mkdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import { join } from "node:path";
@@ -12,6 +12,7 @@ import { createAskSession, REHAND_AFTER_MS, LISTEN_GRACE_MS, type NewQuestion } 
 import { findCites } from "../src/ask/cites.ts";
 import { changeContext, questionText, selectionLabel, RULES } from "../src/ask/context.ts";
 import { createAskRoutes } from "../src/ask/routes.ts";
+import { isLocalRequest } from "../src/render/web/http.ts";
 import type { ViewerInput } from "../src/render/web/server.ts";
 
 const Q: NewQuestion = { text: "why?", file: "a.ts", unitId: null, label: "a.ts", hash: "h1", selection: null };
@@ -101,14 +102,14 @@ test("findCites keeps path:line refs that point at real lines, in the viewer's p
   try {
     mkdirSync(join(root, "src", "ask"), { recursive: true });
     writeFileSync(join(root, "src", "ask", "a.ts"), "one\ntwo\nthree\n");
-    const md = "See `src/ask/a.ts:2` and src/ask/a.ts:3–4, not src/ask/a.ts:40 or src/b.ts:1 or ../x.ts:1. Time 12:30.";
+    const md = "See `src/ask/a.ts:2` and src/ask/a.ts:3–4, not src/ask/a.ts:40 or src/b.ts:1 or ../x.ts:1. Time 12:30, on 127.0.0.1:5326.";
     const { cites, unresolved } = findCites(md, root, join(root, "src"));
     assert.deepEqual(cites, [
       { ref: "src/ask/a.ts:2", file: "ask/a.ts", line: 2 },
       { ref: "src/ask/a.ts:3–4", file: "ask/a.ts", line: 3 },
     ]);
     assert.deepEqual(unresolved, [
-      "src/ask/a.ts:40 — the file has only 4 lines",
+      "src/ask/a.ts:40 — the file has only 3 lines",
       "src/b.ts:1 — file not found",
       "../x.ts:1 must be a path relative to the repository root",
     ]);
@@ -160,8 +161,22 @@ test("questionText: rules, the question, the selection and the unit's code, then
 
     const whole = { ...q, unitId: null, label: "calc.ts", selection: null };
     const fileText = questionText(whole, changeContext(input, whole), { root: dir, cwd: dir, port: 5326 });
-    assert.ok(fileText.includes("THE FILE  calc.ts — changed lines 2\n"), "a Code-tab question names the file, not its code");
+    assert.ok(fileText.includes("THE FILE  calc.ts — changed lines 2\n  (read it from disk)"), "a Code-tab question names the file, not its code");
+    const prText = questionText(whole, { ...changeContext(input, whole), blob: "abc123" }, { root: dir, cwd: dir, port: 5326 });
+    assert.ok(prText.includes("(read it with `git show abc123` — not from disk"), "a PR's code is the blob, not the working tree");
   });
+});
+
+test("isLocalRequest: only this machine's host, and no foreign origin", () => {
+  const req = (headers: Record<string, string>) => ({ headers }) as unknown as IncomingMessage;
+  assert.ok(isLocalRequest(req({ host: "127.0.0.1:5326" }), 5326), "lens ask: no origin");
+  assert.ok(isLocalRequest(req({ host: "localhost:5326", origin: "http://localhost:5326" }), 5326));
+  assert.ok(!isLocalRequest(req({ host: "127.0.0.1:5326", origin: "https://evil.example" }), 5326), "a cross-site POST");
+  assert.ok(!isLocalRequest(req({ host: "evil.example:5326" }), 5326), "DNS rebinding");
+  assert.ok(!isLocalRequest(req({ host: "127.0.0.1:5326", "sec-fetch-site": "cross-site" }), 5326), "a no-cors GET from another site");
+  assert.ok(isLocalRequest(req({ host: "127.0.0.1:5326", "sec-fetch-site": "same-origin" }), 5326));
+  assert.ok(isLocalRequest(req({ host: "127.0.0.1:5326", "sec-fetch-site": "none" }), 5326), "typed in the address bar");
+  assert.ok(!isLocalRequest(req({ host: "127.0.0.1:9999" }), 5326));
 });
 
 async function listen(handler: Parameters<typeof createServer>[1]): Promise<{ server: Server; base: string }> {
@@ -184,6 +199,7 @@ test("ask routes: ask, listen, answer, and stale after the code changes", async 
       assert.equal((await fetch(base + "/api/ask/next?wait=0")).status, 204, "nothing to hand out yet");
       assert.equal((await post("/api/ask", { text: "  ", file: "calc.ts" })).status, 400);
       assert.equal((await post("/api/ask", { text: "hi", file: "nope.ts" })).status, 400);
+      assert.equal((await post("/api/ask", null)).status, 400);
 
       const asked = await post("/api/ask", { text: "why reduce?", file: "calc.ts", unitId: "calc.ts#total", label: "total" });
       assert.equal(asked.status, 200);
@@ -202,7 +218,7 @@ test("ask routes: ask, listen, answer, and stale after the code changes", async 
 
       assert.equal((await post("/api/ask/q7/answer", "x")).status, 404);
       const replied = await (await post("/api/ask/q1/answer", "Shorter: calc.ts:2 replaces the loop. Not calc.ts:99.")).json();
-      assert.deepEqual(replied, { id: "q1", cites: 1, unresolved: ["calc.ts:99 — the file has only 4 lines"] });
+      assert.deepEqual(replied, { id: "q1", cites: 1, unresolved: ["calc.ts:99 — the file has only 3 lines"] });
       const state = await (await fetch(base + "/api/ask")).json();
       assert.deepEqual(state.questions[0].answer.cites, [{ ref: "calc.ts:2", file: "calc.ts", line: 2 }]);
       assert.equal(state.questions[0].stale, false);

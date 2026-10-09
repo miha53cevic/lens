@@ -7,6 +7,7 @@ import type { FileFoldModel, LensConfig } from "../../model.ts";
 import type { SummaryView } from "../../summary/view.ts";
 import { removeServerInfo, writeServerInfo } from "../../ask/discovery.ts";
 import { createAskRoutes } from "../../ask/routes.ts";
+import { isLocalRequest, sendJson } from "./http.ts";
 import {
   highlightSource,
   isBundledTheme,
@@ -15,7 +16,11 @@ import {
   type ViewerToken,
 } from "../highlight.ts";
 
-export type ViewerFile = FileFoldModel & { source: string };
+export type ViewerFile = FileFoldModel & {
+  source: string;
+  /** The new side's git blob when that's what's shown (PR, ref ranges) — the working tree may differ */
+  blob?: string;
+};
 
 export interface ViewerInput {
   /** Repo root in diff/PR mode, else where lens runs: .lens/ lives here */
@@ -110,8 +115,9 @@ export async function serveViewer(
   async function tokensFor(theme: string): Promise<ThemeTokens> {
     const cached = themeCache.get(theme);
     if (cached) return cached;
+    const files = current.files;
     const results = await Promise.all(
-      current.files.map((f) =>
+      files.map((f) =>
         highlightSource(f.source, f.language ?? shikiLangForFile(f.file), theme)),
     );
     const entry: ThemeTokens = {
@@ -120,7 +126,8 @@ export async function serveViewer(
       bg: results[0]?.bg ?? "#000000",
       tokens: results.map((r) => r.tokens),
     };
-    themeCache.set(theme, entry);
+    // a ↻ refresh while Shiki ran: these tokens are the old files', don't keep them
+    if (files === current.files) themeCache.set(theme, entry);
     return entry;
   }
 
@@ -129,22 +136,24 @@ export async function serveViewer(
     : [opts.theme, ...SUGGESTED_THEMES];
 
   async function payloadFor(theme: string): Promise<ViewerPayload> {
+    // tokensFor highlights the files current now; a ↻ refresh during the await mustn't mix them
+    const cur = current;
     const t = await tokensFor(theme);
     return {
-      threshold: current.threshold,
+      threshold: cur.threshold,
       theme,
       themes,
       fg: t.fg,
       bg: t.bg,
-      files: current.files.map((f, i) => ({ ...f, tokens: t.tokens[i] })),
-      deleted: current.deleted,
-      excluded: current.excluded,
-      renamed: current.renamed,
-      testFilePatterns: current.testFilePatterns,
-      config: current.config,
-      configSource: current.configSource,
-      label: current.label,
-      summary: current.summary,
+      files: cur.files.map((f, i) => ({ ...f, tokens: t.tokens[i] })),
+      deleted: cur.deleted,
+      excluded: cur.excluded,
+      renamed: cur.renamed,
+      testFilePatterns: cur.testFilePatterns,
+      config: cur.config,
+      configSource: cur.configSource,
+      label: cur.label,
+      summary: cur.summary,
       themePinned: opts.themePinned,
       canRefresh: reanalyze !== undefined,
     };
@@ -160,15 +169,20 @@ export async function serveViewer(
   async function htmlFor(theme: string): Promise<string> {
     const cached = htmlCache.get(theme);
     if (cached) return cached;
+    const cur = current;
     const data = JSON.stringify(await payloadFor(theme)).replace(/</g, "\\u003c");
     // Function replacement: a plain string would expand $-sequences in the payload.
     const html = template.replace("/*__LENS_DATA__*/ null", () => data);
-    htmlCache.set(theme, html);
+    if (cur === current) htmlCache.set(theme, html); // not a page of the files from before a ↻ refresh
     return html;
   }
 
   const server = createServer(async (req, res) => {
     try {
+      if (!isLocalRequest(req, opts.port)) {
+        sendJson(res, 403, { error: "lens only answers its own viewer page" });
+        return;
+      }
       const url = new URL(req.url ?? "/", "http://localhost");
       const themeParam = url.searchParams.get("theme");
       const theme = themeParam && isBundledTheme(themeParam) ? themeParam : opts.theme;
@@ -178,24 +192,20 @@ export async function serveViewer(
         res.end(await htmlFor(theme));
       } else if (url.pathname === "/api/tokens") {
         if (themeParam && !isBundledTheme(themeParam)) {
-          res.writeHead(400, { "content-type": "application/json" });
-          res.end(JSON.stringify({ error: `unknown theme "${themeParam}"` }));
+          sendJson(res, 400, { error: `unknown theme "${themeParam}"` });
           return;
         }
-        res.writeHead(200, { "content-type": "application/json" });
-        res.end(JSON.stringify(await tokensFor(theme)));
+        sendJson(res, 200, await tokensFor(theme));
       } else if (url.pathname === "/api/refresh") {
         if (!reanalyze) {
-          res.writeHead(404, { "content-type": "application/json" });
-          res.end(JSON.stringify({ error: "refresh not available" }));
+          sendJson(res, 404, { error: "refresh not available" });
           return;
         }
         current = await reanalyze();
         ask.refresh();
         themeCache.clear();
         htmlCache.clear();
-        res.writeHead(200, { "content-type": "application/json" });
-        res.end(JSON.stringify(await payloadFor(theme)));
+        sendJson(res, 200, await payloadFor(theme));
       } else if (url.pathname === "/api/summary") {
         // A submit since the page loaded: re-read the stored summary; the
         // units stay those of the last analysis (↻ refresh recomputes them).
@@ -204,11 +214,9 @@ export async function serveViewer(
           current = { ...current, summary };
           htmlCache.clear();
         }
-        res.writeHead(200, { "content-type": "application/json" });
-        res.end(JSON.stringify(summary));
+        sendJson(res, 200, summary);
       } else if (url.pathname === "/api/summary/stamp") {
-        res.writeHead(200, { "content-type": "application/json" });
-        res.end(JSON.stringify({ stamp: current.summaryStamp ? current.summaryStamp() : null }));
+        sendJson(res, 200, { stamp: current.summaryStamp ? current.summaryStamp() : null });
       } else if (url.pathname === "/api/shutdown" && req.method === "POST") {
         res.writeHead(200, { "content-type": "application/json" });
         res.end(JSON.stringify({ ok: true }), () => {
@@ -216,18 +224,11 @@ export async function serveViewer(
           server.close(stop);
           server.closeAllConnections();
         });
-      } else if (url.pathname.startsWith("/api/ask/") || url.pathname === "/api/ask") {
-        if (!(await ask.handle(req, res, url))) {
-          res.writeHead(404);
-          res.end("not found");
-        }
-      } else {
-        res.writeHead(404);
-        res.end("not found");
+      } else if (!(url.pathname.startsWith("/api/ask") && await ask.handle(req, res, url))) {
+        sendJson(res, 404, { error: "not found" });
       }
     } catch (err) {
-      res.writeHead(500, { "content-type": "application/json" });
-      res.end(JSON.stringify({ error: (err as Error).message }));
+      sendJson(res, 500, { error: (err as Error).message });
     }
   });
 

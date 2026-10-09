@@ -274,6 +274,178 @@ export function UserCard({ user }: Props) {
   }
 });
 
+test("keep markers pin the guard, catch or data region that takes them in", async () => {
+  const regions = await regionsOf(`
+function f(user: User | null, input: string) {
+  // TODO: remove once the API is fixed
+  if (!user) throw new Error("no user");
+  try {
+    run(input);
+  } catch (e) {
+    // FIXME: swallowing this hides real failures
+    console.error(e);
+  }
+  const OPTIONS = {
+    // @ts-ignore
+    mode: "fast",
+    retries: 3,
+  };
+}
+`.trim());
+  const byCat = (c: string) => regions.find((r) => r.category === c);
+  assert.deepEqual([byCat("guard")?.startLine, byCat("guard")?.endLine], [2, 3]);
+  assert.deepEqual([byCat("error-boilerplate")?.startLine, byCat("error-boilerplate")?.endLine], [7, 8]);
+  assert.deepEqual([byCat("data")?.startLine, byCat("data")?.endLine], [10, 14]);
+  for (const r of regions) assert.equal(r.score, 4, `${r.category} ${r.startLine}-${r.endLine} must stay open`);
+});
+
+test("a trailing comment above a guard doesn't pull its statement into the fold", async () => {
+  const regions = await regionsOf(`
+function f(x: number) {
+  const a = compute(x); // needed below
+  if (!a) return null;
+  return a;
+}
+`.trim());
+  const guard = regions.find((r) => r.category === "guard");
+  assert.deepEqual([guard?.startLine, guard?.endLine], [3, 3]);
+});
+
+test("calls, guards and catches whose arguments or exits do work stay visible", async () => {
+  const regions = await regionsOf(`
+async function run(i: number, tx: Tx, user: User | null) {
+  console.log(i++);
+  logger.info(await save());
+  if (!user) {
+    logger.warn(await audit.record(user));
+    return null;
+  }
+  if (!tx.ok) throw await rollback(tx);
+  try {
+    await go();
+  } catch (e) {
+    logger.error(await undo(e));
+    throw e;
+  }
+  console.log("done", i);
+  return i;
+}
+`.trim());
+  assert.deepEqual(regions.map((r) => [r.category, r.startLine, r.endLine]), [["logging", 15, 15]]);
+});
+
+test("code sharing an import's line isn't folded with it", async () => {
+  const sameLine = await regionsOf(`import "./polyfill"; main();\nfunction main() { return 1; }`);
+  assert.equal(sameLine.filter((r) => r.category === "import").length, 0);
+
+  const commented = await regionsOf(`import a from "a"; // why\nimport b from "b";\nimport c from "c";\nuse(a, b, c);`);
+  assert.deepEqual(commented.filter((r) => r.category === "import").map((r) => [r.startLine, r.endLine]), [[1, 3]],
+    "a trailing comment keeps the import in its group");
+});
+
+test("directive comments stay visible", async () => {
+  const regions = await regionsOf(`
+/// <reference types="node" />
+// @ts-check
+import fs from "fs";
+export const x = fs;
+`.trim());
+  const comment = regions.find((r) => r.category === "comment");
+  assert.ok(comment && comment.score > DEFAULT_CONFIG.threshold);
+});
+
+test("same-name delegation that adds, drops or computes arguments is not an accessor", async () => {
+  const regions = await regionsOf(`
+class Repo {
+  async save(entity: E) {
+    return this.db.save(await this.validate(entity));
+  }
+
+  force(entity: E) { return this.db.force(entity, { force: true }); }
+
+  load(id: string, retries = 3) { return this.repo.load(id); }
+}
+`.trim());
+  assert.equal(regions.filter((r) => r.category === "accessor").length, 0);
+});
+
+test("guards whose condition does work stay visible; a labeled continue keeps its label", async () => {
+  const regions = await regionsOf(`
+async function handle(user: User, rows: Row[][]) {
+  if (await limiter.consume(user.id)) throw new TooMany();
+  if (attempts++ > limit) return;
+  if (!h) return async () => { await cleanup(); };
+  outer: for (const row of rows) {
+    for (const cell of row) {
+      if (cell.skip) continue outer;
+      use(cell);
+    }
+  }
+}
+`.trim());
+  const guards = regions.filter((r) => r.category === "guard");
+  // line 4: the callback runs later, so returning it is no work
+  assert.deepEqual(guards.map((g) => g.startLine), [4, 7]);
+  assert.match(guards[1].summary, /^1 guard → continue outer/);
+});
+
+test("callbacks run now count as work; defaults aren't forwarding; rest pass-through is", async () => {
+  const regions = await regionsOf(`
+function f(list: number[], x: boolean) {
+  if (!x) return list.forEach((i) => { seen[i] = true; });
+  if (list.some((i) => (seen[i] = true))) return 1;
+  return 1;
+}
+class A {
+  load(retries = 3) { return this.repo.load(retries); }
+  log(...args: unknown[]) { this.inner.log(...args); }
+}
+`.trim());
+  assert.equal(regions.filter((r) => r.category === "guard").length, 0);
+  const accessors = regions.filter((r) => r.category === "accessor");
+  assert.deepEqual(accessors.map((r) => [r.startLine, r.summary.replace(/ \(\d+ lines?\)$/, "")]), [[8, "1 accessor — log()"]]);
+
+  const blockThenCode = await regionsOf(`import a from "a"; /* note */ main();\nimport b from "b";\nimport c from "c";\nmain();`);
+  assert.deepEqual(blockThenCode.filter((r) => r.category === "import").map((r) => [r.startLine, r.endLine]), [[2, 3]]);
+});
+
+test("data: a computed key that calls something isn't data", async () => {
+  const regions = await regionsOf(`
+const table = {
+  [makeKey()]: 1,
+  b: 2,
+};
+`.trim());
+  assert.equal(regions.filter((r) => r.category === "data").length, 0);
+});
+
+test("getters and setters with real logic are not accessors", async () => {
+  const regions = await regionsOf(`
+class Temp {
+  get fahrenheit() { return this._c * 9 / 5 + 32; }
+  set celsius(v: number) { this._c = (v - 32) * 5 / 9; }
+  get raw() { return this._c; }
+  set raw(v: number) { this._c = v; }
+  set reset(v: number) { this._c = DEFAULT; }
+}
+`.trim());
+  const accessors = regions.filter((r) => r.category === "accessor");
+  assert.equal(accessors.length, 1);
+  assert.deepEqual([accessors[0].startLine, accessors[0].endLine], [4, 5]);
+  assert.match(accessors[0].summary, /2 accessors — get raw, set raw/);
+});
+
+test("data: one statement with several constants names them all", async () => {
+  const regions = await regionsOf(`
+export const A = 1,
+  B = { x: 1 },
+  C = 3;
+`.trim());
+  const data = regions.filter((r) => r.category === "data");
+  assert.equal(data.length, 1);
+  assert.match(data[0].summary, /^3 constants — A, B, C \(3 lines\)/);
+});
+
 test("trivial accessors fold; real methods do not", async () => {
   const regions = await regionsOf(`
 class Store {
@@ -355,7 +527,7 @@ import "./side-effect";
   assert.ok(barrel);
   assert.equal(barrel.regions.length, 1);
   assert.equal(barrel.regions[0].category, "barrel");
-  assert.match(barrel.regions[0].summary, /barrel file — re-exports 3 modules: api, UserCard, config/);
+  assert.match(barrel.regions[0].summary, /barrel file — re-exports 3 modules: api, UserCard, config; runs side-effect$/);
 
   const notBarrel = await analyzeSource("index.ts", `
 export * from "./api";

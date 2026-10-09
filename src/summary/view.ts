@@ -70,7 +70,9 @@ export function buildSummaryView(opts: {
   const units: ViewUnit[] = opts.units.map((u) => {
     const s = stored?.units[u.id];
     const stale = !!s && s.hash !== u.hash;
-    const renamed = s && !stale && s.renamedFrom ? byId.get(s.renamedFrom) : undefined;
+    // only while the old one is still a deletion: if it's back in the code, it's a unit of its own
+    const from = s && !stale && s.renamedFrom ? byId.get(s.renamedFrom) : undefined;
+    const renamed = from?.status === "deleted" ? from : undefined;
     if (renamed) hiddenDeleted.add(renamed.id);
     const anchored: AnchoredRemoval[] = [];
     for (const [anchor, blocks] of removalAnchors(u)) for (const b of blocks) anchored.push({ ...b, anchor });

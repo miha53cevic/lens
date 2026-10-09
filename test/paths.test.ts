@@ -29,7 +29,9 @@ test("resolveLineRef points at a real line under the root, or says why not", () 
   assert.deepEqual(resolveLineRef(root, "src/a.ts:2", cache), { file: "src/a.ts", line: 2, text: "two" });
   assert.deepEqual(resolveLineRef(root, " src/a.ts:3 ", cache), { file: "src/a.ts", line: 3, text: "three" });
   assert.deepEqual(resolveLineRef(root, "src/a.ts:4", cache), { error: "— the file has only 3 lines" });
-  assert.deepEqual(resolveLineRef(root, "src/a.ts:0", cache), { error: "— the file has only 3 lines" });
+  assert.deepEqual(resolveLineRef(root, "src/a.ts:0", cache), { error: "— lines count from 1" });
+  writeFileSync(join(root, "src", "c.ts"), "one\ntwo\n");
+  assert.deepEqual(resolveLineRef(root, "src/c.ts:3", cache), { error: "— the file has only 2 lines" }, "a final newline is no extra line");
   assert.deepEqual(resolveLineRef(root, "src/b.ts:1", cache), { error: "— file not found" });
   assert.deepEqual(resolveLineRef(root, "src:1", cache), { error: "— file not found" });
   assert.deepEqual(resolveLineRef(root, "../a.ts:1", cache), { error: "must be a path relative to the repository root" });

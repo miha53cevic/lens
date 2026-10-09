@@ -247,3 +247,20 @@ test("gitDiffTargets keeps unsupported text files and skips binaries", () => {
     assert.ok(readme.changedLines.length > 0);
   });
 });
+
+test("gitDiffTargets: non-ASCII paths and diff.noprefix / mnemonicPrefix configs parse the same", () => {
+  withRepo((dir, git) => {
+    writeFileSync(join(dir, "a.ts"), "export const a = 1;\n");
+    writeFileSync(join(dir, "é.ts"), "export const e = 1;\n");
+    writeFileSync(join(dir, "z.ts"), "export const z = 1;\n");
+    git("add", "-A");
+    git("commit", "-qm", "base");
+
+    writeFileSync(join(dir, "é.ts"), "export const e = 2;\n");
+    for (const config of [[], ["diff.noprefix", "true"], ["diff.mnemonicPrefix", "true"]]) {
+      if (config.length > 0) git("config", ...config);
+      const result = gitDiffTargets([], dir);
+      assert.deepEqual(result.targets.map((t) => [t.file.split("/").pop(), t.changedLines]), [["é.ts", [1]]], config.join("="));
+    }
+  });
+});

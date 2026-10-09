@@ -28,7 +28,7 @@ export const SUGGESTED_THEMES = [
 ];
 
 export function isBundledTheme(name: string): name is BundledTheme {
-  return name in bundledThemes;
+  return Object.hasOwn(bundledThemes, name);
 }
 
 export interface HighlightResult {

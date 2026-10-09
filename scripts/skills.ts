@@ -13,10 +13,18 @@ const action = process.argv[2];
 
 const names = readdirSync(repoSkills, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name);
 
-/** The path `target` is a link to, or null when it's not a link (or missing). */
+function isLink(target: string): boolean {
+  try {
+    return lstatSync(target).isSymbolicLink();
+  } catch {
+    return false;
+  }
+}
+
+/** Where a link points, or null when it dangles (the repo moved or is gone). */
 function linkTarget(target: string): string | null {
   try {
-    return lstatSync(target).isSymbolicLink() ? realpathSync(target) : null;
+    return realpathSync(target);
   } catch {
     return null;
   }
@@ -27,25 +35,25 @@ if (action === "install") {
   for (const name of names) {
     const source = join(repoSkills, name);
     const target = join(installed, name);
-    if (existsSync(target) || linkTarget(target) !== null) {
-      if (lstatSync(target).isSymbolicLink()) rmSync(target);
-      else { console.log(`left ${target} alone (not a link — remove it to install this one)`); continue; }
-    }
+    if (isLink(target)) rmSync(target);
+    else if (existsSync(target)) { console.log(`left ${target} alone (not a link — remove it to install this one)`); continue; }
     symlinkSync(source, target, "junction");
     console.log(`linked ${target} → ${source}`);
   }
 } else if (action === "uninstall") {
   for (const name of names) {
     const target = join(installed, name);
-    const linked = linkTarget(target);
-    if (linked !== null && linked === realpathSync(join(repoSkills, name))) {
-      rmSync(target);
-      console.log(`removed ${target}`);
-    } else if (existsSync(target)) {
-      console.log(`left ${target} alone (not a link to this repo)`);
-    } else {
-      console.log(`not installed: ${name}`);
+    if (!isLink(target)) {
+      console.log(existsSync(target) ? `left ${target} alone (not a link to this repo)` : `not installed: ${name}`);
+      continue;
     }
+    const linked = linkTarget(target);
+    if (linked !== null && linked !== realpathSync(join(repoSkills, name))) {
+      console.log(`left ${target} alone (not a link to this repo)`);
+      continue;
+    }
+    rmSync(target);
+    console.log(`removed ${target}${linked === null ? " (a dangling link)" : ""}`);
   }
 } else {
   console.error("usage: node scripts/skills.ts install | uninstall");

@@ -38,6 +38,13 @@ function callerName(unit: BundleUnit): string | null {
   return /^[\w$#]+$/.test(bare) ? bare.replace(/^#/, "") : null;
 }
 
+/** The one shape check every submit needs: an object with a "units" object. */
+export function hasUnits(result: unknown): result is { units: Record<string, unknown>; flows?: unknown; overview?: unknown } {
+  if (typeof result !== "object" || result === null) return false;
+  const units = (result as { units?: unknown }).units;
+  return typeof units === "object" && units !== null && !Array.isArray(units);
+}
+
 export function validateResult(
   bundle: Bundle,
   result: unknown,
@@ -52,15 +59,15 @@ export function validateResult(
   const byId = new Map(bundle.units.map((u) => [u.id, u]));
   const fileCache = new Map<string, string[] | null>();
 
-  if (typeof result !== "object" || result === null || typeof (result as { units?: unknown }).units !== "object") {
+  if (!hasUnits(result)) {
     return {
       stored, accepted, acceptedFlows: 0, acceptedOverview: false,
       dropped: ['result must be an object with a "units" object'], coverage: coverageOf(bundle, stored),
     };
   }
-  const raw = result as { units: Record<string, unknown>; flows?: unknown; overview?: unknown };
+  const raw = result;
 
-  for (const [id, entry] of Object.entries(raw.units ?? {})) {
+  for (const [id, entry] of Object.entries(raw.units)) {
     const unit = byId.get(id);
     if (!unit) { dropped.push(`${id}: unknown unit id (copy ids from the tasks file)`); continue; }
     const summary = checkUnit(id, unit, entry, byId, root, fileCache, dropped);
@@ -84,8 +91,8 @@ export function validateResult(
       for (const flow of valid) {
         stored.flows = stored.flows.filter((existing) => existing.title !== flow.title);
         stored.flows.push(flow);
-        acceptedFlows++;
       }
+      acceptedFlows = new Set(valid.map((f) => f.title)).size;
     }
   }
   let acceptedOverview = false;
@@ -145,9 +152,18 @@ function checkUnit(
   if (!headline) { dropped.push(`${id}: headline ${describe(e.headline, LIMITS.headline)} — unit dropped`); return null; }
   if (!gist) { dropped.push(`${id}: gist ${describe(e.gist, LIMITS.gist)} — unit dropped`); return null; }
 
+  /** A list field: absent is empty; anything but an array is reported, not silently emptied. */
+  const list = (field: "changes" | "breaks" | "concerns"): unknown[] => {
+    const v = e[field];
+    if (v === undefined || v === null) return [];
+    if (Array.isArray(v)) return v;
+    dropped.push(`${id}: ${field} must be an array — none kept`);
+    return [];
+  };
+
   const labels = new Set(unit.labels);
   const changes: ChangeRow[] = [];
-  (Array.isArray(e.changes) ? e.changes : []).forEach((row: unknown, i: number) => {
+  list("changes").forEach((row: unknown, i: number) => {
     const where = `${id} changes[${i}]`;
     const r = (row ?? {}) as Record<string, unknown>;
     const when = text(r.when, LIMITS.cell);
@@ -167,7 +183,7 @@ function checkUnit(
   });
 
   const breaks: Break[] = [];
-  (Array.isArray(e.breaks) ? e.breaks : []).forEach((b: unknown, i: number) => {
+  list("breaks").forEach((b: unknown, i: number) => {
     const where = `${id} breaks[${i}]`;
     const br = (b ?? {}) as Record<string, unknown>;
     const summary = text(br.summary, LIMITS.breakSummary);
@@ -183,7 +199,7 @@ function checkUnit(
   });
 
   const concerns: Concern[] = [];
-  (Array.isArray(e.concerns) ? e.concerns : []).forEach((c: unknown, i: number) => {
+  list("concerns").forEach((c: unknown, i: number) => {
     const where = `${id} concerns[${i}]`;
     const r = (c ?? {}) as Record<string, unknown>;
     const kind = typeof r.kind === "string" ? r.kind.trim().toLowerCase() as ConcernKind : null;
