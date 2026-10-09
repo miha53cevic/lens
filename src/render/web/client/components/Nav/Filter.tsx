@@ -1,4 +1,4 @@
-import { X } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import { hiddenStyle } from '../../shared.ts';
 
 interface FilterProps {
@@ -15,6 +15,7 @@ interface FilterProps {
 export function Filter({ inputId, clearId, wrapperId, hidden, placeholder, value, onChange }: FilterProps) {
   return (
     <div className='nav-filter' id={wrapperId} style={hiddenStyle(hidden)}>
+      <Search size={13} className='nav-filter-icon' />
       <input
         id={inputId}
         type='text'
@@ -31,7 +32,7 @@ export function Filter({ inputId, clearId, wrapperId, hidden, placeholder, value
       />
       <button
         id={clearId}
-        title='clear filter (Esc)'
+        aria-label='clear filter'
         style={hiddenStyle(value.trim() === '')}
         onClick={() => onChange('')}
       >

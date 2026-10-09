@@ -1,53 +1,50 @@
-// The whole diff at a glance: counts, the agent's account of the diff, each flow by layer.
+// The Summary tab's start page: the agent's account of the whole diff, under what it flagged.
 
-import { useState } from 'react';
-import { useLens } from '../../../store.ts';
-import { groupUnits, listModel } from '../../../model/summaryList.ts';
-import { readPref, writePref } from '../../../shared.ts';
-import { Stats } from './Stats.tsx';
-import { flowLanes, mapLanes } from './Lanes.tsx';
+import clsx from 'clsx';
+import { useLens, type SignalId } from '../../../store.ts';
+import { SIGNALS } from '../../../model/signals.ts';
+import { listModel } from '../../../model/summaryList.ts';
+import { setSignalFilter } from '../../../actions/summary.ts';
+import { plural } from '../../../shared.ts';
 import { AgentOverview } from './AgentOverview.tsx';
 
+const SHOWN_SIGNALS: SignalId[] = ['bug', 'risk', 'question', 'breaks'];
+
 export function Overview() {
-  const { summary, list } = useLens((state) => ({ summary: state.data.summary!, list: listModel(state)! }));
-  const [tab, setTab] = useState(() => (readPref('lens.overviewTab') === 'map' ? 'map' : 'flows'));
-  const setOverviewTab = (next: 'flows' | 'map') => {
-    writePref('lens.overviewTab', next);
-    setTab(next);
-  };
-  const units = list.units; // hide tests: the stats follow the lanes
-  const { sections, others } = groupUnits(summary, (unit) => units.includes(unit));
-  // the lower half flips between the flows and the map
-  const lower = tab === 'map' ? mapLanes({ units }) : flowLanes({ sections, others });
+  const { summary, list, label } = useLens((state) => ({
+    summary: state.data.summary!,
+    list: listModel(state)!,
+    label: state.data.label,
+  }));
+  const units = list.units; // hide tests: the counts follow the list
+  const fileCount = new Set(units.map((unit) => unit.displayFile)).size;
+  const stale = units.filter((unit) => unit.stale).length;
+  const flagged = SHOWN_SIGNALS.filter((signal) => list.counts[signal] > 0);
 
   return (
     <div className='sum-inner'>
-      <Stats units={units} flowCount={sections.length} />
-      <AgentOverview summary={summary} anySummarized={units.some((unit) => unit.summary)} />
-      <div>
-        <div className='ov-tabs' role='tablist'>
-          <button
-            className='ov-tab'
-            role='tab'
-            data-tab='flows'
-            aria-selected={tab === 'flows'}
-            onClick={() => setOverviewTab('flows')}
-          >
-            Flows
-          </button>
-          <button
-            className='ov-tab'
-            role='tab'
-            data-tab='map'
-            aria-selected={tab === 'map'}
-            onClick={() => setOverviewTab('map')}
-          >
-            Map
-          </button>
-          <span className='ov-tabs-note'>{lower.note}</span>
-        </div>
-        <div className='ov-lanes'>{lower.lanes}</div>
+      <div className='kicker'>
+        {plural(units.length, 'change') + ' in ' + plural(fileCount, 'file')}
+        {stale > 0 && <span className='stale-count'>{' · ' + stale + ' stale'}</span>}
       </div>
+      <h1 className='sum-headline'>{label ?? 'The changes'}</h1>
+      {flagged.length > 0 && (
+        <div className='ov-stats'>
+          {flagged.map((signal) => (
+            <button
+              key={signal}
+              className={clsx('ov-stat', 'sig-' + signal)}
+              data-sig={signal}
+              aria-pressed={list.signal === signal}
+              onClick={() => setSignalFilter(signal)}
+            >
+              <i />
+              <b>{list.counts[signal]}</b> {list.counts[signal] === 1 ? SIGNALS[signal].one : SIGNALS[signal].many}
+            </button>
+          ))}
+        </div>
+      )}
+      <AgentOverview summary={summary} anySummarized={list.summarized > 0} />
     </div>
   );
 }

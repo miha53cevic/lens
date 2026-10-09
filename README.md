@@ -65,14 +65,28 @@ explicitly is always analyzed.
   test file anyway (a tab, a search hit, an Ask cite) turns it off for that page. Lockfiles and
   minified files (`exclude`) are listed as dimmed `⊘` rows without being read; pure
   renames show as `R` rows.
+- **The header** keeps four buttons in sight: search, Ask, the code theme and reload.
+  Everything else is in the **⋯** menu: the fold level, expand / collapse all, hunks
+  only, removed lines and hide tests (each with its key), then the keyboard shortcuts,
+  the settings and *End session*. A dot on ⋯ means a view setting isn't at its default.
+- **The code theme** colors the whole page, not just the code: the panels, lines and text
+  are mixed from the theme's background and foreground, and the accent is the color the
+  theme gives function names. A light theme turns the page light.
+- **Each file shows its status** as a colored letter in the tree and on its tab (`A`
+  added, `M` modified, `D` deleted, `R` renamed, `⊘` excluded), and spelled out in the
+  code card's header, next to its path, the lines it added and removed, and its fold chips.
+  The Summary tab shows a change's code in the same card.
 - **Search**: ⌘P (Ctrl+P) searches across all loaded files; ⌥-click an identifier to
   find its usages.
-- **↻ refresh** re-runs the analysis — new file contents, a fresh `git diff`, edits
-  to `.lens.json` — without restarting the server. The ⚙ modal shows the effective
+- **Reload** (`r`) re-runs the analysis — new file contents, a fresh `git diff`, edits
+  to `.lens.json` — without restarting the server. *Settings* in ⋯ shows the effective
   config.
-- **Viewed marks**: tick a file in the tree (or press `m`) once you've read it; it dims.
-  Marks live in the browser and clear themselves when the file's content changes.
-  Summary changes have their own marks.
+- **Viewed marks**: tick a file in the tree (or press `m`) once you've read it; it dims,
+  and the ring above the tree counts the files viewed. The pill under the code marks the
+  open file viewed and opens the next one not viewed yet (*Viewed · next file*); *Prev*
+  goes back. Both stop at the first and the last file of the tree instead of wrapping
+  around (so do j/k), and the same goes for the Summary's changes. Marks live in the browser and clear themselves when the file's content
+  changes. Summary changes have their own marks.
 - **Ask** (`a`): a rail on the right where you ask your agent about the code you're
   reading — see [Ask mode](#ask-mode).
 - **Keys** (`?` lists them): j/k files, e/c folds, [/] threshold, h hunks, x removed
@@ -83,7 +97,7 @@ explicitly is always analyzed.
 normal git auth. It fetches `refs/pull/N/head` (fork PRs work) from a matching local
 remote and diffs from the merge base with the PR's target branch, the same range the
 PR page shows. The target comes from GitHub's `refs/pull/N/merge`, falling back to
-the remote's default branch when that ref is gone. ↻ refresh re-fetches, so new
+the remote's default branch when that ref is gone. Reload re-fetches, so new
 pushes appear without restarting.
 
 ## Summary mode
@@ -95,19 +109,21 @@ the line it's about and repeated as a note under that line in the code — you m
 one *real* or *dismiss* it), **what behaves differently** as scenarios (*when* … with
 the old result struck out and the new one below, each linked to the line that causes
 it), callers outside the diff it may break (click one to peek at the call), and the
-unit's code with the usual folds and removed lines.
+unit's code with the usual folds and removed lines. Deleted files are left out: there's
+nothing in them to read (the Code view's tree still lists them).
 
 The list on the left is organized by **flows**: one story each (a feature end to end,
-a fix and the places it touches), ranked by the agent from P1 (review first) to P3
-(mechanical, folded until you open it). A unit is **flagged** only for a reason on
+a fix and the places it touches), listed by name like chapters. The agent ranks them
+from P1 (review first) to P3 (mechanical); the ranking only sets their order, and P3
+flows start folded until you open them. A unit is **flagged** only for a reason on
 record, each with its own mark: ⚠ possible bug, ! risk, ? question, ↗ may break callers
 (dismissed concerns don't count). Chips at the top of the list filter by them, and a
 *dismissed* chip lists the changes whose concerns you dismissed. Your
 verdicts don't reorder the list, and the change you're on stays listed under a filter.
-It opens on an **Overview** (<kbd>g</kbd>): counts (click *possible bugs* or *flagged*
-to list just those), the agent's account of the whole diff, and each flow laid out by layer — or,
-flipped to the **Map** tab, every change where it lives: a card per folder, a column
-per file, units in file order.
+It opens on an **Overview** (<kbd>g</kbd>): what the agent flagged (click a count to
+list just those changes) and its account of the whole diff. *Start review* opens the
+first change; from there the pill under the code marks each change reviewed and opens
+the next (*Reviewed · next change*), and the ring above the list counts how far you got.
 
 The summary is written by your coding agent, on your existing subscription:
 
@@ -132,7 +148,7 @@ units the flows cover and which units with a concern or break are in none.
 
 Any agent with a shell can follow `prepare`'s printed instructions; the skill is only
 a thin pointer to them. After a submit, the Summary tab shows a dot when you return to
-the viewer (or press ↻).
+the viewer (or press reload, `r`).
 
 **As the review step of a plan → build workflow**, `/lens-build-review [base-commit]
 [plan-file]` has the agent do everything: pick the build's diff (making new files
@@ -164,7 +180,7 @@ both sides. The selection stays while you type; a plain click in the code drops 
 There is one chat for the whole lens session: moving to another change, flow, file or
 tab keeps it, and each question is labeled with the change it was about (click the
 label to go back). Answers cite code as `path:line`; lens checks each one, and a valid
-cite flashes that line when clicked. After ↻ refresh, questions whose code changed are
+cite flashes that line when clicked. After a reload, questions whose code changed are
 dimmed and their cites stop linking. The chat lives in the running viewer and ends with
 it. Drag the rail's edge to resize it; `\` hides it, `Esc` leaves the input.
 

@@ -15,14 +15,14 @@ function viewChange(state: LensState, view: View): Partial<LensState> {
 export function setView(view: View): void {
   const state = getState();
   if (view === 'summary' && !state.data.summary) return;
-  update(viewChange(state, view));
+  update({ ...viewChange(state, view), ...(view === 'summary' && { summaryChecking: true }) });
   if (view === 'summary') {
-    if (state.summaryDot) loadSummary();
+    if (state.summaryDot) loadSummary().finally(() => update({ summaryChecking: false }));
     else checkSummaryStamp(); // a submit while the window kept its focus
   }
 }
 
-async function loadSummary() {
+async function loadSummary(): Promise<void> {
   try {
     const response = await fetch('/api/summary');
     if (!response.ok) throw new Error('http ' + response.status);
@@ -43,11 +43,13 @@ export async function checkSummaryStamp(): Promise<void> {
     const response = await fetch('/api/summary/stamp');
     const { stamp } = await response.json();
     if (stamp !== null && stamp !== summary.stamp) {
-      if (getState().view === 'summary') loadSummary();
+      if (getState().view === 'summary') await loadSummary();
       else update({ summaryDot: true });
     }
   } catch {
     /* server gone — nothing to do */
+  } finally {
+    if (getState().summaryChecking) update({ summaryChecking: false });
   }
 }
 

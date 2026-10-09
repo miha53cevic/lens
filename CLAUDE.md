@@ -44,18 +44,26 @@ ask/              ask mode: the viewer's Ask rail and `lens ask listen|reply` (s
 
 ### Viewer (`src/render/web/`)
 
-- The viewer is a React app in `client/`, written in strict TypeScript (`main.tsx` is the entry). `bundle.ts` bundles it with esbuild when the server starts, so there's still no build step. `server.ts` inlines `viewer.css` and the bundle into `viewer.html` (a `#root` element and nothing else), and puts the payload in the `lens-data` JSON script, which `client/shared.ts` reads as `INITIAL_DATA`.
+- The viewer is a React app in `client/`, written in strict TypeScript (`main.tsx` is the entry). `bundle.ts` bundles it with esbuild when the server starts, so there's still no build step: one script, plus one stylesheet collected from the `.css` files the code imports. `server.ts` inlines both into `viewer.html` (a `#root` element and nothing else), and puts the payload in the `lens-data` JSON script, which `client/shared.ts` reads as `INITIAL_DATA`.
 - Shared state lives in `client/store.ts`: one immutable `LensState`, replaced on every change. Components read it with `useLens(selector)`.
-  - `model/` derives what the components show, as pure functions: `tree.ts`, `plans.ts` (folds and row plans), `signals.ts`, `summaryList.ts` and `askContext.ts`.
-  - `actions/` changes the state, one file per area: `tabs`, `folds`, `toolbar`, `views` (including `jumpToLine`), `summary`, `dialogs` (including search), `session`, `sidebar` and `viewed`.
+  - `model/` derives what the components show, as pure functions: `tree.ts`, `plans.ts` (folds, row plans and the fold chips' categories), `signals.ts`, `summaryList.ts`, `progress.ts` (files viewed, changes reviewed, what's next) and `askContext.ts`.
+  - `actions/` changes the state, one file per area: `tabs`, `folds`, `viewSettings`, `views` (including `jumpToLine`), `summary`, `dialogs` (including search), `session`, `sidebar`, `viewed` and `review` (the review pill).
   - `ask/` is the Ask rail's logic: `rail.ts`, `selection.ts` and `answers.ts`.
   - Use `commit()` instead of `update()` when the DOM must show the new state before you touch it, e.g. scrolling to a row.
-- `components/` holds one component or folder per area: `Header`, `Nav` (the tree and the summary list), `Tabs`, `CodePane`, `SummaryPane`, `AskRail`, `SettingsDialog`, `KeysDialog` and `SearchDialog`. Pieces several areas use sit next to them: `CodeRows` (both views' code), `Info`, `ViewedBox`, `Resizer`, `SignalMarker`, `FlowPriority` and `ModalHead`. `main.tsx` sets up the document-level listeners and store subscriptions.
+- `components/` holds one component or folder per area: `Header` (with its theme and ⋯ menus), `Nav` (the tree and the summary list, under a progress ring), `Tabs`, `CodePane`, `SummaryPane`, `ReviewPill`, `AskRail`, `SettingsDialog`, `KeysDialog` and `SearchDialog`. Pieces several areas use sit next to them: `CodeRows` (both views' code), `CodeCard` (the card around it, with its header: status, path, counts, fold chips; the same in both views), `FoldChips`, `ViewedBox`, `Resizer`, `SignalMarker` and `ModalHead`. `main.tsx` sets up the document-level listeners and store subscriptions.
 - `test/viewer-page.test.ts` runs the real bundle in happy-dom (`@happy-dom/global-registrator`) on a real analysis of a fixture repo (`test/fixtures/viewerRepo.ts`), with `fetch` stubbed, and drives it with keys, clicks and typing (`@testing-library/dom`'s `fireEvent`). A change to how the viewer behaves gets a test there. Assert on what the reader sees: the rows, the tree, classes like `open` and `pinned`. `settle()` after each action lets React render.
-- Keep the markup and class names `viewer.css` expects. Rows are memoized and their highlighted lines are prebuilt HTML strings, so a toggle re-renders only the rows it changes. Keep it that way on big files.
+- Keep the markup and class names the stylesheets and the page tests expect. Rows are memoized and their highlighted lines are prebuilt HTML strings, so a toggle re-renders only the rows it changes. Keep it that way on big files.
 - Browser code imports server-side types with `import type` (e.g. `ViewerPayload` from `server.ts`, `SummaryView` from `summary/view.ts`), so a shape change breaks the viewer's typecheck instead of the page.
 - Server endpoints: `/api/tokens` (theme switch), `/api/refresh`, `/api/summary`, `/api/summary/stamp` (polled on window focus), `/api/shutdown`, and the Ask rail's `/api/ask*` (in `src/ask/routes.ts`).
 - Browser-only state, such as viewed marks, lives in `localStorage`.
+
+### Viewer design system
+
+- `client/styles/tokens.css` holds the design tokens. The inputs are the code theme's colors (`--code-bg`, `--code-fg`, `--theme-accent`, set by `main.tsx` from the payload) and the scales (type, space, radius, motion). The semantic tokens components use (`--bg`, `--surface`, `--text`, `--muted`, `--line`, `--accent`, `--danger`, the diff and signal colors) are mixed from those inputs, with a light set under `data-appearance='light'`. Components use semantic tokens and scales, never raw colors. The theme's accent is the design system's one highlight color: anything selected, open or picked uses it (`--selected-bg` / `--selected-ring` for a selected tab, row or pressed button, solid `--accent` on `--accent-fg` for the picked option of a switch or segmented control, and for primary buttons). Never invert `--text` for a selected state. Green, red and the signal colors keep their meaning (added, removed, viewed, concerns) and aren't used for selection. Category colors stay in `CAT_COLORS`.
+- The accent is the theme's function-name color, which `themeAccent` in `src/render/highlight.ts` reads from the Shiki theme.
+- `client/ui/` holds the primitives: `Button`, `IconButton`, `Menu` (a native popover, with `MenuItem`, `MenuSwitch`, `MenuSection`), `Segmented`, `Chip`, `Kbd` (a shortcut as keycaps: `Ctrl P` is two), `FileStatus` (`StatusLetter`, `StatusBadge`) and `ProgressRing`. Build controls from these instead of styling a new `button`.
+- Tooltips are for teaching a key: an `IconButton` with a `shortcut` gets one (the action and its keycap), one without gets none. Don't add a native `title` that only repeats what a button says; keep `title` for text that's cut off (a long path) or that adds something (a flow's why).
+- Every component imports its own stylesheet: `style.css` in a component folder, `Name.css` next to a one-file component. `styles/base.css` is the reset, focus ring and shared helpers, and `styles/signals.css` maps a signal class to its color. `css.d.ts` lets the imports typecheck.
 
 ### Viewer code rules
 
@@ -63,7 +71,7 @@ ask/              ask mode: the viewer's Ask rail and `lens ask listen|reply` (s
 - **Components subscribe to what they show.** Pick a slice with `useLens((state) => …)` instead of taking the whole state as a prop. A selector may return state values, or the result of a memoized `model/` function. It must not build new objects or arrays itself, since that re-renders on every change.
 - **Avoid `useEffect` and `useLayoutEffect`**, because they hide when things run. Put the work where the change happens: in the action (`commit()`, then touch the DOM), in an event handler, in a `key` that remounts a subtree (which resets its scroll), in a ref callback, or in a store subscription in `main.tsx` for document-level things like the title. This isn't a hard ban: when none of those fit, use an effect and say why in a comment.
 - **Names are camelCase and say what they hold**: `state`, `unit`, `concern`, `caller`, `fileIndex`, not `s`, `u`, `c`, `i`. PascalCase is for components and types.
-- **Icons come from `lucide-react`**, not Unicode glyphs: import the icon you need (esbuild bundles only those), and give it a `size`. A signal's icon is `SignalIcon`. Carets are `ChevronRight` with an `open` class that `viewer.css` rotates.
+- **Icons come from `lucide-react`**, not Unicode glyphs: import the icon you need (esbuild bundles only those), and give it a `size`. A signal's icon is `SignalIcon`. Carets are `ChevronRight` with an `open` class that `styles/base.css` rotates.
 - **Dialogs keep their own open state.** The `<dialog>` element knows whether it's open: `openDialog` / `openSearch` call `showModal()`, and Esc or the close button close it natively.
 - **Prettier formats the viewer code** (`.prettierrc`: 2-space indent, single quotes, 120 columns, and `endOfLine: auto`, since Git checks files out with CRLF on Windows). Run `npm run format`. `npm test` fails on unformatted code under `src/render/web/client/` and in the viewer tests.
 
@@ -85,7 +93,7 @@ ask/              ask mode: the viewer's Ask rail and `lens ask listen|reply` (s
 
 - The ceiling holds for the viewer's other modules too: `actions/`, `model/` and `ask/` are each split by area. `store.ts` and `rows.ts` run longer because each is one cohesive thing (the state's shape, the row plan).
 - Subcomponents follow the same rule: one file is `SubComponent.tsx`, not `SubComponent/index.tsx`. A folder that has a `components/` subdirectory, or any of the split files above, keeps its `index.tsx`.
-- Components that several areas share live directly in `components/`, e.g. `CodeRows`, `Info` and `ViewedBox`.
+- Components that several areas share live directly in `components/`, e.g. `CodeRows`, `CodeCard` and `ViewedBox`.
 - React context, if one is ever needed, is split into a provider file and a context file:
   - a context that belongs to a component goes in `Component/provider.tsx` + `Component/context.tsx`;
   - an app-wide one goes in `providers/<Name>Provider/index.tsx` + `context.tsx`.
@@ -96,7 +104,7 @@ ask/              ask mode: the viewer's Ask rail and `lens ask listen|reply` (s
 
 The Summary tab shows the same code snippets as the Code view, with the agent's summary on top. Anything added to or changed in the Code view that affects how code is shown must also work on the Summary tab's unit code, in the same change. That covers folds, fold chips, the fold level, expand/collapse, hunks only, removed lines, hide tests, and their keyboard shortcuts.
 
-- The toolbar stays visible on the Summary tab. Its controls change state, and both views render from that state: `foldScope` (`actions/folds.ts`) and `chipCategories` (`components/Header/util.ts`) pick the open file's or the open unit's folds.
+- The view settings in the header's ⋯ menu, the fold chips in the code card's header and the review pill work on the Summary tab too. They change state, and both views render from that state: `foldScope` (`actions/folds.ts`) and `foldCategories` (`model/plans.ts`) pick the open file's or the open unit's folds.
 - Both views get their rows from `client/rows.ts`: `fileSpans` / `unitSpans` pick the shown lines and hidden stretches, and `planCode` turns them into lines, folds, removed lines and gaps. Both views render the plan with `CodeRows`, and each passes in its own row marks (cited lines, concern notes, the Ask selection). Change how code is shown there, and both views follow. `rows.ts` has no DOM, so `test/viewer.test.ts` tests it in node.
 - A new control should change state both views read (e.g. `openCats` for the fold chips) or get a Summary branch (e.g. `unitSpans` for hunks only, `listModel` for hide tests).
 - Share constants between the views instead of duplicating them (e.g. `HUNK_CONTEXT` in `client/rows.ts`).

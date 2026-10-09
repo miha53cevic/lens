@@ -3,6 +3,10 @@
 // listeners, and the store subscriptions that keep the document in step with the state.
 
 import { createRoot } from 'react-dom/client';
+// the design tokens and the page's base styles come first: every component's own CSS builds on them
+import './styles/tokens.css';
+import './styles/base.css';
+import './styles/signals.css';
 import { App } from './components/App.tsx';
 import { getState, subscribe, type LensState } from './store.ts';
 import { readPref, writePref } from './shared.ts';
@@ -13,8 +17,8 @@ import { askPoll } from './ask/rail.ts';
 import { dropForeignSelection, onSelectionChange } from './ask/selection.ts';
 import { onKeyDown } from './keys.ts';
 
-// A light code theme flips the whole chrome to the light palette, so the
-// header/sidebar/modals match instead of boxing a bright pane in dark panels.
+// The chrome's colors are mixed from the code theme's (styles/tokens.css). A light theme also
+// flips the fixed colors (diff, signals) to their light set.
 function isLightColor(color: string) {
   // longest-first: themes report #rgb, #rgba, #rrggbb, or #rrggbbaa
   const hexMatch = /^#([0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{4}|[0-9a-f]{3})$/i.exec((color || '').trim());
@@ -25,13 +29,14 @@ function isLightColor(color: string) {
   return 0.299 * red + 0.587 * green + 0.114 * blue > 140;
 }
 
-/** The document follows the state: the theme's colors, the tab title, the Ask selection's change. */
+/** The document follows the state: the theme's colors (the tokens' inputs), the tab title, the Ask selection's change. */
 function syncDocument(state: LensState, previous: LensState | null) {
-  const { fg, bg, label } = state.data;
-  if (!previous || previous.data.fg !== fg || previous.data.bg !== bg) {
+  const { fg, bg, accent, label } = state.data;
+  if (!previous || previous.data.fg !== fg || previous.data.bg !== bg || previous.data.accent !== accent) {
     const root = document.documentElement;
     root.style.setProperty('--code-fg', fg);
     root.style.setProperty('--code-bg', bg);
+    root.style.setProperty('--theme-accent', accent);
     root.dataset.appearance = isLightColor(bg) ? 'light' : 'dark';
   }
   // PR mode: "owner/repo#N — title" in the tab title too

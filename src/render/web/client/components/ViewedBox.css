@@ -1,0 +1,48 @@
+.viewed-box {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 13px;
+  height: 13px;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 4px;
+  cursor: pointer;
+  transition:
+    background var(--motion),
+    border-color var(--motion);
+}
+.viewed-box:hover {
+  border-color: var(--add);
+}
+.viewed-box.placeholder {
+  visibility: hidden;
+  cursor: default;
+}
+.viewed-box[aria-checked='true'] {
+  border-color: var(--add);
+  background: var(--add);
+}
+.viewed-box[aria-checked='true']::after {
+  content: '';
+  width: 6px;
+  height: 3px;
+  border: 2px solid var(--surface);
+  border-top: 0;
+  border-right: 0;
+  transform: translateY(-1px) rotate(-45deg);
+}
+
+/* in the summary list: a dot, filled once reviewed, ringed for the open change */
+.sum-item .viewed-box {
+  width: 10px;
+  height: 10px;
+  justify-self: center;
+  border-radius: 50%;
+}
+.sum-item .viewed-box[aria-checked='true']::after {
+  content: none;
+}
+.sum-item.active .viewed-box:not([aria-checked='true']) {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}

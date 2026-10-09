@@ -64,6 +64,8 @@ export interface LensState {
   summaryBrowsing: boolean;
   /** A newer summary waits on the server */
   summaryDot: boolean;
+  /** Asking the server for a newer summary: the tab holds off on "No summary yet" until it knows */
+  summaryChecking: boolean;
   /** The list filter's text (transient) */
   sumQuery: string;
   sumSignal: SignalFilter;
@@ -136,6 +138,7 @@ const initialState: LensState = {
   summaryOverview: true,
   summaryBrowsing: false,
   summaryDot: false,
+  summaryChecking: false,
   sumQuery: '',
   sumSignal: null,
   flowOpen: new Map(),

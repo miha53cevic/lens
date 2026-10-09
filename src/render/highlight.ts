@@ -65,6 +65,56 @@ export function shikiLangForFile(file: string): string | null {
   return byExtension[ext] ?? null;
 }
 
+/** The scopes whose color the viewer takes as its accent, best first. */
+const ACCENT_SCOPES = ["entity.name.function", "support.function", "entity.name.type", "keyword"];
+
+/**
+ * The theme's accent for the viewer's chrome: the color it gives function names, so the
+ * buttons and highlights belong to the theme. Falls back to the theme's foreground.
+ */
+export async function themeAccent(theme: string): Promise<string> {
+  if (!isBundledTheme(theme)) {
+    throw new Error(`unknown theme "${theme}" — pick a Shiki theme name (https://shiki.style/themes)`);
+  }
+  const highlighter = await getHighlighter();
+  if (!highlighter.getLoadedThemes().includes(theme)) {
+    await highlighter.loadTheme(theme);
+  }
+  const loaded = highlighter.getTheme(theme);
+  for (const wanted of ACCENT_SCOPES) {
+    // as TextMate matches: a rule's scope covers the scopes under it ("entity.name" colors
+    // "entity.name.function"), and the most specific rule wins
+    let best: { length: number; color: string } | null = null;
+    for (const rule of loaded.settings) {
+      const color = rule.settings?.foreground;
+      if (!color) continue;
+      const scopes = typeof rule.scope === "string" ? rule.scope.split(",") : (rule.scope ?? []);
+      for (const scope of scopes.map((candidate) => candidate.trim())) {
+        const covers = wanted === scope || wanted.startsWith(scope + ".");
+        if (covers && !scope.includes(" ") && (!best || scope.length > best.length)) {
+          best = { length: scope.length, color };
+        }
+      }
+    }
+    if (best) return best.color;
+  }
+  return loaded.fg;
+}
+
+/** A theme as the viewer's theme menu shows it: its name, its colors and its accent. */
+export interface ThemeSwatch {
+  name: string;
+  bg: string;
+  fg: string;
+  accent: string;
+}
+
+export async function themeSwatch(theme: string): Promise<ThemeSwatch> {
+  const accent = await themeAccent(theme);
+  const loaded = (await getHighlighter()).getTheme(theme);
+  return { name: theme, bg: loaded.bg, fg: loaded.fg, accent };
+}
+
 /**
  * Tokenizes source for the web viewer. Returns one array per source line;
  * concatenating a line's token texts reproduces that line exactly.

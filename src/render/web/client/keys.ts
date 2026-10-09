@@ -9,14 +9,14 @@ import { collapseAll, expandAll } from './actions/folds.ts';
 import { openDialog, openSearch } from './actions/dialogs.ts';
 import { openUnitInCode, showOverview, stepSummary } from './actions/summary.ts';
 import { refresh } from './actions/session.ts';
-import { setHideTests, setHunksOnly, setShowRemoved, stepThreshold } from './actions/toolbar.ts';
+import { setHideTests, setHunksOnly, setShowRemoved, stepThreshold } from './actions/viewSettings.ts';
 import { setView } from './actions/views.ts';
 import { toggleFileViewed, toggleUnitViewed } from './actions/viewed.ts';
 import { toggleNav } from './actions/sidebar.ts';
 import { askOpenAndFocus, askSetOpen } from './ask/rail.ts';
 import { isDiffMode } from './shared.ts';
 
-/** The keys that also work on the Summary tab: the toolbar's act on the open unit's code. */
+/** The keys that also work on the Summary tab: the view settings' keys act on the open unit's code. */
 const SUMMARY_KEYS = ['?', 'x', 's', 'r', 'e', 'c', '[', ']', 'h', 't', 'a', '\\'];
 
 /** Shows the nav (if it's collapsed, and remembers that) and focuses one of its filters. */

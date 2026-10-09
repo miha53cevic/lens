@@ -1,0 +1,29 @@
+.set-cat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.set-cat .dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+.set-off {
+  opacity: 0.6;
+  text-decoration: line-through;
+}
+.set-note {
+  margin-top: var(--space-3);
+  color: var(--faint);
+  font-size: var(--text-xs);
+}
+.set-list code {
+  display: inline-block;
+  margin: 0 4px 4px 0;
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-size: var(--text-xs);
+}

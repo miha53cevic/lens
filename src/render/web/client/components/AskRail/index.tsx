@@ -5,6 +5,8 @@ import { useLens } from '../../store.ts';
 import { askSetOpen } from '../../ask/rail.ts';
 import { Thread } from './Thread.tsx';
 import { Composer } from './Composer.tsx';
+import { IconButton } from '../../ui/IconButton.tsx';
+import './style.css';
 
 export function AskRail() {
   const { open, width, listening } = useLens((state) => ({
@@ -22,9 +24,9 @@ export function AskRail() {
           <span className={listening ? 'ask-dot on' : 'ask-dot'} />
           {listening ? 'agent listening' : 'no agent'}
         </span>
-        <button id='ask-close' className='icon' title='hide the Ask rail (\)' onClick={() => askSetOpen(false)}>
+        <IconButton id='ask-close' label='Hide the Ask rail' onClick={() => askSetOpen(false)}>
           <X size={14} />
-        </button>
+        </IconButton>
       </div>
       <Thread />
       <Composer />

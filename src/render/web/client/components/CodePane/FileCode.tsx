@@ -1,13 +1,16 @@
 import { TriangleAlert } from 'lucide-react';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useLens } from '../../store.ts';
 import { activeFile, filePlan } from '../../model/plans.ts';
 import { askSelLabels } from '../../ask/selection.ts';
 import { askSelection } from '../../model/askContext.ts';
 import { isTestFile, linesFromTokens, listedOnlyCount } from '../../shared.ts';
 import { CodeRows } from '../CodeRows/index.tsx';
+import { CodeCard, removedCount } from '../CodeCard.tsx';
+import { fileStatus } from '../../ui/FileStatus.tsx';
+import { findUsages, restoreFileScroll, saveFileScroll } from './util.ts';
 
-/** The open file's rows, or why there are none. */
+/** The open file's code card, or why there's none. */
 export function FileCode() {
   const { file, plan, hiddenAsTest, fileCount, listedOnly, selection } = useLens((state) => {
     const file = activeFile(state);
@@ -26,36 +29,52 @@ export function FileCode() {
     [selection],
   );
   const changedLines = useMemo(() => new Set(file?.changedLines || []), [file]);
+  const path = file?.file ?? null;
+  // stable per file: a new callback would run again on every render and reset the scroll
+  const restoreScroll = useCallback((body: HTMLDivElement | null) => restoreFileScroll(body, path), [path]);
 
   if (!file || !plan) {
     return (
       <div className='empty'>
         {fileCount > 0
-          ? 'no file open — pick one from the tree'
+          ? 'No file open: pick one from the tree.'
           : listedOnly > 0
-            ? 'nothing to analyze — this diff only renamed, deleted, or excluded files (see the tree)'
-            : 'no supported files found'}
+            ? 'Nothing to analyze: this diff only renamed, deleted or excluded files (see the tree).'
+            : 'No supported files found.'}
       </div>
     );
   }
   if (hiddenAsTest) {
-    return <div className='empty'>every file here is a test file — untick "hide tests" to see them</div>;
+    return <div className='empty'>Every file here is a test file. Turn off "Hide tests" in ⋯ to see them.</div>;
   }
   return (
-    <>
-      {file.parseError && (
-        <div className='notice'>
-          <TriangleAlert size={13} /> folding disabled — this file has syntax errors
-        </div>
-      )}
-      <CodeRows
-        path={file.file}
-        items={plan.items}
-        lines={linesFromTokens(file)}
-        changedLines={changedLines}
-        gutter={String(file.lineCount).length}
-        marks={marks}
-      />
-    </>
+    // keyed by the file: another file mounts afresh, back where the reader left it (scrollStore), even after a refresh
+    <CodeCard
+      key={file.file}
+      status={file.status ? fileStatus(file.status) : undefined}
+      path={file.file}
+      added={file.changedLines?.length ?? 0}
+      removed={removedCount(file.removals || [])}
+      notice={
+        file.parseError && (
+          <>
+            <TriangleAlert size={13} /> Folding is off: this file has syntax errors.
+          </>
+        )
+      }
+      bodyRef={restoreScroll}
+      onBodyScroll={(event) => saveFileScroll(event.currentTarget, file.file)}
+    >
+      <div className='code' id='code' onClick={findUsages}>
+        <CodeRows
+          path={file.file}
+          items={plan.items}
+          lines={linesFromTokens(file)}
+          changedLines={changedLines}
+          gutter={String(file.lineCount).length}
+          marks={marks}
+        />
+      </div>
+    </CodeCard>
   );
 }

@@ -4,6 +4,7 @@ import { useLens } from '../../store.ts';
 import { askContext, askSelection } from '../../model/askContext.ts';
 import { askSelLabel } from '../../ask/selection.ts';
 import { askSend, askWaiting, growInput, setAsk } from '../../ask/rail.ts';
+import { Kbd } from '../../ui/Kbd.tsx';
 
 /** The question being written, with what goes along with it: the open change and the selection. */
 export function Composer() {
@@ -43,15 +44,9 @@ export function Composer() {
   return (
     <div className='ask-composer'>
       <div className='ask-chips' id='ask-chips'>
-        {composer.contextLabel && (
-          <span className='ask-chip unit' title='the open change goes along with every question'>
-            {composer.contextLabel}
-          </span>
-        )}
+        {composer.contextLabel && <span className='ask-chip unit'>{composer.contextLabel}</span>}
         {composer.contextLabel && composer.selectionLabel && (
-          <span className='ask-chip' title='your selection in the code'>
-            {composer.selectionLabel}
-          </span>
+          <span className='ask-chip'>{composer.selectionLabel}</span>
         )}
       </div>
       <textarea
@@ -74,15 +69,26 @@ export function Composer() {
             event.preventDefault();
             send();
           } else if (event.key === 'Escape') {
-            event.currentTarget.blur(); // back to the code: j/k and the toolbar keys work again
+            event.currentTarget.blur(); // back to the code: j/k and the view keys work again
           }
         }}
       />
       <div className='ask-row'>
         <span className={composer.error ? 'ask-hint error' : 'ask-hint'} id='ask-hint'>
-          {composer.error || '↵ ask · ⇧↵ newline · Esc back to the code'}
+          {composer.error || (
+            <>
+              <span>
+                <Kbd combo='↵' /> ask
+              </span>
+              <span>
+                <Kbd combo='⇧ ↵' /> newline
+              </span>
+              <span>
+                <Kbd combo='Esc' /> leave
+              </span>
+            </>
+          )}
         </span>
-        <span className='spacer' />
         <button id='ask-send' disabled={blocked} onClick={send}>
           {copied ? (
             <>

@@ -1,0 +1,49 @@
+.icon-btn {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  color: var(--muted);
+  transition:
+    background var(--motion),
+    color var(--motion);
+}
+.icon-btn:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--text);
+}
+/* on (the Ask rail open): the accent */
+.icon-btn[aria-pressed='true'] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* the tooltip: what it does and its key, on hover and on keyboard focus, under the button */
+.icon-btn .tip {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 60;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 5px 6px 5px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--raised);
+  box-shadow: 0 10px 24px -10px var(--shadow);
+  color: var(--text);
+  font: 400 var(--text-sm) / 1.3 var(--font-sans);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--motion);
+}
+.icon-btn:hover .tip,
+.icon-btn:focus-visible .tip {
+  opacity: 1;
+  transition-delay: 350ms;
+}

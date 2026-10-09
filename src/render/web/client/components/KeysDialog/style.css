@@ -1,0 +1,29 @@
+/* the ? help keeps its size from tab to tab */
+#keys-modal {
+  height: min(34rem, 80vh);
+}
+#keys-modal .set-table td:first-child {
+  width: 9rem;
+}
+#keys-modal .set-table td {
+  vertical-align: middle;
+}
+.key-tabs {
+  display: flex;
+  gap: 2px;
+  margin-bottom: var(--space-3);
+}
+.key-tab {
+  padding: 5px var(--space-3);
+  border-radius: var(--radius-full);
+  color: var(--muted);
+  font-weight: 500;
+}
+.key-tab:hover {
+  color: var(--text);
+}
+/* the selected one in the theme's accent */
+.key-tab[aria-selected='true'] {
+  background: var(--accent);
+  color: var(--accent-fg);
+}

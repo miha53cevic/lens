@@ -1,4 +1,4 @@
-// The whole page: header, sidebar, editor (code or summary), Ask rail, and the modals.
+// The whole page: header, sidebar, editor (code or summary, with the review pill), Ask rail, and the modals.
 
 import { useLens } from '../store.ts';
 import { navShown } from '../model/tree.ts';
@@ -14,6 +14,8 @@ import { Resizer } from './Resizer.tsx';
 import { SettingsDialog } from './SettingsDialog.tsx';
 import { KeysDialog } from './KeysDialog/index.tsx';
 import { SearchDialog } from './SearchDialog/index.tsx';
+import { ReviewPill } from './ReviewPill.tsx';
+import './App.css';
 
 export function App() {
   const { ended, navVisible, askOpen } = useLens((state) => ({
@@ -21,7 +23,7 @@ export function App() {
     navVisible: navShown(state),
     askOpen: state.ask.open,
   }));
-  if (ended) return <div className='ended'>session ended — the lens server has stopped, you can close this tab</div>;
+  if (ended) return <div className='ended'>Session ended: the lens server has stopped. You can close this tab.</div>;
 
   return (
     <>
@@ -33,7 +35,7 @@ export function App() {
         <Nav />
         <Resizer
           id='resizer'
-          title='drag to resize the file tree'
+          label='resize the file tree'
           panelId='nav'
           hidden={!navVisible}
           widthAt={(event, nav) => Math.min(600, Math.max(160, event.clientX - nav.getBoundingClientRect().left))}
@@ -43,10 +45,11 @@ export function App() {
           <Tabs />
           <CodePane />
           <SummaryPane />
+          <ReviewPill />
         </div>
         <Resizer
           id='ask-resizer'
-          title='drag to resize the Ask rail'
+          label='resize the Ask rail'
           panelId='ask-rail'
           hidden={!askOpen}
           widthAt={(event, rail) => Math.min(720, Math.max(280, rail.getBoundingClientRect().right - event.clientX))}

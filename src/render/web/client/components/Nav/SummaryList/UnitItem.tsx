@@ -8,8 +8,8 @@ import { ViewedBox } from '../../ViewedBox.tsx';
 
 interface UnitItemProps {
   unit: Unit;
-  /** What shows on the right: the unit's layer in its flow, or its file */
-  side: string | undefined;
+  /** What shows on the right: the file, for a change in no flow */
+  side?: string;
   active: boolean;
 }
 
@@ -37,18 +37,14 @@ export function UnitItem({ unit, side, active }: UnitItemProps) {
         'st-' + unit.status,
       )}
       data-id={unit.id}
-      title={unit.id + ' — ' + unit.status}
+      title={unit.id + ' — ' + unit.status + (summary ? '\n' + summary.gist : '')}
       onClick={() => openSummaryUnit(unit.id)}
     >
       <ViewedBox checked={viewed} onToggle={() => toggleUnitViewed(unit)} />
-      <SignalMarker marks={marks} unit={unit} />
       <span className='name'>{unitLabel(unit)}</span>
-      <span className='side'>{side || ''}</span>
-      {unit.stale ? (
-        <span className='gist stale'>code changed — re-run</span>
-      ) : (
-        <span className='gist'>{summary ? summary.gist : unit.kind + ' · ' + unit.status}</span>
-      )}
+      <SignalMarker marks={marks} unit={unit} />
+      {side && <span className='side'>{side}</span>}
+      {unit.stale && <span className='gist stale'>code changed — re-run</span>}
     </button>
   );
 }

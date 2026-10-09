@@ -1,0 +1,83 @@
+.code-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  /* the corners clip the code: the header and the rows stay inside the card */
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: 0 12px 30px -18px var(--shadow);
+}
+/* the code scrolls inside the card, under a header that stays put */
+.code-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.code-head {
+  --st: var(--line);
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 11px var(--space-4) 9px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  /* the status, as a colored top edge */
+  box-shadow: inset 0 3px 0 var(--st);
+  color: var(--muted);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+.code-path {
+  min-width: 0;
+  overflow: hidden;
+  font: var(--text-sm) / 1.5 var(--font-mono);
+  text-overflow: ellipsis;
+}
+.code-path .dir {
+  color: var(--faint);
+}
+.code-path b {
+  color: var(--text);
+  font-weight: 500;
+}
+.code-path .scope {
+  margin-left: var(--space-2);
+  color: var(--muted);
+}
+.code-path .scope::before {
+  content: '› ';
+  color: var(--faint);
+}
+.counts {
+  display: inline-flex;
+  gap: 5px;
+  font: var(--text-xs) / 1 var(--font-mono);
+}
+.counts .a {
+  color: var(--add);
+}
+.counts .d {
+  color: var(--del);
+}
+.toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* a note about the whole file, under the header */
+.code-card > .notice {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in oklab, var(--risk) 8%, var(--surface));
+  color: var(--risk);
+  font-size: var(--text-sm);
+}

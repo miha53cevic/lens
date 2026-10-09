@@ -5,6 +5,7 @@ import type { CodeItem } from '../../rows.ts';
 import { BreakRow, GapRow, LineRow, RemovedLineRow } from './Rows.tsx';
 import { Region } from './Region.tsx';
 import type { RowContext } from './types.ts';
+import './style.css';
 
 export type { RowMarks } from './types.ts';
 export { RemovedRow } from './Rows.tsx';
