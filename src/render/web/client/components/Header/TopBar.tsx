@@ -5,8 +5,8 @@ import { openDialog, openSearch } from '../../actions/dialogs.ts';
 import { setView } from '../../actions/views.ts';
 import { toggleNav } from '../../actions/sidebar.ts';
 import { askSetOpen } from '../../ask/rail.ts';
-import { writePref } from '../../shared.ts';
-import { hiddenStyle, statsText } from './util.ts';
+import { hiddenStyle, writePref } from '../../shared.ts';
+import { statsText } from './util.ts';
 
 export function TopBar() {
   const topBar = useLens((state) => ({

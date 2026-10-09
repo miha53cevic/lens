@@ -9,9 +9,7 @@ import { openFoldAround } from './folds.ts';
 
 function viewChange(state: LensState, view: View): Partial<LensState> {
   if (view === state.view) return {};
-  // the pointer is no longer over a scenario of the unit page left behind
-  const unitPage = { ...state.unitPage, hoveredCite: null };
-  return view === 'code' ? { view, unitPage, ...visibleActive({ ...state, view }) } : { view, unitPage };
+  return view === 'code' ? { view, ...visibleActive({ ...state, view }) } : { view };
 }
 
 export function setView(view: View): void {

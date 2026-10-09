@@ -1,3 +1,5 @@
+import { hiddenStyle } from '../../shared.ts';
+
 interface FilterProps {
   inputId?: string;
   clearId?: string;
@@ -11,7 +13,7 @@ interface FilterProps {
 /** A filter box over the tree or the list: Esc or ✕ clears it. */
 export function Filter({ inputId, clearId, wrapperId, hidden, placeholder, value, onChange }: FilterProps) {
   return (
-    <div className='nav-filter' id={wrapperId} style={hidden ? { display: 'none' } : undefined}>
+    <div className='nav-filter' id={wrapperId} style={hiddenStyle(hidden)}>
       <input
         id={inputId}
         type='text'
@@ -29,7 +31,7 @@ export function Filter({ inputId, clearId, wrapperId, hidden, placeholder, value
       <button
         id={clearId}
         title='clear filter (Esc)'
-        style={value.trim() === '' ? { display: 'none' } : undefined}
+        style={hiddenStyle(value.trim() === '')}
         onClick={() => onChange('')}
       >
         ✕

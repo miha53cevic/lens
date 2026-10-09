@@ -1,5 +1,6 @@
 // Helpers every part of the viewer shares.
 
+import type { CSSProperties } from 'react';
 import type { ViewerPayload } from '../server.ts';
 
 export type ViewFile = ViewerPayload['files'][number];
@@ -115,6 +116,11 @@ export function listedOnlyCount(data: ViewerPayload): number {
 
 export function isDiffMode(data: ViewerPayload): boolean {
   return listedOnlyCount(data) > 0 || data.files.some((file) => (file.removals || []).length > 0 || file.status);
+}
+
+/** An element the state hides: inline, since the stylesheet sets most elements' display. */
+export function hiddenStyle(hidden: boolean): CSSProperties | undefined {
+  return hidden ? { display: 'none' } : undefined;
 }
 
 export function plural(n: number, word: string): string {

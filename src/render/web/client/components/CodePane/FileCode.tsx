@@ -2,12 +2,13 @@ import { useMemo } from 'react';
 import { useLens } from '../../store.ts';
 import { activeFile, filePlan } from '../../model/plans.ts';
 import { askSelLabels } from '../../ask/selection.ts';
+import { askSelection } from '../../model/askContext.ts';
 import { isTestFile, linesFromTokens, listedOnlyCount } from '../../shared.ts';
 import { CodeRows } from '../CodeRows/index.tsx';
 
 /** The open file's rows, or why there are none. */
 export function FileCode() {
-  const { file, plan, hiddenAsTest, fileCount, listedOnly, selectedLabels } = useLens((state) => {
+  const { file, plan, hiddenAsTest, fileCount, listedOnly, selection } = useLens((state) => {
     const file = activeFile(state);
     return {
       file,
@@ -15,13 +16,13 @@ export function FileCode() {
       hiddenAsTest: !!file && state.hideTests && isTestFile(file.file),
       fileCount: state.data.files.length,
       listedOnly: listedOnlyCount(state.data),
-      selectedLabels: askSelLabels(state),
+      selection: askSelection(state),
     };
   });
   // the kept Ask selection's rows are tinted: the browser's own highlight goes once the rail's input has focus
   const marks = useMemo(
-    () => ({ classes: new Map(selectedLabels ? selectedLabels.split(',').map((label) => [label, 'ask-sel']) : []) }),
-    [selectedLabels],
+    () => ({ classes: new Map(askSelLabels(selection).map((label) => [label, 'ask-sel'])) }),
+    [selection],
   );
   const changedLines = useMemo(() => new Set(file?.changedLines || []), [file]);
 

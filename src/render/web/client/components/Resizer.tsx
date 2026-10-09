@@ -1,4 +1,5 @@
 import type { PointerEvent as ReactPointerEvent } from 'react';
+import { hiddenStyle } from '../shared.ts';
 
 interface ResizerProps {
   id: string;
@@ -36,13 +37,5 @@ export function Resizer({ id, title, panelId, hidden, widthAt, onResized }: Resi
     handle.addEventListener('pointerup', up);
   };
 
-  return (
-    <div
-      className='resizer'
-      id={id}
-      title={title}
-      style={hidden ? { display: 'none' } : undefined}
-      onPointerDown={startDrag}
-    />
-  );
+  return <div className='resizer' id={id} title={title} style={hiddenStyle(hidden)} onPointerDown={startDrag} />;
 }

@@ -1,7 +1,7 @@
 // The viewer's state: one immutable object in a Zustand store, replaced on every change.
-// Components subscribe to the slice they show with useLens(selector). Actions (actions.ts)
+// Components subscribe to the slice they show with useLens(selector). Actions (actions/)
 // change it with update(), or commit() when the DOM must show the new state right away
-// (to scroll to a row, say).
+// (to scroll to a row, say). State only one component uses stays in that component (useState).
 
 import { flushSync } from 'react-dom';
 import { create } from 'zustand';
@@ -39,7 +39,7 @@ export interface LensState {
   tabs: Tab[];
   /** Categories toggled to "show" (their regions open) */
   openCats: ReadonlySet<string>;
-  /** Regions the reader opened or closed one by one (regionKey in model.ts); overrides openCats */
+  /** Regions the reader opened or closed one by one (regionKey in model/plans.ts); overrides openCats */
   foldOverrides: ReadonlyMap<string, boolean>;
   /** Hidden stretches the reader expanded: "path:start" (code view), "unit:<id>:start" (summary) */
   expandedGaps: ReadonlySet<string>;
@@ -63,17 +63,12 @@ export interface LensState {
   summaryBrowsing: boolean;
   /** A newer summary waits on the server */
   summaryDot: boolean;
-  /** "No summary yet": the command's copy button */
-  commandCopy: 'copy' | 'copied' | 'select + copy';
-  overviewTab: 'flows' | 'map';
   /** The list filter's text (transient) */
   sumQuery: string;
   sumSignal: SignalFilter;
   /** Flow title -> open, once the reader toggled it */
   flowOpen: ReadonlyMap<string, boolean>;
   concernMarks: ReadonlyMap<string, ConcernMark>;
-  /** The open unit's page: the scenario under the pointer, the callers and peeks opened. Another unit starts afresh. */
-  unitPage: { unitId: string | null; hoveredCite: string | null; openBreaks: ReadonlySet<string> };
   // Ask rail
   ask: {
     open: boolean;
@@ -82,10 +77,6 @@ export interface LensState {
     /** The JSON of the last poll, to skip re-rendering when nothing changed */
     dataJson: string;
     selection: KeptSelection | null;
-    draft: string;
-    /** A send or copy in flight */
-    busy: boolean;
-    copied: boolean;
     /** The last send failed (or the server is gone): shown until the reader types again */
     error: string | null;
     /** Bumped by every poll, so "waiting for agent · 6s" ticks */
@@ -144,22 +135,16 @@ const initialState: LensState = {
   summaryOverview: true,
   summaryBrowsing: false,
   summaryDot: false,
-  commandCopy: 'copy',
-  overviewTab: readPref('lens.overviewTab') === 'map' ? 'map' : 'flows',
   sumQuery: '',
   sumSignal: null,
   flowOpen: new Map(),
   concernMarks: loadMarks(),
-  unitPage: { unitId: null, hoveredCite: null, openBreaks: new Set() },
   ask: {
     open: readPref('lens.askOpen') === '1',
     width: savedWidth('lens.askWidth', 280, 720, 360),
     data: { listening: false, questions: [] },
     dataJson: '',
     selection: null,
-    draft: '',
-    busy: false,
-    copied: false,
     error: null,
     tick: 0,
   },
@@ -188,7 +173,7 @@ export function commit(patch: Patch): void {
 /**
  * The slice of the state a component shows: it re-renders when that changes, compared
  * shallowly, so a selector can return an object or array of state values. A selector must
- * not build new values itself (`new Set(...)`, `.map(...)`) — use a memoized model.ts function.
+ * not build new values itself (`new Set(...)`, `.map(...)`) — use a memoized model/ function.
  */
 export function useLens<T>(select: (state: LensState) => T): T {
   return useStore(useShallow(select));

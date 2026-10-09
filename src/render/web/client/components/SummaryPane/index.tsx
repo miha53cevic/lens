@@ -5,6 +5,7 @@ import { currentUnit, summaryPage } from '../../model/summaryList.ts';
 import { EmptyPage } from './EmptyPage.tsx';
 import { Overview } from './Overview/index.tsx';
 import { UnitPage } from './UnitPage/index.tsx';
+import { hiddenStyle } from '../../shared.ts';
 
 export function SummaryPane() {
   const { shown, page, unit, browsing } = useLens((state) => {
@@ -19,7 +20,7 @@ export function SummaryPane() {
       key={page === 'unit' ? 'unit:' + (unit?.id ?? '') : (page ?? 'none')}
       className='summary-pane'
       id='summary-pane'
-      style={shown ? undefined : { display: 'none' }}
+      style={hiddenStyle(!shown)}
       data-browsing={browsing ? '1' : undefined}
       data-unit={unit?.id}
     >

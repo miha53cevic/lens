@@ -21,20 +21,23 @@ test("the viewer's browser code bundles into one script that is safe to inline",
 
 // "L3" a line, "-5" a removed line (its old-side number), "R2-4[…]" a fold, "gap:14-20", "⋯" a break
 function show(items: CodeItem[]): string[] {
-  return items.map((it) =>
-    it.kind === 'line'
-      ? 'L' + it.line
-      : it.kind === 'removed'
-        ? '-' + it.old
-        : it.kind === 'gap'
-          ? 'gap:' + it.start + '-' + it.end
-          : it.kind === 'break'
-            ? '⋯'
-            : 'R' + it.region.startLine + '-' + it.region.endLine + '[' + show(it.body).join(',') + ']',
-  );
+  return items.map((item) => {
+    switch (item.kind) {
+      case 'line':
+        return 'L' + item.line;
+      case 'removed':
+        return '-' + item.old;
+      case 'gap':
+        return 'gap:' + item.start + '-' + item.end;
+      case 'break':
+        return '⋯';
+      case 'region':
+        return 'R' + item.region.startLine + '-' + item.region.endLine + '[' + show(item.body).join(',') + ']';
+    }
+  });
 }
 
-const lines = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => 'L' + (from + i));
+const lines = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, offset) => 'L' + (from + offset));
 
 const file: FileFoldModel = {
   file: 'src/a.ts',
@@ -51,8 +54,8 @@ const removedAfter =
   (blocks: RemovedBlock[]) =>
   (after: number): RemovedLine[] =>
     blocks
-      .filter((b) => b.afterLine === after)
-      .flatMap((b) => b.lines.map((text, i) => ({ text, old: b.oldStart + i })));
+      .filter((block) => block.afterLine === after)
+      .flatMap((block) => block.lines.map((text, offset) => ({ text, old: block.oldStart + offset })));
 
 test('planCode: a fold keeps the removed lines inside it; removals after its last line follow it', () => {
   const items = planCode(fileSpans(file, false, new Set()), file.regions, removedAfter(file.removals!));
@@ -90,7 +93,9 @@ test("unitSpans + planCode: a unit's ranges break with ⋯; removed lines anchor
     summary: null,
   } as unknown as ViewUnit;
   const removedAt = (after: number) =>
-    unit.removals.filter((b) => b.anchor === after).map((b) => ({ text: b.lines[0], old: b.oldStart }));
+    unit.removals
+      .filter((block) => block.anchor === after)
+      .map((block) => ({ text: block.lines[0], old: block.oldStart }));
 
   const whole = planCode(unitSpans(unit, file.regions, false, new Set()), file.regions, removedAt);
   assert.deepEqual(show(whole), ['L1', 'R2-4[L2,L3,L4]', 'L5', '⋯', '-3', 'L12', 'L13', 'L14', 'L15']);

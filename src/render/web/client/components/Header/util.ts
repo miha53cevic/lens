@@ -1,13 +1,7 @@
-import type { CSSProperties } from 'react';
 import type { LensState } from '../../store.ts';
 import { activeFile, filePlan, foldedCount, planRegions, unitPlan } from '../../model/plans.ts';
 import { currentUnit, summaryPage } from '../../model/summaryList.ts';
 import { isDiffMode, listedOnlyCount } from '../../shared.ts';
-
-/** A control the state hides. */
-export function hiddenStyle(hidden: boolean): CSSProperties | undefined {
-  return hidden ? { display: 'none' } : undefined;
-}
 
 /** "3 files changed · src/a.ts — 120 lines, 14 folded (−12%) · 80 unchanged hidden" */
 export function statsText(state: LensState): string {

@@ -1,14 +1,23 @@
+import { useState } from 'react';
 import { useLens } from '../../store.ts';
-import { copyCommand, showOverview } from '../../actions/summary.ts';
+import { showOverview } from '../../actions/summary.ts';
 
 /** No summary yet: what to run in the agent, and a way to browse the changes anyway. */
 export function EmptyPage() {
-  const { command, cli, unitCount, copyLabel } = useLens((state) => ({
-    command: state.data.summary!.command,
-    cli: state.data.summary!.cli,
-    unitCount: state.data.summary!.units.length,
-    copyLabel: state.commandCopy,
+  const { command, cli, unitCount } = useLens((state) => ({
+    command: state.data.summary?.command ?? '',
+    cli: state.data.summary?.cli ?? '',
+    unitCount: state.data.summary?.units.length ?? 0,
   }));
+  const [copyLabel, setCopyLabel] = useState('copy');
+  const copyCommand = async () => {
+    try {
+      await navigator.clipboard.writeText(command);
+      setCopyLabel('copied');
+    } catch {
+      setCopyLabel('select + copy');
+    }
+  };
 
   return (
     <div className='sum-empty'>
@@ -16,7 +25,7 @@ export function EmptyPage() {
       <p>Your coding agent writes the summary. Run this in it:</p>
       <div className='cmd'>
         <span>{command}</span>
-        <button id='copy-cmd' onClick={() => copyCommand(command)}>
+        <button id='copy-cmd' onClick={copyCommand}>
           {copyLabel}
         </button>
       </div>

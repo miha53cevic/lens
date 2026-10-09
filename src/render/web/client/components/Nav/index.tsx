@@ -6,6 +6,7 @@ import { navShown } from '../../model/tree.ts';
 import { Filter } from './Filter.tsx';
 import { Tree } from './Tree.tsx';
 import { SummaryList } from './SummaryList/index.tsx';
+import { hiddenStyle } from '../../shared.ts';
 
 export function Nav() {
   const { view, shown, width, navQuery, sumQuery } = useLens((state) => ({
@@ -46,7 +47,7 @@ export function Nav() {
         value={navQuery}
         onChange={(query) => update({ navQuery: query })}
       />
-      <div id='tree' style={summaryView ? { display: 'none' } : undefined}>
+      <div id='tree' style={hiddenStyle(summaryView)}>
         {!summaryView && <Tree />}
       </div>
       <Filter
@@ -56,7 +57,7 @@ export function Nav() {
         value={sumQuery}
         onChange={(query) => update({ sumQuery: query })}
       />
-      <div id='summary-list' style={summaryView ? undefined : { display: 'none' }}>
+      <div id='summary-list' style={hiddenStyle(!summaryView)}>
         {summaryView && <SummaryList />}
       </div>
     </nav>

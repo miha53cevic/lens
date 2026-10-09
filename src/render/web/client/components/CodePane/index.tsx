@@ -5,6 +5,7 @@ import { useLens } from '../../store.ts';
 import { activeFile } from '../../model/plans.ts';
 import { FileCode } from './FileCode.tsx';
 import { findUsages, restoreFileScroll, saveFileScroll } from './util.ts';
+import { hiddenStyle } from '../../shared.ts';
 
 export function CodePane() {
   const { shown, path } = useLens((state) => {
@@ -19,7 +20,7 @@ export function CodePane() {
     <main
       key={path ?? 'none'}
       ref={restoreScroll}
-      style={shown ? undefined : { display: 'none' }}
+      style={hiddenStyle(!shown)}
       onScroll={(event) => saveFileScroll(event.currentTarget, path)}
     >
       <div className='code' id='code' onClick={findUsages}>

@@ -24,7 +24,7 @@ before(async () => {
   repo = makeViewerRepo();
   bundle = await bundleViewer();
   const input = await analyze('diff', [], repo, loadConfig(repo));
-  const unit = (name: string) => input.summary!.units.find((u) => u.name === name)!;
+  const unit = (name: string) => input.summary!.units.find((candidate) => candidate.name === name)!;
   const findOrders = unit('findOrders'),
     legacy = unit('legacyTotal');
   const stored: StoredSummary = {
@@ -76,17 +76,17 @@ interface Page {
 /** Opens the viewer on the payload, with these localStorage entries already there. */
 async function open(prefs: Record<string, string> = {}, hash = ''): Promise<Page> {
   GlobalRegistrator.register({ url: 'http://127.0.0.1:5326/' + hash, width: 1400, height: 900 });
-  const p: Page = { requests: [], ask: { listening: false, questions: [] } };
+  const page: Page = { requests: [], ask: { listening: false, questions: [] } };
   globalThis.fetch = (async (input: string | URL, init?: RequestInit) => {
     const url = new URL(String(input), 'http://127.0.0.1:5326');
     const method = init?.method ?? 'GET';
     const body = typeof init?.body === 'string' ? JSON.parse(init.body) : null;
-    p.requests.push({ method, path: url.pathname, body });
+    page.requests.push({ method, path: url.pathname, body });
     const reply = (value: unknown) =>
       new Response(JSON.stringify(value), { headers: { 'content-type': 'application/json' } });
     switch (method + ' ' + url.pathname) {
       case 'GET /api/ask':
-        return reply(p.ask);
+        return reply(page.ask);
       case 'POST /api/ask':
         return reply({ ok: true });
       case 'POST /api/ask/prompt':
@@ -109,7 +109,7 @@ async function open(prefs: Record<string, string> = {}, hash = ''): Promise<Page
   document.getElementById('lens-data')!.textContent = JSON.stringify(payload);
   new Function(bundle)();
   await settle();
-  return p;
+  return page;
 }
 
 async function close() {
@@ -118,50 +118,50 @@ async function close() {
 
 /** Lets React render and effects run. */
 async function settle() {
-  for (let i = 0; i < 3; i++) await new Promise((r) => setTimeout(r, 0));
+  for (let round = 0; round < 3; round++) await new Promise((resolve) => setTimeout(resolve, 0));
 }
 
-async function key(k: string, opts: KeyboardEventInit = {}) {
-  document.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, ...opts }));
+async function key(name: string, options: KeyboardEventInit = {}) {
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: name, bubbles: true, ...options }));
   await settle();
 }
 
-async function click(el: Element) {
-  fireEvent.click(el);
+async function click(element: Element) {
+  fireEvent.click(element);
   await settle();
 }
 
-async function type(el: Element, text: string) {
-  fireEvent.input(el, { target: { value: text } });
+async function type(element: Element, text: string) {
+  fireEvent.input(element, { target: { value: text } });
   await settle();
 }
 
 function $(selector: string): HTMLElement {
-  const el = document.querySelector<HTMLElement>(selector);
-  assert.ok(el, 'no element matches ' + selector);
-  return el;
+  const element = document.querySelector<HTMLElement>(selector);
+  assert.ok(element, 'no element matches ' + selector);
+  return element;
 }
 const $$ = (selector: string) => [...document.querySelectorAll<HTMLElement>(selector)];
 
 /** The code rows on screen: "12" a line, "−9" a removed line (old side), "⋯" a gap, "R6-8" a fold */
 function rows(root = '#code'): string[] {
-  return $$(root + ' > .row, ' + root + ' > .region').map((el) =>
-    el.classList.contains('region')
-      ? 'R' + el.querySelector<HTMLElement>('.body .row[data-line]')!.dataset.line
-      : (el.dataset.line ?? (el.dataset.old ? '−' + el.dataset.old : '⋯')),
+  return $$(root + ' > .row, ' + root + ' > .region').map((row) =>
+    row.classList.contains('region')
+      ? 'R' + row.querySelector<HTMLElement>('.body .row[data-line]')!.dataset.line
+      : (row.dataset.line ?? (row.dataset.old ? '−' + row.dataset.old : '⋯')),
   );
 }
 
 function treeFiles(): string[] {
-  return $$('#tree .file').map((b) => b.querySelector('.fname')!.textContent!);
+  return $$('#tree .file').map((file) => file.querySelector('.fname')!.textContent!);
 }
 
 /** A test on a freshly opened page. */
-function pageTest(name: string, fn: (p: Page) => Promise<void>, prefs?: Record<string, string>, hash?: string) {
+function pageTest(name: string, run: (page: Page) => Promise<void>, prefs?: Record<string, string>, hash?: string) {
   test(name, async () => {
-    const p = await open(prefs, hash);
+    const page = await open(prefs, hash);
     try {
-      await fn(p);
+      await run(page);
     } finally {
       await close();
     }
@@ -199,7 +199,7 @@ pageTest('the page opens on the first file of the tree, folded, hunks only', asy
   assert.equal($('.tab.active .tab-name').textContent, 'orders.ts');
   assert.deepEqual(rows(), HUNKS);
   assert.deepEqual(
-    $$('#code .row.gap').map((g) => g.lastElementChild!.textContent),
+    $$('#code .row.gap').map((gap) => gap.lastElementChild!.textContent),
     ['⋯ 5 unchanged lines', '⋯ 1 unchanged line', '⋯ 7 unchanged lines'],
   );
   assert.equal(
@@ -209,10 +209,10 @@ pageTest('the page opens on the first file of the tree, folded, hunks only', asy
 });
 
 pageTest('a fold opens on a click; expand all, collapse all and a fold chip act on all of them', async () => {
-  const fold = (cat: string) => $(`#code .region[data-cat="${cat}"]`);
-  const chip = (cat: string) =>
+  const fold = (category: string) => $(`#code .region[data-cat="${category}"]`);
+  const chip = (category: string) =>
     $$('#toggles .chip')
-      .find((c) => c.textContent === cat)!
+      .find((candidate) => candidate.textContent === category)!
       .querySelector('input')!;
   await click(fold('guard').querySelector('.pill-row')!);
   assert.ok(fold('guard').classList.contains('open'));
@@ -221,7 +221,7 @@ pageTest('a fold opens on a click; expand all, collapse all and a fold chip act 
   await key('e');
   assert.ok(fold('guard').classList.contains('open') && fold('logging').classList.contains('open'));
   assert.deepEqual(
-    $$('#toggles .chip input').map((b) => (b as HTMLInputElement).checked),
+    $$('#toggles .chip input').map((box) => (box as HTMLInputElement).checked),
     [true, true, true],
     "every chip, import's too",
   );
@@ -237,7 +237,7 @@ pageTest('the fold level pins the regions scored above it', async () => {
   fireEvent.change($('#threshold'), { target: { value: '0' } });
   await settle();
   assert.deepEqual(
-    $$('#code .region.pinned').map((r) => r.dataset.cat),
+    $$('#code .region.pinned').map((region) => region.dataset.cat),
     ['guard', 'logging'],
     'both score 1',
   );
@@ -257,7 +257,7 @@ pageTest('hunks only: a click shows a hidden stretch, h shows the whole file', a
 pageTest('removed lines show where they were removed; x hides them', async () => {
   await key('x');
   assert.deepEqual(
-    rows().filter((r) => r.startsWith('−')),
+    rows().filter((row) => row.startsWith('−')),
     [],
   );
   await key('x');
@@ -267,7 +267,7 @@ pageTest('removed lines show where they were removed; x hides them', async () =>
 pageTest('hide tests: t shows the test file, and hiding it again leaves it', async () => {
   await key('t');
   assert.deepEqual(treeFiles(), ['orders.test.ts', 'orders.ts']);
-  await click($$('#tree .file').find((b) => b.textContent!.includes('orders.test.ts'))!);
+  await click($$('#tree .file').find((file) => file.textContent!.includes('orders.test.ts'))!);
   assert.equal($('.tab.active .tab-name').textContent, 'orders.test.ts');
   await key('t');
   assert.deepEqual(treeFiles(), ['orders.ts']);
@@ -294,12 +294,24 @@ test('a viewed mark sticks, and survives a reload', async () => {
   }
 });
 
+pageTest(
+  '/ shows a collapsed sidebar, remembers it, and focuses the filter',
+  async () => {
+    assert.equal($('#nav').style.display, 'none');
+    await key('/');
+    assert.equal($('#nav').style.display, '');
+    assert.equal(localStorage.getItem('lens.navCollapsed'), '0');
+    assert.equal(document.activeElement, $('#file-filter'));
+  },
+  { 'lens.navCollapsed': '1' },
+);
+
 pageTest('search finds matches; Enter jumps to one, even in a hidden stretch', async () => {
   await key('p', { ctrlKey: true });
   assert.ok(($('#search-modal') as HTMLDialogElement).open);
   await type($('#search-input'), 'toOrder');
   assert.deepEqual(
-    $$('.search-hit .ln').map((l) => l.textContent),
+    $$('.search-hit .ln').map((lineNumber) => lineNumber.textContent),
     ['11', '14'],
   );
   fireEvent.keyDown($('#search-input'), { key: 'ArrowDown' });
@@ -310,25 +322,25 @@ pageTest('search finds matches; Enter jumps to one, even in a hidden stretch', a
   assert.ok($('#code .row[data-line="14"]').classList.contains('flash'), 'line 14 was hidden: its stretch opened');
 });
 
-pageTest('tabs: a double-click keeps a tab, w closes the active one, and a refresh keeps them', async (p) => {
+pageTest('tabs: a double-click keeps a tab, w closes the active one, and a refresh keeps them', async (page) => {
   await key('t');
-  fireEvent.dblClick($$('#tree .file').find((b) => b.textContent!.includes('orders.test.ts'))!);
+  fireEvent.dblClick($$('#tree .file').find((file) => file.textContent!.includes('orders.test.ts'))!);
   await settle();
   assert.deepEqual(
-    $$('.tab .tab-name').map((t) => t.textContent),
+    $$('.tab .tab-name').map((tab) => tab.textContent),
     ['orders.ts', 'orders.test.ts'],
   );
   await click($('#refresh'));
   await settle();
-  assert.ok(p.requests.some((r) => r.path === '/api/refresh'));
+  assert.ok(page.requests.some((request) => request.path === '/api/refresh'));
   assert.deepEqual(
-    $$('.tab .tab-name').map((t) => t.textContent),
+    $$('.tab .tab-name').map((tab) => tab.textContent),
     ['orders.ts', 'orders.test.ts'],
   );
   assert.equal($('.tab.active .tab-name').textContent, 'orders.test.ts');
   await key('w');
   assert.deepEqual(
-    $$('.tab .tab-name').map((t) => t.textContent),
+    $$('.tab .tab-name').map((tab) => tab.textContent),
     ['orders.ts'],
   );
 });
@@ -340,13 +352,13 @@ pageTest(
   async () => {
     assert.equal($('#summary-pane').style.display, '');
     assert.deepEqual(
-      $$('.sum-item .name').map((n) => n.textContent),
+      $$('.sum-item .name').map((name) => name.textContent),
       ['findOrders', 'legacyTotal'],
       "the test file's unit hides with the tests",
     );
     assert.equal($('.sum-head .legend').textContent, '1 flagged');
     assert.ok($('.sum-overview-item').classList.contains('active'));
-    assert.ok($$('.ov-stat').some((st) => st.textContent!.startsWith('1possible bug')));
+    assert.ok($$('.ov-stat').some((stat) => stat.textContent!.startsWith('1possible bug')));
   },
   {},
   '#summary',
@@ -360,7 +372,7 @@ pageTest("a unit's code has the Code view's folds, hunks and toolbar keys", asyn
   // hunks only: line 5 is far from the changes and the cited line
   assert.deepEqual(rows(code), ['⋯', 'R6', '−9', 'R9', '10', '11', '12']);
   assert.deepEqual(
-    $$('#toggles .chip').map((c) => c.textContent),
+    $$('#toggles .chip').map((chip) => chip.textContent),
     ['guard', 'logging'],
     "the chips are the unit's folds",
   );
@@ -388,6 +400,23 @@ pageTest("a concern sits under its line; dismissing it drops the note and the un
   assert.match(localStorage.getItem('lens.concernMarks')!, /dismissed/);
 });
 
+pageTest('hovering a When row tints the line it cites, until the pointer leaves the row or the tab', async () => {
+  await key('v');
+  await key('j');
+  const cited = () => $('.unit-code .row[data-line="10"]').classList.contains('hover-cite');
+  fireEvent.mouseOver($('.scn'));
+  await settle();
+  assert.ok(cited());
+  fireEvent.mouseOut($('.scn'));
+  await settle();
+  assert.ok(!cited());
+  fireEvent.mouseOver($('.scn'));
+  await settle();
+  await key('v');
+  await key('v');
+  assert.ok(!cited(), 'the unit page starts afresh');
+});
+
 pageTest('a deleted unit is its removed lines; o opens a unit in the code view', async () => {
   await key('v');
   await key('j');
@@ -402,14 +431,14 @@ pageTest('a deleted unit is its removed lines; o opens a unit in the code view',
 
 // ---- the Ask rail ----
 
-pageTest('Ask without an agent copies the question as a prompt', async (p) => {
+pageTest('Ask without an agent copies the question as a prompt', async (page) => {
   await key('\\');
   assert.equal($('#ask-rail').style.display, '');
   assert.equal($('#ask-chips').textContent, 'orders.ts');
   assert.equal($('#ask-send').textContent, 'Copy as prompt');
   await type($('#ask-input'), 'why the deleted column?');
   await click($('#ask-send'));
-  const sent = p.requests.find((r) => r.path === '/api/ask/prompt')!;
+  const sent = page.requests.find((request) => request.path === '/api/ask/prompt')!;
   assert.deepEqual(sent.body, {
     text: 'why the deleted column?',
     file: 'src/orders.ts',
@@ -417,10 +446,12 @@ pageTest('Ask without an agent copies the question as a prompt', async (p) => {
     label: 'orders.ts',
     selection: null,
   });
+  assert.equal($('#ask-send').textContent, 'Copied ✓');
+  assert.equal(($('#ask-input') as HTMLTextAreaElement).value, 'why the deleted column?', 'the question stays');
 });
 
-pageTest('Ask with an agent listening sends the question with the selected lines', async (p) => {
-  p.ask = { listening: true, questions: [] };
+pageTest('Ask with an agent listening sends the question with the selected lines', async (page) => {
+  page.ask = { listening: true, questions: [] };
   await key('\\');
   const range = document.createRange();
   range.setStart($('#code .row[data-line="10"]'), 0);
@@ -434,18 +465,18 @@ pageTest('Ask with an agent listening sends the question with the selected lines
   assert.equal($('#ask-send').textContent, 'Ask');
   await type($('#ask-input'), 'what if userId is empty?');
   await click($('#ask-send'));
-  const sent = p.requests.find((r) => r.method === 'POST' && r.path === '/api/ask')!;
+  const sent = page.requests.find((request) => request.method === 'POST' && request.path === '/api/ask')!;
   const body = sent.body as { selection: { lines: { n: number }[] } };
   assert.deepEqual(
-    body.selection.lines.map((l) => l.n),
+    body.selection.lines.map((line) => line.n),
     [10, 11],
   );
   assert.equal(($('#ask-input') as HTMLTextAreaElement).value, '', "the input clears once it's sent");
 });
 
-pageTest('⏻ end stops the server and leaves a note', async (p) => {
+pageTest('⏻ end stops the server and leaves a note', async (page) => {
   await click($('#end-session'));
-  assert.ok(p.requests.some((r) => r.method === 'POST' && r.path === '/api/shutdown'));
+  assert.ok(page.requests.some((request) => request.method === 'POST' && request.path === '/api/shutdown'));
   // (screen binds to the document at import, before happy-dom is there)
   assert.equal(within(document.body).getByText(/session ended/).className, 'ended');
 });

@@ -1,10 +1,14 @@
 import type { ChangeRow } from '../../../../../../summary/store.ts';
-import type { Unit } from '../../../model/signals.ts';
-import { hoverCite } from '../../../actions/summary.ts';
 import { Cite } from './Cite.tsx';
 
+interface ChangesProps {
+  changes: ChangeRow[];
+  /** The row under the pointer: its cite, or null once the pointer leaves */
+  onHover: (cite: string | null) => void;
+}
+
 /** What behaves differently: When / Before / Now, each pointing at the line that causes it. */
-export function Changes({ unit, changes }: { unit: Unit; changes: ChangeRow[] }) {
+export function Changes({ changes, onHover }: ChangesProps) {
   return (
     <div className='chg'>
       <div className='chg-label'>
@@ -16,8 +20,8 @@ export function Changes({ unit, changes }: { unit: Unit; changes: ChangeRow[] })
           key={changeIndex}
           className='scn'
           data-line={change.line}
-          onMouseEnter={() => hoverCite(unit, change.line)}
-          onMouseLeave={() => hoverCite(unit, null)}
+          onMouseEnter={() => onHover(change.line)}
+          onMouseLeave={() => onHover(null)}
         >
           <div className='scn-h'>
             <span className='w'>when</span>

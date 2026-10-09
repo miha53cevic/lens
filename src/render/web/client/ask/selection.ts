@@ -2,7 +2,7 @@
 
 import type { AskSelection } from '../../../../ask/session.ts';
 import { getState, type KeptSelection, type LensState } from '../store.ts';
-import { askContext, askSelection } from '../model/askContext.ts';
+import { askContext } from '../model/askContext.ts';
 import { ASK_MAX_LINES, setAsk } from './rail.ts';
 
 /** "src/a.ts:43–44" — the same wording as the agent's text (src/ask/context.ts). */
@@ -94,11 +94,9 @@ export function dropForeignSelection(state: LensState): void {
   if (state.ask.selection && (!context || state.ask.selection.key !== context.key)) setAsk({ selection: null });
 }
 
-/** The labels ("N12" / "O5") of the kept selection's rows, joined, for the rows to tint. */
-export function askSelLabels(state: LensState): string {
-  const selection = askSelection(state);
+/** The labels ("N12" / "O5") of the selection's rows, for the rows to tint. */
+export function askSelLabels(selection: AskSelection | null): string[] {
   return (selection ? selection.lines : [])
     .filter((line) => line.n !== null)
-    .map((line) => (line.side === 'old' ? 'O' : 'N') + line.n)
-    .join(',');
+    .map((line) => (line.side === 'old' ? 'O' : 'N') + line.n);
 }

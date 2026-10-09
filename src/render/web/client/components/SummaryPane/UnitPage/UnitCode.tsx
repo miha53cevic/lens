@@ -4,6 +4,7 @@ import { useLens } from '../../../store.ts';
 import { concernLabel, concernMark, SIGNALS, type Unit } from '../../../model/signals.ts';
 import { unitPlan } from '../../../model/plans.ts';
 import { askSelLabels } from '../../../ask/selection.ts';
+import { askSelection } from '../../../model/askContext.ts';
 import { linesFromTokens } from '../../../shared.ts';
 import { CodeRows, RemovedRow } from '../../CodeRows/index.tsx';
 import { Verdict } from './Verdict.tsx';
@@ -13,12 +14,11 @@ import { Verdict } from './Verdict.tsx';
  * lines the When / Before / Now rows point at, each open concern (its row flagged, a note
  * under it like a review comment), the Ask selection and the hovered cite.
  */
-export function UnitCode({ unit }: { unit: Unit }) {
-  const { plan, marks, selectedLabels, hoveredCite } = useLens((state) => ({
+export function UnitCode({ unit, hoveredCite }: { unit: Unit; hoveredCite: string | null }) {
+  const { plan, marks, selection } = useLens((state) => ({
     plan: unitPlan(state, unit),
     marks: state.concernMarks,
-    selectedLabels: askSelLabels(state),
-    hoveredCite: state.unitPage.unitId === unit.id ? state.unitPage.hoveredCite : null,
+    selection: askSelection(state),
   }));
   const summary = unit.summary;
   const changedLines = useMemo(() => new Set(unit.changedLines), [unit]);
@@ -42,7 +42,7 @@ export function UnitCode({ unit }: { unit: Unit }) {
     );
     notes.set(concern.line, [...(notes.get(concern.line) ?? []), note]);
   });
-  for (const label of selectedLabels ? selectedLabels.split(',') : []) addClass(label, 'ask-sel');
+  for (const label of askSelLabels(selection)) addClass(label, 'ask-sel');
   if (hoveredCite) addClass(hoveredCite, 'hover-cite');
 
   return (

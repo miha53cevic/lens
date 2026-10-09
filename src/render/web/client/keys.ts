@@ -1,6 +1,6 @@
 // lens viewer: keyboard shortcuts (listed in the ? help, components/KeysDialog/const.ts).
 
-import { commit, getState } from './store.ts';
+import { getState } from './store.ts';
 import { activeFile } from './model/plans.ts';
 import { currentUnit } from './model/summaryList.ts';
 import { treeModel } from './model/tree.ts';
@@ -19,9 +19,9 @@ import { isDiffMode } from './shared.ts';
 /** The keys that also work on the Summary tab: the toolbar's act on the open unit's code. */
 const SUMMARY_KEYS = ['?', 'x', 's', 'r', 'e', 'c', '[', ']', 'h', 't', 'a', '\\'];
 
-/** Shows the nav (if it's collapsed) and focuses one of its filters. */
+/** Shows the nav (if it's collapsed, and remembers that) and focuses one of its filters. */
 function focusFilter(selector: string) {
-  if (getState().navCollapsed) commit((state) => ({ navCollapsed: !state.navCollapsed }));
+  if (getState().navCollapsed) toggleNav();
   document.querySelector<HTMLInputElement>(selector)?.focus();
 }
 

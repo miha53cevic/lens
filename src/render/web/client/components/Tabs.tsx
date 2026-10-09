@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { useLens } from '../store.ts';
-import { baseName } from '../shared.ts';
+import { baseName, hiddenStyle } from '../shared.ts';
 import { closeTab, openFile, pinTab } from '../actions/tabs.ts';
 
 /** The Code view's editor tabs. */
@@ -19,7 +19,7 @@ export function Tabs() {
   }
 
   return (
-    <div className='tabbar' id='tabbar' style={hidden ? { display: 'none' } : undefined}>
+    <div className='tabbar' id='tabbar' style={hiddenStyle(hidden)}>
       {tabs.map((tab) => {
         const path = files[tab.index].file;
         const name = baseName(path);

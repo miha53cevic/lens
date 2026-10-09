@@ -5,9 +5,9 @@ import { treeModel } from '../../model/tree.ts';
 import { collapseAll, expandAll, setCategoryOpen } from '../../actions/folds.ts';
 import { setHideTests, setHunksOnly, setShowRemoved, setThreshold } from '../../actions/toolbar.ts';
 import { toggleFileViewed } from '../../actions/viewed.ts';
-import { catColor, fileViewKey, isDiffMode } from '../../shared.ts';
+import { catColor, fileViewKey, hiddenStyle, isDiffMode } from '../../shared.ts';
 import { ThresholdTip } from './ThresholdTip.tsx';
-import { hiddenStyle, chipCategories } from './util.ts';
+import { chipCategories } from './util.ts';
 
 export function Toolbar() {
   const categories = useLens(chipCategories);

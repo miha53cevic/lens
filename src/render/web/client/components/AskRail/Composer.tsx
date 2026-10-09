@@ -1,25 +1,43 @@
+import { useRef, useState } from 'react';
 import { useLens } from '../../store.ts';
 import { askContext, askSelection } from '../../model/askContext.ts';
 import { askSelLabel } from '../../ask/selection.ts';
-import { askSend, askSetDraft, askWaiting } from '../../ask/rail.ts';
+import { askSend, askWaiting, growInput, setAsk } from '../../ask/rail.ts';
 
 /** The question being written, with what goes along with it: the open change and the selection. */
 export function Composer() {
+  const [draft, setDraft] = useState('');
+  /** A send or copy in flight */
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const composer = useLens((state) => {
     const context = askContext(state);
     const selection = askSelection(state);
-    const listening = state.ask.data.listening;
     return {
       contextLabel: context?.label ?? null,
       selectionLabel: selection ? askSelLabel(selection) : null,
-      draft: state.ask.draft,
-      listening,
-      // one question at a time for the agent; with none listening, copying still works
-      blocked: !context || !state.ask.draft.trim() || (listening && !!askWaiting(state)) || state.ask.busy,
-      copied: state.ask.copied,
+      listening: state.ask.data.listening,
+      waiting: !!askWaiting(state),
       error: state.ask.error,
     };
   });
+  // one question at a time for the agent; with none listening, copying still works
+  const blocked = !composer.contextLabel || !draft.trim() || (composer.listening && composer.waiting) || busy;
+
+  const send = async () => {
+    if (blocked) return;
+    setBusy(true);
+    const result = await askSend(draft);
+    setBusy(false);
+    if (result === 'sent') {
+      setDraft('');
+      if (inputRef.current) inputRef.current.style.height = ''; // back to its two rows
+    } else if (result === 'copied') {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    }
+  };
 
   return (
     <div className='ask-composer'>
@@ -37,18 +55,23 @@ export function Composer() {
       </div>
       <textarea
         id='ask-input'
+        ref={inputRef}
         rows={2}
         spellCheck={false}
-        value={composer.draft}
+        value={draft}
         disabled={!composer.contextLabel}
         placeholder={
           composer.contextLabel ? 'Ask about ' + composer.contextLabel + '…' : 'Open a change to ask about it'
         }
-        onChange={(event) => askSetDraft(event.target.value, event.target)}
+        onChange={(event) => {
+          setDraft(event.target.value);
+          if (composer.error) setAsk({ error: null }); // the reader typing: a failed send's message goes
+          growInput(event.target);
+        }}
         onKeyDown={(event) => {
           if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
             event.preventDefault();
-            if (!composer.blocked) askSend();
+            send();
           } else if (event.key === 'Escape') {
             event.currentTarget.blur(); // back to the code: j/k and the toolbar keys work again
           }
@@ -59,8 +82,8 @@ export function Composer() {
           {composer.error || '↵ ask · ⇧↵ newline · Esc back to the code'}
         </span>
         <span className='spacer' />
-        <button id='ask-send' disabled={composer.blocked} onClick={askSend}>
-          {composer.copied ? 'Copied ✓' : composer.listening ? 'Ask' : 'Copy as prompt'}
+        <button id='ask-send' disabled={blocked} onClick={send}>
+          {copied ? 'Copied ✓' : composer.listening ? 'Ask' : 'Copy as prompt'}
         </button>
       </div>
     </div>

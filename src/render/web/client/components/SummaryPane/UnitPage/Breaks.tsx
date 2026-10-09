@@ -1,15 +1,17 @@
+import { useState } from 'react';
 import clsx from 'clsx';
 import type { ViewUnit } from '../../../../../../summary/view.ts';
-import { useLens } from '../../../store.ts';
-import type { Unit } from '../../../model/signals.ts';
-import { toggleBreak } from '../../../actions/summary.ts';
+import { toggled } from '../../../store.ts';
+import { hiddenStyle } from '../../../shared.ts';
 
 type PossibleBreak = NonNullable<ViewUnit['summary']>['breaks'][number];
 
 /** Callers outside the diff the change may break: each opens its callers, each caller a peek at the call. */
-export function Breaks({ unit, breaks }: { unit: Unit; breaks: PossibleBreak[] }) {
-  const openBreaks = useLens((state) => (state.unitPage.unitId === unit.id ? state.unitPage.openBreaks : null));
-  const isOpen = (key: string) => !!openBreaks?.has(key);
+export function Breaks({ breaks }: { breaks: PossibleBreak[] }) {
+  /** What's open: a break's callers ("b<break>"), a caller's peek ("p<break>-<caller>") */
+  const [openKeys, setOpenKeys] = useState<ReadonlySet<string>>(new Set());
+  const isOpen = (key: string) => openKeys.has(key);
+  const toggleBreak = (key: string) => setOpenKeys((keys) => toggled(keys, key));
 
   return (
     <div className='breaks'>
@@ -20,16 +22,11 @@ export function Breaks({ unit, breaks }: { unit: Unit; breaks: PossibleBreak[] }
             key={'head' + breakIndex}
             className='brk-head'
             data-brk={breakIndex}
-            onClick={() => toggleBreak(unit, 'b' + breakIndex)}
+            onClick={() => toggleBreak('b' + breakIndex)}
           >
             <span className='pk'>{open ? '▾' : '▸'}</span>↗ {possibleBreak.summary}
           </button>,
-          <div
-            key={'callers' + breakIndex}
-            className='brk-callers'
-            data-brk={breakIndex}
-            style={open ? undefined : { display: 'none' }}
-          >
+          <div key={'callers' + breakIndex} className='brk-callers' data-brk={breakIndex} style={hiddenStyle(!open)}>
             {possibleBreak.callers.flatMap((caller, callerIndex) => {
               const peekKey = breakIndex + '-' + callerIndex;
               const peekOpen = isOpen('p' + peekKey);
@@ -38,16 +35,11 @@ export function Breaks({ unit, breaks }: { unit: Unit; breaks: PossibleBreak[] }
                   key={'caller' + callerIndex}
                   className='caller'
                   data-peek={peekKey}
-                  onClick={() => toggleBreak(unit, 'p' + peekKey)}
+                  onClick={() => toggleBreak('p' + peekKey)}
                 >
                   {(peekOpen ? '▾ ' : '▸ ') + caller.file + ':' + caller.line}
                 </button>,
-                <div
-                  key={'peek' + callerIndex}
-                  className='peek'
-                  data-peek={peekKey}
-                  style={peekOpen ? undefined : { display: 'none' }}
-                >
+                <div key={'peek' + callerIndex} className='peek' data-peek={peekKey} style={hiddenStyle(!peekOpen)}>
                   {caller.lines.map((peekLine) => (
                     <div key={peekLine.n} className={clsx('row', peekLine.n === caller.line && 'call')}>
                       <span className='num'>{peekLine.n}</span>

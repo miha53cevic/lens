@@ -1,16 +1,7 @@
 // The Summary tab: the open unit, the list's filters, the reader's verdicts.
 
 import type { Concern } from '../../../../summary/store.ts';
-import {
-  CONCERN_PREF,
-  type ConcernMark,
-  getState,
-  type LensState,
-  type SignalFilter,
-  toggled,
-  update,
-  VIEWED_CAP,
-} from '../store.ts';
+import { CONCERN_PREF, type ConcernMark, getState, type SignalFilter, update, VIEWED_CAP } from '../store.ts';
 import { flashRow, writePref } from '../shared.ts';
 import { concernKey, type Unit } from '../model/signals.ts';
 import { currentUnit, listModel } from '../model/summaryList.ts';
@@ -53,20 +44,6 @@ export function toggleFlow(title: string, open: boolean): void {
   update((state) => ({ flowOpen: new Map(state.flowOpen).set(title, open) }));
 }
 
-export function setOverviewTab(tab: 'flows' | 'map'): void {
-  writePref('lens.overviewTab', tab);
-  update({ overviewTab: tab });
-}
-
-export async function copyCommand(command: string): Promise<void> {
-  try {
-    await navigator.clipboard.writeText(command);
-    update({ commandCopy: 'copied' });
-  } catch {
-    update({ commandCopy: 'select + copy' });
-  }
-}
-
 // The agent's concerns are suspicions; the reader decides: "real" or "dismissed", per browser.
 export function setConcernMark(unit: Unit, concern: Concern, mark: ConcernMark): void {
   const key = concernKey(unit, concern);
@@ -78,26 +55,6 @@ export function setConcernMark(unit: Unit, concern: Concern, mark: ConcernMark):
   }
   writePref(CONCERN_PREF, JSON.stringify(Object.fromEntries([...marks].slice(-VIEWED_CAP))));
   update({ concernMarks: marks });
-}
-
-/** The unit page's state for this unit: another unit's is left behind. */
-function unitPageOf(state: LensState, unit: Unit): LensState['unitPage'] {
-  return state.unitPage.unitId === unit.id
-    ? state.unitPage
-    : { unitId: unit.id, hoveredCite: null, openBreaks: new Set() };
-}
-
-/** Hovering a When / Before / Now row points at the line it cites. */
-export function hoverCite(unit: Unit, label: string | null): void {
-  update((state) => ({ unitPage: { ...unitPageOf(state, unit), hoveredCite: label } }));
-}
-
-/** A break's callers, or a caller's peek, open or close: "b<break>" / "p<break>-<caller>". */
-export function toggleBreak(unit: Unit, key: string): void {
-  update((state) => {
-    const page = unitPageOf(state, unit);
-    return { unitPage: { ...page, openBreaks: toggled(page.openBreaks, key) } };
-  });
 }
 
 /** The row a label ("N31" / "O16") points at, in the open unit's code. */

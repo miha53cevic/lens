@@ -1,6 +1,7 @@
 // One unit: the agent's headline, its concerns, When / Before / Now, callers it may break,
 // and its code (CodeRows, as in the Code view).
 
+import { useState } from 'react';
 import { useLens } from '../../../store.ts';
 import { type Unit, unitLabel, unitViewKey } from '../../../model/signals.ts';
 import { openUnitInCode } from '../../../actions/summary.ts';
@@ -10,9 +11,12 @@ import { Changes } from './Changes.tsx';
 import { Breaks } from './Breaks.tsx';
 import { UnitCode } from './UnitCode.tsx';
 
+// Mounted per unit (SummaryPane's key): another unit starts afresh.
 export function UnitPage({ unit }: { unit: Unit }) {
+  /** The cite of the When / Before / Now row under the pointer: its line is tinted in the code */
+  const [hoveredCite, setHoveredCite] = useState<string | null>(null);
   const { command, viewed, inCodeView } = useLens((state) => ({
-    command: state.data.summary!.command,
+    command: state.data.summary?.command ?? '',
     viewed: state.viewedUnits.has(unitViewKey(unit)),
     inCodeView: state.data.files.some((file) => file.file === unit.displayFile) && unit.ranges.length > 0,
   }));
@@ -37,8 +41,8 @@ export function UnitPage({ unit }: { unit: Unit }) {
         )
       )}
       {summary && summary.concerns.length > 0 && <Concerns unit={unit} concerns={summary.concerns} />}
-      {summary && summary.changes.length > 0 && <Changes unit={unit} changes={summary.changes} />}
-      {summary && summary.breaks.length > 0 && <Breaks unit={unit} breaks={summary.breaks} />}
+      {summary && summary.changes.length > 0 && <Changes changes={summary.changes} onHover={setHoveredCite} />}
+      {summary && summary.breaks.length > 0 && <Breaks breaks={summary.breaks} />}
       <div className='unit-head'>
         <span className='path' title={unit.id}>
           {unit.displayFile}
@@ -55,7 +59,7 @@ export function UnitPage({ unit }: { unit: Unit }) {
           </button>
         )}
       </div>
-      <UnitCode unit={unit} />
+      <UnitCode unit={unit} hoveredCite={hoveredCite} />
     </div>
   );
 }

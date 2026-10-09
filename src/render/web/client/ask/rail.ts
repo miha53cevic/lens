@@ -1,4 +1,4 @@
-// The Ask rail: open or not, the draft, the poll and the send. lens never calls an AI: the
+// The Ask rail: open or not, its width, the poll and the send. lens never calls an AI: the
 // reader's agent answers through `lens ask listen` / `lens ask reply`.
 
 import type { AskQuestion } from '../../../../ask/session.ts';
@@ -38,14 +38,8 @@ export function askSetWidth(width: number): void {
   setAsk({ width });
 }
 
-/** The reader typing: a failed send's message goes, and the textarea grows with the text. */
-export function askSetDraft(draft: string, input: HTMLTextAreaElement): void {
-  setAsk({ draft, error: null });
-  growInput(input);
-}
-
 /** The textarea grows with its text, up to ASK_MAX_INPUT_ROWS lines. */
-function growInput(input: HTMLTextAreaElement) {
+export function growInput(input: HTMLTextAreaElement) {
   input.style.height = 'auto';
   const lineHeight = parseFloat(getComputedStyle(input).lineHeight) || 18;
   input.style.height = Math.min(input.scrollHeight, lineHeight * ASK_MAX_INPUT_ROWS + 12) + 'px';
@@ -88,36 +82,38 @@ export async function askPoll(): Promise<void> {
   if (state.ask.open || askWaiting(state)) pollTimer = setTimeout(askPoll, ASK_POLL_MS);
 }
 
-/** Sends the draft to the listening agent, or puts it on the clipboard as a prompt. */
-export async function askSend(): Promise<void> {
+/**
+ * Sends the question to the listening agent, or puts it on the clipboard as a prompt.
+ * A failure shows in the composer (`ask.error`) until the reader types again.
+ */
+export async function askSend(text: string): Promise<'sent' | 'copied' | null> {
   const state = getState();
   const context = askContext(state);
-  if (!context || state.ask.busy) return;
+  if (!context) return null;
   const selection = askSelection(state);
   const body = JSON.stringify({
-    text: state.ask.draft,
+    text,
     file: context.file,
     unitId: context.unitId,
     label: context.label,
     selection: selection ? { file: selection.file, lines: selection.lines } : null,
   });
-  setAsk({ busy: true });
+  let result: 'sent' | 'copied' | null = null;
   try {
     if (state.ask.data.listening) {
       const response = await fetch('/api/ask', { method: 'POST', body });
       if (!response.ok) throw new Error((await response.json()).error || 'http ' + response.status);
-      commit((current) => ({ ask: { ...current.ask, busy: false, error: null, selection: null, draft: '' } }));
-      const input = document.getElementById('ask-input') as HTMLTextAreaElement | null;
-      if (input) growInput(input);
+      setAsk({ error: null, selection: null });
+      result = 'sent';
     } else {
       const response = await fetch('/api/ask/prompt', { method: 'POST', body });
       if (!response.ok) throw new Error((await response.json()).error || 'http ' + response.status);
       await navigator.clipboard.writeText((await response.json()).text);
-      setAsk({ busy: false, copied: true });
-      setTimeout(() => setAsk({ copied: false }), 1500);
+      result = 'copied';
     }
   } catch (error) {
-    setAsk({ busy: false, error: "couldn't send: " + (error as Error).message });
+    setAsk({ error: "couldn't send: " + (error as Error).message });
   }
   askPoll();
+  return result;
 }
