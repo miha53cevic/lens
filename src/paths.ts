@@ -35,12 +35,13 @@ export function resolveLineRef(root: string, raw: string, cache: Map<string, str
   let lines = cache.get(rel);
   if (lines === undefined) {
     const abs = join(root, rel);
-    lines = existsSync(abs) && statSync(abs).isFile() ? readFileSync(abs, "utf8").split("\n") : null;
+    // a final newline ends the last line; it doesn't start another
+    lines = existsSync(abs) && statSync(abs).isFile() ? readFileSync(abs, "utf8").replace(/\n$/, "").split("\n") : null;
     cache.set(rel, lines);
   }
   if (!lines) return { error: "— file not found" };
   const line = Number(m[2]);
-  const text = lines[line - 1];
-  if (text === undefined || line < 1) return { error: `— the file has only ${lines.length} lines` };
-  return { file: toPosix(rel), line, text };
+  if (line < 1) return { error: "— lines count from 1" };
+  if (line > lines.length) return { error: `— the file has only ${lines.length} lines` };
+  return { file: toPosix(rel), line, text: lines[line - 1] };
 }

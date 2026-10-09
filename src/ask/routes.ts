@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { readBody, sendJson as send } from "../render/web/http.ts";
 import type { ViewerInput } from "../render/web/server.ts";
 import { findCites } from "./cites.ts";
 import { changeContext, questionText } from "./context.ts";
@@ -40,6 +41,7 @@ export function createAskRoutes(current: () => ViewerInput, port: number): AskRo
   const parseQuestion = (body: string): NewQuestion | string => {
     let raw: Record<string, unknown>;
     try { raw = JSON.parse(body); } catch { return "not JSON"; }
+    if (!raw || typeof raw !== "object") return "not a question object";
     const text = typeof raw.text === "string" ? raw.text.trim() : "";
     if (!text) return "the question is empty";
     if (text.length > MAX_QUESTION) return `the question is longer than ${MAX_QUESTION} characters`;
@@ -52,10 +54,6 @@ export function createAskRoutes(current: () => ViewerInput, port: number): AskRo
     return { text, file: raw.file, unitId, label, hash, selection: parseSelection(raw.selection) };
   };
 
-  const send = (res: ServerResponse, status: number, body: unknown) => {
-    res.writeHead(status, { "content-type": "application/json" });
-    res.end(JSON.stringify(body));
-  };
   const textFor = (q: Pick<AskQuestion, "id" | "text" | "selection" | "file" | "unitId" | "label">, forCopy: boolean) => {
     const input = current();
     return questionText(q, changeContext(input, q), { forCopy, root: input.root, cwd: input.cwd, port });
@@ -67,8 +65,9 @@ export function createAskRoutes(current: () => ViewerInput, port: number): AskRo
       if (path === "/api/ask" && req.method === "GET") {
         send(res, 200, session.state());
       } else if (path === "/api/ask" && req.method === "POST") {
-        if (session.waiting()) { send(res, 409, { error: "wait for the answer to the last question" }); return true; }
         const q = parseQuestion(await readBody(req));
+        // checked after the body's read, right before the add: two posts can't both get in
+        if (session.waiting()) { send(res, 409, { error: "wait for the answer to the last question" }); return true; }
         if (typeof q === "string") { send(res, 400, { error: q }); return true; }
         send(res, 200, session.add(q));
       } else if (path === "/api/ask/prompt" && req.method === "POST") {
@@ -80,7 +79,8 @@ export function createAskRoutes(current: () => ViewerInput, port: number): AskRo
         let closed = false;
         res.on("close", () => { closed = true; });
         try {
-          const deadline = Date.now() + Number(url.searchParams.get("wait") ?? NEXT_WAIT_MS);
+          const wait = Number(url.searchParams.get("wait") ?? NEXT_WAIT_MS);
+          const deadline = Date.now() + (Number.isFinite(wait) ? Math.min(Math.max(wait, 0), NEXT_WAIT_MS) : NEXT_WAIT_MS);
           for (;;) {
             if (closed) return true;
             const q = session.next();
@@ -125,13 +125,4 @@ function parseSelection(raw: unknown): AskSelection | null {
     clean.push({ n: Number.isInteger(n) ? (n as number) : null, side, text });
   }
   return clean.length > 0 ? { file, lines: clean } : null;
-}
-
-function readBody(req: IncomingMessage): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    req.on("data", (c: Buffer) => chunks.push(c));
-    req.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
-    req.on("error", reject);
-  });
 }

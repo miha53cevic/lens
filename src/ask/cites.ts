@@ -6,8 +6,9 @@ import type { AskCite } from "./session.ts";
 // line become links in the rail; the rest stay plain text, and `lens ask reply`
 // lists them so the agent can fix them.
 
-// a path with a file extension, then :line, optionally a range (":43-44" / ":43–44")
-const CITE = /(?<![\w./\\-])((?:[\w.@-]+[/\\])*[\w@-][\w.@-]*\.[A-Za-z0-9]+):(\d+)(?:[-–]\d+)?/g;
+// a path with a file extension, then :line, optionally a range (":43-44" / ":43–44");
+// the extension starts with a letter, so "127.0.0.1:5326" isn't one
+const CITE = /(?<![\w./\\-])((?:[\w.@-]+[/\\])*[\w@-][\w.@-]*\.[A-Za-z][A-Za-z0-9]*):(\d+)(?:[-–]\d+)?/g;
 
 export interface FoundCites {
   cites: AskCite[];

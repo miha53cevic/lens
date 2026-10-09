@@ -7,6 +7,7 @@ import type { FileFoldModel, LensConfig } from "../../model.ts";
 import type { SummaryView } from "../../summary/view.ts";
 import { removeServerInfo, writeServerInfo } from "../../ask/discovery.ts";
 import { createAskRoutes } from "../../ask/routes.ts";
+import { isLocalRequest, sendJson } from "./http.ts";
 import {
   highlightSource,
   isBundledTheme,
@@ -169,6 +170,10 @@ export async function serveViewer(
 
   const server = createServer(async (req, res) => {
     try {
+      if (!isLocalRequest(req, opts.port)) {
+        sendJson(res, 403, { error: "lens only answers its own viewer page" });
+        return;
+      }
       const url = new URL(req.url ?? "/", "http://localhost");
       const themeParam = url.searchParams.get("theme");
       const theme = themeParam && isBundledTheme(themeParam) ? themeParam : opts.theme;
@@ -178,24 +183,20 @@ export async function serveViewer(
         res.end(await htmlFor(theme));
       } else if (url.pathname === "/api/tokens") {
         if (themeParam && !isBundledTheme(themeParam)) {
-          res.writeHead(400, { "content-type": "application/json" });
-          res.end(JSON.stringify({ error: `unknown theme "${themeParam}"` }));
+          sendJson(res, 400, { error: `unknown theme "${themeParam}"` });
           return;
         }
-        res.writeHead(200, { "content-type": "application/json" });
-        res.end(JSON.stringify(await tokensFor(theme)));
+        sendJson(res, 200, await tokensFor(theme));
       } else if (url.pathname === "/api/refresh") {
         if (!reanalyze) {
-          res.writeHead(404, { "content-type": "application/json" });
-          res.end(JSON.stringify({ error: "refresh not available" }));
+          sendJson(res, 404, { error: "refresh not available" });
           return;
         }
         current = await reanalyze();
         ask.refresh();
         themeCache.clear();
         htmlCache.clear();
-        res.writeHead(200, { "content-type": "application/json" });
-        res.end(JSON.stringify(await payloadFor(theme)));
+        sendJson(res, 200, await payloadFor(theme));
       } else if (url.pathname === "/api/summary") {
         // A submit since the page loaded: re-read the stored summary; the
         // units stay those of the last analysis (↻ refresh recomputes them).
@@ -204,11 +205,9 @@ export async function serveViewer(
           current = { ...current, summary };
           htmlCache.clear();
         }
-        res.writeHead(200, { "content-type": "application/json" });
-        res.end(JSON.stringify(summary));
+        sendJson(res, 200, summary);
       } else if (url.pathname === "/api/summary/stamp") {
-        res.writeHead(200, { "content-type": "application/json" });
-        res.end(JSON.stringify({ stamp: current.summaryStamp ? current.summaryStamp() : null }));
+        sendJson(res, 200, { stamp: current.summaryStamp ? current.summaryStamp() : null });
       } else if (url.pathname === "/api/shutdown" && req.method === "POST") {
         res.writeHead(200, { "content-type": "application/json" });
         res.end(JSON.stringify({ ok: true }), () => {
@@ -216,18 +215,11 @@ export async function serveViewer(
           server.close(stop);
           server.closeAllConnections();
         });
-      } else if (url.pathname.startsWith("/api/ask/") || url.pathname === "/api/ask") {
-        if (!(await ask.handle(req, res, url))) {
-          res.writeHead(404);
-          res.end("not found");
-        }
-      } else {
-        res.writeHead(404);
-        res.end("not found");
+      } else if (!(url.pathname.startsWith("/api/ask") && await ask.handle(req, res, url))) {
+        sendJson(res, 404, { error: "not found" });
       }
     } catch (err) {
-      res.writeHead(500, { "content-type": "application/json" });
-      res.end(JSON.stringify({ error: (err as Error).message }));
+      sendJson(res, 500, { error: (err as Error).message });
     }
   });
 
