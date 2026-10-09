@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { isAbsolute, join } from "node:path";
-import { existsSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import type { DiffStatus, RemovedBlock } from "./model.ts";
 import { toPosix } from "./paths.ts";
 
@@ -73,6 +73,7 @@ export function parseDiff(output: string): ParsedDiff {
   for (const line of output.split("\n")) {
     if (line.startsWith("diff --git ")) {
       flushRename();
+      current = null; // a header this parser can't read must not inherit the previous file's hunks
     } else if (line.startsWith("rename from ")) {
       (pendingRename ??= {}).from = line.slice("rename from ".length);
     } else if (line.startsWith("rename to ")) {
@@ -168,7 +169,10 @@ export function gitRoot(cwd: string): string {
  */
 export function gitDiffTargets(gitArgs: string[], cwd: string): DiffResult {
   const root = gitRoot(cwd);
-  const output = runGit(["diff", "--unified=0", "--no-color", ...gitArgs], cwd);
+  // Fixed a/ b/ prefixes whatever diff.noprefix / diff.mnemonicPrefix say, and
+  // non-ASCII paths as they are, not C-quoted: the headers parse the same everywhere.
+  const output = runGit(["-c", "core.quotePath=false", "diff", "--unified=0", "--no-color",
+    "--src-prefix=a/", "--dst-prefix=b/", ...gitArgs], cwd);
   // Second pass for new-side blob SHAs, so ref-to-ref diffs (qa...feature)
   // read content from git instead of the working tree — which may hold the
   // OLD side, or not hold added files at all.
@@ -195,8 +199,9 @@ export function gitDiffTargets(gitArgs: string[], cwd: string): DiffResult {
         oldBlob: oldBlobs.get(f.path),
       }))
       // No blob means the new side is the working tree; a file gone from disk
-      // too has nothing to show (e.g. deleted since the diff was staged).
-      .filter((t) => t.newBlob !== undefined || existsSync(t.file)),
+      // too has nothing to show (e.g. deleted since the diff was staged), and
+      // a submodule is a directory there.
+      .filter((t) => t.newBlob !== undefined || (existsSync(t.file) && statSync(t.file).isFile())),
     deleted: parsed.deleted.map(abs),
     renamed: parsed.renamed.map((r) => ({ from: abs(r.from), to: abs(r.to) })),
     deletedBlobs: new Map(parsed.deleted

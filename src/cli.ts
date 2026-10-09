@@ -48,17 +48,13 @@ interface CliOptions {
 }
 
 type Command = "paths" | "diff" | "pr" | "config" | "summary" | "ask";
+const COMMANDS: string[] = ["diff", "pr", "config", "summary", "ask"] satisfies Command[];
 
 function parseCli(argv: string[]): { command: Command; rest: string[]; opts: CliOptions } {
   const opts: CliOptions = { json: false, open: true, openSummary: false, port: 5326, portSet: false, threshold: null, theme: null };
   const rest: string[] = [];
   let command: Command = "paths";
   const args = [...argv];
-  if (args[0] === "diff") { command = "diff"; args.shift(); }
-  else if (args[0] === "pr") { command = "pr"; args.shift(); }
-  else if (args[0] === "config") { command = "config"; args.shift(); }
-  else if (args[0] === "summary") { command = "summary"; args.shift(); }
-  else if (args[0] === "ask") { command = "ask"; args.shift(); }
   while (args.length > 0) {
     const arg = args.shift()!;
     if (arg === "--json") opts.json = true;
@@ -68,6 +64,8 @@ function parseCli(argv: string[]): { command: Command; rest: string[]; opts: Cli
     else if (arg === "--threshold") opts.threshold = Number(args.shift());
     else if (arg === "--theme") opts.theme = args.shift() ?? null;
     else if (arg === "--help" || arg === "-h") { console.log(HELP); process.exit(0); }
+    // the command is the first word that isn't a lens flag (`lens --no-open diff` works too)
+    else if (command === "paths" && rest.length === 0 && COMMANDS.includes(arg)) command = arg as Command;
     else rest.push(arg); // in diff mode these pass through to git diff
   }
   return { command, rest, opts };
