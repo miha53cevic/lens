@@ -350,6 +350,48 @@ export const x = fs;
   assert.ok(comment && comment.score > DEFAULT_CONFIG.threshold);
 });
 
+test("same-name delegation that adds, drops or computes arguments is not an accessor", async () => {
+  const regions = await regionsOf(`
+class Repo {
+  async save(entity: E) {
+    return this.db.save(await this.validate(entity));
+  }
+
+  force(entity: E) { return this.db.force(entity, { force: true }); }
+
+  load(id: string, retries = 3) { return this.repo.load(id); }
+}
+`.trim());
+  assert.equal(regions.filter((r) => r.category === "accessor").length, 0);
+});
+
+test("guards whose condition does work stay visible; a labeled continue keeps its label", async () => {
+  const regions = await regionsOf(`
+async function handle(user: User, rows: Row[][]) {
+  if (await limiter.consume(user.id)) throw new TooMany();
+  if (attempts++ > limit) return;
+  outer: for (const row of rows) {
+    for (const cell of row) {
+      if (cell.skip) continue outer;
+      use(cell);
+    }
+  }
+}
+`.trim());
+  const guards = regions.filter((r) => r.category === "guard");
+  assert.deepEqual(guards.map((g) => [g.startLine, g.summary]), [[6, "1 guard → continue outer"]]);
+});
+
+test("data: a computed key that calls something isn't data", async () => {
+  const regions = await regionsOf(`
+const table = {
+  [makeKey()]: 1,
+  b: 2,
+};
+`.trim());
+  assert.equal(regions.filter((r) => r.category === "data").length, 0);
+});
+
 test("getters and setters with real logic are not accessors", async () => {
   const regions = await regionsOf(`
 class Temp {

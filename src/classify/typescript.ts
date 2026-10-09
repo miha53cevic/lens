@@ -316,6 +316,9 @@ function guardRegions(root: Node, ctx: RuleContext): FoldRegion[] {
 function asGuard(stmt: Node, ctx: RuleContext): { exits: string[]; logged: boolean } | null {
   if (stmt.type !== "if_statement") return null;
   if (stmt.childForFieldName("alternative")) return null;
+  // `if (await limiter.consume(id))`, `if (attempts++ > max)`: the check itself does work
+  const condition = stmt.childForFieldName("condition");
+  if (condition && hasEffects(condition)) return null;
   const consequence = stmt.childForFieldName("consequence");
   if (!consequence) return null;
   const statements =
@@ -351,8 +354,8 @@ function exitDescription(s: Node): string | null {
     const arg = namedChildren(s)[0];
     return arg ? `return ${truncate(arg.text, 24)}` : "return";
   }
-  if (s.type === "continue_statement") return "continue";
-  if (s.type === "break_statement") return "break";
+  // with its label: `continue outer` skips more than the inner loop's rest
+  if (s.type === "continue_statement" || s.type === "break_statement") return s.text.replace(/;$/, "");
   return null;
 }
 
@@ -524,6 +527,9 @@ function isPureLiteral(node: Node): boolean {
     return namedChildren(n).every((prop) => {
       if (prop.type === "comment") return true;
       if (prop.type !== "pair") return false; // shorthand/spread/method = behavior
+      // a computed key is code too: `[makeKey()]: 1`
+      const key = prop.childForFieldName("key");
+      if (key?.type === "computed_property_name" && !namedChildren(key).every(isPureLiteral)) return false;
       const value = prop.childForFieldName("value");
       return value !== null && isPureLiteral(value);
     });
@@ -710,24 +716,27 @@ function asAccessor(member: Node): string | null {
 }
 
 /**
- * A call forwards when the callee shares the method's name (`close() {
- * this.socket.close(); }`) or the arguments are exactly the method's own
- * parameters, verbatim and in order (`send(msg) { this.bus.send(msg); }`).
+ * A call forwards when its arguments are exactly the method's own parameters,
+ * verbatim and in order, and either the callee shares the method's name
+ * (`close() { this.socket.close(); }`) or there is at least one parameter
+ * (`send(msg) { this.bus.send(msg); }`).
  */
 function isForwardingCall(call: Node, member: Node, methodName: string): boolean {
   const fn = call.childForFieldName("function");
   const calleeName = fn?.type === "member_expression" ? fn.childForFieldName("property")?.text
     : fn?.type === "identifier" ? fn.text
     : undefined;
-  if (calleeName === methodName) return true;
 
+  // either way the arguments are the parameters, verbatim: `save(e) { this.db.save(e, { force: true }) }`
+  // or `load(id, retries = 3) { this.repo.load(id) }` adds or drops something the pill wouldn't show
   const paramsNode = member.childForFieldName("parameters");
   const argsNode = call.childForFieldName("arguments");
   if (!paramsNode || !argsNode) return false;
   const params = namedChildren(paramsNode).map((p) => p.childForFieldName("pattern")?.text ?? "");
   const args = namedChildren(argsNode);
-  return params.length > 0 && params.length === args.length &&
+  const verbatim = params.length === args.length &&
     args.every((a, i) => a.type === "identifier" && a.text === params[i]);
+  return verbatim && (calleeName === methodName || params.length > 0);
 }
 
 // ---------- rule: barrel files ----------
