@@ -1,6 +1,7 @@
 // The session: the theme, reload, end.
 
 import type { ViewerPayload } from '../../server.ts';
+import { THEME_COOKIE } from '../../../../theme.ts';
 import { getState, update } from '../store.ts';
 import type { ViewFile } from '../shared.ts';
 import { firstTreeFile } from '../model/tree.ts';
@@ -35,6 +36,11 @@ export async function switchTheme(theme: string): Promise<boolean> {
     update({ themeBusy: false });
     return false;
   }
+}
+
+/** Keeps the reader's theme for the next launch, where the server reads it: the page arrives in that theme. */
+export function saveTheme(theme: string): void {
+  document.cookie = THEME_COOKIE + '=' + encodeURIComponent(theme) + '; path=/; max-age=31536000; samesite=lax';
 }
 
 export async function refresh(): Promise<void> {

@@ -1,8 +1,7 @@
 import { Check, ChevronDown } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import { useLens } from '../../store.ts';
-import { switchTheme } from '../../actions/session.ts';
-import { writePref } from '../../shared.ts';
+import { saveTheme, switchTheme } from '../../actions/session.ts';
 import { Menu, MenuItem, MenuSection } from '../../ui/Menu.tsx';
 
 /** The code theme: each with its background, so light and dark show before picking. The whole page follows it. */
@@ -36,7 +35,7 @@ export function ThemeMenu() {
               <span className='swatch' style={{ '--swatch-bg': swatch.bg, color: swatch.accent } as CSSProperties} />
             }
             onSelect={async () => {
-              if (swatch.name !== theme && (await switchTheme(swatch.name))) writePref('lens.theme', swatch.name);
+              if (swatch.name !== theme && (await switchTheme(swatch.name))) saveTheme(swatch.name);
             }}
           >
             {swatch.name}

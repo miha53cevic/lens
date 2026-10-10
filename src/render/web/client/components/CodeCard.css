@@ -37,6 +37,13 @@
   font-size: var(--text-sm);
   white-space: nowrap;
 }
+/* the path and its counts on one baseline: centered boxes would lift the counts' smaller type */
+.code-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+}
 .code-path {
   min-width: 0;
   overflow: hidden;
@@ -46,13 +53,14 @@
 .code-path .dir {
   color: var(--faint);
 }
-.code-path b {
+/* the file's name and the unit's: the two that say where you are */
+.code-path b,
+.code-path .scope {
   color: var(--text);
   font-weight: 500;
 }
 .code-path .scope {
   margin-left: var(--space-2);
-  color: var(--muted);
 }
 .code-path .scope::before {
   content: '› ';
@@ -60,6 +68,7 @@
 }
 .counts {
   display: inline-flex;
+  flex: none;
   gap: 5px;
   font: var(--text-xs) / 1 var(--font-mono);
 }
@@ -68,6 +77,13 @@
 }
 .counts .d {
   color: var(--del);
+}
+.code-head .tag {
+  flex: none;
+  padding: 1px 7px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
 }
 .toggles {
   display: flex;

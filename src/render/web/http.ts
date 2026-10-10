@@ -14,6 +14,20 @@ export function readBody(req: IncomingMessage): Promise<string> {
   });
 }
 
+/** A cookie the browser sent, or null. */
+export function readCookie(req: IncomingMessage, name: string): string | null {
+  for (const pair of (req.headers.cookie ?? "").split(";")) {
+    const at = pair.indexOf("=");
+    if (at === -1 || pair.slice(0, at).trim() !== name) continue;
+    try {
+      return decodeURIComponent(pair.slice(at + 1).trim());
+    } catch {
+      return null; // not something lens wrote
+    }
+  }
+  return null;
+}
+
 /**
  * Only the viewer's own page and `lens ask` may talk to the server. A page on
  * another site can still send it simple POSTs (and, by DNS rebinding, read it):
