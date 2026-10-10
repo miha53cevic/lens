@@ -1,9 +1,10 @@
 // What an Ask question is about: the open change, and the selection in it.
 
+import type { Concern } from '../../../../summary/store.ts';
 import type { LensState } from '../store.ts';
 import { baseName, fileViewKey } from '../shared.ts';
 import { activeFile } from './plans.ts';
-import { unitLabel, unitViewKey } from './signals.ts';
+import { openConcerns, unitLabel, unitViewKey } from './signals.ts';
 import { currentUnit, summaryPage } from './summaryList.ts';
 
 export interface AskContext {
@@ -28,6 +29,12 @@ export function askContext(state: LensState): AskContext | null {
 }
 
 /** The kept selection, when it belongs to the open change. */
+/** The open unit's concerns the reader hasn't dismissed: they go along with a question about it. */
+export function askConcerns(state: LensState): Concern[] {
+  const unit = state.view === 'summary' && summaryPage(state) === 'unit' ? currentUnit(state) : null;
+  return unit ? openConcerns(state.concernMarks, unit) : [];
+}
+
 export function askSelection(state: LensState) {
   const context = askContext(state);
   const selection = state.ask.selection;

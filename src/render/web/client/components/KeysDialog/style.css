@@ -8,10 +8,15 @@
 #keys-modal .set-table td {
   vertical-align: middle;
 }
+/* the tabs stay put: only the keys under them scroll */
 .key-tabs {
   display: flex;
+  flex: none;
   gap: 2px;
-  margin-bottom: var(--space-3);
+  padding: var(--space-4) var(--space-4) var(--space-3);
+}
+#keys-modal .modal-body {
+  padding-top: 0;
 }
 .key-tab {
   padding: 5px var(--space-3);

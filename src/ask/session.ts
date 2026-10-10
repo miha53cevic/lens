@@ -2,6 +2,8 @@
 // questions, `lens ask listen` takes them one at a time, `lens ask reply`
 // answers them. Lens never answers anything itself.
 
+import type { Concern } from "../summary/store.ts";
+
 /** One selected row: new-side rows carry their line number, removed rows their old-side one when known. */
 export interface AskLine {
   n: number | null;
@@ -35,6 +37,8 @@ export interface AskQuestion {
   /** The unit's hash, or the file's content hash — a different one later means stale */
   hash: string;
   selection: AskSelection | null;
+  /** The unit's concerns the reader hadn't dismissed when asking; none on the Code tab */
+  concerns: Concern[];
   askedAt: number;
   /** When `listen` handed it to an agent */
   handedAt: number | null;
@@ -49,7 +53,7 @@ export interface AskState {
   questions: AskQuestion[];
 }
 
-export type NewQuestion = Pick<AskQuestion, "text" | "file" | "unitId" | "label" | "hash" | "selection">;
+export type NewQuestion = Pick<AskQuestion, "text" | "file" | "unitId" | "label" | "hash" | "selection" | "concerns">;
 
 /**
  * A question handed out this long ago without an answer goes to the next listener (its agent likely died).

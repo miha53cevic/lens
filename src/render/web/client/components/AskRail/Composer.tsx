@@ -1,7 +1,8 @@
 import { Check } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useLens } from '../../store.ts';
-import { askContext, askSelection } from '../../model/askContext.ts';
+import { askConcerns, askContext, askSelection } from '../../model/askContext.ts';
+import { plural } from '../../shared.ts';
 import { askSelLabel } from '../../ask/selection.ts';
 import { waitingQuestion } from '../../model/status.ts';
 import { askSend, growInput, setAsk } from '../../ask/rail.ts';
@@ -21,6 +22,7 @@ export function Composer() {
     return {
       contextLabel: context?.label ?? null,
       selectionLabel: selection ? askSelLabel(selection) : null,
+      concernCount: askConcerns(state).length,
       listening: state.ask.data.listening,
       waiting: !!waitingQuestion(state),
       error: state.ask.error,
@@ -49,6 +51,10 @@ export function Composer() {
         {composer.contextLabel && <span className='ask-chip unit'>{composer.contextLabel}</span>}
         {composer.contextLabel && composer.selectionLabel && (
           <span className='ask-chip'>{composer.selectionLabel}</span>
+        )}
+        {/* the unit's open concerns go along: the agent knows what "the risk here" is */}
+        {composer.contextLabel && composer.concernCount > 0 && (
+          <span className='ask-chip'>{plural(composer.concernCount, 'concern')}</span>
         )}
       </div>
       <textarea

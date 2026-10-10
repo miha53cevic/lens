@@ -15,7 +15,7 @@ import { createAskRoutes } from "../src/ask/routes.ts";
 import { isLocalRequest, readCookie } from "../src/render/web/http.ts";
 import type { ViewerInput } from "../src/render/web/server.ts";
 
-const Q: NewQuestion = { text: "why?", file: "a.ts", unitId: null, label: "a.ts", hash: "h1", selection: null };
+const Q: NewQuestion = { text: "why?", file: "a.ts", unitId: null, label: "a.ts", hash: "h1", selection: null, concerns: [] };
 
 /** Runs `fn` in a fresh temp git repo (branch "main"), cleaned up afterwards. */
 async function withRepo(fn: (dir: string, git: (...args: string[]) => string) => Promise<void>): Promise<void> {
@@ -176,8 +176,16 @@ test("questionText: rules, the question, the selection and the unit's code, then
         { n: 2, side: "old" as const, text: "  let sum = 0;" },
         { n: 2, side: "new" as const, text: "  return items.reduce((a, b) => a + b, 0);" },
       ] },
+      concerns: [
+        { kind: "risk" as const, text: "an empty list has no first item", line: "N2" },
+        { kind: "question" as const, text: "why drop the loop?", line: "O3" },
+      ],
     };
     const text = questionText(q, changeContext(input, q), { root: dir, cwd: dir, port: 5326 });
+    assert.ok(text.includes("CONCERNS  the summary's open notes on this change — claims to check, not facts\n" +
+      "  risk · line 2 · an empty list has no first item\n  question · removed line 3 · why drop the loop?\n"));
+    assert.ok(!questionText({ ...q, concerns: [] }, changeContext(input, q), { root: dir, cwd: dir, port: 5326 }).includes("CONCERNS"),
+      "no open concern, no block");
     assert.ok(text.startsWith("lens ask · q1 · total (calc.ts)\n"));
     assert.ok(text.includes(RULES));
     assert.ok(text.includes("QUESTION\nis reduce safe on an empty list?\n"));
@@ -246,7 +254,14 @@ test("ask routes: ask, listen, answer, and stale after the code changes", async 
       assert.equal((await post("/api/ask", { text: "hi", file: "nope.ts" })).status, 400);
       assert.equal((await post("/api/ask", null)).status, 400);
 
-      const asked = await post("/api/ask", { text: "why reduce?", file: "calc.ts", unitId: "calc.ts#total", label: "total" });
+      // the unit's summary has one concern; the viewer names it (not dismissed) and one the unit doesn't have
+      const real = { kind: "risk" as const, text: "an empty list has no first item", line: "N2" };
+      input.summary!.units.find((u) => u.id === "calc.ts#total")!.summary =
+        { headline: "", gist: "", unexplainedLook: false, changes: [], breaks: [], concerns: [real] };
+      const asked = await post("/api/ask", {
+        text: "why reduce?", file: "calc.ts", unitId: "calc.ts#total", label: "total",
+        concerns: [real, { kind: "bug", text: "made up", line: "N2" }],
+      });
       assert.equal(asked.status, 200);
       assert.equal((await asked.json()).id, "q1");
       assert.equal((await post("/api/ask", { text: "and?", file: "calc.ts" })).status, 409, "one question at a time");
@@ -258,6 +273,8 @@ test("ask routes: ask, listen, answer, and stale after the code changes", async 
       const handed = await next.json();
       assert.equal(handed.id, "q1");
       assert.ok(handed.text.includes("why reduce?"));
+      assert.ok(handed.text.includes("  risk · line 2 · an empty list has no first item\n"), "the unit's open concern goes along");
+      assert.ok(!handed.text.includes("made up"), "only the unit's own concerns do");
       assert.equal((await fetch(base + "/api/ask")).status, 200);
       assert.equal((await (await fetch(base + "/api/ask")).json()).listening, true, "a listen just ended");
 

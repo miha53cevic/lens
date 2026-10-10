@@ -201,6 +201,9 @@ the code while you review: "why is this check needed?", "what calls this?". Each
 carries the change you have open — the Summary tab's unit, or the Code tab's file —
 plus the code you have selected, if any. Select across removed and added lines to send
 both sides. The selection stays while you type; a plain click in the code drops it.
+A question about a unit also carries that unit's open concerns (the ones you haven't
+dismissed), so "is this risk real?" needs no retelling; a chip next to the unit's name
+says how many go along.
 
 There is one chat for the whole lens session: moving to another change, flow, file or
 tab keeps it, and each question is labeled with the change it was about (click the

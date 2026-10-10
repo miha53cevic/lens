@@ -2,7 +2,7 @@
 // reader's agent answers through `lens ask listen` / `lens ask reply`.
 
 import { commit, getState, type LensState, update } from '../store.ts';
-import { askContext, askSelection } from '../model/askContext.ts';
+import { askConcerns, askContext, askSelection } from '../model/askContext.ts';
 import { waitingQuestion } from '../model/status.ts';
 import { writePref } from '../shared.ts';
 import { endActivity, noteDone, noteFailure, reach, request, ServerGone, startActivity } from '../actions/status.ts';
@@ -93,6 +93,7 @@ export async function askSend(text: string): Promise<'sent' | 'copied' | null> {
     unitId: context.unitId,
     label: context.label,
     selection: selection ? { file: selection.file, lines: selection.lines } : null,
+    concerns: askConcerns(state),
   });
   let result: 'sent' | 'copied' | null = null;
   startActivity('ask-send', 'Sending your question…');
