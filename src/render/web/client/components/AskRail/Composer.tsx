@@ -3,7 +3,9 @@ import { useRef, useState } from 'react';
 import { useLens } from '../../store.ts';
 import { askContext, askSelection } from '../../model/askContext.ts';
 import { askSelLabel } from '../../ask/selection.ts';
-import { askSend, askWaiting, growInput, setAsk } from '../../ask/rail.ts';
+import { waitingQuestion } from '../../model/status.ts';
+import { askSend, growInput, setAsk } from '../../ask/rail.ts';
+import { Button } from '../../ui/Button.tsx';
 import { Kbd } from '../../ui/Kbd.tsx';
 
 /** The question being written, with what goes along with it: the open change and the selection. */
@@ -20,7 +22,7 @@ export function Composer() {
       contextLabel: context?.label ?? null,
       selectionLabel: selection ? askSelLabel(selection) : null,
       listening: state.ask.data.listening,
-      waiting: !!askWaiting(state),
+      waiting: !!waitingQuestion(state),
       error: state.ask.error,
     };
   });
@@ -68,7 +70,7 @@ export function Composer() {
           if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
             event.preventDefault();
             send();
-          } else if (event.key === 'Escape') {
+          } else if (event.key === 'Escape' && !event.nativeEvent.isComposing) {
             event.currentTarget.blur(); // back to the code: j/k and the view keys work again
           }
         }}
@@ -78,7 +80,7 @@ export function Composer() {
           {composer.error || (
             <>
               <span>
-                <Kbd combo='↵' /> ask
+                <Kbd combo='↵' /> {composer.listening ? 'ask' : 'copy'}
               </span>
               <span>
                 <Kbd combo='⇧ ↵' /> newline
@@ -89,7 +91,7 @@ export function Composer() {
             </>
           )}
         </span>
-        <button id='ask-send' disabled={blocked} onClick={send}>
+        <Button id='ask-send' variant='primary' disabled={blocked} onClick={send}>
           {copied ? (
             <>
               <Check size={13} /> Copied
@@ -99,7 +101,7 @@ export function Composer() {
           ) : (
             'Copy as prompt'
           )}
-        </button>
+        </Button>
       </div>
     </div>
   );

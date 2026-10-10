@@ -1,9 +1,9 @@
 // The Ask rail: open or not, its width, the poll and the send. lens never calls an AI: the
 // reader's agent answers through `lens ask listen` / `lens ask reply`.
 
-import type { AskQuestion } from '../../../../ask/session.ts';
 import { commit, getState, type LensState, update } from '../store.ts';
 import { askContext, askSelection } from '../model/askContext.ts';
+import { waitingQuestion } from '../model/status.ts';
 import { writePref } from '../shared.ts';
 import { endActivity, noteDone, noteFailure, reach, request, ServerGone, startActivity } from '../actions/status.ts';
 
@@ -46,12 +46,6 @@ export function growInput(input: HTMLTextAreaElement) {
   input.style.height = Math.min(input.scrollHeight, lineHeight * ASK_MAX_INPUT_ROWS + 12) + 'px';
 }
 
-export function askWaiting(state: LensState): AskQuestion | null {
-  const questions = state.ask.data.questions;
-  const last = questions[questions.length - 1];
-  return last && !last.answer ? last : null;
-}
-
 /** Polls the chat while the rail is open or a question waits for its answer. */
 export async function askPoll(): Promise<void> {
   if (pollTimer) {
@@ -59,7 +53,7 @@ export async function askPoll(): Promise<void> {
     pollTimer = null;
   }
   const patch: Partial<LensState['ask']> = {};
-  const waitedFor = askWaiting(getState());
+  const waitedFor = waitingQuestion(getState());
   try {
     const response = await reach('/api/ask');
     if (response.ok) {
@@ -81,7 +75,7 @@ export async function askPoll(): Promise<void> {
   // the answer came with the rail closed: the status bar says so
   const answered = waitedFor && state.ask.data.questions.find((question) => question.id === waitedFor.id)?.answer;
   if (answered && !state.ask.open) noteDone('Your agent answered');
-  if (state.ask.open || askWaiting(state)) pollTimer = setTimeout(askPoll, ASK_POLL_MS);
+  if (state.ask.open || waitingQuestion(state)) pollTimer = setTimeout(askPoll, ASK_POLL_MS);
 }
 
 /**

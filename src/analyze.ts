@@ -97,7 +97,8 @@ function collectFiles(paths: string[]): string[] {
   const files: string[] = [];
   // a directory passed by name is walked even if it's one the walk would skip
   const visit = (p: string, named: boolean) => {
-    const stats = statSync(p);
+    const stats = statSync(p, { throwIfNoEntry: false });
+    if (!stats) return; // a link to nothing
     if (stats.isDirectory()) {
       const name = basename(p);
       if (!named && (SKIP_DIRS.has(name) || name.startsWith("."))) return;
@@ -116,5 +117,6 @@ function collectFiles(paths: string[]): string[] {
       visit(abs, true);
     }
   }
-  return files;
+  // once each: `lens src/a.ts src` names a.ts twice
+  return [...new Set(files)];
 }

@@ -27,7 +27,7 @@ export function isBusy(state: LensState, id: string): boolean {
 }
 
 /** The newest question, while it waits for its answer. */
-function waitingQuestion(state: LensState) {
+export function waitingQuestion(state: LensState) {
   const questions = state.ask.data.questions;
   const last = questions[questions.length - 1];
   return last && !last.answer ? last : null;

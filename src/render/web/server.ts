@@ -257,8 +257,10 @@ export async function serveViewer(
       if (url.pathname === "/" || url.pathname === "/index.html") {
         // the theme the reader picked (the viewer keeps it in a cookie), unless --theme pinned this run's
         const picked = themeParam || opts.themePinned ? null : readCookie(req, THEME_COOKIE);
+        // the page first: once the headers are out, a failure can't be answered with a 500
+        const html = await htmlFor(picked && isBundledTheme(picked) ? picked : theme);
         res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-        res.end(await htmlFor(picked && isBundledTheme(picked) ? picked : theme));
+        res.end(html);
       } else if (url.pathname === "/api/tokens") {
         if (themeParam && !isBundledTheme(themeParam)) {
           sendJson(res, 400, { error: `unknown theme "${themeParam}"` });

@@ -63,7 +63,6 @@ export interface ListModel {
   counts: Record<NonNullable<SignalFilter>, number>;
   /** The signal filter in effect: one whose last unit went away (dismissed) lifts */
   signal: SignalFilter;
-  text: string;
   sections: Section[];
   others: Unit[];
   folded: Set<string>;
@@ -133,7 +132,6 @@ const buildList = memo(
       units,
       counts,
       signal,
-      text,
       sections,
       others,
       folded,

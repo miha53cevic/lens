@@ -28,7 +28,6 @@ export function SummaryList() {
             {/* the flow's name, nothing else: the agent's priority only orders the flows (P3 starts folded) */}
             <button
               className='sum-section-title flow'
-              data-flow={flow.title}
               aria-expanded={!folded}
               title={flow.why}
               onClick={() => toggleFlow(flow.title, folded)}

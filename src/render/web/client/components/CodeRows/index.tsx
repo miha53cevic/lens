@@ -7,7 +7,6 @@ import { Region } from './Region.tsx';
 import type { RowContext } from './types.ts';
 import './style.css';
 
-export type { RowMarks } from './types.ts';
 export { RemovedRow } from './Rows.tsx';
 
 interface CodeRowsProps extends RowContext {

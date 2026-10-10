@@ -540,6 +540,21 @@ pageTest('a standing notice shows only while it has something to say, and leads 
   assert.deepEqual(status(), { kind: 'done', label: 'New summary loaded', detail: '' });
 });
 
+pageTest('a refresh brings the newest summary: none is left waiting', async () => {
+  const notices = () => $$('#status-bar .status-notices > *').map((notice) => notice.textContent);
+  const undo = answering((path) =>
+    path === '/api/summary/stamp' ? new Response(JSON.stringify({ stamp: payload.summary!.stamp! + 1 })) : undefined,
+  );
+  window.dispatchEvent(new Event('focus'));
+  await settle();
+  undo();
+  assert.deepEqual(notices(), ['New summary waiting']);
+  await key('r');
+  await settle();
+  assert.deepEqual(notices(), []);
+  assert.equal(document.querySelector('#summary-dot'), null);
+});
+
 test("the page the server sends carries its theme's colors on <html>, before any script runs", () => {
   const light = lightTokens as { fg: string; bg: string; accent: string };
   const html = renderPage('<html lang="en"/*__LENS_ROOT__*/><script>/*__LENS_DATA__*/</script>', {
@@ -922,6 +937,33 @@ pageTest('Ask with an agent listening sends the question with the selected lines
   );
   assert.equal(($('#ask-input') as HTMLTextAreaElement).value, '', "the input clears once it's sent");
 });
+
+pageTest(
+  "a refresh that changes the file drops the selection kept in it: its lines aren't the code's anymore",
+  async () => {
+    await key('\\');
+    const range = document.createRange();
+    range.setStart($('#code .row[data-line="10"]'), 0);
+    range.setEnd($('#code .row[data-line="11"]'), 1);
+    document.getSelection()!.removeAllRanges();
+    document.getSelection()!.addRange(range);
+    document.dispatchEvent(new Event('selectionchange'));
+    await settle();
+    // the same code again: the selection stays
+    await key('r');
+    await settle();
+    assert.equal($('#ask-chips').textContent, 'orders.tssrc/orders.ts:10–11');
+    const edited = structuredClone(payload);
+    const orders = edited.files.find((file) => file.file === 'src/orders.ts')!;
+    orders.source = '// edited\n' + orders.source;
+    const undo = answering((path) => (path === '/api/refresh' ? new Response(JSON.stringify(edited)) : undefined));
+    await key('r');
+    await settle();
+    undo();
+    assert.equal($('#ask-chips').textContent, 'orders.ts');
+    assert.equal($$('#code .row.ask-sel').length, 0);
+  },
+);
 
 pageTest('a question with no agent to answer it says so, instead of counting the wait', async (page) => {
   const question = {

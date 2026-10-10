@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { useLens } from '../../../store.ts';
-import { isFlagged, type Unit, unitLabel, unitViewKey } from '../../../model/signals.ts';
+import { type Unit, unitLabel, unitViewKey } from '../../../model/signals.ts';
 import { openSummaryUnit } from '../../../actions/summary.ts';
 import { toggleUnitViewed } from '../../../actions/prefs.ts';
 import { SignalMarker } from '../../SignalMarker.tsx';
@@ -29,14 +29,7 @@ export function UnitItem({ unit, side, active }: UnitItemProps) {
   return (
     <button
       ref={active ? keepInSight : undefined}
-      className={clsx(
-        'sum-item',
-        active && 'active',
-        !summary ? 'pending' : !isFlagged(marks, unit) && 'routine',
-        viewed && 'viewed',
-        'st-' + unit.status,
-      )}
-      data-id={unit.id}
+      className={clsx('sum-item', active && 'active', !summary && 'pending', viewed && 'viewed', 'st-' + unit.status)}
       title={unit.id + ' — ' + unit.status + (summary ? '\n' + summary.gist : '')}
       onClick={() => openSummaryUnit(unit.id)}
     >

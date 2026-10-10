@@ -230,12 +230,13 @@ export function gitDiffTargets(gitArgs: string[], cwd: string): DiffResult {
   const root = gitRoot(cwd);
   // Fixed a/ b/ prefixes whatever diff.noprefix / diff.mnemonicPrefix say, and
   // non-ASCII paths as they are, not C-quoted: the headers parse the same everywhere.
-  const output = runGit(["-c", "core.quotePath=false", "diff", "--unified=0", "--no-color",
+  // Paths from the root whatever diff.relative says: in a subdirectory it would cut them short.
+  const output = runGit(["-c", "core.quotePath=false", "diff", "--unified=0", "--no-color", "--no-relative",
     "--src-prefix=a/", "--dst-prefix=b/", ...gitArgs], cwd);
   // Second pass for new-side blob SHAs, so ref-to-ref diffs (qa...feature)
   // read content from git instead of the working tree — which may hold the
   // OLD side, or not hold added files at all.
-  const raw = runGit(["diff", "--raw", "-z", "--no-abbrev", "--no-color", ...gitArgs], cwd);
+  const raw = runGit(["diff", "--raw", "-z", "--no-abbrev", "--no-color", "--no-relative", ...gitArgs], cwd);
   const parsed = parseDiff(output);
   const rawEntries = parseRawEntries(raw);
   const newBlobs = new Map<string, string>();

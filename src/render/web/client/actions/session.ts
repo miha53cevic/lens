@@ -81,6 +81,7 @@ export function refresh(theme = getState().data.theme): Promise<boolean> {
         foldOverrides: new Map(),
         // the summary went away (e.g. a refresh in path mode): back to the code
         view: data.summary ? state.view : 'code',
+        summaryDot: false, // the analysis came with the newest summary: none waits
       };
     });
     noteDone('Refreshed', changeNote(before, contentKeys(data)));

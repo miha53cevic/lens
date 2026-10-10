@@ -48,6 +48,18 @@ function getHighlighter(): Promise<Highlighter> {
   return highlighterPromise;
 }
 
+/** The highlighter with `theme` loaded into it, and that theme. */
+async function withTheme(theme: string) {
+  if (!isBundledTheme(theme)) {
+    throw new Error(`unknown theme "${theme}" — pick a Shiki theme name (https://shiki.style/themes)`);
+  }
+  const highlighter = await getHighlighter();
+  if (!highlighter.getLoadedThemes().includes(theme)) {
+    await highlighter.loadTheme(theme);
+  }
+  return { highlighter, loaded: highlighter.getTheme(theme) };
+}
+
 /**
  * Best-effort Shiki language for files lens can't classify — diff mode still
  * shows them, and this gets them syntax colors when Shiki knows the language.
@@ -73,14 +85,7 @@ const ACCENT_SCOPES = ["entity.name.function", "support.function", "entity.name.
  * buttons and highlights belong to the theme. Falls back to the theme's foreground.
  */
 export async function themeAccent(theme: string): Promise<string> {
-  if (!isBundledTheme(theme)) {
-    throw new Error(`unknown theme "${theme}" — pick a Shiki theme name (https://shiki.style/themes)`);
-  }
-  const highlighter = await getHighlighter();
-  if (!highlighter.getLoadedThemes().includes(theme)) {
-    await highlighter.loadTheme(theme);
-  }
-  const loaded = highlighter.getTheme(theme);
+  const { loaded } = await withTheme(theme);
   for (const wanted of ACCENT_SCOPES) {
     // as TextMate matches: a rule's scope covers the scopes under it ("entity.name" colors
     // "entity.name.function"), and the most specific rule wins
@@ -111,7 +116,7 @@ export interface ThemeSwatch {
 
 export async function themeSwatch(theme: string): Promise<ThemeSwatch> {
   const accent = await themeAccent(theme);
-  const loaded = (await getHighlighter()).getTheme(theme);
+  const { loaded } = await withTheme(theme);
   return { name: theme, bg: loaded.bg, fg: loaded.fg, accent };
 }
 
@@ -125,14 +130,7 @@ export async function highlightSource(
   language: string | null,
   theme: string,
 ): Promise<HighlightResult> {
-  if (!isBundledTheme(theme)) {
-    throw new Error(`unknown theme "${theme}" — pick a Shiki theme name (https://shiki.style/themes)`);
-  }
-  const highlighter = await getHighlighter();
-  if (!highlighter.getLoadedThemes().includes(theme)) {
-    await highlighter.loadTheme(theme);
-  }
-  const loaded = highlighter.getTheme(theme);
+  const { highlighter, loaded } = await withTheme(theme);
 
   if (language === null || !(language in bundledLanguages)) {
     return {

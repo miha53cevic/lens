@@ -1,12 +1,13 @@
 // What an Ask question is about: the open change, and the selection in it.
 
 import type { LensState } from '../store.ts';
-import { baseName } from '../shared.ts';
+import { baseName, fileViewKey } from '../shared.ts';
 import { activeFile } from './plans.ts';
-import { unitLabel } from './signals.ts';
+import { unitLabel, unitViewKey } from './signals.ts';
 import { currentUnit, summaryPage } from './summaryList.ts';
 
 export interface AskContext {
+  /** The change and its code: a selection kept in it goes when a refresh brings other code */
   key: string;
   file: string;
   unitId: string | null;
@@ -17,11 +18,13 @@ export interface AskContext {
 export function askContext(state: LensState): AskContext | null {
   if (state.view === 'summary') {
     const unit = summaryPage(state) === 'unit' ? currentUnit(state) : null;
-    return unit ? { key: 'u:' + unit.id, file: unit.displayFile, unitId: unit.id, label: unitLabel(unit) } : null;
+    return unit
+      ? { key: 'u:' + unitViewKey(unit), file: unit.displayFile, unitId: unit.id, label: unitLabel(unit) }
+      : null;
   }
   const file = activeFile(state);
   // the file's name: the selection chip next to it carries the full path
-  return file ? { key: 'f:' + file.file, file: file.file, unitId: null, label: baseName(file.file) } : null;
+  return file ? { key: 'f:' + fileViewKey(file), file: file.file, unitId: null, label: baseName(file.file) } : null;
 }
 
 /** The kept selection, when it belongs to the open change. */

@@ -59,7 +59,7 @@ function QuestionAndAnswer({ question, listening, files }: QuestionAndAnswerProp
     <>
       <div className={clsx('ask-q', question.stale && 'stale')}>
         <div className='ask-chips'>
-          <button className='ask-chip unit ask-goto' onClick={() => askGoto(question)}>
+          <button className='ask-chip unit' onClick={() => askGoto(question)}>
             {question.label}
           </button>
           {question.selection && <span className='ask-chip'>{askSelLabel(question.selection)}</span>}
@@ -84,7 +84,7 @@ function QuestionAndAnswer({ question, listening, files }: QuestionAndAnswerProp
         </div>
       ) : (
         <div className='ask-a'>
-          <div className='ask-who ask-wait' data-asked={question.askedAt}>
+          <div className='ask-who ask-wait'>
             <span className='ask-spin' />
             {'waiting for agent · ' + Math.round((Date.now() - question.askedAt) / 1000) + 's'}
           </div>

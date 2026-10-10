@@ -4,7 +4,7 @@ import type { FoldRegion } from '../../../../model.ts';
 import type { ViewUnit } from '../../../../summary/view.ts';
 import type { LensState } from '../store.ts';
 import { memo, type ViewFile } from '../shared.ts';
-import { type CodeItem, fileSpans, hiddenCount, planCode, type RemovedLine, unitSpans } from '../rows.ts';
+import { type CodeItem, fileSpans, planCode, type RemovedLine, unitSpans } from '../rows.ts';
 import { currentUnit, summaryPage } from './summaryList.ts';
 
 /** "category|path:startLine" — a fold chip resets its category's one-by-one folds by the prefix. */
@@ -27,8 +27,6 @@ export function planRegions(items: CodeItem[]): FoldRegion[] {
 
 export interface FilePlan {
   items: CodeItem[];
-  /** How many unchanged lines hunks only hides */
-  hidden: number;
 }
 
 const buildFilePlan = memo(
@@ -43,8 +41,7 @@ const buildFilePlan = memo(
       }
     }
     const spans = fileSpans(file, hunksOnly, expanded);
-    const items = planCode(spans, file.regions, (afterLine) => removedAfter.get(afterLine) || []);
-    return { items, hidden: hiddenCount(items) };
+    return { items: planCode(spans, file.regions, (afterLine) => removedAfter.get(afterLine) || []) };
   },
 );
 

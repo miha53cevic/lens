@@ -5,7 +5,7 @@ import { getState } from '../store.ts';
 import { currentUnit } from '../model/summaryList.ts';
 import { unitById } from '../model/signals.ts';
 import { escapeHtml } from '../shared.ts';
-import { citedRow, flashCited, openSummaryUnit } from '../actions/summary.ts';
+import { flashCited, openSummaryUnit } from '../actions/summary.ts';
 import { jumpToLine, setView } from '../actions/views.ts';
 import { openFile } from '../actions/tabs.ts';
 
@@ -20,8 +20,8 @@ export function askMarkdown(markdown: string, cites: AskCite[], files: { file: s
       .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
     // a cite into a file the viewer doesn't have (outside the diff) has nowhere to go: it stays text
     for (const cite of cites.filter((candidate) => files.some((file) => file.file === candidate.file))) {
-      // refs are plain path characters, so the escaped text holds them as is
-      const ref = cite.ref.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      // the ref as the escaped text holds it: `R&D.ts:12` is `R&amp;D.ts:12` there
+      const ref = escapeHtml(cite.ref).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       html = html.replace(
         new RegExp('(?<![\\w./-])' + ref + '(?!\\d)', 'g'),
         '<button class="cite ask-cite" data-file="' +
@@ -66,7 +66,7 @@ export function askOpenCite(file: string, line: number): void {
   const state = getState();
   if (state.view === 'summary') {
     const unit = currentUnit(state);
-    if (unit && unit.displayFile === file && citedRow('N' + line) && flashCited('N' + line)) return;
+    if (unit && unit.displayFile === file && flashCited('N' + line)) return;
   }
   const fileIndex = state.data.files.findIndex((candidate) => candidate.file === file);
   if (fileIndex >= 0) jumpToLine(fileIndex, line);

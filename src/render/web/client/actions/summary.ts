@@ -55,7 +55,7 @@ export function setConcernMark(unit: Unit, concern: Concern, mark: ConcernMark):
 }
 
 /** The row a label ("N31" / "O16") points at, in the open unit's code. */
-export function citedRow(label: string): HTMLElement | null {
+function citedRow(label: string): HTMLElement | null {
   const selector = label.startsWith('O')
     ? '.row[data-old="' + label.slice(1) + '"]'
     : '.row[data-line="' + label.slice(1) + '"]';
