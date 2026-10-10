@@ -28,10 +28,6 @@ export function UnitPage({ unit }: { unit: Unit }) {
 
   return (
     <div className='sum-inner'>
-      <div className='kicker'>
-        <code title={unit.id}>{unit.displayFile}</code>
-        {unit.formattingOnly && <span>formatting only</span>}
-      </div>
       {summary ? (
         <h1 className='sum-headline'>{summary.headline}</h1>
       ) : (
@@ -57,6 +53,7 @@ export function UnitPage({ unit }: { unit: Unit }) {
         scope={unitLabel(unit)}
         added={unit.changedLines.length}
         removed={removedCount(unit.removals)}
+        tag={unit.formattingOnly ? 'formatting only' : undefined}
         className='unit-card'
         ruler={<UnitRuler unit={unit} />}
         action={

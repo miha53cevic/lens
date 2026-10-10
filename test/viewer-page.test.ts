@@ -586,6 +586,9 @@ pageTest("a unit's code has the Code view's folds, hunks and toolbar keys", asyn
   await key('v');
   await key('j');
   assert.equal($('.sum-headline').textContent, 'findOrders skips deleted orders');
+  // the card's header says where the unit is: no path line over the headline
+  assert.equal($$('.sum-inner .kicker').length, 0);
+  assert.equal($('.unit-card .code-path').textContent, 'src/orders.tsfindOrders');
   const code = '.unit-code .code';
   // hunks only: line 5 is far from the changes and the cited line
   assert.deepEqual(rows(code), ['⋯', 'R6', '−9', 'R9', '10', '11', '12']);

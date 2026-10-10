@@ -14,6 +14,8 @@ interface CodeCardProps {
   /** Lines the diff added and removed */
   added: number;
   removed: number;
+  /** A word on the change, after the counts, e.g. "formatting only" */
+  tag?: string;
   /** At the end of the header, e.g. the Summary tab's "Open in Code" */
   action?: ReactNode;
   /** A note about the whole file, under the header */
@@ -32,23 +34,26 @@ interface CodeCardProps {
  * path, the lines added and removed and the fold chips, over the code (CodeRows).
  */
 export function CodeCard(props: CodeCardProps) {
-  const { status, path, scope, added, removed, action, notice } = props;
+  const { status, path, scope, added, removed, tag, action, notice } = props;
   const name = baseName(path);
   return (
     <div className={clsx('code-card', props.className)}>
       <div className={clsx('code-head', status && 'st-' + status)}>
         {status && <StatusBadge status={status} />}
-        <span className='code-path' title={path}>
-          <span className='dir'>{path.slice(0, path.length - name.length)}</span>
-          <b>{name}</b>
-          {scope && <span className='scope'>{scope}</span>}
-        </span>
-        {(added > 0 || removed > 0) && (
-          <span className='counts'>
-            {added > 0 && <span className='a'>+{added}</span>}
-            {removed > 0 && <span className='d'>−{removed}</span>}
+        <span className='code-title'>
+          <span className='code-path' title={path}>
+            <span className='dir'>{path.slice(0, path.length - name.length)}</span>
+            <b>{name}</b>
+            {scope && <span className='scope'>{scope}</span>}
           </span>
-        )}
+          {(added > 0 || removed > 0) && (
+            <span className='counts'>
+              {added > 0 && <span className='a'>+{added}</span>}
+              {removed > 0 && <span className='d'>−{removed}</span>}
+            </span>
+          )}
+        </span>
+        {tag && <span className='tag'>{tag}</span>}
         <span className='spacer' />
         <FoldChips />
         {action}
