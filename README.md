@@ -96,7 +96,8 @@ explicitly is always analyzed.
   status: *Ready*; what's running, once it has run a moment (*Applying dracula…*,
   *Re-running the analysis…*); what a reload did (*Refreshed · 3 files changed*); a
   failure, with the server's reason, which stays until you dismiss it or start something
-  else; *Waiting for your agent*; or *Server stopped*, when a request can't reach lens
+  else; *Waiting for your agent* (or *No agent for your question*, when none is there to
+  answer it); or *Server stopped*, when a request can't reach lens
   anymore (*Retry* looks for it again). On the right, notices that show only while
   they apply: summaries the code has outgrown, a new summary waiting (click to load it),
   an agent listening.
@@ -227,6 +228,10 @@ it on another port). The agent is told to **only read and answer** — never edi
 or run commands that change the repo — and to answer from a read-only subagent when it
 has one. With no agent listening, the button turns into **Copy as prompt**: the
 question, file, lines and code as markdown, ready for any chat.
+
+A question whose agent went away says so instead of counting the wait: run `/lens-ask`
+again and the new agent gets it at once. An agent counts as there while it listens, for
+30 seconds after, and for up to 5 minutes while it answers a question it took.
 
 ## How folding works
 

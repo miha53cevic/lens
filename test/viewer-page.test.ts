@@ -923,6 +923,42 @@ pageTest('Ask with an agent listening sends the question with the selected lines
   assert.equal(($('#ask-input') as HTMLTextAreaElement).value, '', "the input clears once it's sent");
 });
 
+pageTest('a question with no agent to answer it says so, instead of counting the wait', async (page) => {
+  const question = {
+    id: 'q1',
+    text: 'why the deleted column?',
+    file: 'src/orders.ts',
+    unitId: null,
+    label: 'orders.ts',
+    hash: 'h1',
+    selection: null,
+    askedAt: Date.now() - 90_000,
+    handedAt: null,
+    answer: null,
+    stale: false,
+  };
+  page.ask = { listening: false, questions: [question] };
+  await key('\\');
+  assert.equal(
+    $('.ask-noagent').textContent,
+    'No agent is listening. Run /lens-ask in your agent to get this answered.',
+  );
+  assert.equal(document.querySelector('.ask-wait'), null, 'no spinner and no wait time');
+  assert.deepEqual(status(), {
+    kind: 'waiting',
+    label: 'No agent for your question',
+    detail: 'run /lens-ask in your agent',
+  });
+
+  // an agent starts listening: the next poll (here, the rail opening again) shows the wait
+  page.ask = { listening: true, questions: [question] };
+  await key('\\');
+  await key('\\');
+  assert.match($('.ask-wait').textContent!, /^waiting for agent · \d+s$/);
+  assert.equal(document.querySelector('.ask-noagent'), null);
+  assert.equal(status().label, 'Waiting for your agent');
+});
+
 pageTest('⏻ end stops the server and leaves a note', async (page) => {
   await click($('#end-session'));
   assert.ok(page.requests.some((request) => request.method === 'POST' && request.path === '/api/shutdown'));

@@ -44,14 +44,17 @@ export interface AskQuestion {
 }
 
 export interface AskState {
-  /** An agent is waiting for questions, or was a moment ago */
+  /** An agent is waiting for questions, was a moment ago, or is answering one */
   listening: boolean;
   questions: AskQuestion[];
 }
 
 export type NewQuestion = Pick<AskQuestion, "text" | "file" | "unitId" | "label" | "hash" | "selection">;
 
-/** A question handed out this long ago without an answer goes to the next listener (its agent likely died). */
+/**
+ * A question handed out this long ago without an answer goes to the next listener (its agent likely died).
+ * Until then its agent counts as there: while it answers, it has no listen open.
+ */
 export const REHAND_AFTER_MS = 5 * 60_000;
 /** Between `reply` and the next `listen` there's no open request; still count the agent as there. */
 export const LISTEN_GRACE_MS = 30_000;
@@ -76,6 +79,13 @@ export function createAskSession(now: () => number = Date.now): AskSession {
   const questions: AskQuestion[] = [];
   let openListens = 0;
   let lastListen = -Infinity;
+  /** No listen is open, and none was for a while */
+  const noListener = () => openListens === 0 && now() - lastListen >= LISTEN_GRACE_MS;
+  /** An agent took a question and may still be answering it */
+  const answering = () => {
+    const t = now();
+    return questions.some((q) => !q.answer && q.handedAt !== null && t - q.handedAt < REHAND_AFTER_MS);
+  };
 
   return {
     add(q) {
@@ -114,6 +124,8 @@ export function createAskSession(now: () => number = Date.now): AskSession {
       for (const q of questions) q.stale = currentHash(q) !== q.hash;
     },
     listenStart() {
+      // nobody listened for a while, so the agent that took a question is gone: this one gets it at once
+      if (noListener()) for (const q of questions) if (!q.answer) q.handedAt = null;
       openListens++;
     },
     listenEnd() {
@@ -121,7 +133,7 @@ export function createAskSession(now: () => number = Date.now): AskSession {
       lastListen = now();
     },
     state() {
-      return { listening: openListens > 0 || now() - lastListen < LISTEN_GRACE_MS, questions };
+      return { listening: !noListener() || answering(), questions };
     },
   };
 }

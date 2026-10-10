@@ -87,6 +87,43 @@ test("ask session: listening while a listen is open, and for a grace period afte
   assert.equal(s.state().listening, false);
 });
 
+test("ask session: an agent answering a question still counts as there, until it likely died", () => {
+  let t = 0;
+  const s = createAskSession(() => t);
+  s.listenStart();
+  s.add(Q);
+  assert.equal(s.next()?.id, "q1");
+  s.listenEnd();
+  t += LISTEN_GRACE_MS * 2;
+  assert.equal(s.state().listening, true, "it has no listen open while it writes the answer");
+  t = REHAND_AFTER_MS;
+  assert.equal(s.state().listening, false, "it never answered");
+  s.answer("q1", "late", []);
+  assert.equal(s.state().listening, false);
+});
+
+test("ask session: a question whose agent went away goes to the next listener at once", () => {
+  let t = 0;
+  const s = createAskSession(() => t);
+  s.listenStart();
+  s.add(Q);
+  assert.equal(s.next()?.id, "q1");
+  s.listenEnd();
+  t += LISTEN_GRACE_MS - 1;
+  s.listenStart();
+  assert.equal(s.next(), null, "a second listener, while the first agent may still be answering");
+  s.listenEnd();
+  t += LISTEN_GRACE_MS;
+  s.listenStart();
+  assert.equal(s.next()?.id, "q1", "nobody listened for a while: the first agent is gone");
+  assert.equal(s.next(), null, "and it's handed out once");
+  s.answer("q1", "because", []);
+  s.listenEnd();
+  t += LISTEN_GRACE_MS;
+  s.listenStart();
+  assert.equal(s.next(), null, "an answered question stays answered");
+});
+
 test("ask session: a question goes stale when its code's hash changes or it's gone", () => {
   const s = createAskSession();
   s.add(Q);

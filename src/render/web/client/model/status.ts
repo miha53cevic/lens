@@ -52,12 +52,17 @@ const working: StatusSource = (state) => {
 const waitingForAgent: StatusSource = (state) => {
   const question = waitingQuestion(state);
   if (!question) return null;
+  const action = state.ask.open ? null : 'openAsk';
+  // nobody will answer it: say that instead of counting the wait
+  if (!state.ask.data.listening) {
+    return { kind: 'waiting', label: 'No agent for your question', detail: 'run /lens-ask in your agent', action };
+  }
   const seconds = Math.max(0, Math.round((Date.now() - question.askedAt) / 1000));
   return {
     kind: 'waiting',
     label: 'Waiting for your agent',
     detail: seconds + ' s',
-    action: state.ask.open ? null : 'openAsk',
+    action,
   };
 };
 
