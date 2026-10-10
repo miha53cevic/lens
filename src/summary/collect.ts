@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { gitDiffTargets, gitRoot, readBlob, runGit, type DiffTarget, type RenamedFile } from "../git.ts";
+import { gitDiffTargets, gitRoot, readBlobs, runGit, type DiffTarget, type RenamedFile } from "../git.ts";
 import { resolvePr } from "../pr.ts";
 import { compilePatterns, matchesAny } from "../glob.ts";
 import { relPath } from "../paths.ts";
@@ -47,18 +47,16 @@ export async function loadDiff(command: "diff" | "pr", args: string[], cwd: stri
     if (matchesAny(display, excludeRegexes)) { excluded.push(display); return false; }
     return true;
   });
+  // New-side content: from git for ref diffs, from disk for the working tree.
+  const newBlobs = readBlobs(targets.flatMap((t) => (t.newBlob !== undefined ? [t.newBlob] : [])), cwd);
   return {
     root, diffArgs, label, targets, excluded,
-    sources: new Map(targets.map((t) => [t.file, readNewSource(t, cwd)])),
+    sources: new Map(targets.map((t) =>
+      [t.file, t.newBlob !== undefined ? newBlobs.get(t.newBlob)! : readFileSync(t.file, "utf8")])),
     deleted: result.deleted,
     deletedBlobs: result.deletedBlobs,
     renamed: result.renamed,
   };
-}
-
-/** New-side content of a changed file: from git for ref diffs, from disk for the working tree. */
-function readNewSource(target: Pick<DiffTarget, "file" | "newBlob">, cwd: string): string {
-  return target.newBlob !== undefined ? readBlob(target.newBlob, cwd) : readFileSync(target.file, "utf8");
 }
 
 /**
@@ -76,25 +74,29 @@ export async function collectUnits(
   // Patterns match the path as lens shows it (relative to where it runs),
   // like loadDiff's exclude check and the viewer's "hide tests".
   const shown = (abs: string) => relPath(cwd, abs);
+  const deleted = diff.deleted.filter((abs) => !matchesAny(shown(abs), excludeRegexes));
+  const oldBlobs = readBlobs([
+    ...diff.targets.flatMap((t) => (t.oldBlob ? [t.oldBlob] : [])),
+    ...deleted.flatMap((abs) => diff.deletedBlobs.get(abs) ?? []),
+  ], cwd);
   for (const t of diff.targets) {
     const file = relPath(diff.root, t.file);
     inputs.push({
       file,
       newSource: diff.sources.get(t.file)!,
-      oldSource: t.oldBlob ? readBlob(t.oldBlob, cwd) : null,
+      oldSource: t.oldBlob ? oldBlobs.get(t.oldBlob)! : null,
       changedLines: t.changedLines,
       removals: t.removals,
       isTest: matchesAny(shown(t.file), testRegexes),
     });
   }
-  for (const abs of diff.deleted) {
+  for (const abs of deleted) {
     const file = relPath(diff.root, abs);
-    if (matchesAny(shown(abs), excludeRegexes)) continue;
     const blob = diff.deletedBlobs.get(abs);
     inputs.push({
       file,
       newSource: null,
-      oldSource: blob ? readBlob(blob, cwd) : null,
+      oldSource: blob ? oldBlobs.get(blob)! : null,
       changedLines: [],
       removals: [],
       isTest: matchesAny(shown(abs), testRegexes),

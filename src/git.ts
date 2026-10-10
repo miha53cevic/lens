@@ -154,9 +154,68 @@ export function runGit(args: string[], cwd: string): string {
   return execFileSync("git", args, { cwd, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
 }
 
-/** Reads a blob's content from git's object store. */
-export function readBlob(sha: string, cwd: string): string {
-  return runGit(["cat-file", "blob", sha], cwd);
+/** How many bytes of blob content one `git cat-file --batch` is asked for; a bigger blob goes alone. */
+const BLOB_CHUNK_BYTES = 32 * 1024 * 1024;
+
+/**
+ * Reads blobs' contents from git's object store, by SHA. One git process per chunk of
+ * blobs instead of one per blob: a spawn costs ~15 ms on Windows, which is seconds on a
+ * big diff. Nothing is cached, and a blob that doesn't come back whole is an error,
+ * never an empty file.
+ */
+export function readBlobs(shas: Iterable<string>, cwd: string): Map<string, string> {
+  const wanted = [...new Set(shas)];
+  const contents = new Map<string, string>();
+  if (wanted.length === 0) return contents;
+  for (const sha of wanted) {
+    // the SHAs are fed to git on stdin, a line each
+    if (!/^[0-9a-f]{40,64}$/.test(sha)) throw new Error(`not a blob SHA: "${sha}"`);
+  }
+  const batch = (mode: "--batch-check" | "--batch", names: string[], maxBuffer: number): Buffer =>
+    execFileSync("git", ["cat-file", mode], { cwd, input: names.join("\n") + "\n", maxBuffer });
+
+  // the sizes first, so each chunk's output is bounded and known
+  const sizes = new Map<string, number>();
+  const checked = batch("--batch-check", wanted, 64 * 1024 * 1024).toString("utf8").split("\n");
+  wanted.forEach((sha, index) => {
+    const [name, type, size] = (checked[index] ?? "").split(" ");
+    if (name !== sha || type !== "blob" || !/^\d+$/.test(size ?? "")) {
+      throw new Error(`git has no blob ${sha} (cat-file answered "${checked[index] ?? ""}")`);
+    }
+    sizes.set(sha, Number(size));
+  });
+
+  const readChunk = (chunk: string[], bytes: number) => {
+    // each blob comes as "<sha> blob <size>\n", its content, "\n"
+    const output = batch("--batch", chunk, bytes + chunk.length * 128 + 1024);
+    let offset = 0;
+    for (const sha of chunk) {
+      const size = sizes.get(sha)!;
+      const headerEnd = output.indexOf(10, offset);
+      const header = headerEnd === -1 ? "" : output.toString("utf8", offset, headerEnd);
+      const end = headerEnd + 1 + size;
+      if (header !== `${sha} blob ${size}` || end >= output.length || output[end] !== 10) {
+        throw new Error(`git cat-file returned blob ${sha} incomplete`);
+      }
+      contents.set(sha, output.toString("utf8", headerEnd + 1, end));
+      offset = end + 1;
+    }
+    if (offset !== output.length) throw new Error("git cat-file returned more than the blobs asked for");
+  };
+  let chunk: string[] = [];
+  let chunkBytes = 0;
+  for (const sha of wanted) {
+    const size = sizes.get(sha)!;
+    if (chunk.length > 0 && chunkBytes + size > BLOB_CHUNK_BYTES) {
+      readChunk(chunk, chunkBytes);
+      chunk = [];
+      chunkBytes = 0;
+    }
+    chunk.push(sha);
+    chunkBytes += size;
+  }
+  readChunk(chunk, chunkBytes);
+  return contents;
 }
 
 export function gitRoot(cwd: string): string {
