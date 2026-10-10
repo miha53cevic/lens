@@ -1,4 +1,5 @@
 import { createServer } from "node:http";
+import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -72,6 +73,8 @@ export type ViewerPayload = Omit<ViewerInput, "root" | "cwd" | "files" | "latest
   files: (ViewerFile & { tokens: ViewerToken[][] })[];
   themePinned: boolean;
   canRefresh: boolean;
+  /** Which analysis the files are from: tokens fetched later are applied only when theirs is the same */
+  analysis: string;
 };
 
 export interface ThemeTokens {
@@ -83,10 +86,31 @@ export interface ThemeTokens {
   tokens: ViewerToken[][][];
 }
 
-/** Every file's Shiki tokens in one theme. */
-export async function highlightFiles(files: ViewerFile[], theme: string): Promise<ThemeTokens> {
+/** What /api/tokens answers: a theme's tokens, and the analysis whose files they are. */
+export type TokensResponse = ThemeTokens & { analysis: string };
+
+/**
+ * Every file's Shiki tokens in one theme. `previous` is the last analysis in the same theme (a ↻
+ * refresh): a file whose path, language and text are all the same takes its tokens over, so only
+ * the files that changed are tokenized again. The text is compared whole, not by a hash.
+ */
+export async function highlightFiles(
+  files: ViewerFile[],
+  theme: string,
+  previous?: { files: ViewerFile[]; tokens: ThemeTokens },
+): Promise<ThemeTokens> {
+  const reusable = new Map<string, { file: ViewerFile; tokens: ViewerToken[][] }>();
+  if (previous && previous.tokens.theme === theme) {
+    previous.files.forEach((file, index) => reusable.set(file.file, { file, tokens: previous.tokens.tokens[index] }));
+  }
   const results = await Promise.all(
-    files.map((f) => highlightSource(f.source, f.language ?? shikiLangForFile(f.file), theme)),
+    files.map((f) => {
+      const same = reusable.get(f.file);
+      if (same && same.file.language === f.language && same.file.source === f.source) {
+        return { tokens: same.tokens, fg: previous!.tokens.fg, bg: previous!.tokens.bg };
+      }
+      return highlightSource(f.source, f.language ?? shikiLangForFile(f.file), theme);
+    }),
   );
   // the theme's own colors, not a file's: with no files, the page still follows the theme
   const swatch = await themeSwatch(theme);
@@ -101,7 +125,8 @@ export async function highlightFiles(files: ViewerFile[], theme: string): Promis
 
 /** The page's payload: the analysis, made serializable, with one theme's tokens. */
 export function viewerPayload(
-  input: ViewerInput, t: ThemeTokens, themes: ThemeSwatch[], opts: { themePinned: boolean; canRefresh: boolean },
+  input: ViewerInput, t: ThemeTokens, themes: ThemeSwatch[],
+  opts: { themePinned: boolean; canRefresh: boolean; analysis: string },
 ): ViewerPayload {
   const { root: _root, cwd: _cwd, latestSummary: _latest, ...data } = input;
   return {
@@ -153,24 +178,38 @@ export async function serveViewer(
     process.exit(0);
   };
 
-  // Caches keyed by what they were made from: a ↻ refresh (new files) or a newer summary
-  // (a new ViewerInput) starts fresh ones, and work that was under way fills the old ones.
-  const tokenCache = new WeakMap<ViewerFile[], Map<string, ThemeTokens>>();
-  // pages are cached per theme: payloads can be MBs, and stringifying them on every reload is waste
-  const htmlCache = new WeakMap<ViewerInput, Map<string, string>>();
-  const cacheFor = <K extends object, V>(caches: WeakMap<K, Map<string, V>>, key: K) => {
-    let cache = caches.get(key);
-    if (!cache) caches.set(key, (cache = new Map()));
-    return cache;
+  // Each analysis has an id, unique to this server run too: the page says which one its files are
+  // from, and takes tokens only for that one (a ↻ refresh elsewhere, or a restart, makes another).
+  const run = randomUUID();
+  const analysisIds = new WeakMap<ViewerFile[], string>();
+  let analysisCount = 0;
+  const analysisOf = (files: ViewerFile[]): string => {
+    let id = analysisIds.get(files);
+    if (!id) analysisIds.set(files, (id = run + ":" + ++analysisCount));
+    return id;
   };
 
-  async function tokensFor(files: ViewerFile[], theme: string): Promise<ThemeTokens> {
-    const cache = cacheFor(tokenCache, files);
-    const cached = cache.get(theme);
-    if (cached) return cached;
-    const entry = await highlightFiles(files, theme);
-    cache.set(theme, entry);
-    return entry;
+  // One theme's tokens of one analysis are kept, and one page: they are MBs each on a big diff, so
+  // another theme or a ↻ refresh replaces them instead of adding to them. The promise is what's
+  // kept, so requests that arrive while it tokenizes wait for the same work.
+  let heldTokens: { files: ViewerFile[]; theme: string; tokens: Promise<ThemeTokens> } | null = null;
+  let heldPage: { input: ViewerInput; theme: string; html: string } | null = null;
+
+  function tokensFor(files: ViewerFile[], theme: string): Promise<ThemeTokens> {
+    if (heldTokens && heldTokens.files === files && heldTokens.theme === theme) return heldTokens.tokens;
+    const previous = heldTokens;
+    const tokens = (async () => {
+      // a ↻ refresh in the same theme: the files that didn't change keep their tokens
+      const reuse = previous && previous.theme === theme
+        ? await previous.tokens.then((done) => ({ files: previous.files, tokens: done }), () => undefined)
+        : undefined;
+      return highlightFiles(files, theme, reuse);
+    })();
+    const entry = { files, theme, tokens };
+    heldTokens = entry;
+    // a failure isn't kept: the next request tries again
+    tokens.catch(() => { if (heldTokens === entry) heldTokens = null; });
+    return tokens;
   }
 
   const themes = await Promise.all(
@@ -179,7 +218,9 @@ export async function serveViewer(
 
   async function payloadFor(input: ViewerInput, theme: string): Promise<ViewerPayload> {
     const t = await tokensFor(input.files, theme);
-    return viewerPayload(input, t, themes, { themePinned: opts.themePinned, canRefresh: reanalyze !== undefined });
+    return viewerPayload(input, t, themes, {
+      themePinned: opts.themePinned, canRefresh: reanalyze !== undefined, analysis: analysisOf(input.files),
+    });
   }
 
   // Warm the initial theme before accepting requests.
@@ -196,11 +237,10 @@ export async function serveViewer(
     // the page opens with the summary as it is now, not as it was when the server started
     syncSummary();
     const input = current;
-    const cache = cacheFor(htmlCache, input);
-    const cached = cache.get(theme);
-    if (cached) return cached;
+    // stringifying an MBs payload on every reload is waste
+    if (heldPage && heldPage.input === input && heldPage.theme === theme) return heldPage.html;
     const html = renderPage(template, await payloadFor(input, theme));
-    cache.set(theme, html);
+    heldPage = { input, theme, html };
     return html;
   }
 
@@ -217,22 +257,28 @@ export async function serveViewer(
       if (url.pathname === "/" || url.pathname === "/index.html") {
         // the theme the reader picked (the viewer keeps it in a cookie), unless --theme pinned this run's
         const picked = themeParam || opts.themePinned ? null : readCookie(req, THEME_COOKIE);
+        // the page first: once the headers are out, a failure can't be answered with a 500
+        const html = await htmlFor(picked && isBundledTheme(picked) ? picked : theme);
         res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-        res.end(await htmlFor(picked && isBundledTheme(picked) ? picked : theme));
+        res.end(html);
       } else if (url.pathname === "/api/tokens") {
         if (themeParam && !isBundledTheme(themeParam)) {
           sendJson(res, 400, { error: `unknown theme "${themeParam}"` });
           return;
         }
-        sendJson(res, 200, await tokensFor(current.files, theme));
+        // the files as they are now, named: tokens made for them must not land on another analysis's
+        const { files } = current;
+        const tokens: TokensResponse = { ...(await tokensFor(files, theme)), analysis: analysisOf(files) };
+        sendJson(res, 200, tokens);
       } else if (url.pathname === "/api/refresh") {
         if (!reanalyze) {
           sendJson(res, 404, { error: "refresh not available" });
           return;
         }
-        current = await reanalyze();
+        const input = await reanalyze();
+        current = input;
         ask.refresh();
-        sendJson(res, 200, await payloadFor(current, theme));
+        sendJson(res, 200, await payloadFor(input, theme));
       } else if (url.pathname === "/api/summary") {
         // A submit since the page loaded: take the stored summary (↻ refresh recomputes the units).
         syncSummary();

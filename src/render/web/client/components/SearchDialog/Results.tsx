@@ -54,7 +54,6 @@ export function Results({ query, hits, selected }: ResultsProps) {
       <div
         key={hitIndex}
         className={clsx('search-hit', hitIndex === selected && 'selected')}
-        data-idx={hitIndex}
         onClick={() => jumpToHit(hit.fileIndex, hit.line)}
       >
         <span className='ln'>{hit.line}</span>

@@ -31,7 +31,7 @@ export function SearchDialog() {
               if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
                 moveSearchSelection(event.key === 'ArrowDown' ? 1 : -1, hits.length);
                 event.preventDefault();
-              } else if (event.key === 'Enter' && hits[search.selected]) {
+              } else if (event.key === 'Enter' && !event.nativeEvent.isComposing && hits[search.selected]) {
                 jumpToHit(hits[search.selected].fileIndex, hits[search.selected].line);
               }
             }}

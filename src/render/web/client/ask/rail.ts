@@ -1,10 +1,11 @@
 // The Ask rail: open or not, its width, the poll and the send. lens never calls an AI: the
 // reader's agent answers through `lens ask listen` / `lens ask reply`.
 
-import type { AskQuestion } from '../../../../ask/session.ts';
 import { commit, getState, type LensState, update } from '../store.ts';
 import { askContext, askSelection } from '../model/askContext.ts';
+import { waitingQuestion } from '../model/status.ts';
 import { writePref } from '../shared.ts';
+import { endActivity, noteDone, noteFailure, reach, request, ServerGone, startActivity } from '../actions/status.ts';
 
 const ASK_POLL_MS = 1000;
 export const ASK_MAX_LINES = 400;
@@ -45,12 +46,6 @@ export function growInput(input: HTMLTextAreaElement) {
   input.style.height = Math.min(input.scrollHeight, lineHeight * ASK_MAX_INPUT_ROWS + 12) + 'px';
 }
 
-export function askWaiting(state: LensState): AskQuestion | null {
-  const questions = state.ask.data.questions;
-  const last = questions[questions.length - 1];
-  return last && !last.answer ? last : null;
-}
-
 /** Polls the chat while the rail is open or a question waits for its answer. */
 export async function askPoll(): Promise<void> {
   if (pollTimer) {
@@ -58,8 +53,9 @@ export async function askPoll(): Promise<void> {
     pollTimer = null;
   }
   const patch: Partial<LensState['ask']> = {};
+  const waitedFor = waitingQuestion(getState());
   try {
-    const response = await fetch('/api/ask');
+    const response = await reach('/api/ask');
     if (response.ok) {
       if (getState().ask.error === ASK_GONE) patch.error = null; // it's back (restarted on the same port)
       const json = await response.text();
@@ -76,7 +72,10 @@ export async function askPoll(): Promise<void> {
   commit((state) => ({ ask: { ...state.ask, ...patch, tick: state.ask.tick + 1 } })); // the wait times tick
   if (patch.data && thread && atEnd) thread.scrollTop = thread.scrollHeight;
   const state = getState();
-  if (state.ask.open || askWaiting(state)) pollTimer = setTimeout(askPoll, ASK_POLL_MS);
+  // the answer came with the rail closed: the status bar says so
+  const answered = waitedFor && state.ask.data.questions.find((question) => question.id === waitedFor.id)?.answer;
+  if (answered && !state.ask.open) noteDone('Your agent answered');
+  if (state.ask.open || waitingQuestion(state)) pollTimer = setTimeout(askPoll, ASK_POLL_MS);
 }
 
 /**
@@ -96,20 +95,23 @@ export async function askSend(text: string): Promise<'sent' | 'copied' | null> {
     selection: selection ? { file: selection.file, lines: selection.lines } : null,
   });
   let result: 'sent' | 'copied' | null = null;
+  startActivity('ask-send', 'Sending your question…');
   try {
     if (state.ask.data.listening) {
-      const response = await fetch('/api/ask', { method: 'POST', body });
-      if (!response.ok) throw new Error((await response.json()).error || 'http ' + response.status);
+      await request('/api/ask', { method: 'POST', body });
       setAsk({ error: null, selection: null });
       result = 'sent';
     } else {
-      const response = await fetch('/api/ask/prompt', { method: 'POST', body });
-      if (!response.ok) throw new Error((await response.json()).error || 'http ' + response.status);
+      const response = await request('/api/ask/prompt', { method: 'POST', body });
       await navigator.clipboard.writeText((await response.json()).text);
       result = 'copied';
     }
   } catch (error) {
     setAsk({ error: "couldn't send: " + (error as Error).message });
+    // a stopped server shows in the status bar as that
+    if (!(error instanceof ServerGone)) noteFailure("Couldn't send your question", (error as Error).message);
+  } finally {
+    endActivity('ask-send');
   }
   askPoll();
   return result;

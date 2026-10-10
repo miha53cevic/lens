@@ -334,6 +334,59 @@ async function run(i: number, tx: Tx, user: User | null) {
   assert.deepEqual(regions.map((r) => [r.category, r.startLine, r.endLine]), [["logging", 15, 15]]);
 });
 
+test("a catch that returns its log call exits too: it stays visible", async () => {
+  const regions = await regionsOf(`
+function f() {
+  try {
+    return save();
+  } catch (err) {
+    return logger.error(err);
+  }
+}
+`.trim());
+  assert.equal(regions.filter((r) => r.category === "error-boilerplate").length, 0);
+});
+
+test("a guard, catch or accessor sharing its line with other code isn't folded", async () => {
+  const guard = await regionsOf(`
+function f(x: string) {
+  const a = compute(x); if (!a) return null;
+  if (!a.ok) return null; // why
+  return a.value;
+}
+`.trim());
+  assert.deepEqual(guard.map((r) => [r.category, r.startLine, r.endLine]), [["guard", 3, 3]],
+    "a trailing comment keeps the guard");
+
+  const caught = await regionsOf(`
+async function f() {
+  try { await save(); } catch (e) { logger.error(e); }
+}
+`.trim());
+  assert.deepEqual(caught, []);
+
+  const accessor = await regionsOf(`
+class Box {
+  private _x = 1; get x() { return this._x; }
+  other() { return compute(2); }
+}
+`.trim());
+  assert.deepEqual(accessor, []);
+});
+
+test("javascript: setters and delegation fold as in typescript", async () => {
+  const regions = await regionsOf(`
+class A {
+  set name(v) { this._name = v; }
+  send(msg) { this.bus.send(msg); }
+  log(...args) { this.inner.log(...args); }
+  load(id, retries = 3) { return this.repo.load(id, retries); }
+}
+`.trim(), "sample.js");
+  assert.deepEqual(regions.map((r) => [r.category, r.startLine, r.endLine, r.summary]),
+    [["accessor", 2, 4, "3 accessors — set name, send(), log() (3 lines)"]]);
+});
+
 test("code sharing an import's line isn't folded with it", async () => {
   const sameLine = await regionsOf(`import "./polyfill"; main();\nfunction main() { return 1; }`);
   assert.equal(sameLine.filter((r) => r.category === "import").length, 0);

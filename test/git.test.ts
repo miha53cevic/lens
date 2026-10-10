@@ -4,7 +4,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { parseDiff, parseRawEntries, gitDiffTargets, readBlob } from "../src/git.ts";
+import { parseDiff, parseRawEntries, gitDiffTargets, readBlobs } from "../src/git.ts";
 
 const SAMPLE = `diff --git a/src/api.ts b/src/api.ts
 index 111..222 100644
@@ -204,11 +204,31 @@ test("gitDiffTargets: ref-to-ref diffs read the new side from git, not the worki
     const added = result.targets.find((t) => t.file.endsWith("b.ts"))!;
     assert.equal(added.status, "added");
     assert.ok(added.newBlob);
-    assert.equal(readBlob(added.newBlob!, dir), "export const b = 1;\n");
-
     const modified = result.targets.find((t) => t.file.endsWith("a.ts"))!;
     assert.ok(modified.newBlob);
-    assert.equal(readBlob(modified.newBlob!, dir), "export const a = 2;\n", "feature's content, not main's");
+    const blobs = readBlobs([added.newBlob!, modified.newBlob!], dir);
+    assert.equal(blobs.get(added.newBlob!), "export const b = 1;\n");
+    assert.equal(blobs.get(modified.newBlob!), "export const a = 2;\n", "feature's content, not main's");
+  });
+});
+
+test("readBlobs: every blob comes back whole, and one git doesn't have is an error", () => {
+  withRepo((dir, git) => {
+    // multi-byte text, no trailing newline, an empty file: the sizes are bytes, not characters
+    const contents = ["const s = \"žćč → ✓\";\n", "no newline at the end", "", "a\n\nb\n"];
+    contents.forEach((content, index) => writeFileSync(join(dir, `f${index}.ts`), content));
+    git("add", "-A");
+    git("commit", "-qm", "files");
+    const shas = contents.map((_, index) => git("rev-parse", `HEAD:f${index}.ts`).trim());
+
+    const blobs = readBlobs([...shas, shas[0]], dir);
+    assert.equal(blobs.size, contents.length, "a SHA asked for twice is read once");
+    shas.forEach((sha, index) => assert.equal(blobs.get(sha), contents[index]));
+
+    assert.equal(readBlobs([], dir).size, 0);
+    assert.throws(() => readBlobs([shas[0], "0".repeat(39) + "1"], dir), /git has no blob 0+1/);
+    assert.throws(() => readBlobs([git("rev-parse", "HEAD").trim()], dir), /git has no blob/, "a commit isn't a blob");
+    assert.throws(() => readBlobs(["HEAD"], dir), /not a blob SHA/);
   });
 });
 

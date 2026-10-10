@@ -18,20 +18,16 @@ export function fileStatus(status: string): FileStatus {
 }
 
 /** The status as one colored letter: the tree's rows and the tabs. */
-export function StatusLetter({ status, title }: { status: FileStatus; title?: string }) {
-  return (
-    <span className={'status-letter st-' + status} title={title}>
-      {LETTERS[status]}
-    </span>
-  );
+export function StatusLetter({ status }: { status: FileStatus }) {
+  return <span className={'status-letter st-' + status}>{LETTERS[status]}</span>;
 }
 
 /** The status spelled out, in its color: a code card's header. */
-export function StatusBadge({ status, note }: { status: FileStatus; note?: string }) {
+export function StatusBadge({ status }: { status: FileStatus }) {
   return (
     <span className={'status-badge st-' + status}>
       <span className='letter'>{LETTERS[status]}</span>
-      {NAMES[status] + (note ? ' · ' + note : '')}
+      {NAMES[status]}
     </span>
   );
 }

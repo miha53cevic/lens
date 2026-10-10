@@ -156,7 +156,10 @@ export function renderUnit(unit: Unit, source: string | undefined): string {
   const meta: string[] = [unit.kind, unit.status];
   if (unit.formattingOnly) meta.push("formatting only (whitespace)");
   const where = unit.ranges.length > 0 ? ` · lines ${unit.ranges[0].start}–${unit.ranges[unit.ranges.length - 1].end}` : "";
-  return `## ${unit.id}\n${meta.join(" · ")}${where}\n\n\`\`\`\n${out.join("\n")}\n\`\`\`\n`;
+  const code = out.join("\n");
+  // a fence longer than any run of backticks in the code: a changed README's own fences don't end it
+  const fence = "`".repeat(Math.max(3, ...[...code.matchAll(/`+/g)].map((run) => run[0].length + 1)));
+  return `## ${unit.id}\n${meta.join(" · ")}${where}\n\n${fence}\n${code}\n${fence}\n`;
 }
 
 function renderInstructions(

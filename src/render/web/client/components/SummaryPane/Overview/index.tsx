@@ -11,10 +11,11 @@ import { AgentOverview } from './AgentOverview.tsx';
 const SHOWN_SIGNALS: SignalId[] = ['bug', 'risk', 'question', 'breaks'];
 
 export function Overview() {
-  const { summary, list, label } = useLens((state) => ({
+  const { summary, list, label, checking } = useLens((state) => ({
     summary: state.data.summary!,
     list: listModel(state)!,
     label: state.data.label,
+    checking: state.summaryChecking,
   }));
   const units = list.units; // hide tests: the counts follow the list
   const fileCount = new Set(units.map((unit) => unit.displayFile)).size;
@@ -44,7 +45,7 @@ export function Overview() {
           ))}
         </div>
       )}
-      <AgentOverview summary={summary} anySummarized={list.summarized > 0} />
+      <AgentOverview summary={summary} anySummarized={list.summarized > 0} checking={checking} />
     </div>
   );
 }

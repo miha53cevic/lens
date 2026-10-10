@@ -4,19 +4,33 @@ import { CopyCommand } from '../../../ui/CopyCommand.tsx';
 interface AgentOverviewProps {
   summary: SummaryView;
   anySummarized: boolean;
+  /** The server is being asked for a newer summary */
+  checking: boolean;
 }
 
 /** The agent's account of the whole diff, or what to run to get one. */
-export function AgentOverview({ summary, anySummarized }: AgentOverviewProps) {
+export function AgentOverview({ summary, anySummarized, checking }: AgentOverviewProps) {
   const overview = summary.overview;
-  if (!overview) {
-    return anySummarized ? (
+  if (!overview && anySummarized) {
+    return (
       <div className='sum-note'>
         No overview yet — run <CopyCommand command={summary.command} /> again to add one.
       </div>
-    ) : (
-      <div className='sum-note'>
-        Not summarized yet — run <CopyCommand command={summary.command} /> in your agent.
+    );
+  }
+  if (!overview) {
+    // while the server is asked for a newer summary, "not written yet" waits: it may be about to arrive
+    if (checking) return null;
+    // nothing summarized yet: how to get a summary, where it will be
+    return (
+      <div className='ov-what' id='no-summary'>
+        <div className='ov-what-label'>Agent summary</div>
+        <p className='ov-how'>Not written yet. Your coding agent writes it: run this in it.</p>
+        <CopyCommand command={summary.command} block />
+        <p className='ov-how'>
+          Without the skill, any agent with a shell can follow <CopyCommand command={summary.cli} />. It appears here
+          when it's done.
+        </p>
       </div>
     );
   }

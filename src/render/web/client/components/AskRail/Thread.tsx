@@ -38,19 +38,28 @@ export function Thread() {
           )}
         </div>
       ) : (
-        questions.map((question) => <QuestionAndAnswer key={question.id} question={question} files={files} />)
+        questions.map((question) => (
+          <QuestionAndAnswer key={question.id} question={question} listening={listening} files={files} />
+        ))
       )}
     </div>
   );
 }
 
-function QuestionAndAnswer({ question, files }: { question: AskQuestion; files: { file: string }[] }) {
+interface QuestionAndAnswerProps {
+  question: AskQuestion;
+  /** An agent is there to answer it */
+  listening: boolean;
+  files: { file: string }[];
+}
+
+function QuestionAndAnswer({ question, listening, files }: QuestionAndAnswerProps) {
   const answer = question.answer;
   return (
     <>
       <div className={clsx('ask-q', question.stale && 'stale')}>
         <div className='ask-chips'>
-          <button className='ask-chip unit ask-goto' onClick={() => askGoto(question)}>
+          <button className='ask-chip unit' onClick={() => askGoto(question)}>
             {question.label}
           </button>
           {question.selection && <span className='ask-chip'>{askSelLabel(question.selection)}</span>}
@@ -68,9 +77,14 @@ function QuestionAndAnswer({ question, files }: { question: AskQuestion; files: 
               askMarkdown(answer.markdown, question.stale ? [] : answer.cites, files),
           }}
         />
+      ) : !listening ? (
+        // nobody will answer it: no spinner and no wait time, only what to run
+        <div className='ask-a ask-noagent'>
+          No agent is listening. Run <CopyCommand command='/lens-ask' /> in your agent to get this answered.
+        </div>
       ) : (
         <div className='ask-a'>
-          <div className='ask-who ask-wait' data-asked={question.askedAt}>
+          <div className='ask-who ask-wait'>
             <span className='ask-spin' />
             {'waiting for agent · ' + Math.round((Date.now() - question.askedAt) / 1000) + 's'}
           </div>

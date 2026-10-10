@@ -63,7 +63,6 @@ export interface ListModel {
   counts: Record<NonNullable<SignalFilter>, number>;
   /** The signal filter in effect: one whose last unit went away (dismissed) lifts */
   signal: SignalFilter;
-  text: string;
   sections: Section[];
   others: Unit[];
   folded: Set<string>;
@@ -133,7 +132,6 @@ const buildList = memo(
       units,
       counts,
       signal,
-      text,
       sections,
       others,
       folded,
@@ -166,9 +164,7 @@ export function currentUnit(state: LensState): Unit | null {
   return list ? unitById(state.data.summary, list.activeId) : null;
 }
 
-/** What the Summary pane shows. */
-export function summaryPage(state: LensState): 'empty' | 'overview' | 'unit' {
-  const list = listModel(state);
-  if (!list || (list.summarized === 0 && !state.summaryBrowsing)) return 'empty';
+/** What the Summary pane shows: the overview (where the tab opens, summarized or not), or one change. */
+export function summaryPage(state: LensState): 'overview' | 'unit' {
   return state.summaryUnit === null ? 'overview' : 'unit';
 }

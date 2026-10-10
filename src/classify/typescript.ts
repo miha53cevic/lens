@@ -131,6 +131,16 @@ function ownsWholeLines(n: Node, lines: string[]): boolean {
   return before.trim() === "" && after.trim() === "";
 }
 
+/**
+ * True when no code shares the lines `first` starts and `last` ends on (a trailing comment
+ * is fine): `import "./polyfill"; main();` keeps main() in view.
+ */
+function ownsLines(lines: string[], first: Node, last: Node = first): boolean {
+  const before = (lines[first.startPosition.row] ?? "").slice(0, first.startPosition.column);
+  const after = (lines[last.endPosition.row] ?? "").slice(last.endPosition.column).trim();
+  return before.trim() === "" && /^(\/\/.*|\/\*(?:(?!\*\/).)*\*\/)?$/.test(after);
+}
+
 const EFFECTS = new Set([
   "await_expression", "assignment_expression", "augmented_assignment_expression", "update_expression", "yield_expression",
 ]);
@@ -166,17 +176,11 @@ function lineSpan(startL: number, endL: number): string {
 function importRegions(root: Node, ctx: RuleContext): FoldRegion[] {
   // Re-exports (`export { x } from "y"`) group with imports rather than
   // breaking up the run; whole-file barrels are handled by the barrel rule.
-  // only ones no code shares a line with: `import "./polyfill"; main();` keeps main() in view
-  // (a trailing comment is fine)
-  const ownsLines = (c: Node) => {
-    const before = (ctx.lines[c.startPosition.row] ?? "").slice(0, c.startPosition.column);
-    const after = (ctx.lines[c.endPosition.row] ?? "").slice(c.endPosition.column).trim();
-    return before.trim() === "" && /^(\/\/.*|\/\*(?:(?!\*\/).)*\*\/)?$/.test(after);
-  };
+  // only ones no code shares a line with
   const importish = namedChildren(root).filter((c) =>
     (c.type === "import_statement" ||
       (c.type === "export_statement" && c.childForFieldName("source") !== null)) &&
-    ownsLines(c),
+    ownsLines(ctx.lines, c),
   );
   const groups: Node[][] = [];
   for (const stmt of importish) {
@@ -292,7 +296,8 @@ function guardRegions(root: Node, ctx: RuleContext): FoldRegion[] {
         if (ownsWholeLines(stmt, ctx.lines)) pendingComments.push(stmt);
         continue;
       }
-      const guard = asGuard(stmt, ctx);
+      // `const a = f(x); if (!a) return null;`: the fold would take the other statement with it
+      const guard = ownsLines(ctx.lines, stmt) ? asGuard(stmt, ctx) : null;
       if (guard) {
         if (!run) run = { first: pendingComments[0] ?? stmt, last: stmt, count: 0, exits: [], logged: false };
         run.last = stmt;
@@ -420,6 +425,8 @@ function callStatementRegions(
 
 /** Matches any configured noise-call pattern (used by the guard and catch rules). */
 function asNoiseCall(stmt: Node, ctx: RuleContext): LogCall | null {
+  // `return logger.error(err)` exits as well: not only a log
+  if (stmt.type !== "expression_statement") return null;
   for (const pattern of ctx.patterns) {
     const call = asCallTo(stmt, pattern.receiver, pattern.methods);
     if (call) return call;
@@ -478,6 +485,8 @@ function catchRegions(root: Node, ctx: RuleContext): FoldRegion[] {
     const inner = namedChildren(body);
     const first = inner[0];
     const last = inner[inner.length - 1];
+    // `try { await save(); } catch (e) { logger.error(e); }`: the fold would hide the try too
+    if (!ownsLines(ctx.lines, first, last)) return;
     const parts = [logs > 0 ? "log" : "", rethrows > 0 ? "rethrow" : ""].filter(Boolean);
     regions.push({
       startLine: startLine(first),
@@ -663,7 +672,8 @@ function accessorRegions(root: Node, ctx: RuleContext): FoldRegion[] {
       run = null;
     };
     for (const member of namedChildren(node)) {
-      const name = asAccessor(member);
+      // `class Box { get x() { return this._x; } }`: the fold would hide the class's line
+      const name = ownsLines(ctx.lines, member) ? asAccessor(member) : null;
       if (name) {
         if (!run) run = { first: member, last: member, names: [] };
         run.last = member;
@@ -703,7 +713,8 @@ function asAccessor(member: Node): string | null {
   if (keywords.includes("get")) return plainReturn ? `get ${name}` : null;
   // trivial store of its own parameter: `this._x = v`
   if (keywords.includes("set")) {
-    const param = namedChildren(member.childForFieldName("parameters") ?? body)[0]?.childForFieldName("pattern")?.text;
+    const first = namedChildren(member.childForFieldName("parameters") ?? body)[0];
+    const param = first && paramName(first);
     return expr?.type === "assignment_expression" && param !== undefined && expr.childForFieldName("right")?.text === param
       ? `set ${name}` : null;
   }
@@ -712,6 +723,15 @@ function asAccessor(member: Node): string | null {
   if ((stmt.type === "return_statement" || stmt.type === "expression_statement") &&
       expr?.type === "call_expression" && isForwardingCall(expr, member, name)) return `${name}()`;
   return null;
+}
+
+// A parameter is wrapped in typescript (`pattern`, and `value` for its default) and bare in
+// javascript (`msg`, or an assignment_pattern for `retries = 3`).
+function paramName(param: Node): string {
+  return (param.childForFieldName("pattern") ?? param).text;
+}
+function hasDefault(param: Node): boolean {
+  return param.type === "assignment_pattern" || param.childForFieldName("value") !== null;
 }
 
 /**
@@ -733,8 +753,8 @@ function isForwardingCall(call: Node, member: Node, methodName: string): boolean
   if (!paramsNode || !argsNode) return false;
   const paramNodes = namedChildren(paramsNode);
   // a default (`retries = 3`) is a value the pill wouldn't show
-  if (paramNodes.some((p) => p.childForFieldName("value") !== null)) return false;
-  const params = paramNodes.map((p) => p.childForFieldName("pattern")?.text ?? "");
+  if (paramNodes.some(hasDefault)) return false;
+  const params = paramNodes.map(paramName);
   const args = namedChildren(argsNode);
   // `...args` passes through as `...args`
   const verbatim = params.length === args.length &&

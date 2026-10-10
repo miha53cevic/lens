@@ -15,6 +15,7 @@ import { SettingsDialog } from './SettingsDialog.tsx';
 import { KeysDialog } from './KeysDialog/index.tsx';
 import { SearchDialog } from './SearchDialog/index.tsx';
 import { ReviewPill } from './ReviewPill.tsx';
+import { StatusBar } from './StatusBar/index.tsx';
 import './App.css';
 
 export function App() {
@@ -39,7 +40,7 @@ export function App() {
           panelId='nav'
           hidden={!navVisible}
           widthAt={(event, nav) => Math.min(600, Math.max(160, event.clientX - nav.getBoundingClientRect().left))}
-          onResized={(width) => setNavWidth(width || 262)}
+          onResized={setNavWidth}
         />
         <div className='editor'>
           <Tabs />
@@ -53,10 +54,11 @@ export function App() {
           panelId='ask-rail'
           hidden={!askOpen}
           widthAt={(event, rail) => Math.min(720, Math.max(280, rail.getBoundingClientRect().right - event.clientX))}
-          onResized={(width) => askSetWidth(width || 360)}
+          onResized={askSetWidth}
         />
         <AskRail />
       </div>
+      <StatusBar />
     </>
   );
 }

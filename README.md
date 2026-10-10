@@ -92,6 +92,15 @@ explicitly is always analyzed.
 - **Reload** (`r`) re-runs the analysis — new file contents, a fresh `git diff`, edits
   to `.lens.json` — without restarting the server. *Settings* in ⋯ shows the effective
   config.
+- **The status bar** along the bottom always says where lens stands. On the left, one
+  status: *Ready*; what's running, once it has run a moment (*Applying dracula…*,
+  *Re-running the analysis…*); what a reload did (*Refreshed · 3 files changed*); a
+  failure, with the server's reason, which stays until you dismiss it or start something
+  else; *Waiting for your agent* (or *No agent for your question*, when none is there to
+  answer it); or *Server stopped*, when a request can't reach lens
+  anymore (*Retry* looks for it again). On the right, notices that show only while
+  they apply: summaries the code has outgrown, a new summary waiting (click to load it),
+  an agent listening.
 - **Viewed marks**: tick a file in the tree (or press `m`) once you've read it; it dims,
   and the ring above the tree counts the files viewed. The pill under the code marks the
   open file viewed and opens the next one not viewed yet (*Viewed · next file*); *Prev*
@@ -122,6 +131,10 @@ the old result struck out and the new one below, each linked to the line that ca
 it), callers outside the diff it may break (click one to peek at the call), and the
 unit's code with the usual folds and removed lines. Deleted files are left out: there's
 nothing in them to read (the Code view's tree still lists them).
+
+The tab opens on the **overview**: the agent's account of the whole diff. Before anything
+is summarized, the overview shows the command to run in your agent in that place, and the
+changes can already be read one by one (*Start review*, or the list).
 
 The list on the left is organized by **flows**: one story each (a feature end to end,
 a fix and the places it touches), listed by name like chapters. The agent ranks them
@@ -215,6 +228,10 @@ it on another port). The agent is told to **only read and answer** — never edi
 or run commands that change the repo — and to answer from a read-only subagent when it
 has one. With no agent listening, the button turns into **Copy as prompt**: the
 question, file, lines and code as markdown, ready for any chat.
+
+A question whose agent went away says so instead of counting the wait: run `/lens-ask`
+again and the new agent gets it at once. An agent counts as there while it listens, for
+30 seconds after, and for up to 5 minutes while it answers a question it took.
 
 ## How folding works
 

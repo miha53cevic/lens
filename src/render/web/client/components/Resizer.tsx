@@ -32,7 +32,9 @@ export function Resizer({ id, label, panelId, hidden, widthAt, onResized }: Resi
       document.body.style.userSelect = '';
       handle.removeEventListener('pointermove', move);
       handle.removeEventListener('pointerup', up);
-      onResized(parseInt(panel.style.width, 10));
+      // a click without a drag set no width: there's nothing to keep
+      const width = parseInt(panel.style.width, 10);
+      if (width) onResized(width);
     };
     handle.addEventListener('pointermove', move);
     handle.addEventListener('pointerup', up);

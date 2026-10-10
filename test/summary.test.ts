@@ -181,6 +181,13 @@ test("units: hashes change with the code; labels are the changed and removed lin
   assert.match(renderUnit(unit, input.newSource!), /O2 -   return 1;\n\s+N2 \+   return 2;/);
 });
 
+test("units: code holding a fence of its own is fenced with a longer one", async () => {
+  const readme = "# a\n\n```sh\nnpm test\n```\n";
+  const [unit] = await unitsFor(inputFor("README.md", readme, readme.replace("npm test", "npm run test")));
+  const rendered = renderUnit(unit, readme.replace("npm test", "npm run test"));
+  assert.match(rendered, /\n\n````\n[\s\S]*N4 \+ npm run test\n[\s\S]*\n````\n$/);
+});
+
 test("units: a trailing comment stays with its line, not the next declaration", async () => {
   const old = "const a = 1; // note\nfunction b() {\n  return 1;\n}\n";
   const [b] = await unitsFor(inputFor("src/f.ts", old, old.replace("return 1", "return 2")));

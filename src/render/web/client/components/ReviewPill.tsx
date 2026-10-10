@@ -22,7 +22,7 @@ export function ReviewPill() {
     const page = codeView ? null : summaryPage(state);
     const progress = codeView ? fileProgress(state) : unitProgress(state);
     const file = activeFile(state);
-    const shown = codeView ? !!file && !(state.hideTests && isTestFile(file.file)) : page !== 'empty';
+    const shown = codeView ? !!file && !(state.hideTests && isTestFile(file.file)) : true;
     let stage: Stage = 'hidden';
     if (progress && progress.total > 0 && shown) {
       if (page === 'overview') stage = 'start';

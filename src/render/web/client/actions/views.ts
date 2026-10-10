@@ -6,6 +6,7 @@ import { flashRow } from '../shared.ts';
 import { fileSpans } from '../rows.ts';
 import { revealIfTest, visibleActive, withTab } from './tabs.ts';
 import { openFoldAround } from './folds.ts';
+import { noteDone, reach, request, tracked } from './status.ts';
 
 function viewChange(state: LensState, view: View): Partial<LensState> {
   if (view === state.view) return {};
@@ -23,15 +24,16 @@ export function setView(view: View): void {
 }
 
 async function loadSummary(): Promise<void> {
-  try {
-    const response = await fetch('/api/summary');
-    if (!response.ok) throw new Error('http ' + response.status);
-    const summary: SummaryView | null = await response.json();
-    // only once it's loaded: a failed load is tried again
-    update((state) => ({ summaryDot: false, data: summary ? { ...state.data, summary } : state.data }));
-  } catch (error) {
-    console.error('loading the summary failed:', error);
-  }
+  await tracked(
+    { id: 'summary', label: 'Loading the new summary…', failed: "Couldn't load the new summary" },
+    async () => {
+      const response = await request('/api/summary');
+      const summary: SummaryView | null = await response.json();
+      // only once it's loaded: a failed load is tried again
+      update((state) => ({ summaryDot: false, data: summary ? { ...state.data, summary } : state.data }));
+      noteDone('New summary loaded');
+    },
+  );
 }
 
 // A submit from the agent lands in summary.json; notice it when the reader comes back
@@ -40,7 +42,8 @@ export async function checkSummaryStamp(): Promise<void> {
   const summary = getState().data.summary;
   if (!summary) return;
   try {
-    const response = await fetch('/api/summary/stamp');
+    // not a slow action: only whether the server is there goes to the status bar
+    const response = await reach('/api/summary/stamp');
     const { stamp } = await response.json();
     if (stamp !== null && stamp !== summary.stamp) {
       if (getState().view === 'summary') await loadSummary();

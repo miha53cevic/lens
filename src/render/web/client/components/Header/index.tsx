@@ -4,6 +4,7 @@
 import { MessageSquare, PanelLeft, RefreshCw, Search } from 'lucide-react';
 import { useLens } from '../../store.ts';
 import { treeModel } from '../../model/tree.ts';
+import { isBusy } from '../../model/status.ts';
 import { refresh } from '../../actions/session.ts';
 import { openSearch } from '../../actions/dialogs.ts';
 import { toggleNav } from '../../actions/prefs.ts';
@@ -21,7 +22,7 @@ export function Header() {
     label: state.data.label,
     askOpen: state.ask.open,
     canRefresh: state.data.canRefresh,
-    refreshing: state.refreshing,
+    refreshing: isBusy(state, 'refresh'),
   }));
 
   return (
@@ -66,7 +67,7 @@ export function Header() {
         shortcut='r'
         style={hiddenStyle(!header.canRefresh)}
         disabled={header.refreshing}
-        onClick={refresh}
+        onClick={() => refresh()}
       >
         <RefreshCw size={15} className={header.refreshing ? 'spin' : undefined} />
       </IconButton>
