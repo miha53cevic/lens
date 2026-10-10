@@ -10,7 +10,7 @@ import { fireEvent, within } from '@testing-library/dom';
 import { analyze } from '../src/analyze.ts';
 import { loadConfig } from '../src/config.ts';
 import { bundleViewer } from '../src/render/web/bundle.ts';
-import { highlightFiles, viewerPayload, type ViewerPayload } from '../src/render/web/server.ts';
+import { highlightFiles, renderPage, viewerPayload, type ViewerPayload } from '../src/render/web/server.ts';
 import { themeSwatch } from '../src/render/highlight.ts';
 import { writeStored, type StoredSummary } from '../src/summary/store.ts';
 import type { AskState } from '../src/ask/session.ts';
@@ -400,6 +400,22 @@ pageTest("a light theme from the theme menu turns the page light, with the theme
     document.documentElement.style.getPropertyValue('--theme-accent'),
     (lightTokens as { accent: string }).accent,
   );
+  // kept where the server reads it: the next launch's page arrives in this theme
+  assert.ok(document.cookie.includes('lens-theme=github-light'));
+});
+
+test("the page the server sends carries its theme's colors on <html>, before any script runs", () => {
+  const light = lightTokens as { fg: string; bg: string; accent: string };
+  const html = renderPage('<html lang="en"/*__LENS_ROOT__*/><script>/*__LENS_DATA__*/</script>', {
+    ...payload,
+    ...{ fg: light.fg, bg: light.bg, accent: light.accent },
+  });
+  assert.ok(
+    html.startsWith(
+      `<html lang="en" data-appearance="light" style="--code-fg:${light.fg};--code-bg:${light.bg};--theme-accent:${light.accent}">`,
+    ),
+  );
+  assert.ok(renderPage('<html/*__LENS_ROOT__*/>', payload).startsWith('<html data-appearance="dark"'));
 });
 
 pageTest(

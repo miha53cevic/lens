@@ -12,7 +12,7 @@ import { createAskSession, REHAND_AFTER_MS, LISTEN_GRACE_MS, type NewQuestion } 
 import { findCites } from "../src/ask/cites.ts";
 import { changeContext, questionText, selectionLabel, RULES } from "../src/ask/context.ts";
 import { createAskRoutes } from "../src/ask/routes.ts";
-import { isLocalRequest } from "../src/render/web/http.ts";
+import { isLocalRequest, readCookie } from "../src/render/web/http.ts";
 import type { ViewerInput } from "../src/render/web/server.ts";
 
 const Q: NewQuestion = { text: "why?", file: "a.ts", unitId: null, label: "a.ts", hash: "h1", selection: null };
@@ -177,6 +177,14 @@ test("isLocalRequest: only this machine's host, and no foreign origin", () => {
   assert.ok(isLocalRequest(req({ host: "127.0.0.1:5326", "sec-fetch-site": "same-origin" }), 5326));
   assert.ok(isLocalRequest(req({ host: "127.0.0.1:5326", "sec-fetch-site": "none" }), 5326), "typed in the address bar");
   assert.ok(!isLocalRequest(req({ host: "127.0.0.1:9999" }), 5326));
+});
+
+test("readCookie: the named cookie among the ones the browser sent", () => {
+  const req = (cookie?: string) => ({ headers: { cookie } }) as unknown as IncomingMessage;
+  assert.equal(readCookie(req("other=1; lens-theme=github-light"), "lens-theme"), "github-light");
+  assert.equal(readCookie(req("my-lens-theme=nord"), "lens-theme"), null, "the whole name, not its end");
+  assert.equal(readCookie(req("lens-theme=%E0%A4%A"), "lens-theme"), null, "not something lens wrote");
+  assert.equal(readCookie(req(), "lens-theme"), null);
 });
 
 async function listen(handler: Parameters<typeof createServer>[1]): Promise<{ server: Server; base: string }> {

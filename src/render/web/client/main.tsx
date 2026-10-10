@@ -9,27 +9,18 @@ import './styles/base.css';
 import './styles/signals.css';
 import { App } from './components/App.tsx';
 import { getState, subscribe, type LensState } from './store.ts';
-import { readPref, writePref } from './shared.ts';
+import { isLightColor } from '../../../theme.ts';
 import { checkSummaryStamp, setView } from './actions/views.ts';
 import { openFirstTreeFile } from './actions/tabs.ts';
-import { switchTheme } from './actions/session.ts';
 import { askPoll } from './ask/rail.ts';
 import { dropForeignSelection, onSelectionChange } from './ask/selection.ts';
 import { onKeyDown } from './keys.ts';
 
-// The chrome's colors are mixed from the code theme's (styles/tokens.css). A light theme also
-// flips the fixed colors (diff, signals) to their light set.
-function isLightColor(color: string) {
-  // longest-first: themes report #rgb, #rgba, #rrggbb, or #rrggbbaa
-  const hexMatch = /^#([0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{4}|[0-9a-f]{3})$/i.exec((color || '').trim());
-  if (!hexMatch) return false;
-  let hex = hexMatch[1];
-  if (hex.length <= 4) hex = [...hex].map((digit) => digit + digit).join('');
-  const [red, green, blue] = [0, 2, 4].map((offset) => parseInt(hex.slice(offset, offset + 2), 16));
-  return 0.299 * red + 0.587 * green + 0.114 * blue > 140;
-}
-
-/** The document follows the state: the theme's colors (the tokens' inputs), the tab title, the Ask selection's change. */
+/**
+ * The document follows the state: the theme's colors (the tokens' inputs), the tab title, the Ask selection's change.
+ * The chrome's colors are mixed from the code theme's (styles/tokens.css), and a light theme also flips the
+ * fixed colors (diff, signals) to their light set. The server writes the same on the page it sends.
+ */
 function syncDocument(state: LensState, previous: LensState | null) {
   const { fg, bg, accent, label } = state.data;
   if (!previous || previous.data.fg !== fg || previous.data.bg !== bg || previous.data.accent !== accent) {
@@ -53,13 +44,6 @@ subscribe(syncDocument);
 openFirstTreeFile();
 syncDocument(getState(), null);
 const { data } = getState();
-// Restore the saved theme choice — unless --theme pinned this run's theme.
-const savedTheme = readPref('lens.theme');
-if (!data.themePinned && savedTheme && savedTheme !== data.theme) {
-  switchTheme(savedTheme).then((switched) => {
-    if (!switched) writePref('lens.theme', data.theme); // stale/unknown theme: forget it
-  });
-}
 if (getState().ask.open) askPoll();
 createRoot(document.getElementById('root')!).render(<App />);
 if (location.hash === '#summary' && data.summary) setView('summary');

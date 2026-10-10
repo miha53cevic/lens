@@ -76,7 +76,9 @@ explicitly is always analyzed.
   the settings and *End session*.
 - **The code theme** colors the whole page, not just the code: the panels, lines and text
   are mixed from the theme's background and foreground, and the accent is the color the
-  theme gives function names. A light theme turns the page light.
+  theme gives function names. A light theme turns the page light. The theme you pick in
+  the menu is remembered (in a cookie, so it holds on any `--port`), and the viewer opens
+  in it from then on. It goes before the config's `theme`; `--theme` goes before both.
 - **Each file shows its status** as a colored letter in the tree and on its tab (`A`
   added, `M` modified, `D` deleted, `R` renamed, `⊘` excluded), and spelled out in the
   code card's header, next to its path, the lines it added and removed, and its fold chips.
@@ -271,7 +273,7 @@ reaches 2, and **adds** an `audit` category next to the built-in call patterns.
 | field | default | meaning |
 | ----- | ------- | ------- |
 | `threshold` | `1` | fold regions with score ≤ this; `--threshold` overrides per run |
-| `theme` | `"vesper"` | Shiki theme; `--theme` overrides per run |
+| `theme` | `"vesper"` | Shiki theme the viewer starts in, until you pick one in its theme menu; `--theme` overrides both per run |
 | `categories` | all `true` | per-category switch; `false` never folds it |
 | `scores` | 0 for import/comment/barrel, 1 otherwise | importance per category, 0–3 (4 is reserved for never-fold) |
 | `callPatterns` | logging, telemetry | fire-and-forget calls to fold, see below |

@@ -7,7 +7,9 @@ import type { FileFoldModel, LensConfig } from "../../model.ts";
 import type { SummaryView } from "../../summary/view.ts";
 import { removeServerInfo, writeServerInfo } from "../../ask/discovery.ts";
 import { createAskRoutes } from "../../ask/routes.ts";
-import { isLocalRequest, sendJson } from "./http.ts";
+import { isLocalRequest, readCookie, sendJson } from "./http.ts";
+import { escapeHtml } from "../../text.ts";
+import { isLightColor, THEME_COOKIE } from "../../theme.ts";
 import { bundleViewer } from "./bundle.ts";
 import {
   highlightSource,
@@ -114,6 +116,18 @@ export function viewerPayload(
   };
 }
 
+/**
+ * The page for a payload. The theme's colors go on the <html> element too (as main.tsx sets them),
+ * so the page's first paint, before its script has run, is already in the theme.
+ */
+export function renderPage(template: string, payload: ViewerPayload): string {
+  const colors = `--code-fg:${payload.fg};--code-bg:${payload.bg};--theme-accent:${payload.accent}`;
+  const root = ` data-appearance="${isLightColor(payload.bg) ? "light" : "dark"}" style="${escapeHtml(colors)}"`;
+  const data = JSON.stringify(payload).replace(/</g, "\\u003c");
+  // Function replacements: plain strings would expand $-sequences in the payload.
+  return template.replace("/*__LENS_ROOT__*/", () => root).replace("/*__LENS_DATA__*/", () => data);
+}
+
 const webDir = dirname(fileURLToPath(import.meta.url));
 
 /** viewer.html with the bundled viewer's stylesheet and script inlined: one self-contained page. */
@@ -185,9 +199,7 @@ export async function serveViewer(
     const cache = cacheFor(htmlCache, input);
     const cached = cache.get(theme);
     if (cached) return cached;
-    const data = JSON.stringify(await payloadFor(input, theme)).replace(/</g, "\\u003c");
-    // Function replacement: a plain string would expand $-sequences in the payload.
-    const html = template.replace("/*__LENS_DATA__*/", () => data);
+    const html = renderPage(template, await payloadFor(input, theme));
     cache.set(theme, html);
     return html;
   }
@@ -203,8 +215,10 @@ export async function serveViewer(
       const theme = themeParam && isBundledTheme(themeParam) ? themeParam : opts.theme;
 
       if (url.pathname === "/" || url.pathname === "/index.html") {
+        // the theme the reader picked (the viewer keeps it in a cookie), unless --theme pinned this run's
+        const picked = themeParam || opts.themePinned ? null : readCookie(req, THEME_COOKIE);
         res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-        res.end(await htmlFor(theme));
+        res.end(await htmlFor(picked && isBundledTheme(picked) ? picked : theme));
       } else if (url.pathname === "/api/tokens") {
         if (themeParam && !isBundledTheme(themeParam)) {
           sendJson(res, 400, { error: `unknown theme "${themeParam}"` });

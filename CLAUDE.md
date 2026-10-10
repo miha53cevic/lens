@@ -27,7 +27,7 @@ cli.ts            arg parsing → analyze() → serveViewer(), or runSummary()
 analyze.ts        paths | diff | pr → ViewerInput; re-run on ↻ refresh
 git.ts, pr.ts     git diff parsing, PR refs via plain git fetch (no GitHub API)
 config.ts         lens.defaults.json merged with the nearest .lens.json
-glob.ts, text.ts  pure helpers (path patterns, truncate / plural / escapeHtml); the viewer imports them too
+glob.ts, text.ts, theme.ts   pure helpers (path patterns, truncate / plural / escapeHtml, the theme cookie's name / isLightColor); the viewer imports them too
 parse/parser.ts   tree-sitter (wasm) for ts / tsx / js
 parse/declarations.ts   the names a file declares, for search's "Defined at" (by name, no types)
 classify/         fold rules → FoldRegion[] (model.ts has the shapes)
@@ -57,7 +57,7 @@ ask/              ask mode: the viewer's Ask rail and `lens ask listen|reply` (s
 - Keep the markup and class names the stylesheets and the page tests expect. Rows are memoized and their highlighted lines are prebuilt HTML strings, so a toggle re-renders only the rows it changes. Keep it that way on big files.
 - Browser code imports server-side types with `import type` (e.g. `ViewerPayload` from `server.ts`, `SummaryView` from `summary/view.ts`), so a shape change breaks the viewer's typecheck instead of the page.
 - Server endpoints: `/api/tokens` (theme switch), `/api/refresh`, `/api/summary`, `/api/summary/stamp` (polled on window focus), `/api/shutdown`, and the Ask rail's `/api/ask*` (in `src/ask/routes.ts`).
-- Browser-only state, such as viewed marks, lives in `localStorage`.
+- Browser-only state, such as viewed marks, lives in `localStorage`. The picked theme is the exception: it's in the `lens-theme` cookie (`saveTheme` in `actions/session.ts`), which the server reads on the page request, so the page arrives in that theme instead of switching to it. `renderPage` (`server.ts`) also writes the theme's colors on `<html>`, for the paint before the script runs.
 
 ### Viewer design system
 
