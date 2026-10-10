@@ -13,7 +13,7 @@ import { bundleViewer } from '../src/render/web/bundle.ts';
 import { highlightFiles, renderPage, viewerPayload, type ViewerPayload } from '../src/render/web/server.ts';
 import { themeSwatch } from '../src/render/highlight.ts';
 import { writeStored, type StoredSummary } from '../src/summary/store.ts';
-import type { AskState } from '../src/ask/session.ts';
+import type { AskQuestion, AskState } from '../src/ask/session.ts';
 import { makeViewerRepo } from './fixtures/viewerRepo.ts';
 
 let repo = '';
@@ -899,6 +899,7 @@ pageTest('Ask without an agent copies the question as a prompt', async (page) =>
     unitId: null,
     label: 'orders.ts',
     selection: null,
+    concerns: [],
   });
   assert.equal($('#ask-send').textContent!.trim(), 'Copied');
   assert.equal(($('#ask-input') as HTMLTextAreaElement).value, 'why the deleted column?', 'the question stays');
@@ -938,6 +939,34 @@ pageTest('Ask with an agent listening sends the question with the selected lines
   assert.equal(($('#ask-input') as HTMLTextAreaElement).value, '', "the input clears once it's sent");
 });
 
+pageTest('a question about a unit takes its open concerns along; a dismissed one stays behind', async (page) => {
+  page.ask = { listening: true, questions: [] };
+  await key('v');
+  await key('j');
+  await key('\\');
+  assert.equal($('#ask-chips').textContent, 'findOrders1 concern');
+  const sentConcerns = () =>
+    (
+      page.requests.filter((request) => request.method === 'POST' && request.path === '/api/ask').at(-1)!
+        .body as AskQuestion
+    ).concerns;
+  await type($('#ask-input'), 'is the risk real?');
+  await click($('#ask-send'));
+  assert.deepEqual(sentConcerns(), [{ kind: 'bug', text: 'deleted is a string column', line: 'N10' }]);
+
+  await click($('.concern .vbtn.v-dismissed'));
+  assert.equal($('#ask-chips').textContent, 'findOrders');
+  await type($('#ask-input'), 'and now?');
+  await click($('#ask-send'));
+  assert.deepEqual(sentConcerns(), []);
+});
+
+pageTest("the shortcuts' tabs sit above the scrolling keys, not in them", async () => {
+  await key('?');
+  assert.equal($('.key-tabs').closest('.modal-body'), null);
+  assert.ok($('#keys-modal .modal-body .set-table'));
+});
+
 pageTest(
   "a refresh that changes the file drops the selection kept in it: its lines aren't the code's anymore",
   async () => {
@@ -974,6 +1003,7 @@ pageTest('a question with no agent to answer it says so, instead of counting the
     label: 'orders.ts',
     hash: 'h1',
     selection: null,
+    concerns: [],
     askedAt: Date.now() - 90_000,
     handedAt: null,
     answer: null,

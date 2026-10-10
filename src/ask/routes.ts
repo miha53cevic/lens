@@ -51,10 +51,14 @@ export function createAskRoutes(current: () => ViewerInput, port: number): AskRo
     const hash = hashOf(input, { file: raw.file, unitId });
     if (!hash) return "that change isn't in the viewer anymore — refresh";
     const label = typeof raw.label === "string" && raw.label ? raw.label : raw.file;
-    return { text, file: raw.file, unitId, label, hash, selection: parseSelection(raw.selection) };
+    // the unit's own concerns, those the viewer names: which ones are dismissed only the reader's browser knows
+    const named = new Set(Array.isArray(raw.concerns) ? raw.concerns.map(concernId) : []);
+    const unit = unitId ? input.summary?.units.find((u) => u.id === unitId) : undefined;
+    const concerns = (unit?.summary?.concerns ?? []).filter((c) => named.has(concernId(c)));
+    return { text, file: raw.file, unitId, label, hash, selection: parseSelection(raw.selection), concerns };
   };
 
-  const textFor = (q: Pick<AskQuestion, "id" | "text" | "selection" | "file" | "unitId" | "label">, forCopy: boolean) => {
+  const textFor = (q: Pick<AskQuestion, "id" | "text" | "selection" | "concerns" | "file" | "unitId" | "label">, forCopy: boolean) => {
     const input = current();
     return questionText(q, changeContext(input, q), { forCopy, root: input.root, cwd: input.cwd, port });
   };
@@ -111,6 +115,12 @@ export function createAskRoutes(current: () => ViewerInput, port: number): AskRo
       session.refreshStale((q) => hashOf(input, q));
     },
   };
+}
+
+/** What makes a concern that one: its kind, its line and its text. */
+function concernId(raw: unknown): string {
+  const { kind, line, text } = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  return JSON.stringify([kind, line, text]);
 }
 
 function parseSelection(raw: unknown): AskSelection | null {

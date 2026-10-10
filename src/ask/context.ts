@@ -107,7 +107,7 @@ export interface QuestionTextOptions {
 }
 
 export function questionText(
-  q: Pick<AskQuestion, "id" | "text" | "selection">,
+  q: Pick<AskQuestion, "id" | "text" | "selection" | "concerns">,
   change: ChangeContext,
   opts: QuestionTextOptions,
 ): string {
@@ -143,6 +143,13 @@ export function questionText(
     out.push(`THE FILE  ${change.file}` +
       (change.changedLines.length > 0 ? ` — changed lines ${ranges(change.changedLines)}` : "") +
       `\n  (${readIt})`);
+  }
+
+  if (q.concerns.length > 0) {
+    // "N31" is the change's line 31, "O16" its removed line 16
+    const where = (line: string) => (line.startsWith("O") ? "removed line " : "line ") + line.slice(1);
+    out.push("CONCERNS  the summary's open notes on this change — claims to check, not facts\n" +
+      q.concerns.map((c) => `  ${c.kind} · ${where(c.line)} · ${c.text}`).join("\n"));
   }
 
   if (!opts.forCopy) {

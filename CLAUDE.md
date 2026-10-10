@@ -137,7 +137,7 @@ The Ask rail (`client/ask/`, `components/AskRail/`) asks the user's agent about 
 
 - Flow: the viewer posts a question (`routes.ts`) → `session.ts` holds the chat in memory, one per server → `lens ask listen` (`command.ts`) long-polls `/api/ask/next` and prints the agent text → `lens ask reply` posts the answer → `cites.ts` keeps the `path:line` cites that resolve.
 - The agent text, including the read-only rules, is generated in `context.ts` and is the source of truth. `skills/lens-ask` only points at it.
-- Context is the open change (the Summary tab's unit, or the Code tab's file) plus the user's current selection. Nothing else, such as summary items, goes along.
+- Context is the open change (the Summary tab's unit, or the Code tab's file) plus the user's current selection, and for a unit its open concerns: the ones the reader hasn't dismissed. Dismissals live in the browser, so the viewer names the concerns (`askConcerns`) and `routes.ts` keeps those the unit really has. Nothing else from the summary goes along.
 - A question stores its unit's hash (or the file's content hash). ↻ refresh marks it stale when that changes.
 - The server writes `.lens/server.json` (port, pid) so `lens ask` can find it, and removes it on exit.
 

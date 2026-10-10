@@ -15,21 +15,22 @@ export function KeysDialog() {
   return (
     <dialog id='keys-modal'>
       <ModalHead title='Keyboard shortcuts' />
+      {/* outside the body: the keys scroll under the tabs, not with them */}
+      <div className='key-tabs' role='tablist'>
+        {tabs.map((keyTab) => (
+          <button
+            key={keyTab.id}
+            className='key-tab'
+            role='tab'
+            data-tab={keyTab.id}
+            aria-selected={keyTab.id === shown.id}
+            onClick={() => setTab(keyTab.id)}
+          >
+            {keyTab.label}
+          </button>
+        ))}
+      </div>
       <div className='modal-body'>
-        <div className='key-tabs' role='tablist'>
-          {tabs.map((keyTab) => (
-            <button
-              key={keyTab.id}
-              className='key-tab'
-              role='tab'
-              data-tab={keyTab.id}
-              aria-selected={keyTab.id === shown.id}
-              onClick={() => setTab(keyTab.id)}
-            >
-              {keyTab.label}
-            </button>
-          ))}
-        </div>
         <table className='set-table'>
           <tbody>
             {shown.keys.map((help) => (
