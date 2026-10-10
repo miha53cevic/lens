@@ -2,6 +2,7 @@ import { Check, ChevronDown } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import { useLens } from '../../store.ts';
 import { saveTheme, switchTheme } from '../../actions/session.ts';
+import { isBusy } from '../../model/status.ts';
 import { Menu, MenuItem, MenuSection } from '../../ui/Menu.tsx';
 
 /** The code theme: each with its background, so light and dark show before picking. The whole page follows it. */
@@ -9,7 +10,7 @@ export function ThemeMenu() {
   const { theme, themes, busy } = useLens((state) => ({
     theme: state.data.theme,
     themes: state.data.themes,
-    busy: state.themeBusy,
+    busy: isBusy(state, 'theme'),
   }));
 
   return (

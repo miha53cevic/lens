@@ -1,19 +1,17 @@
-// The Summary tab's pane: "No summary yet", the overview, or one unit.
+// The Summary tab's pane: the overview, or one unit.
 
 import { useLens } from '../../store.ts';
 import { currentUnit, summaryPage } from '../../model/summaryList.ts';
-import { EmptyPage } from './EmptyPage.tsx';
 import { Overview } from './Overview/index.tsx';
 import { UnitPage } from './UnitPage/index.tsx';
 import { hiddenStyle } from '../../shared.ts';
 import './style.css';
 
 export function SummaryPane() {
-  const { shown, page, unit, browsing } = useLens((state) => {
+  const { shown, page, unit } = useLens((state) => {
     const shown = state.view === 'summary';
-    // while the server is asked for a newer summary, "No summary yet" waits: it may be out of date
-    const page = !shown ? null : summaryPage(state) === 'empty' && state.summaryChecking ? null : summaryPage(state);
-    return { shown, page, unit: page === 'unit' ? currentUnit(state) : null, browsing: state.summaryBrowsing };
+    const page = shown ? summaryPage(state) : null;
+    return { shown, page, unit: page === 'unit' ? currentUnit(state) : null };
   });
 
   return (
@@ -23,10 +21,8 @@ export function SummaryPane() {
       className='summary-pane'
       id='summary-pane'
       style={hiddenStyle(!shown)}
-      data-browsing={browsing ? '1' : undefined}
       data-unit={unit?.id}
     >
-      {page === 'empty' && <EmptyPage />}
       {page === 'overview' && <Overview />}
       {page === 'unit' && (unit ? <UnitPage unit={unit} /> : <div className='sum-empty'>nothing changed</div>)}
     </div>

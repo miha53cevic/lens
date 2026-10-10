@@ -26,12 +26,32 @@ export interface Tab {
 /** The reader's kept code selection, tied to the change it was made in. */
 export type KeptSelection = AskSelection & { key: string };
 
+/** A slow action under way (actions/status.ts). */
+export interface Activity {
+  /** What it is: 'theme', 'refresh' … */
+  id: string;
+  /** What the status bar says while it runs */
+  label: string;
+  /** It has run long enough for the bar to say so */
+  shown: boolean;
+}
+
+/** What the last action left for the status bar: a failure stays, a done note goes by itself. */
+export interface StatusNotice {
+  kind: 'failed' | 'done';
+  label: string;
+  detail?: string;
+}
+
 export interface LensState {
   data: ViewerPayload;
   /** The fold level: regions scored at or below it fold. The slider's choice survives a refresh. */
   threshold: number;
-  themeBusy: boolean;
-  refreshing: boolean;
+  /** The slow actions under way, newest last: the status bar's "working", and what their controls wait for (isBusy) */
+  activities: readonly Activity[];
+  notice: StatusNotice | null;
+  /** A request didn't reach the server: it has stopped */
+  serverGone: boolean;
   /** ⏻ end: the server stopped */
   ended: boolean;
   view: View;
@@ -61,11 +81,9 @@ export interface LensState {
   // Summary tab
   /** The open unit's id; null: the overview (the tab opens there) */
   summaryUnit: string | null;
-  /** The reader went past the "No summary yet" page */
-  summaryBrowsing: boolean;
   /** A newer summary waits on the server */
   summaryDot: boolean;
-  /** Asking the server for a newer summary: the tab holds off on "No summary yet" until it knows */
+  /** Asking the server for a newer summary: the overview holds off on "not written yet" until it knows */
   summaryChecking: boolean;
   /** The list filter's text (transient) */
   sumQuery: string;
@@ -116,8 +134,9 @@ function savedWidth(key: string, min: number, max: number, fallback: number) {
 const initialState: LensState = {
   data: INITIAL_DATA,
   threshold: INITIAL_DATA.threshold,
-  themeBusy: false,
-  refreshing: false,
+  activities: [],
+  notice: null,
+  serverGone: false,
   ended: false,
   view: 'code', // Code is always the default
   active: -1, // set at start-up (main.tsx)
@@ -137,7 +156,6 @@ const initialState: LensState = {
   viewedUnits: loadSet(VIEWED_PREF.units),
   search: { query: '', word: false, matchCase: false, pinOrigin: false, selected: 0 },
   summaryUnit: null,
-  summaryBrowsing: false,
   summaryDot: false,
   summaryChecking: false,
   sumQuery: '',

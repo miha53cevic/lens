@@ -8,11 +8,11 @@ import { currentUnit, listModel } from '../model/summaryList.ts';
 import { jumpToLine, landOn } from './views.ts';
 
 export function openSummaryUnit(unitId: string): void {
-  update({ summaryUnit: unitId, summaryBrowsing: true });
+  update({ summaryUnit: unitId });
 }
 
 export function showOverview(): void {
-  update({ summaryUnit: null, summaryBrowsing: true });
+  update({ summaryUnit: null });
 }
 
 export function stepSummary(direction: number): void {

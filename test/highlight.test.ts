@@ -55,6 +55,29 @@ test("with no files to highlight, the page still takes the theme's own colors", 
   assert.equal(light.fg.toLowerCase(), "#24292e");
 });
 
+test("a refresh re-tokenizes only the files whose text changed", async () => {
+  const file = (name: string, source: string, language: "typescript" | "javascript" = "typescript") =>
+    ({ file: name, language, lineCount: source.split("\n").length, regions: [], source });
+  const text = (tokens: [string, string | null][][]) =>
+    tokens.map((line) => line.map(([part]) => part).join("")).join("\n");
+  const before = [file("a.ts", "const a = 1;\n"), file("b.ts", "const b = 1;\n"), file("c.ts", "const c = 1;\n")];
+  const first = await highlightFiles(before, "github-dark");
+
+  // a.ts as it was, b.ts edited, c.ts gone, d.ts new, and the order changed
+  const after = [file("d.ts", "const d = 1;\n"), file("b.ts", "const b = 2;\n"), file("a.ts", "const a = 1;\n")];
+  const second = await highlightFiles(after, "github-dark", { files: before, tokens: first });
+  assert.equal(second.tokens[2], first.tokens[0], "the unchanged file keeps its tokens");
+  assert.notEqual(second.tokens[1], first.tokens[1]);
+  after.forEach((each, index) => assert.equal(text(second.tokens[index]), each.source, each.file + " shows its own text"));
+
+  // the same text under another language, or in another theme, is tokenized again
+  const asJs = [file("a.ts", "const a = 1;\n", "javascript")];
+  assert.notEqual((await highlightFiles(asJs, "github-dark", { files: before, tokens: first })).tokens[0], first.tokens[0]);
+  const light = await highlightFiles(before, "github-light", { files: before, tokens: first });
+  assert.notEqual(light.tokens[0], first.tokens[0]);
+  assert.notDeepEqual(light.tokens[0], first.tokens[0], "the other theme's colors");
+});
+
 test("non-classified languages: shiki colors when known, plain when not", async () => {
   const { shikiLangForFile } = await import("../src/render/highlight.ts");
   assert.equal(shikiLangForFile("config.json"), "json");

@@ -166,9 +166,7 @@ export function currentUnit(state: LensState): Unit | null {
   return list ? unitById(state.data.summary, list.activeId) : null;
 }
 
-/** What the Summary pane shows. */
-export function summaryPage(state: LensState): 'empty' | 'overview' | 'unit' {
-  const list = listModel(state);
-  if (!list || (list.summarized === 0 && !state.summaryBrowsing)) return 'empty';
+/** What the Summary pane shows: the overview (where the tab opens, summarized or not), or one change. */
+export function summaryPage(state: LensState): 'overview' | 'unit' {
   return state.summaryUnit === null ? 'overview' : 'unit';
 }

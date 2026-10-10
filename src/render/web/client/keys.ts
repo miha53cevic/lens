@@ -4,6 +4,7 @@ import { getState } from './store.ts';
 import { activeFile } from './model/plans.ts';
 import { currentUnit } from './model/summaryList.ts';
 import { treeModel } from './model/tree.ts';
+import { isBusy } from './model/status.ts';
 import { closeTab, pinTab, stepFile } from './actions/tabs.ts';
 import { collapseAll, expandAll } from './actions/folds.ts';
 import { openDialog, openSearch } from './actions/dialogs.ts';
@@ -127,7 +128,7 @@ export function onKeyDown(event: KeyboardEvent): void {
       if (treeModel(state).testsPresent) setHideTests(!state.hideTests);
       break;
     case 'r':
-      if (state.data.canRefresh && !state.refreshing) refresh();
+      if (state.data.canRefresh && !isBusy(state, 'refresh')) refresh();
       break;
     case 'a':
       askOpenAndFocus();

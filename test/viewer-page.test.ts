@@ -59,6 +59,7 @@ before(async () => {
   payload = viewerPayload(input, await highlightFiles(input.files, 'github-dark'), themes, {
     themePinned: true,
     canRefresh: true,
+    analysis: 'run:1',
   });
   lightTokens = await highlightFiles(input.files, 'github-light');
 });
@@ -72,12 +73,14 @@ interface Page {
   requests: { method: string; path: string; body: unknown }[];
   /** What GET /api/ask answers */
   ask: AskState;
+  /** The analysis GET /api/tokens says its tokens are from; null: the page's own */
+  tokensAnalysis: string | null;
 }
 
 /** Opens the viewer on the payload, with these localStorage entries already there. */
 async function open(prefs: Record<string, string> = {}, hash = ''): Promise<Page> {
   GlobalRegistrator.register({ url: 'http://127.0.0.1:5326/' + hash, width: 1400, height: 900 });
-  const page: Page = { requests: [], ask: { listening: false, questions: [] } };
+  const page: Page = { requests: [], ask: { listening: false, questions: [] }, tokensAnalysis: null };
   globalThis.fetch = (async (input: string | URL, init?: RequestInit) => {
     const url = new URL(String(input), 'http://127.0.0.1:5326');
     const method = init?.method ?? 'GET';
@@ -99,7 +102,7 @@ async function open(prefs: Record<string, string> = {}, hash = ''): Promise<Page
       case 'GET /api/refresh':
         return reply(payload);
       case 'GET /api/tokens':
-        return reply(lightTokens);
+        return reply({ ...(lightTokens as object), analysis: page.tokensAnalysis ?? payload.analysis });
       case 'POST /api/shutdown':
         return reply({ ok: true });
     }
@@ -404,6 +407,139 @@ pageTest("a light theme from the theme menu turns the page light, with the theme
   assert.ok(document.cookie.includes('lens-theme=github-light'));
 });
 
+pageTest(
+  "tokens from another analysis aren't put under this page's files: it takes that analysis whole",
+  async (page) => {
+    // another tab refreshed, or the server restarted: its files aren't this page's anymore
+    page.tokensAnalysis = 'run:2';
+    const firstLine = $('#code .row[data-line]').textContent;
+    await click($('#theme-github-light'));
+    await settle();
+    assert.ok(page.requests.some((request) => request.path === '/api/tokens'));
+    assert.ok(
+      page.requests.some((request) => request.path === '/api/refresh'),
+      'a refresh instead',
+    );
+    // the stub's refresh answers the dark payload: the light tokens were never applied
+    assert.equal(document.documentElement.dataset.appearance, 'dark');
+    assert.equal($('#code .row[data-line]').textContent, firstLine);
+  },
+);
+
+// ---- the status bar ----
+
+/** What the status bar says: its kind, its label and the detail after it. */
+function status(): { kind: string; label: string; detail: string } {
+  return {
+    kind: $('#status').className.replace('status status-', ''),
+    label: $('#status .status-label').textContent!,
+    detail: document.querySelector('#status .status-detail')?.textContent ?? '',
+  };
+}
+const REST = { kind: 'idle', label: 'Ready', detail: '' };
+const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Answers the requests `answer` returns something for; the page's stub answers the rest. Returns the undo. */
+function answering(answer: (path: string) => Response | Promise<Response> | undefined): () => void {
+  const stub = globalThis.fetch;
+  globalThis.fetch = (async (input: string | URL, init?: RequestInit) => {
+    const reply = answer(new URL(String(input), 'http://127.0.0.1:5326').pathname);
+    return reply === undefined ? stub(input, init) : reply;
+  }) as typeof fetch;
+  return () => (globalThis.fetch = stub);
+}
+
+pageTest('the status bar says what is running once it has run a moment, then rests again', async () => {
+  assert.deepEqual(status(), REST);
+  let release = () => {};
+  const held = new Promise<void>((resolve) => (release = resolve));
+  const stub = globalThis.fetch;
+  globalThis.fetch = (async (input: string | URL, init?: RequestInit) => {
+    if (String(input).includes('/api/tokens')) await held;
+    return stub(input, init);
+  }) as typeof fetch;
+  await click($('#theme-github-light'));
+  assert.deepEqual(status(), REST, 'a quick action never shows');
+  assert.equal(($('#theme-github-light') as HTMLButtonElement).disabled, true, 'its control waits at once');
+  await pause(220);
+  assert.deepEqual(status(), { kind: 'working', label: 'Applying github-light…', detail: '' });
+  release();
+  await settle();
+  await settle();
+  assert.deepEqual(status(), REST, 'the page turning light is the confirmation');
+  assert.equal(document.documentElement.dataset.appearance, 'light');
+});
+
+pageTest("a failed refresh stays in the status bar, with the server's reason, until it's dismissed", async () => {
+  const undo = answering((path) =>
+    path === '/api/refresh'
+      ? new Response(JSON.stringify({ error: "fatal: bad revision 'main...feature'" }), { status: 500 })
+      : undefined,
+  );
+  await key('r');
+  await settle();
+  const failed = { kind: 'failed', label: 'Refresh failed', detail: "fatal: bad revision 'main...feature'" };
+  assert.deepEqual(status(), failed);
+  await pause(120);
+  assert.deepEqual(status(), failed, "a failure doesn't fade");
+  assert.equal(($('#refresh') as HTMLButtonElement).disabled, false, 'refresh can be tried again');
+  assert.equal($('#status-action').textContent, 'Dismiss');
+  await click($('#status-action'));
+  assert.deepEqual(status(), REST);
+  // the next action clears a failure too
+  await key('r');
+  await settle();
+  assert.equal(status().kind, 'failed');
+  undo();
+  await key('r');
+  await settle();
+  assert.deepEqual(status(), { kind: 'done', label: 'Refreshed', detail: 'nothing changed' });
+});
+
+pageTest('a server that stopped shows in the status bar until a request gets through', async () => {
+  const undo = answering(() => Promise.reject(new TypeError('fetch failed')));
+  await key('r');
+  await settle();
+  assert.equal(status().kind, 'gone');
+  assert.equal(status().label, 'Server stopped');
+  assert.equal($('#status-action').textContent, 'Retry');
+  await click($('#status-action'));
+  await settle();
+  assert.equal(status().kind, 'gone', 'still not there');
+  undo();
+  await click($('#status-action'));
+  await settle();
+  assert.deepEqual(status(), REST, 'lens is back');
+});
+
+pageTest('a refresh says how many files it changed', async () => {
+  const edited = structuredClone(payload);
+  edited.files[0].source += '\n// edited';
+  const undo = answering((path) => (path === '/api/refresh' ? new Response(JSON.stringify(edited)) : undefined));
+  await key('r');
+  await settle();
+  assert.deepEqual(status(), { kind: 'done', label: 'Refreshed', detail: '1 file changed' });
+  undo();
+});
+
+pageTest('a standing notice shows only while it has something to say, and leads to it', async () => {
+  const notices = () => $$('#status-bar .status-notices > *').map((notice) => notice.textContent);
+  assert.deepEqual(notices(), []);
+  // the agent submitted a summary while the reader was away
+  const undo = answering((path) =>
+    path === '/api/summary/stamp' ? new Response(JSON.stringify({ stamp: payload.summary!.stamp! + 1 })) : undefined,
+  );
+  window.dispatchEvent(new Event('focus'));
+  await settle();
+  undo();
+  assert.deepEqual(notices(), ['New summary waiting']);
+  await click($('#status-bar .status-notice'));
+  await settle();
+  assert.ok($('#summary-pane .sum-headline'), 'the Summary tab, with the summary loaded');
+  assert.deepEqual(notices(), []);
+  assert.deepEqual(status(), { kind: 'done', label: 'New summary loaded', detail: '' });
+});
+
 test("the page the server sends carries its theme's colors on <html>, before any script runs", () => {
   const light = lightTokens as { fg: string; bg: string; accent: string };
   const html = renderPage('<html lang="en"/*__LENS_ROOT__*/><script>/*__LENS_DATA__*/</script>', {
@@ -531,7 +667,34 @@ pageTest(
   '#summary',
 );
 
-test('a summary submitted after the page loaded: the tab doesn\'t say "No summary yet" while it fetches it', async () => {
+test('with nothing summarized, the Summary tab opens on the overview: what to run, the list and the pill', async () => {
+  const fresh = payload.summary!;
+  payload.summary = { ...fresh, units: fresh.units.map((unit) => ({ ...unit, summary: null })) };
+  try {
+    await open();
+    await key('v');
+    await settle();
+    assert.equal($('#summary-pane .sum-headline').textContent, 'The changes');
+    const how = $('#no-summary');
+    assert.equal(how.querySelector('.ov-what-label')!.textContent, 'Agent summary');
+    assert.deepEqual(
+      [...how.querySelectorAll('.copy-cmd-text')].map((command) => command.textContent),
+      [fresh.command, fresh.cli],
+      'the skill, and the same for an agent without it',
+    );
+    // the changes can be read without a summary, right away
+    assert.equal($('#review-next').textContent!.trim(), 'Start review');
+    await click($('#review-next'));
+    assert.ok($('#summary-pane').dataset.unit, 'a change is open');
+    await key('g');
+    assert.ok($('#no-summary'), 'back on the overview, the same page');
+  } finally {
+    payload.summary = fresh;
+    await close();
+  }
+});
+
+test('a summary submitted after the page loaded: the overview doesn\'t say "not written yet" while it fetches it', async () => {
   const fresh = payload.summary!;
   // the page loaded before the agent's submit: no unit summarized yet
   payload.summary = { ...fresh, stamp: 1, units: fresh.units.map((unit) => ({ ...unit, summary: null })) };
@@ -546,10 +709,11 @@ test('a summary submitted after the page loaded: the tab doesn\'t say "No summar
       return realFetch(input, init);
     }) as typeof fetch;
     await key('v');
-    assert.equal($$('#summary-pane .sum-empty').length, 0, 'no "No summary yet" while the stamp is checked');
+    assert.equal($('#summary-pane .sum-headline').textContent, 'The changes', 'the overview is there already');
+    assert.equal($$('#no-summary').length, 0, 'no "not written yet" while the stamp is checked');
     release();
     await settle();
-    assert.equal($$('#summary-pane .sum-empty').length, 0);
+    assert.equal($$('#no-summary').length, 0);
     assert.equal($('#summary-pane .sum-headline').textContent, 'The changes', 'the overview, with the new summary');
   } finally {
     payload.summary = fresh;

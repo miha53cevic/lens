@@ -15,6 +15,7 @@ import { SettingsDialog } from './SettingsDialog.tsx';
 import { KeysDialog } from './KeysDialog/index.tsx';
 import { SearchDialog } from './SearchDialog/index.tsx';
 import { ReviewPill } from './ReviewPill.tsx';
+import { StatusBar } from './StatusBar/index.tsx';
 import './App.css';
 
 export function App() {
@@ -57,6 +58,7 @@ export function App() {
         />
         <AskRail />
       </div>
+      <StatusBar />
     </>
   );
 }
