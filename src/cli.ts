@@ -5,6 +5,7 @@ import { serveViewer } from "./render/web/server.ts";
 import { analyze } from "./analyze.ts";
 import { runSummary } from "./summary/command.ts";
 import { runAsk } from "./ask/command.ts";
+import { runInfo } from "./info.ts";
 import type { LensConfig } from "./model.ts";
 
 const HELP = `lens — a reading lens for AI-generated code (static analysis, no AI)
@@ -15,6 +16,8 @@ usage:
   lens pr <url|N>             analyze a GitHub PR (URL, or a number on origin)
                               — run inside a clone; refresh picks up new pushes
   lens config                 print the effective config and where it comes from
+  lens info [--json]          what could be reviewed here: the repository, its branches and
+                              changes (--base <ref> to compare against, --themes for the themes' colors)
 
 summary mode (written by your own coding agent — see skills/lens-review):
   lens summary prepare [diff-args | pr <url|N>]
@@ -47,8 +50,8 @@ interface CliOptions {
   theme: string | null;
 }
 
-type Command = "paths" | "diff" | "pr" | "config" | "summary" | "ask";
-const COMMANDS: string[] = ["diff", "pr", "config", "summary", "ask"] satisfies Command[];
+type Command = "paths" | "diff" | "pr" | "config" | "info" | "summary" | "ask";
+const COMMANDS: string[] = ["diff", "pr", "config", "info", "summary", "ask"] satisfies Command[];
 
 function parseCli(argv: string[]): { command: Command; rest: string[]; opts: CliOptions } {
   const opts: CliOptions = { json: false, open: true, openSummary: false, port: 5326, portSet: false, threshold: null, theme: null };
@@ -83,6 +86,7 @@ async function main(): Promise<void> {
     console.log(JSON.stringify(loadConfig(cwd), null, 2));
     return;
   }
+  if (command === "info") return runInfo(rest, cwd, opts.json, opts.theme);
   if (command === "summary") return runSummary(rest, cwd);
   if (command === "ask") return runAsk(rest, cwd, opts.portSet ? opts.port : null);
 

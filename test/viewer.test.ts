@@ -1,5 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { bundleViewer } from '../src/render/web/bundle.ts';
 import {
   fileSpans,
@@ -21,6 +24,17 @@ test("the viewer's browser code bundles into one script and one stylesheet, both
   assert.match(css, /--surface:/, 'the stylesheet has the design tokens');
   assert.doesNotMatch(css, /@import/, 'every stylesheet is bundled in');
   assert.doesNotMatch(css, /<\/style/i, 'nothing in it ends the inline <style> early');
+});
+
+test('a bundle made ahead of time is used as it is, instead of bundling again', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'lens-bundle-'));
+  try {
+    const prebuilt = join(dir, 'viewer-bundle.json');
+    writeFileSync(prebuilt, JSON.stringify({ script: 'made();', css: '.made{}' }));
+    assert.deepEqual(await bundleViewer(prebuilt), { script: 'made();', css: '.made{}' });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 // "L3" a line, "-5" a removed line (its old-side number), "R2-4[…]" a fold, "gap:14-20", "⋯" a break

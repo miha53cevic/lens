@@ -1,0 +1,98 @@
+/*
+ * The tab strip is the window's title bar. The system bar is hidden and the OS draws only its
+ * buttons over this page; env(titlebar-area-*) says where they left room. The strip drags the
+ * window, and its tabs and buttons still click.
+ */
+.tabstrip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  /* the main process lays the tabs' pages out under this height (STRIP_HEIGHT in window.ts) */
+  height: 40px;
+  padding-left: max(var(--space-3), env(titlebar-area-x, 0px));
+  padding-right: max(var(--space-3), calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw)));
+  background: var(--bg);
+  user-select: none;
+  -webkit-app-region: drag;
+}
+/* macOS: at least the lights' own room, should the system not report it */
+:root[data-platform='darwin']:not([data-fullscreen]) .tabstrip {
+  padding-left: max(78px, env(titlebar-area-x, 0px));
+}
+.tabstrip button {
+  -webkit-app-region: no-drag;
+}
+
+.rtabs {
+  display: flex;
+  gap: 4px;
+  min-width: 0;
+}
+
+/* a repository's tab: the viewer's file tabs (components/Tabs.css), in the UI font */
+.rtab {
+  display: flex;
+  align-items: center;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 280px;
+  padding-right: 4px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-full);
+  color: var(--muted);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+.rtab:hover {
+  color: var(--text);
+}
+.rtab.active {
+  border-color: var(--selected-ring);
+  background: var(--selected-bg);
+  color: var(--text);
+}
+.rtab-main {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 4px 4px 4px 10px;
+  border-radius: var(--radius-full);
+}
+.rtab-main svg {
+  flex: none;
+}
+.rtab-title {
+  font-weight: 600;
+}
+.rtab-detail {
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+}
+.rtab-btn {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  color: var(--muted);
+}
+.rtab-btn:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+/* close shows on the tab in front and on the one under the pointer, as on the viewer's file tabs */
+.rtab-close {
+  visibility: hidden;
+}
+.rtab.active .rtab-close,
+.rtab:hover .rtab-close {
+  visibility: visible;
+}
+
+.strip-btn.icon-btn {
+  width: 28px;
+  height: 28px;
+}

@@ -13,6 +13,6 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["src/**/*.ts", "test/**/*.ts", "scripts/**/*.ts"],
-  "exclude": ["test/fixtures", "src/render/web/client", "test/viewer-page.test.ts"]
+  "include": ["src/**/*.ts", "test/**/*.ts", "scripts/**/*.ts", "forge.config.ts"],
+  "exclude": ["test/fixtures", "src/render/web/client", "test/viewer-page.test.ts", "test/launcher-page.test.ts"]
 }

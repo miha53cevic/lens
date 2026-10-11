@@ -1,0 +1,108 @@
+// A scripted run of the real app, for `node scripts/app.ts smoke`: it opens a repository, starts
+// a review, opens Settings and switches the theme, saving a picture of each page and what it
+// found. It is how a build is checked without a person clicking through it.
+
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { app, type WebContents } from 'electron';
+import type { Themes } from './themes.ts';
+import type { AppWindow } from './window.ts';
+
+const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function loaded(contents: WebContents): Promise<void> {
+  if (!contents.isLoading()) return Promise.resolve();
+  return new Promise((resolve) => contents.once('did-finish-load', () => resolve()));
+}
+
+async function until(what: string, check: () => boolean, timeout = 30_000): Promise<void> {
+  const deadline = Date.now() + timeout;
+  while (!check()) {
+    if (Date.now() > deadline) throw new Error(`timed out waiting for ${what}`);
+    await pause(50);
+  }
+}
+
+export async function runSmoke(window: AppWindow, themes: Themes, repo: string): Promise<void> {
+  const out = process.env.LENS_APP_SMOKE_OUT ?? join(app.getPath('temp'), 'lens-app-smoke');
+  mkdirSync(out, { recursive: true });
+  const report: Record<string, unknown> = { ok: false, steps: [] as string[] };
+  const steps = report.steps as string[];
+  const shot = async (name: string, contents: WebContents) => {
+    await loaded(contents);
+    await pause(350); // React's render, and the paint after it
+    // a page that has just come to the front may not have a frame to give yet
+    for (let attempt = 0; ; attempt++) {
+      try {
+        writeFileSync(join(out, name + '.png'), (await contents.capturePage()).toPNG());
+        break;
+      } catch (error) {
+        if (attempt === 5) throw error;
+        await pause(300);
+      }
+    }
+    steps.push(name);
+  };
+  const strip = window.win.webContents;
+  const read = <T>(contents: WebContents, code: string) => contents.executeJavaScript(code, true) as Promise<T>;
+
+  try {
+    await until('the window to show', () => window.win.isVisible());
+    const tab = window.tabs.active!;
+    await shot('1-start', window.frontViews()!.launcher.webContents);
+    await shot('1-strip', strip);
+
+    await tab.openFolder(repo);
+    if (tab.screen !== 'picker') throw new Error('the picker did not open: ' + JSON.stringify(tab.status));
+    await shot('2-picker', window.frontViews()!.launcher.webContents);
+
+    await tab.open({ kind: 'diff', range: 'worktree' });
+    if (!tab.reviewUrl) throw new Error('the review did not open: ' + JSON.stringify(tab.status));
+    const viewer = window.frontViews()!.review!.webContents;
+    await shot('3-review', viewer);
+    await shot('3-strip', strip);
+    // the viewer must not be able to reach the app
+    report.viewerSeesApp = await read<boolean>(
+      viewer,
+      "typeof window.lensApp !== 'undefined' || typeof require !== 'undefined'",
+    );
+    report.viewerTitle = await read<string>(viewer, 'document.title');
+
+    // where the OS says its window buttons are, and what the strip made of it
+    report.strip = await read(
+      strip,
+      `(() => {
+        const probe = document.createElement('div');
+        probe.style.cssText = 'position:fixed;left:env(titlebar-area-x, -1px);width:env(titlebar-area-width, -1px)';
+        document.body.append(probe);
+        const rect = probe.getBoundingClientRect();
+        probe.remove();
+        const style = getComputedStyle(document.querySelector('.tabstrip'));
+        return { titlebarAreaX: rect.left, titlebarAreaWidth: rect.width, paddingLeft: style.paddingLeft, paddingRight: style.paddingRight, innerWidth };
+      })()`,
+    );
+
+    window.openSettings();
+    await shot('4-settings', window.frontViews()!.launcher.webContents);
+
+    await themes.pick('github-light');
+    await until('the app to take the theme', () => themes.current.name === 'github-light');
+    await pause(900); // the viewer fetches the theme's tokens
+    await shot('5-settings-light', window.frontViews()!.launcher.webContents);
+    await shot('5-strip-light', strip);
+    window.selectTab(tab.id);
+    report.viewerTheme = await read<string>(viewer, 'document.documentElement.dataset.appearance');
+    await shot('5-review-light', viewer);
+    await themes.pick('vesper');
+
+    // End session in the viewer: the tab falls back to its picker
+    await read(viewer, "fetch('/api/shutdown', { method: 'POST' }).then(() => true)");
+    await until('the tab to fall back to the picker', () => tab.reviewUrl === null);
+    await shot('6-picker-after-end', window.frontViews()!.launcher.webContents);
+    report.ok = report.viewerSeesApp === false;
+  } catch (error) {
+    report.error = (error as Error).stack ?? String(error);
+  }
+  writeFileSync(join(out, 'report.json'), JSON.stringify(report, null, 2) + '\n');
+  window.win.close();
+}

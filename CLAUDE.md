@@ -6,8 +6,9 @@
 ## Running and testing
 
 - Node >= 23.6 runs the `.ts` sources directly (type stripping). There's no build step, and `npm run install-cli` links `lens` to the live source.
-- `npm test` runs both typechecks (`tsconfig.json` for src/test, `tsconfig.viewer.json` for the viewer's browser code in `src/render/web/client/` and the page tests) and then `node --test test/*.test.ts`. Run it before calling a change done.
+- `npm test` runs the three typechecks (`tsconfig.json` for src/test, `tsconfig.viewer.json` for the viewer's browser code in `src/render/web/client/` and its page tests, `tsconfig.app.json` for the desktop app in `app/` and its page tests) and then `node --test test/*.test.ts`. Run it before calling a change done.
 - To see a change, run `node src/cli.ts diff` (or `<path>`, `pr N`) and open the viewer. Add `--no-open` to skip the browser and `--json` to dump the fold model.
+- The desktop app: `npm run app` runs it from the checkout, `npm run app:smoke` runs its scripted tour (see "Desktop app" below), `npm run app:dist` packs it for this machine into `release/` (a folder with the app in it, not an installer).
 - `install-skill` / `uninstall-skill` run `scripts/skills.ts`, which links each folder in `skills/` into `~/.claude/skills` (junctions on Windows). Keep npm scripts shell-free: npm runs them with cmd.exe on Windows, even from Git Bash.
 
 ## Paths (Windows too)
@@ -23,7 +24,8 @@ Paths that lens shows, matches config patterns against, or uses in unit ids are 
 ## Layout
 
 ```
-cli.ts            arg parsing → analyze() → serveViewer(), or runSummary()
+cli.ts            arg parsing → analyze() → serveViewer(), or runSummary() / runAsk() / runInfo()
+info.ts           `lens info`: what could be reviewed in a repository (the desktop app's picker reads it)
 analyze.ts        paths | diff | pr → ViewerInput; re-run on ↻ refresh
 git.ts, pr.ts     git diff parsing, PR refs via plain git fetch (no GitHub API)
 config.ts         lens.defaults.json merged with the nearest .lens.json
@@ -141,9 +143,45 @@ The Ask rail (`client/ask/`, `components/AskRail/`) asks the user's agent about 
 - A question stores its unit's hash (or the file's content hash). ↻ refresh marks it stale when that changes.
 - The server writes `.lens/server.json` (port, pid) so `lens ask` can find it, and removes it on exit.
 
+## Desktop app (`app/`)
+
+An Electron shell around the CLI. **It holds no lens logic**: it picks arguments, starts the same `lens` command a terminal would, and shows that command's viewer in a tab. The CLI works without it, and must keep working without it.
+
+```
+app/main/index.ts     lifecycle; where the CLI's sources are (the checkout, or the packed app's resources)
+app/main/window.ts    the window: the tab strip's page, one WebContentsView per tab under it, the IPC handlers
+app/main/tab.ts       one tab's logic (Start → picker → review), without Electron: it reports to a TabHost
+app/main/tabs.ts      the tabs in order, and which is in front
+app/main/session.ts   one review: start the CLI, wait for its ready line, stop it
+app/main/cli.ts       how the CLI is run (the app's executable in Node mode), `lens info --json`
+app/main/store.ts     recent folders and each repository's port; nothing else is remembered
+app/main/setup.ts     Settings → Agent: install / uninstall the `lens` command and the skills
+app/main/themes.ts    the code theme: the viewer's cookie, read and written
+app/main/security.ts  what pages may do (see below)
+app/main/smoke.ts     the scripted tour `npm run app:smoke` runs
+app/preload.ts        window.lensApp for the app's own pages; the viewer gets no preload
+app/shared/           choice.ts (a picked review → CLI arguments), api.ts (the IPC contract)
+app/shell/            the tab strip: the window's own page, and its title bar
+app/launcher/         Start, the picker, Settings: a React page shown in a tab until a review runs
+scripts/app.ts        dev | build | dist | smoke | icons
+forge.config.ts       how Electron Forge packs the app: what goes in, and the fuses
+```
+
+- **The CLI and the app stay in sync by construction.** The app runs `src/cli.ts` with Electron's Node (type stripping, as the `lens` command's Node does); the packed app carries `src/` as it is, plus a viewer bundled ahead of time (`viewer-bundle.json`, which `bundleViewer` prefers when it exists). Nothing compiles the CLI. `CLI_PACKAGES` in `scripts/app.ts` names the packages the CLI loads at run time: a new runtime dependency of `src/` goes there too, or the packed app can't find it (`npm run app:smoke -- --packed` catches that).
+- **`app/shared/choice.ts` is the only place that writes CLI arguments.** `test/app-choice.test.ts` runs every kind of choice through the real CLI. A new CLI mode or flag that changes what is reviewed gets its control in the picker in the same change, or a line in the README saying it stays CLI-only.
+- **What the app knows about a repository comes from `lens info --json`.** Git logic belongs in `src/` (under the node tests), not in `app/`. The app also reads two things the CLI writes: the ready line `lens viewer on http://127.0.0.1:<port>/` and the failure line `lens: <reason>` (both in `session.ts` / `cli.ts`, pinned by `test/app-session.test.ts`), and `.lens/server.json`.
+- **The viewer page has no app-specific code**, and should get none: the tab strip carries the window controls, the theme button and Settings. The one thing the app does to a viewer is switch its theme, by clicking the viewer's own menu item, `#theme-<name>` (`themeChanged` in `window.ts`). Keep that id.
+- **Security (`security.ts`) is not optional.** The viewer shows code the reader didn't write: it is sandboxed, has no preload, keeps to its own origin (no navigation, windows, downloads or permissions but clipboard writes) and has its own session partition. The app's pages are served from `lens-app://app` under a CSP that allows only the app's files. Every IPC call checks who sent it (`isAppPage`) and what it carries: a repository is one the app listed or the folder dialog returned, a review is `parseChoice`'d and turned into arguments in the main process. A page never sends a command line. The CLI is spawned with an argument list, never through a shell. A new page, call or view keeps all of this.
+- **Logic is tested without Electron.** `tab.ts`, `tabs.ts`, `session.ts`, `store.ts`, `setup.ts` and `shared/` import nothing from `electron`, and the `test/app-*.test.ts` files drive them against the real CLI and real temp folders. `window.ts`, `themes.ts`, `security.ts` and `menu.ts` are the Electron glue; keep logic out of them. The pages are tested as the viewer's is: `test/launcher-page.test.ts` runs the real bundles in happy-dom with `window.lensApp` stubbed. What only a real window shows (views, the title bar, the theme reaching a viewer) is checked by `npm run app:smoke`, which saves a picture of each step in `app/dist/smoke`: run it after changing the glue or the packing, and read the pictures. Not routinely: it opens the app's window on the user's screen, so run it once per such change, and say so first.
+- **The app's pages follow the viewer's design system and code rules**: the same tokens (`styles/tokens.css`) and primitives (`client/ui/`), Zustand for the state the main process sends, a stylesheet per component, Prettier. The status bar under the launcher's screens is the viewer's, in markup and CSS (`components/StatusBar/style.css`).
+- The theme menu in the strip is the system's native menu: a popover in the strip's page would open underneath the tab's view, which is a separate layer above the page.
+- Setup only ever removes what it installed: its command file carries the marker `lens-app-shim`, a skill folder it copied carries `.lens-app`. A link or an unmarked folder is someone else's.
+- **Packing is Electron Forge's `package` step, with no makers**: the result is a folder to run the app from (`release/Lens-<platform>-<arch>`), not an installer. Don't add a maker or an installer unless asked. Forge packs for the system it runs on, so a Windows build is made and checked on Windows. `app/build/icon.icns` and `icon.ico` are checked in; `node scripts/app.ts icons` (macOS) makes them again from `icon.png`.
+- Nothing signs the app, and nothing needs to for a build run where it was packed: Electron's executable comes signed ad hoc, and Forge's fuses plugin signs it again after changing it (Apple silicon won't run it otherwise). Leave the cookie-encryption fuse off: on macOS it asks the Keychain for a key, and an app without a certificate then prompts for the login password.
+
 ## Non-goals
 
-lens never calls an AI, does no semantic analysis or type checking, never edits code, and has no terminal UI (`--json` is for debugging only). Don't add features that cross these lines.
+lens never calls an AI, does no semantic analysis or type checking, never edits code, and has no terminal UI (`--json` is for debugging only). The desktop app adds none of these: it is another way to start the same review. Don't add features that cross these lines.
 
 ## Git
 

@@ -1,0 +1,41 @@
+/* What the launcher's screens share: a centered column over the status bar. */
+.screen {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+.column {
+  width: 100%;
+  max-width: 660px;
+  margin: 0 auto;
+  padding: 0 var(--space-5);
+}
+
+.screen-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+  margin: var(--space-6) 0 var(--space-4);
+}
+.screen-head h1 {
+  margin: 0;
+  font: 700 var(--text-xl) / 1.2 var(--font-serif);
+}
+
+.section-title {
+  margin: var(--space-6) 0 var(--space-2);
+  padding: 0 var(--space-2);
+  color: var(--faint);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hint {
+  margin: var(--space-2) var(--space-2) 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- the viewer's favicon (src/render/web/viewer.html), on the rounded square a macOS icon sits in -->
+  <rect x="100" y="100" width="824" height="824" rx="184" fill="#101010"/>
+  <rect x="280" y="254" width="118" height="516" rx="59" fill="#ffc799"/>
+  <g fill="#ffffff" fill-opacity=".32">
+    <rect x="486" y="306" width="284" height="82" rx="41"/>
+    <rect x="486" y="471" width="206" height="82" rx="41"/>
+    <rect x="486" y="636" width="258" height="82" rx="41"/>
+  </g>
+</svg>

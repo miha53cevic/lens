@@ -1,3 +1,5 @@
 node_modules
 .lens
 .lavish
+app/dist
+release

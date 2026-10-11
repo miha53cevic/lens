@@ -1,0 +1,22 @@
+{
+  // Type-checks the desktop app (app/): its main process, and its two pages, which need the
+  // DOM types as the viewer's code does. scripts/app.ts bundles them with esbuild.
+  "compilerOptions": {
+    "target": "es2022",
+    "lib": ["es2024", "dom", "dom.iterable"],
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noEmit": true,
+    "erasableSyntaxOnly": true,
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "jsx": "react-jsx",
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": ["app/**/*", "src/render/web/client/css.d.ts", "test/launcher-page.test.ts"],
+  "exclude": ["app/dist"]
+}
