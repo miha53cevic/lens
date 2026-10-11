@@ -3,9 +3,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { highlightSource, isBundledTheme, SUGGESTED_THEMES, themeAccent } from "../src/render/highlight.ts";
-import { DEFAULT_CONFIG } from "../src/config.ts";
-import { highlightFiles } from "../src/render/web/server.ts";
+import { highlightSource, isBundledTheme, SUGGESTED_THEMES, themeAccent } from "../src/cli-app/render/highlight.ts";
+import { DEFAULT_CONFIG } from "../src/cli-app/config.ts";
+import { highlightFiles } from "../src/cli-app/render/web/server.ts";
 
 const DEFAULT_THEME = DEFAULT_CONFIG.theme;
 
@@ -79,7 +79,7 @@ test("a refresh re-tokenizes only the files whose text changed", async () => {
 });
 
 test("non-classified languages: shiki colors when known, plain when not", async () => {
-  const { shikiLangForFile } = await import("../src/render/highlight.ts");
+  const { shikiLangForFile } = await import("../src/cli-app/render/highlight.ts");
   assert.equal(shikiLangForFile("config.json"), "json");
   assert.equal(shikiLangForFile("notes.md"), "markdown");
   assert.equal(shikiLangForFile("data.bin"), null);

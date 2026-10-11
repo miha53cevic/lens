@@ -3,12 +3,12 @@ import assert from "node:assert/strict";
 import { mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { lensCli } from "../app/main/cli.ts";
-import { tildePath } from "../app/main/display.ts";
-import { openStore } from "../app/main/store.ts";
-import { Tab, type TabHost } from "../app/main/tab.ts";
-import { TabList } from "../app/main/tabs.ts";
-import { toPosix } from "../src/paths.ts";
+import { lensCli } from "../src/desktop/main/cli.ts";
+import { tildePath } from "../src/desktop/main/display.ts";
+import { openStore } from "../src/desktop/main/store.ts";
+import { Tab, type TabHost } from "../src/desktop/main/tab.ts";
+import { TabList } from "../src/desktop/main/tabs.ts";
+import { toPosix } from "../src/cli-app/paths.ts";
 import { makeViewerRepo } from "./fixtures/viewerRepo.ts";
 
 // the CLI as the tests run it: this Node on the sources (the app uses its own executable instead)

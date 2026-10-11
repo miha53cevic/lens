@@ -1,0 +1,72 @@
+// The Summary tab: the open unit, the list's filters, the reader's verdicts.
+
+import type { Concern } from '../../cli-app/summary/store.ts';
+import { CONCERN_PREF, type ConcernMark, getState, type SignalFilter, update, VIEWED_CAP } from '../store.ts';
+import { writePref } from '../shared.ts';
+import { concernKey, type Unit } from '../model/signals.ts';
+import { currentUnit, listModel } from '../model/summaryList.ts';
+import { jumpToLine, landOn } from './views.ts';
+
+export function openSummaryUnit(unitId: string): void {
+  update({ summaryUnit: unitId });
+}
+
+export function showOverview(): void {
+  update({ summaryUnit: null });
+}
+
+export function stepSummary(direction: number): void {
+  const state = getState();
+  const list = listModel(state);
+  if (!list || list.order.length === 0) return;
+  // from the overview, j starts at the top of the list and k at the bottom
+  const position = state.summaryUnit === null ? -1 : list.order.indexOf(list.activeId!);
+  // stops at the first and the last change: no wrapping around
+  const target = position === -1 ? (direction > 0 ? 0 : list.order.length - 1) : position + direction;
+  if (target >= 0 && target < list.order.length) openSummaryUnit(list.order[target]);
+}
+
+export function openUnitInCode(unit: Unit | null): void {
+  if (!unit) return;
+  const fileIndex = getState().data.files.findIndex((file) => file.file === unit.displayFile);
+  if (fileIndex < 0 || unit.ranges.length === 0) return;
+  jumpToLine(fileIndex, unit.changedLines[0] ?? unit.ranges[0].start);
+}
+
+export function setSignalFilter(signal: SignalFilter): void {
+  update((state) => ({ sumSignal: listModel(state)?.signal === signal ? null : signal }));
+}
+
+export function toggleFlow(title: string, open: boolean): void {
+  update((state) => ({ flowOpen: new Map(state.flowOpen).set(title, open) }));
+}
+
+// The agent's concerns are suspicions; the reader decides: "real" or "dismissed", per browser.
+export function setConcernMark(unit: Unit, concern: Concern, mark: ConcernMark): void {
+  const key = concernKey(unit, concern);
+  const marks = new Map(getState().concernMarks);
+  if (marks.get(key) === mark) marks.delete(key);
+  else {
+    marks.delete(key);
+    marks.set(key, mark); // re-insert: the oldest marks drop first
+  }
+  writePref(CONCERN_PREF, JSON.stringify(Object.fromEntries([...marks].slice(-VIEWED_CAP))));
+  update({ concernMarks: marks });
+}
+
+/** The row a label ("N31" / "O16") points at, in the open unit's code. */
+function citedRow(label: string): HTMLElement | null {
+  const selector = label.startsWith('O')
+    ? '.row[data-old="' + label.slice(1) + '"]'
+    : '.row[data-line="' + label.slice(1) + '"]';
+  return document.querySelector<HTMLElement>('.summary-pane .unit-code ' + selector);
+}
+
+/** A cite: the line in the unit's code, its fold opened, scrolled to and flashed. */
+export function flashCited(label: string): boolean {
+  const row = citedRow(label);
+  const unit = currentUnit(getState());
+  if (!row || !unit) return false;
+  landOn(row, unit.displayFile, label, true);
+  return true;
+}

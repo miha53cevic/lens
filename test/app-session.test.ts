@@ -4,9 +4,9 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { cliEnv, cliReason, lensCli, lensInfo } from "../app/main/cli.ts";
-import { freePort, isPortInUse, startReview } from "../app/main/session.ts";
-import { openStore } from "../app/main/store.ts";
+import { cliEnv, cliReason, lensCli, lensInfo } from "../src/desktop/main/cli.ts";
+import { freePort, isPortInUse, startReview } from "../src/desktop/main/session.ts";
+import { openStore } from "../src/desktop/main/store.ts";
 import { makeViewerRepo } from "./fixtures/viewerRepo.ts";
 
 // the CLI as the tests run it: this Node on the sources (the app uses its own executable instead)

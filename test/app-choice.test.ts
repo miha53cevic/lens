@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { choiceArgs, choiceCommand, choiceLabel, choiceProblem, parseChoice, splitArgs, type ReviewChoice } from "../app/shared/choice.ts";
-import { lensCli, runLens } from "../app/main/cli.ts";
+import { choiceArgs, choiceCommand, choiceLabel, choiceProblem, parseChoice, splitArgs, type ReviewChoice } from "../src/desktop/shared/choice.ts";
+import { lensCli, runLens } from "../src/desktop/main/cli.ts";
 import { makeViewerRepo } from "./fixtures/viewerRepo.ts";
 
 // the CLI as the tests run it: this Node on the sources (the app uses its own executable instead)

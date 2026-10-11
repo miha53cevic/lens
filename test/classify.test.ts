@@ -3,9 +3,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { analyzeSource } from "../src/classify/index.ts";
-import { DEFAULT_CONFIG } from "../src/config.ts";
-import type { FoldRegion } from "../src/model.ts";
+import { analyzeSource } from "../src/cli-app/classify/index.ts";
+import { DEFAULT_CONFIG } from "../src/cli-app/config.ts";
+import type { FoldRegion } from "../src/cli-app/model.ts";
 
 const fixturesDir = join(dirname(fileURLToPath(import.meta.url)), "fixtures");
 

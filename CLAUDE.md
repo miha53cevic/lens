@@ -6,22 +6,34 @@
 ## Running and testing
 
 - Node >= 23.6 runs the `.ts` sources directly (type stripping). There's no build step, and `npm run install-cli` links `lens` to the live source.
-- `npm test` runs the three typechecks (`tsconfig.json` for src/test, `tsconfig.viewer.json` for the viewer's browser code in `src/render/web/client/` and its page tests, `tsconfig.app.json` for the desktop app in `app/` and its page tests) and then `node --test test/*.test.ts`. Run it before calling a change done.
-- To see a change, run `node src/cli.ts diff` (or `<path>`, `pr N`) and open the viewer. Add `--no-open` to skip the browser and `--json` to dump the fold model.
+- `npm test` runs the three typechecks (`tsconfig.json` for `src/cli-app/` and the tests, `tsconfig.viewer.json` for the viewer's browser code in `src/viewer/` and its page tests, `tsconfig.desktop.json` for the desktop app in `src/desktop/` and its page tests) and then `node --test test/*.test.ts`. Run it before calling a change done.
+- To see a change, run `node src/cli-app/cli.ts diff` (or `<path>`, `pr N`) and open the viewer. Add `--no-open` to skip the browser and `--json` to dump the fold model.
 - The desktop app: `npm run app` runs it from the checkout, `npm run app:smoke` runs its scripted tour (see "Desktop app" below), `npm run app:dist` packs it for this machine into `release/` (a folder with the app in it, not an installer).
 - `install-skill` / `uninstall-skill` run `scripts/skills.ts`, which links each folder in `skills/` into `~/.claude/skills` (junctions on Windows). Keep npm scripts shell-free: npm runs them with cmd.exe on Windows, even from Git Bash.
 
 ## Paths (Windows too)
 
-Paths that lens shows, matches config patterns against, or uses in unit ids are always `/`-separated, so the same code works on Windows. Build them with `relPath` / `toPosix` from `src/paths.ts`, never with `path.relative` or `path.join` directly. On Windows those return `\`, which silently breaks `exclude`, `testFilePatterns` and summary unit ids.
+Paths that lens shows, matches config patterns against, or uses in unit ids are always `/`-separated, so the same code works on Windows. Build them with `relPath` / `toPosix` from `src/cli-app/paths.ts`, never with `path.relative` or `path.join` directly. On Windows those return `\`, which silently breaks `exclude`, `testFilePatterns` and summary unit ids.
 
 ## TypeScript constraints
 
 - `erasableSyntaxOnly`: no enums, namespaces or constructor parameter properties. Use union types and plain objects.
 - Imports carry the `.ts` extension (`./config.ts`), and type-only imports use `import type` (`verbatimModuleSyntax`).
-- `strict` and `noUnused*` are on for src and tests.
+- `strict` and `noUnused*` are on for all three source folders and the tests.
 
 ## Layout
+
+The sources are three folders under `src/`, each with its own section below:
+
+```
+src/cli-app/      the `lens` command: analysis, git, summary and ask modes, and the viewer's server
+src/viewer/       the viewer: the React page the server bundles and serves
+src/desktop/      the desktop app: an Electron shell that runs the command and shows its viewer
+```
+
+`src/viewer/` and `src/desktop/` import from `src/cli-app/` (types, and the pure helpers below); `src/desktop/` also uses the viewer's design system. `src/cli-app/` imports from neither: it only bundles the viewer's entry file. Build output goes to `dist/`, the packed app to `release/`; neither is checked in.
+
+`src/cli-app/`:
 
 ```
 cli.ts            arg parsing → analyze() → serveViewer(), or runSummary() / runAsk() / runInfo()
@@ -34,22 +46,22 @@ parse/parser.ts   tree-sitter (wasm) for ts / tsx / js
 parse/declarations.ts   the names a file declares, for search's "Defined at" (by name, no types)
 classify/         fold rules → FoldRegion[] (model.ts has the shapes)
 render/highlight.ts   Shiki tokens, computed server-side
-render/web/       server.ts, bundle.ts + the viewer page and its client/ code (see below)
+render/web/       server.ts, bundle.ts and viewer.html: what serves the viewer (see below)
 summary/          summary mode (see below)
 ask/              ask mode: the viewer's Ask rail and `lens ask listen|reply` (see below)
 ```
 
 ### Folding rules
 
-- The rule *data* (receivers, methods, scores, markers, patterns) lives in `lens.defaults.json`. The structural analysis lives in `src/classify/typescript.ts`, which is shared by the ts, tsx and js grammars.
+- The rule *data* (receivers, methods, scores, markers, patterns) lives in `lens.defaults.json`. The structural analysis lives in `src/cli-app/classify/typescript.ts`, which is shared by the ts, tsx and js grammars.
 - When regions overlap, `CATEGORY_PRIORITY` decides which one wins.
-- A new built-in category also needs a color in `CAT_COLORS` (`client/shared.ts`) and rows in the README's category and config tables.
+- A new built-in category also needs a color in `CAT_COLORS` (`src/viewer/shared.ts`) and rows in the README's category and config tables.
 - Be conservative: folding a line that matters is the failure mode lens exists to avoid. Every rule change gets a test in `test/classify.test.ts`. Use the fixture (`test/fixtures/loadConfig.ts`) or inline sources, and assert exact line ranges and pill text.
 
-### Viewer (`src/render/web/`)
+### Viewer (`src/viewer/`, served by `src/cli-app/render/web/`)
 
-- The viewer is a React app in `client/`, written in strict TypeScript (`main.tsx` is the entry). `bundle.ts` bundles it with esbuild when the server starts, so there's still no build step: one script, plus one stylesheet collected from the `.css` files the code imports. `server.ts` inlines both into `viewer.html` (a `#root` element and nothing else), and puts the payload in the `lens-data` JSON script, which `client/shared.ts` reads as `INITIAL_DATA`.
-- Shared state lives in `client/store.ts`: one immutable `LensState`, replaced on every change. Components read it with `useLens(selector)`.
+- The viewer is a React app in `src/viewer/`, written in strict TypeScript (`main.tsx` is the entry). `bundle.ts` (in `render/web/`, with `server.ts` and `viewer.html`) bundles it with esbuild when the server starts, so there's still no build step: one script, plus one stylesheet collected from the `.css` files the code imports. `server.ts` inlines both into `viewer.html` (a `#root` element and nothing else), and puts the payload in the `lens-data` JSON script, which `src/viewer/shared.ts` reads as `INITIAL_DATA`.
+- Shared state lives in `src/viewer/store.ts`: one immutable `LensState`, replaced on every change. Components read it with `useLens(selector)`.
   - `model/` derives what the components show, as pure functions: `tree.ts`, `plans.ts` (folds, row plans and the fold chips' categories), `signals.ts`, `summaryList.ts`, `progress.ts` (files viewed, changes reviewed, what's next) and `askContext.ts`.
   - `actions/` changes the state, one file per area: `tabs`, `folds`, `views` (including `jumpToLine`), `summary`, `dialogs` (including search), `session`, `prefs` (the sidebar, the view settings and the viewed marks), `review` (the review pill) and `status` (what the status bar reports).
   - `ask/` is the Ask rail's logic: `rail.ts`, `selection.ts` and `answers.ts`.
@@ -58,7 +70,7 @@ ask/              ask mode: the viewer's Ask rail and `lens ask listen|reply` (s
 - `test/viewer-page.test.ts` runs the real bundle in happy-dom (`@happy-dom/global-registrator`) on a real analysis of a fixture repo (`test/fixtures/viewerRepo.ts`), with `fetch` stubbed, and drives it with keys, clicks and typing (`@testing-library/dom`'s `fireEvent`). A change to how the viewer behaves gets a test there. Assert on what the reader sees: the rows, the tree, classes like `open` and `pinned`. `settle()` after each action lets React render.
 - Keep the markup and class names the stylesheets and the page tests expect. Rows are memoized and their highlighted lines are prebuilt HTML strings, so a toggle re-renders only the rows it changes. Keep it that way on big files.
 - Browser code imports server-side types with `import type` (e.g. `ViewerPayload` from `server.ts`, `SummaryView` from `summary/view.ts`), so a shape change breaks the viewer's typecheck instead of the page.
-- Server endpoints: `/api/tokens` (theme switch), `/api/refresh`, `/api/summary`, `/api/summary/stamp` (polled on window focus), `/api/shutdown`, and the Ask rail's `/api/ask*` (in `src/ask/routes.ts`).
+- Server endpoints: `/api/tokens` (theme switch), `/api/refresh`, `/api/summary`, `/api/summary/stamp` (polled on window focus), `/api/shutdown`, and the Ask rail's `/api/ask*` (in `src/cli-app/ask/routes.ts`).
 - The server never shows stale code and keeps little in memory. Each analysis has an id (`analysis` in the payload and in `/api/tokens`' answer), and the viewer applies tokens only for its own analysis: the code is drawn from the tokens' text, so tokens from another analysis would show the wrong code. `serveViewer` keeps one theme's tokens and one rendered page, not one per theme tried. A ↻ refresh reuses a file's tokens only when its path, language and whole text are unchanged (`highlightFiles`). Blobs are read fresh on every analysis, in batches (`readBlobs` in `git.ts`), and one that doesn't come back whole is an error.
 - The status bar (`components/StatusBar/`) is how the reader always knows whether something is running or went wrong, so anything that talks to the server reports to it, through `actions/status.ts`:
   - Fetch with `request` (throws the server's `{ error }` reason) or `reach` (any status comes back), never bare `fetch`: they notice a server that stopped. The one exception is the shutdown call.
@@ -69,10 +81,10 @@ ask/              ask mode: the viewer's Ask rail and `lens ask listen|reply` (s
 
 ### Viewer design system
 
-- **New UI follows this design system.** Before designing or mocking anything (a component, a control, a state), read `styles/tokens.css` and the primitives in `client/ui/`, and find the nearest existing component to match. A mock for review is built from the same tokens and primitives as the viewer, in a dark and a light code theme (vesper and github-light), so what is approved is what gets built. Don't invent a look: no new colors, radii, button shapes or tinted boxes when a token or primitive already covers it. If the system really lacks something, add it as a token or a primitive, and say so.
-- `client/styles/tokens.css` holds the design tokens. The inputs are the code theme's colors (`--code-bg`, `--code-fg`, `--theme-accent`, set by `main.tsx` from the payload) and the scales (type, space, radius, motion). The semantic tokens components use (`--bg`, `--surface`, `--text`, `--muted`, `--line`, `--accent`, `--danger`, the diff and signal colors) are mixed from those inputs, with a light set under `data-appearance='light'`. Components use semantic tokens and scales, never raw colors. The theme's accent is the design system's one highlight color: anything selected, open or picked uses it (`--selected-bg` / `--selected-ring` for a selected tab, row or pressed button, solid `--accent` on `--accent-fg` for the picked option of a switch or segmented control, and for primary buttons). Never invert `--text` for a selected state. Green, red and the signal colors keep their meaning (added, removed, viewed, concerns) and aren't used for selection. Category colors stay in `CAT_COLORS`.
-- The accent is the theme's function-name color, which `themeAccent` in `src/render/highlight.ts` reads from the Shiki theme.
-- `client/ui/` holds the primitives: `Button`, `IconButton`, `Menu` (a native popover, with `MenuItem`, `MenuSwitch`, `MenuSection`), `Segmented`, `Chip`, `Kbd` (a shortcut as keycaps: `Ctrl P` is two), `FileStatus` (`StatusLetter`, `StatusBadge`), `ProgressRing` and `CopyCommand` (a command to run in the agent, which copies on click). Build controls from these instead of styling a new `button`.
+- **New UI follows this design system.** Before designing or mocking anything (a component, a control, a state), read `styles/tokens.css` and the primitives in `src/viewer/ui/`, and find the nearest existing component to match. A mock for review is built from the same tokens and primitives as the viewer, in a dark and a light code theme (vesper and github-light), so what is approved is what gets built. Don't invent a look: no new colors, radii, button shapes or tinted boxes when a token or primitive already covers it. If the system really lacks something, add it as a token or a primitive, and say so.
+- `src/viewer/styles/tokens.css` holds the design tokens. The inputs are the code theme's colors (`--code-bg`, `--code-fg`, `--theme-accent`, set by `main.tsx` from the payload) and the scales (type, space, radius, motion). The semantic tokens components use (`--bg`, `--surface`, `--text`, `--muted`, `--line`, `--accent`, `--danger`, the diff and signal colors) are mixed from those inputs, with a light set under `data-appearance='light'`. Components use semantic tokens and scales, never raw colors. The theme's accent is the design system's one highlight color: anything selected, open or picked uses it (`--selected-bg` / `--selected-ring` for a selected tab, row or pressed button, solid `--accent` on `--accent-fg` for the picked option of a switch or segmented control, and for primary buttons). Never invert `--text` for a selected state. Green, red and the signal colors keep their meaning (added, removed, viewed, concerns) and aren't used for selection. Category colors stay in `CAT_COLORS`.
+- The accent is the theme's function-name color, which `themeAccent` in `src/cli-app/render/highlight.ts` reads from the Shiki theme.
+- `src/viewer/ui/` holds the primitives: `Button`, `IconButton`, `Menu` (a native popover, with `MenuItem`, `MenuSwitch`, `MenuSection`), `Segmented`, `Chip`, `Kbd` (a shortcut as keycaps: `Ctrl P` is two), `FileStatus` (`StatusLetter`, `StatusBadge`), `ProgressRing` and `CopyCommand` (a command to run in the agent, which copies on click). Build controls from these instead of styling a new `button`.
 - Tooltips are for teaching a key: an `IconButton` with a `shortcut` gets one (the action and its keycap), one without gets none. Don't add a native `title` that only repeats what a button says; keep `title` for text that's cut off (a long path) or that adds something (a flow's why).
 - Every component imports its own stylesheet: `style.css` in a component folder, `Name.css` next to a one-file component. `styles/base.css` is the reset, focus ring and shared helpers, and `styles/signals.css` maps a signal class to its color. `css.d.ts` lets the imports typecheck.
 
@@ -84,7 +96,7 @@ ask/              ask mode: the viewer's Ask rail and `lens ask listen|reply` (s
 - **Names are camelCase and say what they hold**: `state`, `unit`, `concern`, `caller`, `fileIndex`, not `s`, `u`, `c`, `i`. PascalCase is for components and types.
 - **Icons come from `lucide-react`**, not Unicode glyphs: import the icon you need (esbuild bundles only those), and give it a `size`. A signal's icon is `SignalIcon`. Carets are `ChevronRight` with an `open` class that `styles/base.css` rotates.
 - **Dialogs keep their own open state.** The `<dialog>` element knows whether it's open: `openDialog` / `openSearch` call `showModal()`, and Esc or the close button close it natively.
-- **Prettier formats the viewer code** (`.prettierrc`: 2-space indent, single quotes, 120 columns, and `endOfLine: auto`, since Git checks files out with CRLF on Windows). Run `npm run format`. `npm test` fails on unformatted code under `src/render/web/client/` and in the viewer tests.
+- **Prettier formats the viewer code** (`.prettierrc`: 2-space indent, single quotes, 120 columns, and `endOfLine: auto`, since Git checks files out with CRLF on Windows). Run `npm run format`. `npm test` fails on unformatted code under `src/viewer/` and `src/desktop/`, and in their tests.
 
 ### Viewer component files
 
@@ -116,26 +128,26 @@ ask/              ask mode: the viewer's Ask rail and `lens ask listen|reply` (s
 The Summary tab shows the same code snippets as the Code view, with the agent's summary on top. Anything added to or changed in the Code view that affects how code is shown must also work on the Summary tab's unit code, in the same change. That covers folds, fold chips, the fold level, expand/collapse, hunks only, removed lines, hide tests, and their keyboard shortcuts.
 
 - The view settings in the header's ⋯ menu, the fold chips in the code card's header and the review pill work on the Summary tab too. They change state, and both views render from that state: `foldScope` (`actions/folds.ts`) and `foldCategories` (`model/plans.ts`) pick the open file's or the open unit's folds.
-- Both views get their rows from `client/rows.ts`: `fileSpans` / `unitSpans` pick the shown lines and hidden stretches, and `planCode` turns them into lines, folds, removed lines and gaps. Both views render the plan with `CodeRows`, and each passes in its own row marks (cited lines, concern notes, the Ask selection). Change how code is shown there, and both views follow. `rows.ts` has no DOM, so `test/viewer.test.ts` tests it in node. So does `wordDiff.ts`, which pairs replaced lines and marks the words they changed (`codeLines` in `shared.ts` hands both views the marked lines).
+- Both views get their rows from `src/viewer/rows.ts`: `fileSpans` / `unitSpans` pick the shown lines and hidden stretches, and `planCode` turns them into lines, folds, removed lines and gaps. Both views render the plan with `CodeRows`, and each passes in its own row marks (cited lines, concern notes, the Ask selection). Change how code is shown there, and both views follow. `rows.ts` has no DOM, so `test/viewer.test.ts` tests it in node. So does `wordDiff.ts`, which pairs replaced lines and marks the words they changed (`codeLines` in `shared.ts` hands both views the marked lines).
 - A new control should change state both views read (e.g. `openCats` for the fold chips) or get a Summary branch (e.g. `unitSpans` for hunks only, `listModel` for hide tests).
-- Share constants between the views instead of duplicating them (e.g. `HUNK_CONTEXT` in `client/rows.ts`).
-- New keys go in `client/keys.ts` (and its `SUMMARY_KEYS` when they act on a unit), and in the `?` help: the Global, Code or Summary tab of `KEY_TABS` (`components/KeysDialog/const.ts`).
+- Share constants between the views instead of duplicating them (e.g. `HUNK_CONTEXT` in `src/viewer/rows.ts`).
+- New keys go in `src/viewer/keys.ts` (and its `SUMMARY_KEYS` when they act on a unit), and in the `?` help: the Global, Code or Summary tab of `KEY_TABS` (`components/KeysDialog/const.ts`).
 
-## Summary mode (`src/summary/`)
+## Summary mode (`src/cli-app/summary/`)
 
 lens never calls an AI. The user's agent writes `result.json`, and lens checks it.
 
-- Pipeline: `collect.ts` (load the diff) → `units.ts` (split it into units) → `bundle.ts` (`prepare` writes `.lens/summary/<key>/`) → agent → `validate.ts` (`submit`) → `store.ts` (`summary.json`) → `view.ts` (`SummaryView` for the viewer) → `client/model/` and `components/SummaryPane/`.
+- Pipeline: `collect.ts` (load the diff) → `units.ts` (split it into units) → `bundle.ts` (`prepare` writes `.lens/summary/<key>/`) → agent → `validate.ts` (`submit`) → `store.ts` (`summary.json`) → `view.ts` (`SummaryView` for the viewer) → `src/viewer/model/` and `components/SummaryPane/`.
 - Invariant: every changed and removed line belongs to exactly one unit. `checkCoverage` enforces it, so keep it true when changing how units are found.
 - `validate.ts` drops claims that don't point at real code and gives the agent a reason it can act on. A new kind of claim gets the same treatment.
 - The agent instructions are generated in `bundle.ts` and are the source of truth. The skills in `skills/` are thin pointers to them, so put format and rule changes in `bundle.ts`, not in a skill.
-- Changing the result's shape touches all of these: `RESULT_SCHEMA` and the instructions (`bundle.ts`), `validate.ts`, the types in `store.ts`, `view.ts`, the viewer (`client/model/`, `components/SummaryPane/`), and `test/summary.test.ts`. The stored format is `version: 1`, and `readStored` ignores files of any other version.
+- Changing the result's shape touches all of these: `RESULT_SCHEMA` and the instructions (`bundle.ts`), `validate.ts`, the types in `store.ts`, `view.ts`, the viewer (`src/viewer/model/`, `components/SummaryPane/`), and `test/summary.test.ts`. The stored format is `version: 1`, and `readStored` ignores files of any other version.
 - Summaries are keyed by unit hash, so a code change marks a unit stale instead of showing an outdated summary.
 - Tests build real diffs with `git diff --no-index` and real temp repos (see the helpers at the top of `test/summary.test.ts` and `test/git.test.ts`). Follow that pattern rather than hand-writing diff text.
 
-## Ask mode (`src/ask/`)
+## Ask mode (`src/cli-app/ask/`)
 
-The Ask rail (`client/ask/`, `components/AskRail/`) asks the user's agent about the open change. As in summary mode, lens never answers anything itself.
+The Ask rail (`src/viewer/ask/`, `components/AskRail/`) asks the user's agent about the open change. As in summary mode, lens never answers anything itself.
 
 - Flow: the viewer posts a question (`routes.ts`) → `session.ts` holds the chat in memory, one per server → `lens ask listen` (`command.ts`) long-polls `/api/ask/next` and prints the agent text → `lens ask reply` posts the answer → `cites.ts` keeps the `path:line` cites that resolve.
 - The agent text, including the read-only rules, is generated in `context.ts` and is the source of truth. `skills/lens-ask` only points at it.
@@ -143,40 +155,43 @@ The Ask rail (`client/ask/`, `components/AskRail/`) asks the user's agent about 
 - A question stores its unit's hash (or the file's content hash). ↻ refresh marks it stale when that changes.
 - The server writes `.lens/server.json` (port, pid) so `lens ask` can find it, and removes it on exit.
 
-## Desktop app (`app/`)
+## Desktop app (`src/desktop/`)
 
 An Electron shell around the CLI. **It holds no lens logic**: it picks arguments, starts the same `lens` command a terminal would, and shows that command's viewer in a tab. The CLI works without it, and must keep working without it.
 
+In `src/desktop/`:
+
 ```
-app/main/index.ts     lifecycle; where the CLI's sources are (the checkout, or the packed app's resources)
-app/main/window.ts    the window: the tab strip's page, one WebContentsView per tab under it, the IPC handlers
-app/main/tab.ts       one tab's logic (Start → picker → review), without Electron: it reports to a TabHost
-app/main/tabs.ts      the tabs in order, and which is in front
-app/main/session.ts   one review: start the CLI, wait for its ready line, stop it
-app/main/cli.ts       how the CLI is run (the app's executable in Node mode), `lens info --json`
-app/main/store.ts     recent folders and each repository's port; nothing else is remembered
-app/main/setup.ts     Settings → Agent: install / uninstall the `lens` command and the skills
-app/main/themes.ts    the code theme: the viewer's cookie, read and written
-app/main/security.ts  what pages may do (see below)
-app/main/smoke.ts     the scripted tour `npm run app:smoke` runs
-app/preload.ts        window.lensApp for the app's own pages; the viewer gets no preload
-app/shared/           choice.ts (a picked review → CLI arguments), api.ts (the IPC contract)
-app/shell/            the tab strip: the window's own page, and its title bar
-app/launcher/         Start, the picker, Settings: a React page shown in a tab until a review runs
-scripts/app.ts        dev | build | dist | smoke | icons
-forge.config.ts       how Electron Forge packs the app: what goes in, and the fuses
+main/index.ts         lifecycle; where the CLI's sources are (the checkout, or the packed app's resources)
+main/window.ts        the window: the tab strip's page, one WebContentsView per tab under it, the IPC handlers
+main/tab.ts           one tab's logic (Start → picker → review), without Electron: it reports to a TabHost
+main/tabs.ts          the tabs in order, and which is in front
+main/session.ts       one review: start the CLI, wait for its ready line, stop it
+main/cli.ts           how the CLI is run (the app's executable in Node mode), `lens info --json`
+main/store.ts         recent folders and each repository's port; nothing else is remembered
+main/setup.ts         Settings → Agent: install / uninstall the `lens` command and the skills
+main/themes.ts        the code theme: the viewer's cookie, read and written
+main/security.ts      what pages may do (see below)
+main/smoke.ts         the scripted tour `npm run app:smoke` runs
+preload.ts            window.lensApp for the app's own pages; the viewer gets no preload
+shared/               choice.ts (a picked review → CLI arguments), api.ts (the IPC contract)
+shell/                the tab strip: the window's own page, and its title bar
+launcher/             Start, the picker, Settings: a React page shown in a tab until a review runs
+icons/                the app's icon: icon.png, and the .icns / .ico made from it
 ```
 
-- **The CLI and the app stay in sync by construction.** The app runs `src/cli.ts` with Electron's Node (type stripping, as the `lens` command's Node does); the packed app carries `src/` as it is, plus a viewer bundled ahead of time (`viewer-bundle.json`, which `bundleViewer` prefers when it exists). Nothing compiles the CLI. `CLI_PACKAGES` in `scripts/app.ts` names the packages the CLI loads at run time: a new runtime dependency of `src/` goes there too, or the packed app can't find it (`npm run app:smoke -- --packed` catches that).
-- **`app/shared/choice.ts` is the only place that writes CLI arguments.** `test/app-choice.test.ts` runs every kind of choice through the real CLI. A new CLI mode or flag that changes what is reviewed gets its control in the picker in the same change, or a line in the README saying it stays CLI-only.
-- **What the app knows about a repository comes from `lens info --json`.** Git logic belongs in `src/` (under the node tests), not in `app/`. The app also reads two things the CLI writes: the ready line `lens viewer on http://127.0.0.1:<port>/` and the failure line `lens: <reason>` (both in `session.ts` / `cli.ts`, pinned by `test/app-session.test.ts`), and `.lens/server.json`.
+And at the root: `forge.config.ts` is the whole build, as Electron Forge hooks: `generateAssets` bundles `src/desktop/` into `dist/` before a start or a pack, `prePackage` lays out the packed app's copy of the CLI in `dist/lens`, and the packager settings say what goes in and which fuses are set. `npm run app` is `electron-forge start` and `npm run app:dist` is `electron-forge package`: there is no build script of our own, and a new build step goes in a hook. `scripts/smoke.ts` runs the tour and `scripts/icons.ts` makes the icon files.
+
+- **The CLI and the app stay in sync by construction.** The app runs `src/cli-app/cli.ts` with Electron's Node (type stripping, as the `lens` command's Node does); the packed app carries `src/cli-app/` as it is, at the same path under its `resources/lens`, plus a viewer bundled ahead of time (`viewer-bundle.json`, which `bundleViewer` prefers when it exists). Nothing compiles the CLI. `CLI_PACKAGES` in `forge.config.ts` names the packages the CLI loads at run time: a new runtime dependency of `src/cli-app/` goes there too, or the packed app can't find it (`npm run app:smoke -- --packed` catches that).
+- **`shared/choice.ts` is the only place that writes CLI arguments.** `test/app-choice.test.ts` runs every kind of choice through the real CLI. A new CLI mode or flag that changes what is reviewed gets its control in the picker in the same change, or a line in the README saying it stays CLI-only.
+- **What the app knows about a repository comes from `lens info --json`.** Git logic belongs in `src/cli-app/` (under the node tests), not in `src/desktop/`. The app also reads two things the CLI writes: the ready line `lens viewer on http://127.0.0.1:<port>/` and the failure line `lens: <reason>` (both in `session.ts` / `cli.ts`, pinned by `test/app-session.test.ts`), and `.lens/server.json`.
 - **The viewer page has no app-specific code**, and should get none: the tab strip carries the window controls, the theme button and Settings. The one thing the app does to a viewer is switch its theme, by clicking the viewer's own menu item, `#theme-<name>` (`themeChanged` in `window.ts`). Keep that id.
 - **Security (`security.ts`) is not optional.** The viewer shows code the reader didn't write: it is sandboxed, has no preload, keeps to its own origin (no navigation, windows, downloads or permissions but clipboard writes) and has its own session partition. The app's pages are served from `lens-app://app` under a CSP that allows only the app's files. Every IPC call checks who sent it (`isAppPage`) and what it carries: a repository is one the app listed or the folder dialog returned, a review is `parseChoice`'d and turned into arguments in the main process. A page never sends a command line. The CLI is spawned with an argument list, never through a shell. A new page, call or view keeps all of this.
-- **Logic is tested without Electron.** `tab.ts`, `tabs.ts`, `session.ts`, `store.ts`, `setup.ts` and `shared/` import nothing from `electron`, and the `test/app-*.test.ts` files drive them against the real CLI and real temp folders. `window.ts`, `themes.ts`, `security.ts` and `menu.ts` are the Electron glue; keep logic out of them. The pages are tested as the viewer's is: `test/launcher-page.test.ts` runs the real bundles in happy-dom with `window.lensApp` stubbed. What only a real window shows (views, the title bar, the theme reaching a viewer) is checked by `npm run app:smoke`, which saves a picture of each step in `app/dist/smoke`: run it after changing the glue or the packing, and read the pictures. Not routinely: it opens the app's window on the user's screen, so run it once per such change, and say so first.
-- **The app's pages follow the viewer's design system and code rules**: the same tokens (`styles/tokens.css`) and primitives (`client/ui/`), Zustand for the state the main process sends, a stylesheet per component, Prettier. The status bar under the launcher's screens is the viewer's, in markup and CSS (`components/StatusBar/style.css`).
+- **Logic is tested without Electron.** `tab.ts`, `tabs.ts`, `session.ts`, `store.ts`, `setup.ts` and `shared/` import nothing from `electron`, and the `test/app-*.test.ts` files drive them against the real CLI and real temp folders. `window.ts`, `themes.ts`, `security.ts` and `menu.ts` are the Electron glue; keep logic out of them. The pages are tested as the viewer's is: `test/launcher-page.test.ts` runs the real bundles in happy-dom with `window.lensApp` stubbed. What only a real window shows (views, the title bar, the theme reaching a viewer) is checked by `npm run app:smoke`, which saves a picture of each step in `dist/smoke`: run it after changing the glue or the packing, and read the pictures. Not routinely: it opens the app's window on the user's screen, so run it once per such change, and say so first.
+- **The app's pages follow the viewer's design system and code rules**: the same tokens (`styles/tokens.css`) and primitives (`src/viewer/ui/`), Zustand for the state the main process sends, a stylesheet per component, Prettier. The status bar under the launcher's screens is the viewer's, in markup and CSS (`components/StatusBar/style.css`).
 - The theme menu in the strip is the system's native menu: a popover in the strip's page would open underneath the tab's view, which is a separate layer above the page.
 - Setup only ever removes what it installed: its command file carries the marker `lens-app-shim`, a skill folder it copied carries `.lens-app`. A link or an unmarked folder is someone else's.
-- **Packing is Electron Forge's `package` step, with no makers**: the result is a folder to run the app from (`release/Lens-<platform>-<arch>`), not an installer. Don't add a maker or an installer unless asked. Forge packs for the system it runs on, so a Windows build is made and checked on Windows. `app/build/icon.icns` and `icon.ico` are checked in; `node scripts/app.ts icons` (macOS) makes them again from `icon.png`.
+- **Packing is Electron Forge's `package` step, with no makers**: the result is a folder to run the app from (`release/Lens-<platform>-<arch>`), not an installer. Don't add a maker or an installer unless asked. Forge packs for the system it runs on, so a Windows build is made and checked on Windows. `app/build/icon.icns` and `icon.ico` are checked in; `npm run app:icons` (macOS) makes them again from `icon.png`.
 - Nothing signs the app, and nothing needs to for a build run where it was packed: Electron's executable comes signed ad hoc, and Forge's fuses plugin signs it again after changing it (Apple silicon won't run it otherwise). Leave the cookie-encryption fuse off: on macOS it asks the Keychain for a key, and an app without a certificate then prompts for the login password.
 
 ## Non-goals

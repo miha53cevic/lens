@@ -4,8 +4,8 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { lensInfo } from "../src/info.ts";
-import { toPosix } from "../src/paths.ts";
+import { lensInfo } from "../src/cli-app/info.ts";
+import { toPosix } from "../src/cli-app/paths.ts";
 
 /** Runs `fn` in a fresh temp git repo (branch "main", one commit), cleaned up afterwards. */
 async function withRepo(fn: (dir: string, git: (...args: string[]) => string) => Promise<void>): Promise<void> {

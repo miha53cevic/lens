@@ -3,9 +3,9 @@ import assert from "node:assert/strict";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { DEFAULT_CONFIG, loadConfig } from "../src/config.ts";
-import { analyzeSource } from "../src/classify/index.ts";
-import type { LensConfig } from "../src/model.ts";
+import { DEFAULT_CONFIG, loadConfig } from "../src/cli-app/config.ts";
+import { analyzeSource } from "../src/cli-app/classify/index.ts";
+import type { LensConfig } from "../src/cli-app/model.ts";
 
 function configDir(json: object): string {
   const dir = mkdtempSync(join(tmpdir(), "lens-config-"));

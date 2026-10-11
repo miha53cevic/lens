@@ -6,14 +6,14 @@ import { existsSync, mkdtempSync, mkdirSync, realpathSync, rmSync, writeFileSync
 import type { AddressInfo } from "node:net";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { analyze } from "../src/analyze.ts";
-import { DEFAULT_CONFIG } from "../src/config.ts";
-import { createAskSession, REHAND_AFTER_MS, LISTEN_GRACE_MS, type NewQuestion } from "../src/ask/session.ts";
-import { findCites } from "../src/ask/cites.ts";
-import { changeContext, questionText, selectionLabel, RULES } from "../src/ask/context.ts";
-import { createAskRoutes } from "../src/ask/routes.ts";
-import { isLocalRequest, readCookie } from "../src/render/web/http.ts";
-import type { ViewerInput } from "../src/render/web/server.ts";
+import { analyze } from "../src/cli-app/analyze.ts";
+import { DEFAULT_CONFIG } from "../src/cli-app/config.ts";
+import { createAskSession, REHAND_AFTER_MS, LISTEN_GRACE_MS, type NewQuestion } from "../src/cli-app/ask/session.ts";
+import { findCites } from "../src/cli-app/ask/cites.ts";
+import { changeContext, questionText, selectionLabel, RULES } from "../src/cli-app/ask/context.ts";
+import { createAskRoutes } from "../src/cli-app/ask/routes.ts";
+import { isLocalRequest, readCookie } from "../src/cli-app/render/web/http.ts";
+import type { ViewerInput } from "../src/cli-app/render/web/server.ts";
 
 const Q: NewQuestion = { text: "why?", file: "a.ts", unitId: null, label: "a.ts", hash: "h1", selection: null, concerns: [] };
 
@@ -296,7 +296,7 @@ test("ask routes: ask, listen, answer, and stale after the code changes", async 
   });
 });
 
-const CLI = join(import.meta.dirname, "..", "src", "cli.ts");
+const CLI = join(import.meta.dirname, "..", "src", "cli-app", "cli.ts");
 
 function freePort(): Promise<number> {
   return new Promise((resolve) => {

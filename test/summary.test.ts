@@ -4,15 +4,15 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, rmSync, mkdirSync, readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { parseDiff } from "../src/git.ts";
-import { extractUnits, checkCoverage, citeableLabels, removalAnchors, type UnitFileInput } from "../src/summary/units.ts";
-import { summaryKey, summaryPath, readStored, writeStored, unitSetHash, type Bundle } from "../src/summary/store.ts";
-import { runSummary } from "../src/summary/command.ts";
-import { validateResult } from "../src/summary/validate.ts";
-import { prepareBundle, renderUnit } from "../src/summary/bundle.ts";
-import { loadDiff, collectUnits, commitLog } from "../src/summary/collect.ts";
-import { buildSummaryView } from "../src/summary/view.ts";
-import { DEFAULT_CONFIG } from "../src/config.ts";
+import { parseDiff } from "../src/cli-app/git.ts";
+import { extractUnits, checkCoverage, citeableLabels, removalAnchors, type UnitFileInput } from "../src/cli-app/summary/units.ts";
+import { summaryKey, summaryPath, readStored, writeStored, unitSetHash, type Bundle } from "../src/cli-app/summary/store.ts";
+import { runSummary } from "../src/cli-app/summary/command.ts";
+import { validateResult } from "../src/cli-app/summary/validate.ts";
+import { prepareBundle, renderUnit } from "../src/cli-app/summary/bundle.ts";
+import { loadDiff, collectUnits, commitLog } from "../src/cli-app/summary/collect.ts";
+import { buildSummaryView } from "../src/cli-app/summary/view.ts";
+import { DEFAULT_CONFIG } from "../src/cli-app/config.ts";
 
 /** Builds a unit input from two versions of a file, via a real unified=0 diff. */
 function inputFor(file: string, oldSource: string | null, newSource: string | null, isTest = false): UnitFileInput {

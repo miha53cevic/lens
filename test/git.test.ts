@@ -4,7 +4,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { parseDiff, parseRawEntries, gitDiffTargets, readBlobs } from "../src/git.ts";
+import { parseDiff, parseRawEntries, gitDiffTargets, readBlobs } from "../src/cli-app/git.ts";
 
 const SAMPLE = `diff --git a/src/api.ts b/src/api.ts
 index 111..222 100644

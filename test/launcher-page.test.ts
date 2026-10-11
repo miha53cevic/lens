@@ -1,13 +1,13 @@
 // The app's own pages: the real bundles of the launcher and the tab strip running in happy-dom,
 // with window.lensApp (what the preload gives them) stubbed, driven like a reader would.
-// Type-checked by tsconfig.app.json (it needs the DOM types).
+// Type-checked by tsconfig.desktop.json (it needs the DOM types).
 
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import { GlobalRegistrator } from '@happy-dom/global-registrator';
 import { fireEvent } from '@testing-library/dom';
-import { bundlePage } from '../src/render/web/bundle.ts';
+import { bundlePage } from '../src/cli-app/render/web/bundle.ts';
 import {
   LAUNCHER_CALLS,
   STRIP_CALLS,
@@ -15,9 +15,9 @@ import {
   type RepoInfo,
   type StripState,
   type ThemeSwatch,
-} from '../app/shared/api.ts';
+} from '../src/desktop/shared/api.ts';
 
-const app = join(import.meta.dirname, '..', 'app');
+const app = join(import.meta.dirname, '..', 'src', 'desktop');
 let launcher = '';
 let strip = '';
 

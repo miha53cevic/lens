@@ -606,20 +606,22 @@ if (!input) {
 ```bash
 npm test            # typecheck + node --test
 npm run app         # the desktop app, from this checkout
-npm run app:smoke   # the app's own tour of itself: pictures of each screen in app/dist/smoke
+npm run app:smoke   # the app's own tour of itself: pictures of each screen in dist/smoke
 ```
 
-- Classifier rules live in `src/classify/typescript.ts` (shared by ts/tsx/js).
-- The viewer is `src/render/web/`: `viewer.html` and a React app in `client/`
-  (TypeScript), which the server bundles with esbuild when it starts and inlines into
-  one page. There's no build step. `tsconfig.viewer.json` type-checks it as part of
+- The sources are three folders under `src/`: `cli-app/` (the `lens` command and the
+  viewer's server), `viewer/` (the page it serves) and `desktop/` (the desktop app).
+- Classifier rules live in `src/cli-app/classify/typescript.ts` (shared by ts/tsx/js).
+- The viewer is `src/viewer/`, a React app (TypeScript), which the server
+  (`src/cli-app/render/web/`) bundles with esbuild when it starts and inlines into one
+  page, `viewer.html`. There's no build step. `tsconfig.viewer.json` type-checks it as part of
   `npm test`.
 - Fixture-driven tests are the main defense against a fold hiding a real bug: a rule
   change that suddenly folds more fails loudly.
-- The desktop app is `app/`: an Electron shell that holds no lens logic. It runs the
+- The desktop app is `src/desktop/`: an Electron shell that holds no lens logic. It runs the
   CLI's sources with its own Node, so the app and the command are always the same code.
-  `scripts/app.ts` builds it and Electron Forge packs it (`forge.config.ts`); add
-  `--packed` to `app:smoke` to tour the packed app.
+  Electron Forge builds, starts and packs it (`forge.config.ts`); add `--packed` to
+  `app:smoke` to tour the packed app.
 
 ## Non-goals
 

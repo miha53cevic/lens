@@ -4,7 +4,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { delimiter, join } from "node:path";
 import { tmpdir } from "node:os";
-import { install, setupState, terminalPath, uninstall, type SetupEnv } from "../app/main/setup.ts";
+import { install, setupState, terminalPath, uninstall, type SetupEnv } from "../src/desktop/main/setup.ts";
 
 const lensRoot = join(import.meta.dirname, "..");
 
@@ -80,7 +80,7 @@ test("the lens command on Windows: a .cmd in the app's folder, which joins and l
     assert.equal(await install(env, "cli"), "Installed the lens command");
     const text = readFileSync(join(dir, "lens.cmd"), "utf8");
     assert.match(text, /^@echo off\r\nrem lens-app-shim/);
-    assert.ok(text.includes(`set ELECTRON_RUN_AS_NODE=1\r\n"${process.execPath}" "${join(lensRoot, "src", "cli.ts")}" %*`));
+    assert.ok(text.includes(`set ELECTRON_RUN_AS_NODE=1\r\n"${process.execPath}" "${join(lensRoot, "src", "cli-app", "cli.ts")}" %*`));
     const state = setupState(env).cli;
     assert.equal(state.state, "installed");
     assert.equal(state.note, "Open a new terminal to use it.");

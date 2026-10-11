@@ -5,26 +5,26 @@
   "description": "The code review tool for the agentic era: folds the code that carries no review signal, and has your own agent summarize a change and answer questions about it",
   "type": "module",
   "bin": {
-    "lens": "src/cli.ts"
+    "lens": "src/cli-app/cli.ts"
   },
-  "main": "app/dist/main.mjs",
+  "main": "dist/main.mjs",
   "engines": {
     "node": ">=23.6"
   },
   "scripts": {
-    "lens": "node src/cli.ts",
+    "lens": "node src/cli-app/cli.ts",
     "install-cli": "npm link",
     "uninstall-cli": "npm unlink -g lens",
-    "typecheck": "tsc --noEmit && tsc -p tsconfig.viewer.json && tsc -p tsconfig.app.json",
-    "format": "prettier --write src/render/web/client app test/viewer-page.test.ts test/launcher-page.test.ts test/viewer.test.ts test/fixtures/viewerRepo.ts",
-    "format:check": "prettier --check src/render/web/client app test/viewer-page.test.ts test/launcher-page.test.ts test/viewer.test.ts test/fixtures/viewerRepo.ts",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.viewer.json && tsc -p tsconfig.desktop.json",
+    "format": "prettier --write src/viewer src/desktop test/viewer-page.test.ts test/launcher-page.test.ts test/viewer.test.ts test/fixtures/viewerRepo.ts",
+    "format:check": "prettier --check src/viewer src/desktop test/viewer-page.test.ts test/launcher-page.test.ts test/viewer.test.ts test/fixtures/viewerRepo.ts",
     "test": "npm run typecheck && npm run format:check && node --test test/*.test.ts",
     "install-skill": "node scripts/skills.ts install",
     "uninstall-skill": "node scripts/skills.ts uninstall",
-    "app": "node scripts/app.ts dev",
-    "app:build": "node scripts/app.ts build",
-    "app:dist": "node scripts/app.ts dist",
-    "app:smoke": "node scripts/app.ts smoke"
+    "app": "electron-forge start",
+    "app:dist": "electron-forge package",
+    "app:smoke": "node scripts/smoke.ts",
+    "app:icons": "node scripts/icons.ts"
   },
   "devDependencies": {
     "@electron-forge/cli": "^8.0.1",
