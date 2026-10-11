@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { compilePatterns, matchesAny } from "../src/glob.ts";
+import { compilePatterns, matchesAny } from "../src/cli-app/glob.ts";
 
 test("exclude-style patterns match how the docs say they do", () => {
   const regexes = compilePatterns([

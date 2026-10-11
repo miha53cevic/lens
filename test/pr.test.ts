@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parsePrRef, githubRepoFromRemoteUrl, matchRemote, parseRemoteRefs } from "../src/pr.ts";
+import { parsePrRef, githubRepoFromRemoteUrl, matchRemote, parseRemoteRefs } from "../src/cli-app/pr.ts";
 
 test("parsePrRef accepts PR URLs in the forms GitHub produces", () => {
   assert.deepEqual(parsePrRef("https://github.com/anthropics/claude-code/pull/42"), {

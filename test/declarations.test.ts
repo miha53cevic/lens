@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { analyzeSource } from "../src/classify/index.ts";
-import { DEFAULT_CONFIG } from "../src/config.ts";
+import { analyzeSource } from "../src/cli-app/classify/index.ts";
+import { DEFAULT_CONFIG } from "../src/cli-app/config.ts";
 
 /** "name:line kind" for each declaration */
 async function declared(file: string, source: string): Promise<string[]> {

@@ -1,0 +1,205 @@
+/* ---- the header: which repository ---- */
+.repo-id {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.repo-id > svg {
+  flex: none;
+  color: var(--muted);
+}
+.repo-name {
+  flex: none;
+  font-weight: 600;
+}
+.repo-branch {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: none;
+  height: 22px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-full);
+  color: var(--muted);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+.repo-path {
+  overflow: hidden;
+  color: var(--faint);
+  font: var(--text-sm) var(--font-mono);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* ---- the choices: a picked one looks like a selected row of the file tree ---- */
+.choices {
+  display: grid;
+  gap: 2px;
+}
+.choice {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  color: var(--muted);
+  cursor: pointer;
+}
+/* under the pointer, unless it is the picked one: that keeps its own look */
+.choice:hover:not(.disabled, .checked) {
+  background: var(--hover-bg);
+}
+.choice.checked {
+  background: var(--selected-bg);
+  box-shadow: 0 0 0 1px var(--selected-ring);
+  color: var(--text);
+}
+.choice.disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.choice:has(input[type='radio']:focus-visible) {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.choice input[type='radio'] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.choice-radio {
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 50%;
+}
+.choice.checked .choice-radio {
+  border-color: var(--accent);
+  background: radial-gradient(circle, var(--accent) 0 3.5px, transparent 4.5px);
+}
+.choice-text {
+  display: grid;
+  min-width: 0;
+}
+.choice-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text);
+  font-weight: 600;
+}
+.choice-sub {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.choice-meta {
+  color: var(--faint);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+/* the base branch: a chip (ui/Chip.css) with a caret, as wide as the branch's name */
+.choice-select {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 260px;
+}
+.choice-select select {
+  appearance: none;
+  field-sizing: content;
+  max-width: 100%;
+  height: 22px;
+  padding: 0 25px 0 10px;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 11.5px;
+  font-weight: 400;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.choice-select svg {
+  position: absolute;
+  right: 9px;
+  color: var(--muted);
+  pointer-events: none;
+}
+.choice-input {
+  width: 220px;
+  height: 26px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  color: var(--text);
+  font: var(--text-sm) var(--font-mono);
+}
+.choice-input::placeholder,
+.pr-field input::placeholder {
+  color: var(--faint);
+}
+.choice-select select:focus,
+.choice-input:focus,
+.pr-field:focus-within {
+  border-color: color-mix(in oklab, var(--accent) 60%, var(--line));
+  outline: none;
+}
+
+/* ---- a pull request: one field, as the search palette's ---- */
+.pr-field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 36px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  color: var(--muted);
+}
+.pr-field input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: none;
+  color: var(--text);
+  font-size: 14px;
+}
+
+/* ---- the command, and the way in ---- */
+.picker-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: none;
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--line);
+  background: var(--bg);
+}
+.picker-problem {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+/* a keycap on the accent: its own colors would vanish into it */
+.picker-foot .btn-primary kbd {
+  border-color: color-mix(in oklab, var(--accent-fg) 35%, transparent);
+  box-shadow: none;
+  background: transparent;
+  color: var(--accent-fg);
+}

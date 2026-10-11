@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { relPath, resolveLineRef, toPosix } from "../src/paths.ts";
-import { summaryArgs } from "../src/summary/store.ts";
+import { relPath, resolveLineRef, toPosix } from "../src/cli-app/paths.ts";
+import { summaryArgs } from "../src/cli-app/summary/store.ts";
 
 test("relPath is /-separated on every OS, and falls back to the path itself", () => {
   const root = resolve("repo");

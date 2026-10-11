@@ -1,0 +1,28 @@
+.seg {
+  display: inline-flex;
+  flex: none;
+  padding: 2px;
+  border-radius: var(--radius-full);
+  background: var(--surface-2);
+}
+.seg button {
+  min-width: 26px;
+  padding: 1px 8px;
+  border-radius: var(--radius-full);
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+.seg-lg button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+}
+.seg button:hover {
+  color: var(--text);
+}
+.seg button[aria-checked='true'] {
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-weight: 600;
+}

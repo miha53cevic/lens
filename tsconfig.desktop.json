@@ -1,0 +1,21 @@
+{
+  // Type-checks the desktop app (src/desktop): its main process, and its two pages, which need the
+  // DOM types as the viewer's code does. forge.config.ts bundles them with esbuild.
+  "compilerOptions": {
+    "target": "es2022",
+    "lib": ["es2024", "dom", "dom.iterable"],
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noEmit": true,
+    "erasableSyntaxOnly": true,
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "jsx": "react-jsx",
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": ["src/desktop/**/*", "src/viewer/css.d.ts", "test/launcher-page.test.ts"]
+}
