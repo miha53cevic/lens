@@ -56,6 +56,8 @@
   --selected-bg: color-mix(in oklab, var(--accent) 13%, var(--surface));
   --selected-ring: color-mix(in oklab, var(--accent) 45%, transparent);
   --focus: var(--accent);
+  /* under the pointer, whatever it sits on: the page, a card, a selected pill */
+  --hover-bg: color-mix(in oklab, var(--text) 7%, transparent);
   --add-bg: color-mix(in oklab, var(--add) 10%, transparent);
   --del-bg: color-mix(in oklab, var(--del) 11%, transparent);
 

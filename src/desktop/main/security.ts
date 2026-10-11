@@ -5,6 +5,8 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { app, protocol, session, type Session, type WebContents, type WebPreferences } from 'electron';
+import type { ThemeSwatch } from '../shared/api.ts';
+import { themeAttributes } from '../shared/page.ts';
 
 /** The app's own pages are served from its files under this scheme, never from the network. */
 const APP_SCHEME = 'lens-app';
@@ -104,15 +106,20 @@ function originOf(url: string): string | null {
 
 /**
  * Once, when the app is ready: serve the app's pages, lock both sessions' permissions, and
- * hold every page (the ones created later too) to its own origin.
+ * hold every page (the ones created later too) to its own origin. A page is served in the theme
+ * of the moment, so a new tab doesn't flash the default one before its script has run.
  */
-export function lockDown(distDir: string): void {
+export function lockDown(distDir: string, theme: () => ThemeSwatch): void {
   session.defaultSession.protocol.handle(APP_SCHEME, (request) => {
     const { host, pathname } = new URL(request.url);
     const name = pathname.slice(1);
     const type = host === 'app' && Object.hasOwn(APP_FILES, name) ? APP_FILES[name] : null;
     if (!type) return new Response('not found', { status: 404 });
-    return new Response(readFileSync(join(distDir, name)), {
+    const file = readFileSync(join(distDir, name));
+    const body = name.endsWith('.html')
+      ? file.toString().replace('<html', () => '<html' + themeAttributes(theme()))
+      : file;
+    return new Response(body, {
       headers: {
         'content-type': type,
         'content-security-policy': CONTENT_SECURITY_POLICY,

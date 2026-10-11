@@ -16,6 +16,7 @@ import {
   type StripState,
   type ThemeSwatch,
 } from '../src/desktop/shared/api.ts';
+import { themeAttributes } from '../src/desktop/shared/page.ts';
 
 const app = join(import.meta.dirname, '..', 'src', 'desktop');
 let launcher = '';
@@ -382,6 +383,15 @@ pageTest(
   },
 );
 
+test('a page is served in the theme: its colors on <html>, and nothing for a color that is not a plain one', () => {
+  assert.equal(
+    themeAttributes(LIGHT),
+    ' data-appearance="light" style="--code-fg:#24292e;--code-bg:#ffffff;--theme-accent:#6f42c1"',
+  );
+  assert.match(themeAttributes(VESPER), /^ data-appearance="dark" /);
+  assert.equal(themeAttributes({ ...LIGHT, accent: 'red;background:url(x)"><script>' }), '');
+});
+
 // ---- the tab strip ----
 
 const STRIP: StripState = {
@@ -406,10 +416,10 @@ pageTest(
       ['*lensstaged changes', 'storefrontPR #482', 'New tab'],
     );
     assert.equal(document.documentElement.dataset.platform, 'darwin');
-    assert.equal(
-      $$('[aria-label="Change what\'s reviewed"]').length,
-      1,
-      'only the tab in front offers to change its review',
+    assert.deepEqual(
+      $$('.rtab').map((tab) => tab.querySelectorAll('[aria-label="Change what\'s reviewed"]').length),
+      [1, 1, 0],
+      'every tab with a review can change it, in front or not: a tab keeps its width when another comes forward',
     );
 
     await click($$('.rtab-main')[1]);
@@ -421,8 +431,14 @@ pageTest(
     assert.deepEqual(page.calls.slice(0, 5), [['select', 2], ['change', 1], ['close', 2], ['add'], ['settings']]);
     assert.equal(page.calls[5][0], 'themeMenu', "the themes open as the system's menu, under the button");
 
+    // more tabs than fit scroll sideways: the one that comes to the front is brought into sight
+    const sighted: (string | undefined)[] = [];
+    HTMLElement.prototype.scrollIntoView = function (this: HTMLElement) {
+      sighted.push(this.dataset.tab);
+    };
     await page.push({ ...STRIP, activeId: 2, theme: LIGHT, fullscreen: true });
     assert.ok($$('.rtab')[1].classList.contains('active'));
+    assert.deepEqual(sighted, ['2']);
     assert.equal(document.documentElement.dataset.appearance, 'light');
     assert.ok(document.documentElement.hasAttribute('data-fullscreen'));
   },

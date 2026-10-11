@@ -148,12 +148,13 @@ More info → Run anyway.
 
 ### Tabs
 
-One window, one tab per repository. The strip of tabs is the window's title bar.
+One window, one tab per repository. The strip of tabs is the window's title bar. More tabs
+than fit scroll sideways (a mouse's wheel moves them too), and the tab in front is kept in sight.
 
 | in the strip | what it does |
 | --- | --- |
 | a tab | says what it shows: the repository, then the review (`staged changes`, `PR #482`) |
-| **▾** on the tab in front | opens the picker over the review, to change what's reviewed; its back arrow returns to the review as you left it |
+| **⇄** on a tab with a review | opens the picker over the review, to change what's reviewed; its back arrow returns to the review as you left it |
 | **×** | closes the tab and stops its review |
 | **+** | a new tab, on Start |
 | the theme swatch | the code themes; picking one recolors the app and the open reviews |
@@ -164,7 +165,7 @@ review's ⋯ menu ends the review and leaves the tab on its picker.
 
 ### Picking what to review
 
-**Start** has one button, *Open repository…*, and the folders you opened before. The
+**Start** has one button, *Open repository*, and the folders you opened before. The
 list remembers only the folders, no branch and no past review.
 
 The **picker** then offers what the command does, and shows the command it will run:

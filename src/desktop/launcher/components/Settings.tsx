@@ -23,7 +23,7 @@ function SetupRow({ part, icon, name, what, item, busy }: SetupRowProps) {
       <span className='setup-text'>
         <span className='setup-name'>{name}</span>
         <span className='setup-sub'>{what}</span>
-        <span className='setup-sub'>
+        <span className='setup-where'>
           <code>{item.where}</code>
           {item.note && ' · ' + item.note}
         </span>

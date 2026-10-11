@@ -27,7 +27,8 @@ function show(strip: StripState | null): void {
   root.toggleAttribute('data-fullscreen', strip.fullscreen);
   if (previous?.theme.name !== strip.theme.name) {
     applyTheme(strip.theme);
-    // the window buttons Windows draws over the strip take the strip's own colors
+    // the strip's own colors, as the theme mixed them: the main process paints a new tab's
+    // background and the window buttons Windows draws in them
     const style = getComputedStyle(document.body);
     const [color, symbolColor] = [hexColor(style.backgroundColor), hexColor(style.color)];
     if (color && symbolColor) window.lensApp.strip.chrome(color, symbolColor);

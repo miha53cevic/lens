@@ -34,9 +34,9 @@ registerAppScheme();
 let window: AppWindow | null = null;
 
 async function start(): Promise<void> {
-  lockDown(distDir);
   const cli = lensCli(lensRoot);
   const themes = new Themes(cli, viewerSession(), () => window?.themeChanged());
+  lockDown(distDir, () => themes.current);
   await themes.load();
   themes.watch();
 

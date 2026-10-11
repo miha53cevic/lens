@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { ChevronDown, Folder, Plus, Settings, X } from 'lucide-react';
+import { ArrowLeftRight, Folder, Plus, Settings, X } from 'lucide-react';
 import type { StripTab } from '../shared/api.ts';
 import { IconButton } from '../../viewer/ui/IconButton.tsx';
 // the theme swatch is the viewer header's
@@ -13,10 +13,16 @@ function TabIcon({ icon }: { icon: StripTab['icon'] }) {
   return <Plus size={13} />;
 }
 
+/** The tab in front stays in sight when there are more tabs than the strip has room for. */
+function keepInSight(tab: HTMLElement | null) {
+  tab?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+}
+
 function RepoTab({ tab, active }: { tab: StripTab; active: boolean }) {
   const { strip } = window.lensApp;
   return (
     <div
+      ref={active ? keepInSight : undefined}
       className={clsx('rtab', active && 'active')}
       data-tab={tab.id}
       // the middle button closes a tab, as in a browser
@@ -27,13 +33,19 @@ function RepoTab({ tab, active }: { tab: StripTab; active: boolean }) {
         <span className='rtab-title'>{tab.title}</span>
         {tab.detail && <span className='rtab-detail'>{tab.detail}</span>}
       </button>
-      {/* on the tab in front: its picker opens over the review you are looking at */}
-      {tab.canChange && active && (
-        <button className='rtab-btn' aria-label="Change what's reviewed" onClick={() => strip.change(tab.id)}>
-          <ChevronDown size={12} />
+      {/* on every tab with a review, shown or not, so a tab keeps its width when another comes to the front */}
+      {tab.canChange && (
+        // an icon alone: the title says what it swaps
+        <button
+          className='rtab-btn'
+          aria-label="Change what's reviewed"
+          title="Change what's reviewed"
+          onClick={() => strip.change(tab.id)}
+        >
+          <ArrowLeftRight size={12} />
         </button>
       )}
-      <button className='rtab-btn rtab-close' aria-label={'Close ' + tab.title} onClick={() => strip.close(tab.id)}>
+      <button className='rtab-btn' aria-label={'Close ' + tab.title} onClick={() => strip.close(tab.id)}>
         <X size={12} />
       </button>
     </div>
@@ -46,8 +58,16 @@ export function Strip() {
   if (!state) return null;
   const { strip } = window.lensApp;
   return (
-    <header className='tabstrip'>
-      <div className='rtabs' role='tablist'>
+    // a click acts without taking the focus, which stays in the tab's page: the ring is for keys
+    <header className='tabstrip' onMouseDown={(event) => event.preventDefault()}>
+      <div
+        className='rtabs'
+        role='tablist'
+        // a mouse's wheel turns only up and down: here it moves the tabs sideways
+        onWheel={(event) => {
+          if (event.deltaX === 0) event.currentTarget.scrollLeft += event.deltaY;
+        }}
+      >
         {state.tabs.map((tab) => (
           <RepoTab key={tab.id} tab={tab} active={tab.id === state.activeId} />
         ))}

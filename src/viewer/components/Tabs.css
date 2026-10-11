@@ -54,7 +54,7 @@
   visibility: hidden;
 }
 .tab-close:hover {
-  background: var(--surface-2);
+  background: var(--hover-bg);
   color: var(--text);
 }
 .tab:hover .tab-close,

@@ -1,9 +1,13 @@
+import type { ReactNode } from 'react';
+import clsx from 'clsx';
 import './Segmented.css';
 
 interface Option<T> {
   value: T;
   label: string;
   title?: string;
+  /** Before the label */
+  icon?: ReactNode;
 }
 
 interface SegmentedProps<T extends string | number> {
@@ -13,12 +17,21 @@ interface SegmentedProps<T extends string | number> {
   options: Option<T>[];
   value: T;
   onChange: (value: T) => void;
+  /** md: a setting among others (the fold level) · lg: what a whole screen switches on */
+  size?: 'md' | 'lg';
 }
 
 /** One of a few values, side by side (the fold level). */
-export function Segmented<T extends string | number>({ id, label, options, value, onChange }: SegmentedProps<T>) {
+export function Segmented<T extends string | number>({
+  id,
+  label,
+  options,
+  value,
+  onChange,
+  size = 'md',
+}: SegmentedProps<T>) {
   return (
-    <div className='seg' id={id} role='radiogroup' aria-label={label}>
+    <div className={clsx('seg', size === 'lg' && 'seg-lg')} id={id} role='radiogroup' aria-label={label}>
       {options.map((option) => (
         <button
           key={option.value}
@@ -28,6 +41,7 @@ export function Segmented<T extends string | number>({ id, label, options, value
           title={option.title}
           onClick={() => onChange(option.value)}
         >
+          {option.icon}
           {option.label}
         </button>
       ))}

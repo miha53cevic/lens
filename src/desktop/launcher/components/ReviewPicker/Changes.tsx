@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import clsx from 'clsx';
+import { ChevronDown } from 'lucide-react';
 import type { RepoInfo } from '../../../shared/api.ts';
 import { plural } from '../../../../cli-app/text.ts';
 import { baseOptions, type Range } from './util.ts';
@@ -73,19 +74,22 @@ export function Changes({ repo, range, onRange, base, onBase, custom, onCustom }
         disabled={bases.length === 0}
         name={
           <>
-            This branch vs{' '}
+            This branch vs
             {bases.length > 0 && (
-              <select
-                id='picker-base'
-                className='choice-select'
-                aria-label='The branch to compare against'
-                value={base}
-                onChange={(event) => onBase(event.target.value)}
-              >
-                {bases.map((branch) => (
-                  <option key={branch}>{branch}</option>
-                ))}
-              </select>
+              // a chip that opens the system's list: the select is the chip, the caret lies over it
+              <span className='choice-select'>
+                <select
+                  id='picker-base'
+                  aria-label='The branch to compare against'
+                  value={base}
+                  onChange={(event) => onBase(event.target.value)}
+                >
+                  {bases.map((branch) => (
+                    <option key={branch}>{branch}</option>
+                  ))}
+                </select>
+                <ChevronDown size={11} />
+              </span>
             )}
           </>
         }

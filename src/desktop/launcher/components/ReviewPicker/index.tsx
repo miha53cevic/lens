@@ -2,7 +2,7 @@
 // `lens pr`; the command under the choices is the one the app runs.
 
 import { useState } from 'react';
-import { ArrowLeft, Folder, GitBranch } from 'lucide-react';
+import { ArrowLeft, FileDiff, Folder, GitBranch, GitPullRequest } from 'lucide-react';
 import { choiceCommand, choiceProblem, type ReviewChoice } from '../../../shared/choice.ts';
 import { Button } from '../../../../viewer/ui/Button.tsx';
 import { CopyCommand } from '../../../../viewer/ui/CopyCommand.tsx';
@@ -16,9 +16,9 @@ import { PullRequest } from './PullRequest.tsx';
 import { startingRange, type Mode, type Range } from './util.ts';
 import './style.css';
 
-const MODES: { value: Mode; label: string }[] = [
-  { value: 'changes', label: 'Changes' },
-  { value: 'pr', label: 'Pull request' },
+const MODES = [
+  { value: 'changes' as Mode, label: 'Changes', icon: <FileDiff size={13} /> },
+  { value: 'pr' as Mode, label: 'Pull request', icon: <GitPullRequest size={13} /> },
 ];
 
 export function ReviewPicker() {
@@ -80,7 +80,14 @@ export function ReviewPicker() {
           <div className='screen-head'>
             <h1>What do you want to review?</h1>
             <span className='spacer' />
-            <Segmented id='picker-mode' label='What to review' options={MODES} value={mode} onChange={setMode} />
+            <Segmented
+              id='picker-mode'
+              label='What to review'
+              size='lg'
+              options={MODES}
+              value={mode}
+              onChange={setMode}
+            />
           </div>
           <form
             id='picker-form'

@@ -88,7 +88,7 @@ export interface StripApi {
   /** The code themes, as the system's menu under the button at (x, y) */
   themeMenu(x: number, y: number): void;
   settings(): void;
-  /** The strip's own colors, for the window buttons Windows draws over it */
+  /** The strip's own colors: what a new tab shows before its page paints, and the window buttons Windows draws */
   chrome(color: string, symbolColor: string): void;
 }
 

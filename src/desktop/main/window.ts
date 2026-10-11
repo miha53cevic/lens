@@ -54,6 +54,8 @@ export class AppWindow implements TabHost {
   private readonly views = new Map<number, TabViews>();
   private readonly deps: WindowDeps;
   private closing = false;
+  /** The pages' own background in the theme of the moment, as the strip's page measured it */
+  private pageBackground: string | null = null;
 
   constructor(deps: WindowDeps) {
     this.deps = deps;
@@ -93,7 +95,7 @@ export class AppWindow implements TabHost {
   addTab(screen: 'start' | 'settings'): Tab {
     const tab = new Tab(this.tabs.newId(), screen, this.deps.cli, this.deps.store, this);
     const launcher = new WebContentsView({ webPreferences: appPagePreferences(this.deps.preload) });
-    launcher.setBackgroundColor(this.deps.themes.current.bg);
+    launcher.setBackgroundColor(this.background());
     allowOrigin(launcher.webContents, APP_ORIGIN);
     void launcher.webContents.loadURL(APP_ORIGIN + '/launcher.html');
     this.win.contentView.addChildView(launcher);
@@ -123,6 +125,24 @@ export class AppWindow implements TabHost {
     const settings = this.tabs.settings();
     if (settings) this.selectTab(settings.id);
     else this.addTab('settings');
+  }
+
+  /**
+   * What a view shows until its page has painted: the pages' background, so a new tab doesn't flash.
+   * That is mixed from the theme in CSS (--bg), so the strip's page reports it; until it has, the
+   * theme's own background is the nearest color there is.
+   */
+  private background(): string {
+    return this.pageBackground ?? this.deps.themes.current.bg;
+  }
+
+  private paintBackgrounds(): void {
+    const color = this.background();
+    this.win.setBackgroundColor(color);
+    for (const views of this.views.values()) {
+      views.launcher.setBackgroundColor(color);
+      views.review?.setBackgroundColor(color);
+    }
   }
 
   private dropView(view: WebContentsView): void {
@@ -171,7 +191,7 @@ export class AppWindow implements TabHost {
     views.review = null;
     if (url) {
       const view = new WebContentsView({ webPreferences: viewerPreferences() });
-      view.setBackgroundColor(this.deps.themes.current.bg);
+      view.setBackgroundColor(this.background());
       allowOrigin(view.webContents, new URL(url).origin);
       void view.webContents.loadURL(url);
       this.win.contentView.addChildView(view);
@@ -222,11 +242,12 @@ export class AppWindow implements TabHost {
 
   /** The theme changed: the window's own colors, every page of the app, and the open reviews. */
   themeChanged(): void {
-    const { bg, name } = this.deps.themes.current;
-    this.win.setBackgroundColor(bg);
+    const { name } = this.deps.themes.current;
+    // the strip's page reports the new theme's background once it has taken it
+    this.pageBackground = null;
+    this.paintBackgrounds();
     for (const tab of this.tabs.all) {
       const views = this.views.get(tab.id);
-      views?.launcher.setBackgroundColor(bg);
       this.sendLauncher(tab);
       // a review switches through its own theme menu: its item for this theme, by the id the viewer gives it
       const pick = `document.getElementById(${JSON.stringify('theme-' + name)})?.click()`;
@@ -286,8 +307,11 @@ export class AppWindow implements TabHost {
         if (typeof first === 'number' && typeof second === 'number') this.themeMenu(first, second);
         return;
       case 'chrome':
+        if (!isHexColor(first) || !isHexColor(second)) return;
+        this.pageBackground = first;
+        this.paintBackgrounds();
         // Windows draws its buttons over the strip in these colors; macOS has its own lights
-        if (process.platform !== 'darwin' && isHexColor(first) && isHexColor(second)) {
+        if (process.platform !== 'darwin') {
           this.win.setTitleBarOverlay({ color: first, symbolColor: second, height: STRIP_HEIGHT });
         }
         return;

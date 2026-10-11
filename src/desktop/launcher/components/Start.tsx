@@ -21,7 +21,7 @@ export function Start() {
           <p className='start-tagline'>Code review for the agentic era.</p>
           <Button id='open-repository' variant='primary' disabled={busy} onClick={() => launcher.openRepository()}>
             <FolderOpen size={15} />
-            Open repository…
+            Open repository
           </Button>
         </div>
         {recents.length > 0 && (
