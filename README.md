@@ -171,10 +171,27 @@ than fit scroll sideways (a mouse's wheel moves them too), and the tab in front 
 A repository gets one tab: opening it again goes to the tab it has. *End session* in a
 review's ⋯ menu ends the review and leaves the tab on its picker.
 
+### Where you left off
+
+The app opens as you left it: the window where it was (maximized if it was), and the tabs
+that had a repository, each on the review it showed.
+
+- The tab in front starts its review again right away. The others start theirs the first
+  time you click them, so a tab you don't look at costs nothing.
+- A tab whose repository is gone (deleted, moved, not a repository anymore) isn't
+  reopened.
+- A review that can't start anymore leaves its tab on the picker, with the reason in the
+  status bar: the base branch was deleted, the PR can't be fetched offline, nothing is
+  changed anymore.
+- A window last seen on a monitor that isn't there opens centered on the main display.
+
+Start and Settings tabs aren't kept, and full screen isn't.
+
 ### Picking what to review
 
 **Start** has one button, *Open repository*, and the folders you opened before. The
-list remembers only the folders, no branch and no past review.
+list remembers only the folders, no branch and no past review. A folder that is deleted
+while its picker is open sends the tab back to Start, which says so.
 
 The **picker** then offers what the command does, and shows the command it will run:
 

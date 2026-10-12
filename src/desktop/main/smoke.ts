@@ -1,6 +1,8 @@
 // A scripted run of the real app, for `npm run app:smoke` (scripts/smoke.ts): it opens a repository, starts
 // a review, opens Settings and switches the theme, saving a picture of each page and what it
-// found. It is how a build is checked without a person clicking through it.
+// found. The script then starts the app a second time on the same data, and that run checks that
+// the window and its tab came back as the first run left them.
+// It is how a build is checked without a person clicking through it.
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -9,6 +11,9 @@ import type { Themes } from './themes.ts';
 import type { AppWindow } from './window.ts';
 
 const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Where the first run leaves the window, for the second to find it again. */
+const LEFT_AT = { x: 90, y: 70, width: 1180, height: 780 };
 
 function loaded(contents: WebContents): Promise<void> {
   if (!contents.isLoading()) return Promise.resolve();
@@ -46,6 +51,28 @@ export async function runSmoke(window: AppWindow, themes: Themes, repo: string):
   const strip = window.win.webContents;
   const read = <T>(contents: WebContents, code: string) => contents.executeJavaScript(code, true) as Promise<T>;
 
+  // the second run: the app as the first one left it
+  if (process.env.LENS_APP_SMOKE_PHASE === 'reopen') {
+    try {
+      await until('the window to show', () => window.win.isVisible());
+      await until('the reopened tab to start its review', () => Boolean(window.tabs.active?.reviewUrl));
+      await shot('7-reopened-review', window.frontViews()!.review!.webContents);
+      await shot('7-reopened-strip', strip);
+      report.tabs = window.tabs.strip().tabs.map((tab) => [tab.title, tab.detail]);
+      report.bounds = window.win.getBounds();
+      const [tab] = window.tabs.all;
+      report.ok =
+        window.tabs.all.length === 1 &&
+        tab.strip().detail === 'working tree' &&
+        JSON.stringify(report.bounds) === JSON.stringify(LEFT_AT);
+    } catch (error) {
+      report.error = (error as Error).stack ?? String(error);
+    }
+    writeFileSync(join(out, 'reopen.json'), JSON.stringify(report, null, 2) + '\n');
+    window.win.close();
+    return;
+  }
+
   try {
     await until('the window to show', () => window.win.isVisible());
     const tab = window.tabs.active!;
@@ -67,6 +94,8 @@ export async function runSmoke(window: AppWindow, themes: Themes, repo: string):
       "typeof window.lensApp !== 'undefined' || typeof require !== 'undefined'",
     );
     report.viewerTitle = await read<string>(viewer, 'document.title');
+    // the tab's picker lies under its review: a page out of sight says so, and its polls stop (poll.ts)
+    report.pageUnderReview = await read<string>(window.frontViews()!.launcher.webContents, 'document.visibilityState');
 
     // where the OS says its window buttons are, and what the strip made of it
     report.strip = await read(
@@ -99,6 +128,12 @@ export async function runSmoke(window: AppWindow, themes: Themes, repo: string):
     await read(viewer, "fetch('/api/shutdown', { method: 'POST' }).then(() => true)");
     await until('the tab to fall back to the picker', () => tab.reviewUrl === null);
     await shot('6-picker-after-end', window.frontViews()!.launcher.webContents);
+
+    // left with a review running and the window somewhere of its own: the second run finds both
+    await tab.open({ kind: 'diff', range: 'worktree' });
+    if (!tab.reviewUrl) throw new Error('the review did not open again: ' + JSON.stringify(tab.status));
+    window.win.setBounds(LEFT_AT);
+    await pause(200);
     report.ok = report.viewerSeesApp === false;
   } catch (error) {
     report.error = (error as Error).stack ?? String(error);

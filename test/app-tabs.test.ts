@@ -186,6 +186,82 @@ test("a tab's picker follows the repository: a quiet poll reports what changed, 
   });
 });
 
+test("a reopened tab: its picker on the review it showed, which starts when the tab is first in front", { timeout: 90_000 }, async () => {
+  await withApp(async (dir, tab, host, data) => {
+    const store = openStore(join(data, "state.json"));
+    const worktree = { kind: "diff" as const, range: "worktree" as const };
+
+    assert.equal(await tab.restore(dir, worktree), true);
+    assert.equal(tab.screen, "picker");
+    assert.equal(tab.repo?.root, toPosix(dir));
+    assert.deepEqual(tab.state().current, worktree, "the picker starts on the review it showed");
+    assert.deepEqual(tab.strip(), { id: 1, icon: "folder", title: tab.repo!.name, detail: "working tree", canChange: false });
+    assert.deepEqual(tab.stored, { root: toPosix(dir), choice: worktree }, "kept as it is, started or not");
+    assert.equal(tab.reviewUrl, null, "nothing runs for a tab nobody looks at");
+    assert.deepEqual(store.recents(), [], "reopening is not opening: the recents keep their order");
+
+    tab.shown();
+    await host.until(tab, (it) => it.reviewUrl !== null);
+    assert.equal(tab.showing, "review");
+    assert.equal((await fetch(tab.reviewUrl!)).status, 200);
+    const url = tab.reviewUrl;
+    tab.shown();
+    assert.equal(tab.reviewUrl, url, "in front again: nothing starts twice");
+    assert.deepEqual(tab.status, { kind: "idle" });
+
+    // the list keeps the tabs that have a repository, and says which was in front
+    const list = new TabList();
+    const settings = new Tab(tab.id + 1, "settings", cli, store, host);
+    list.add(settings);
+    list.add(tab);
+    assert.deepEqual(list.session(), { tabs: [{ root: toPosix(dir), choice: worktree }], active: 0 });
+    list.select(settings.id);
+    assert.deepEqual(list.session().active, -1, "a tab that isn't kept is in front");
+
+    // End session: the tab is on its picker again, and that is what is kept
+    await fetch(tab.reviewUrl! + "api/shutdown", { method: "POST" });
+    await host.until(tab, (it) => it.reviewUrl === null);
+    assert.deepEqual(tab.stored, { root: toPosix(dir), choice: null });
+  });
+});
+
+test("a reopened tab that can't be: a repository that is gone gets no tab, a review that can't start says why", { timeout: 90_000 }, async () => {
+  await withApp(async (dir, tab, host, data) => {
+    const store = openStore(join(data, "state.json"));
+    const another = (id: number) => new Tab(id, "start", cli, store, host);
+
+    const gone = another(2);
+    assert.equal(await gone.restore(join(data, "deleted-repo"), { kind: "diff", range: "staged" }), false);
+    assert.deepEqual([gone.screen, gone.stored, gone.status.kind], ["start", null, "idle"]);
+    // the folder is there, but it isn't a repository anymore
+    assert.equal(await another(3).restore(data, null), false);
+
+    // the base branch it compared against was deleted since: the picker, on that choice, with git's reason
+    const branch = { kind: "diff" as const, range: "branch" as const, base: "release-that-is-gone" };
+    assert.equal(await tab.restore(dir, branch), true);
+    assert.equal(tab.strip().detail, "vs release-that-is-gone");
+    tab.shown();
+    await host.until(tab, (it) => it.status.kind === "failed");
+    assert.equal(tab.status.kind === "failed" && tab.status.label, "Couldn't open the review");
+    assert.equal(tab.screen, "picker");
+    assert.equal(tab.reviewUrl, null);
+    assert.deepEqual(tab.state().current, branch, "still picked: the next launch tries it again");
+    assert.deepEqual(tab.stored, { root: toPosix(dir), choice: branch });
+    tab.shown();
+    assert.equal(tab.status.kind, "failed", "it is tried once, not every time the tab comes forward");
+
+    // a stored review the picker wouldn't have let through: the tab opens on its picker, nothing picked
+    const edited = another(4);
+    assert.equal(await edited.restore(dir, { kind: "diff", range: "custom", args: "--json" }), true);
+    assert.deepEqual([edited.state().current, edited.strip().detail], [null, "choose a review"]);
+    edited.shown();
+    assert.deepEqual(edited.status, { kind: "idle" });
+
+    // a tab that already has a repository isn't one to reopen into
+    assert.equal(await tab.restore(dir, null), false);
+  });
+});
+
 test("the tab list: a new tab goes after the one in front, and closing brings a neighbor forward", () => {
   const host = fakeHost();
   const store = openStore(join(tmpdir(), "lens-never-written.json"));

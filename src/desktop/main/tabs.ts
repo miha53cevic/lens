@@ -1,6 +1,7 @@
 // The window's tabs, in order, and which one is in front. No Electron here either.
 
 import type { StripTab } from '../shared/api.ts';
+import type { Session } from './store.ts';
 import type { Tab } from './tab.ts';
 
 export class TabList {
@@ -53,6 +54,15 @@ export class TabList {
 
   settings(): Tab | null {
     return this.tabs.find((tab) => tab.screen === 'settings') ?? null;
+  }
+
+  /** What the app keeps between runs: the tabs that have a repository, in order, and which was in front. */
+  session(): Session {
+    const kept = this.tabs.filter((tab) => tab.stored !== null);
+    return {
+      tabs: kept.map((tab) => tab.stored!),
+      active: kept.findIndex((tab) => tab.id === this.activeId),
+    };
   }
 
   strip(): { tabs: StripTab[]; activeId: number } {

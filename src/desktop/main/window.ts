@@ -29,7 +29,7 @@ import type { LensCli } from './cli.ts';
 import { tildePath } from './display.ts';
 import { APP_ORIGIN, allowOrigin, appPagePreferences, isAppPage, viewerPreferences } from './security.ts';
 import { install, setupState, uninstall, type SetupEnv } from './setup.ts';
-import type { Store } from './store.ts';
+import type { Session, Store } from './store.ts';
 import { Tab, type TabHost } from './tab.ts';
 import { TabList } from './tabs.ts';
 import type { Themes } from './themes.ts';
@@ -59,6 +59,8 @@ export class AppWindow implements TabHost {
   private readonly views = new Map<number, TabViews>();
   private readonly deps: WindowDeps;
   private closing = false;
+  /** The tabs of the last run are being read again: what is open isn't the session to keep yet */
+  private restoring = false;
   private placeTimer: ReturnType<typeof setTimeout> | null = null;
   /** The pages' own background in the theme of the moment, as the strip's page measured it */
   private pageBackground: string | null = null;
@@ -110,7 +112,7 @@ export class AppWindow implements TabHost {
       void Promise.allSettled(this.tabs.all.map((tab) => tab.close())).then(() => this.win.destroy());
     });
     this.listen();
-    this.addTab('start');
+    this.reopen(deps.store.session());
   }
 
   // ---- the window's place ----
@@ -130,6 +132,37 @@ export class AppWindow implements TabHost {
   }
 
   // ---- tabs ----
+
+  /**
+   * Opens with the tabs the app had when it last ran, or with Start. Each stored tab is checked
+   * before it counts (Tab.restore): one whose repository is gone gets no tab. Only the tab in
+   * front starts its review; the others start when they are first clicked.
+   */
+  private reopen(session: Session | null): void {
+    // a repository has one tab: a file that names one twice gets it once
+    const stored = (session?.tabs ?? []).filter(
+      (tab, index, all) => all.findIndex((other) => other.root === tab.root) === index,
+    );
+    if (!session || stored.length === 0) return void this.addTab('start');
+    this.restoring = true;
+    const tabs = stored.map(() => this.addTab('start'));
+    const front = stored.findIndex((tab) => tab.root === session.tabs[session.active]?.root);
+    // a tab that isn't kept was in front (Start, Settings): a new one is, again
+    if (front === -1) this.addTab('start');
+    else this.selectTab(tabs[front].id);
+    void Promise.all(tabs.map((tab, index) => tab.restore(stored[index].root, stored[index].choice))).then(
+      async (reopened) => {
+        for (const [index, tab] of tabs.entries()) if (!reopened[index]) await this.closeTab(tab.id);
+        this.restoring = false;
+        this.show();
+      },
+    );
+  }
+
+  /** Writes down what is open, for the next run. Not while the window closes: ending the reviews isn't leaving them. */
+  private saveSession(): void {
+    if (!this.closing && !this.restoring) this.deps.store.setSession(this.tabs.session());
+  }
 
   addTab(screen: 'start' | 'settings'): Tab {
     const tab = new Tab(this.tabs.newId(), screen, this.deps.cli, this.deps.store, this);
@@ -213,6 +246,9 @@ export class AppWindow implements TabHost {
     if (active) this.sendLauncher(active);
     this.sendStrip();
     this.layout();
+    this.saveSession();
+    // a reopened tab, in front for the first time: its review starts now
+    if (!this.restoring) active?.shown();
   }
 
   // ---- TabHost: what a tab asks of the window ----
@@ -221,6 +257,7 @@ export class AppWindow implements TabHost {
     this.sendLauncher(tab);
     this.sendStrip();
     this.layout();
+    this.saveSession();
   }
 
   review(tab: Tab, url: string | null): void {
