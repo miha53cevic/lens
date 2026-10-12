@@ -15,9 +15,8 @@ the user only reads the result.
   build start), the diff is `<base>` — it covers commits made during the build plus
   uncommitted work.
 - Otherwise it's `HEAD`: everything uncommitted, staged or not.
-- `git diff` doesn't show untracked files. For the files the build **created**, run
-  `git add --intent-to-add <those files>` so they're part of the diff (it stages nothing;
-  `git reset <file>` undoes it). Don't touch untracked files the build didn't create.
+- Files the build **created** need no `git add`: lens shows untracked files as added
+  whenever the diff's new side is the working tree, which both diffs above are.
 
 Call the diff arguments `<diff>` below (e.g. `HEAD` or `3f2a91c`).
 

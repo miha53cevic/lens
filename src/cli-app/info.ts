@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadConfig } from "./config.ts";
-import { runGit } from "./git.ts";
+import { runGit, untrackedFiles } from "./git.ts";
 import { toPosix } from "./paths.ts";
 import { matchRemote } from "./pr.ts";
 import { SUGGESTED_THEMES, isBundledTheme, themeSwatch, type ThemeSwatch } from "./render/highlight.ts";
@@ -28,7 +28,7 @@ export interface RepoInfo {
   base: string | null;
   /** Commits on HEAD that `base` doesn't have, or null without a base */
   ahead: number | null;
-  /** Files `lens diff` would show: changed in the working tree, not staged */
+  /** Files `lens diff` would show: changed in the working tree and not staged, or new there (untracked) */
   changed: number;
   /** Files `lens diff --staged` would show */
   staged: number;
@@ -123,7 +123,7 @@ function repoInfo(cwd: string, wantedBase: string | undefined): RepoInfo | null 
     branches,
     base,
     ahead: ahead === null ? null : Number(ahead),
-    changed: countPaths(runGit(["diff", "--name-only", "-z", "--no-relative"], cwd)),
+    changed: countPaths(runGit(["diff", "--name-only", "-z", "--no-relative"], cwd)) + untrackedFiles(top, cwd).length,
     staged: countPaths(runGit(["diff", "--staged", "--name-only", "-z", "--no-relative"], cwd)),
     github: github ? { remote: github.remote, owner: github.ref.owner, repo: github.ref.repo } : null,
   };

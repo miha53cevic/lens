@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { parseDiff, parseRawEntries, gitDiffTargets, readBlobs } from "../src/cli-app/git.ts";
+import { parseDiff, parseRawEntries, gitDiffTargets, readBlobs, worktreePathspecs } from "../src/cli-app/git.ts";
 
 const SAMPLE = `diff --git a/src/api.ts b/src/api.ts
 index 111..222 100644
@@ -282,5 +282,64 @@ test("gitDiffTargets: non-ASCII paths and diff.noprefix / mnemonicPrefix configs
       const result = gitDiffTargets([], dir);
       assert.deepEqual(result.targets.map((t) => [t.file.split("/").pop(), t.changedLines]), [["é.ts", [1]]], config.join("="));
     }
+  });
+});
+
+test("gitDiffTargets: against the working tree, untracked files come along as added, every line changed", () => {
+  withRepo((dir, git) => {
+    writeFileSync(join(dir, "a.ts"), "export const a = 1;\n");
+    writeFileSync(join(dir, ".gitignore"), "ignored.ts\n");
+    git("add", "-A");
+    git("commit", "-qm", "base");
+
+    writeFileSync(join(dir, "a.ts"), "export const a = 2;\n");
+    mkdirSync(join(dir, "src"));
+    writeFileSync(join(dir, "src", "new.ts"), "export const one = 1;\nexport const two = 2;\n");
+    writeFileSync(join(dir, "notes.md"), "no newline at the end");
+    writeFileSync(join(dir, "ignored.ts"), "export const ignored = 1;\n");
+    writeFileSync(join(dir, "logo.bin"), Buffer.from([0, 1, 2, 255, 0, 3]));
+    writeFileSync(join(dir, "empty.ts"), "");
+    const names = (args: string[], cwd = dir) =>
+      gitDiffTargets(args, cwd).targets.map((t) => t.file.split("/").pop()).sort();
+
+    const result = gitDiffTargets([], dir);
+    assert.deepEqual(names([]), ["a.ts", "new.ts", "notes.md"], "ignored, binary and empty files stay out");
+    const added = result.targets.find((t) => t.file.endsWith("src/new.ts"))!;
+    assert.equal(added.status, "added");
+    assert.deepEqual(added.changedLines, [1, 2]);
+    assert.equal(added.newBlob, undefined, "read from disk, as any working-tree file");
+    assert.deepEqual(result.targets.find((t) => t.file.endsWith("notes.md"))!.changedLines, [1]);
+    assert.equal(git("status", "--porcelain", "--", "src/new.ts").slice(0, 2), "??", "the index is untouched");
+
+    // the working tree against a commit is the working tree still
+    assert.deepEqual(names(["HEAD"]), ["a.ts", "new.ts", "notes.md"]);
+    // a pathspec limits them, with or without "--", and from a subfolder too
+    assert.deepEqual(names(["--", "src"]), ["new.ts"]);
+    assert.deepEqual(names(["src"]), ["new.ts"]);
+    assert.deepEqual(names([], join(dir, "src")), ["a.ts", "new.ts", "notes.md"], "the whole repository, as the diff");
+    assert.deepEqual(names(["--", "."], join(dir, "src")), ["new.ts"]);
+
+    // the index or two commits as the new side: no working tree, no untracked files
+    assert.deepEqual(names(["--staged"]), []);
+    assert.deepEqual(names(["--cached"]), []);
+    assert.deepEqual(names(["HEAD", "HEAD"]), []);
+    assert.deepEqual(names(["HEAD..HEAD"]), []);
+    assert.deepEqual(names(["HEAD...HEAD"]), []);
+  });
+});
+
+test("worktreePathspecs: which diffs have the working tree as their new side", () => {
+  withRepo((dir, git) => {
+    writeFileSync(join(dir, "a.ts"), "export const a = 1;\n");
+    git("add", "-A");
+    git("commit", "-qm", "base");
+    assert.deepEqual(worktreePathspecs([], dir), []);
+    assert.deepEqual(worktreePathspecs(["HEAD"], dir), []);
+    assert.deepEqual(worktreePathspecs(["main", "--", "a.ts"], dir), ["a.ts"]);
+    assert.deepEqual(worktreePathspecs(["-w", "--stat", "a.ts"], dir), ["a.ts"]);
+    assert.equal(worktreePathspecs(["--staged"], dir), null);
+    assert.equal(worktreePathspecs(["main", "HEAD"], dir), null);
+    assert.equal(worktreePathspecs(["main...HEAD"], dir), null);
+    assert.equal(worktreePathspecs(["--no-index", "a.ts", "b.ts"], dir), null);
   });
 });

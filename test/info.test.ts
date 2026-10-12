@@ -38,7 +38,10 @@ test("lens info: the branch, what's changed and staged, and how far ahead of the
     writeFileSync(join(dir, "a.ts"), "export const a = 2;\n"); // changed, not staged
     writeFileSync(join(dir, "b.ts"), "export const b = 2;\n");
     git("add", "b.ts"); // staged
-    writeFileSync(join(dir, "new.ts"), "export const fresh = 1;\n"); // untracked: `lens diff` doesn't show it
+    writeFileSync(join(dir, "new.ts"), "export const fresh = 1;\n"); // untracked: `lens diff` shows it as added
+    writeFileSync(join(dir, ".gitignore"), "ignored.ts\n");
+    git("add", ".gitignore");
+    writeFileSync(join(dir, "ignored.ts"), "export const ignored = 1;\n"); // ignored: not a change
 
     const { repo, git: gitVersion, version } = await lensInfo(dir);
     assert.ok(repo);
@@ -49,8 +52,8 @@ test("lens info: the branch, what's changed and staged, and how far ahead of the
     assert.deepEqual(repo.branches, ["feature", "main"]);
     assert.equal(repo.base, "main", "no remote: a local main is the base");
     assert.equal(repo.ahead, 2);
-    assert.equal(repo.changed, 1);
-    assert.equal(repo.staged, 1);
+    assert.equal(repo.changed, 2, "a.ts, and the untracked new.ts");
+    assert.equal(repo.staged, 2, "b.ts and .gitignore");
     assert.equal(repo.github, null);
   });
 });

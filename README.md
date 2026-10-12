@@ -70,7 +70,7 @@ the review for you, and installs the command and the skills from its Settings.
 | command | what it opens or prints |
 | --- | --- |
 | `lens <path…>` | files or directories, folded |
-| `lens diff` | the worktree against the index |
+| `lens diff` | the worktree against the index, new untracked files included |
 | `lens diff --staged` | staged changes |
 | `lens diff HEAD~1` | any `git diff` arguments pass through |
 | `lens pr 123` | a PR on the origin remote |
@@ -92,12 +92,20 @@ the review for you, and installs the command and the skills from its Settings.
 `lens <path…>` opens any code folded, not just changes. Use it to:
 
 - read an unfamiliar module before reviewing a change to it,
-- open new files that aren't tracked yet (no `git add -N` needed),
 - use lens outside a git repo,
 - check what a `.lens.json` edit folds across a whole folder (`lens src/ --json`).
 
 Directory walks skip `node_modules`, `dist`, `build`, `out`, `coverage`, dotfolders and
 `exclude` matches. A file passed explicitly is always analyzed.
+
+### New files
+
+`git diff` lists tracked files only. lens adds the untracked ones itself, as added files, whenever
+the diff's new side is the working tree: `lens diff`, `lens diff HEAD`, `lens diff main`, each with
+or without paths. So a file your agent just created is in the review without a `git add`, as it is
+in VS Code's Source Control list. Ignored files stay out (`.gitignore`), and so do binary and empty
+ones. `--staged`, `A..B`, `A...B` and PRs don't read the working tree, so they add none. lens only
+reads: your index is never touched.
 
 ### Pull requests
 
