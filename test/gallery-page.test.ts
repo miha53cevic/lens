@@ -50,7 +50,10 @@ test('each primitive renders, with the states the design system names', () => {
   assert.equal(count('#g-chip .chip .dot'), 2, 'a chip without a color has no dot');
   assert.equal(count('#g-field .field'), 3);
   assert.equal(count('#g-field .field-md .icon-btn-sm'), 1, 'a field with text offers to clear it');
-  assert.equal(count('#g-menu [role="menu"] [role="menuitem"]'), 2);
+  assert.equal(count('#g-menu [role="menu"]:not(.theme-menu) [role="menuitem"]'), 2);
+  assert.equal(count('#g-menu .theme-trigger .swatch'), 1, 'the theme menu shows the theme on its button');
+  assert.equal(count('#g-menu .theme-menu [role="menuitem"] .swatch'), 2);
+  assert.equal(count('#g-menu .theme-menu .theme-check'), 1, 'the theme the page is in is checked');
   assert.equal(count('#g-status .status-letter'), 5);
   assert.equal(count('#g-status .status-badge'), 5);
   assert.equal(count('#g-kbd .kbd-combo'), 3);

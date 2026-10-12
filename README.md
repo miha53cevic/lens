@@ -165,7 +165,7 @@ than fit scroll sideways (a mouse's wheel moves them too), and the tab in front 
 | **⇄** on a tab with a review | opens the picker over the review, to change what's reviewed; its back arrow returns to the review as you left it |
 | **×** | closes the tab and stops its review |
 | **+** | a new tab, on Start |
-| the theme swatch | the code themes; picking one recolors the app and the open reviews |
+| the theme swatch | the code themes; picking one recolors the app and the open reviews. It is the app's one theme button: a review's own, in its header, is hidden here |
 | the gear | Settings, in a tab of its own |
 
 A repository gets one tab: opening it again goes to the tab it has. *End session* in a

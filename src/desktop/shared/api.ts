@@ -90,8 +90,8 @@ export interface StripApi {
   add(): void;
   /** ▾ on a review's tab */
   change(id: number): void;
-  /** The code themes, as the system's menu under the button at (x, y) */
-  themeMenu(x: number, y: number): void;
+  /** The code themes, as a menu under the button whose right and bottom edges are these; again closes it */
+  themeMenu(right: number, bottom: number): void;
   settings(): void;
   /** The strip's own colors: what a new tab shows before its page paints, and the window buttons Windows draws */
   chrome(color: string, symbolColor: string): void;
@@ -121,9 +121,27 @@ export interface LauncherApi {
   uninstall(part: SetupPart): void;
 }
 
+/** The strip's theme menu: a page of its own, in a view over the whole window while it is open. */
+export interface MenuState {
+  theme: ThemeSwatch;
+  themes: ThemeSwatch[];
+  /** Where the menu hangs, in the window: its right edge and its top. Null: closed. */
+  at: { right: number; top: number } | null;
+}
+
+export interface MenuApi {
+  state(): Promise<MenuState>;
+  onState(listener: (state: MenuState) => void): void;
+  /** One of the themes the menu was given, by name */
+  pick(name: string): void;
+  /** Esc, or a click outside */
+  close(): void;
+}
+
 export interface LensAppApi {
   strip: StripApi;
   launcher: LauncherApi;
+  menu: MenuApi;
 }
 
 /** The calls a page may make: the preload forwards these names and nothing else. */
@@ -145,5 +163,8 @@ export const LAUNCHER_CALLS = [
   'uninstall',
 ] as const;
 
+export const MENU_CALLS = ['pick', 'close'] as const;
+
 export type StripCall = (typeof STRIP_CALLS)[number];
+export type MenuCall = (typeof MENU_CALLS)[number];
 export type LauncherCall = (typeof LAUNCHER_CALLS)[number];

@@ -13,6 +13,7 @@ import { ProgressRing } from '../ProgressRing.tsx';
 import { Segmented } from '../Segmented.tsx';
 import { StatusBar } from '../StatusBar.tsx';
 import { Swatch } from '../Swatch.tsx';
+import { ThemeMenu } from '../ThemeMenu.tsx';
 import { TopBar, TopBarDivider } from '../TopBar.tsx';
 import './style.css';
 
@@ -165,6 +166,14 @@ export function Gallery() {
             Stop the server
           </MenuItem>
         </Menu>
+        <ThemeMenu
+          theme={theme}
+          themes={Object.entries(THEMES).map(([name, colors]) => ({ name, ...colors }))}
+          onPick={(name) => {
+            applyTheme(name as ThemeName);
+            setTheme(name as ThemeName);
+          }}
+        />
       </Section>
 
       <Section id='g-status' title='FileStatus'>

@@ -27,7 +27,7 @@ const GRAMMARS = /tree-sitter(-typescript|-tsx|-javascript)?\.wasm$/;
 /** What goes into the app itself: the few files buildApp makes, and no node_modules. */
 const APP_FILES = /^(|\/package\.json|\/dist|\/dist\/[^/]+\.(mjs|cjs|js|css|html))$/;
 
-/** The app's own code: the main process, the preload, and its two pages. */
+/** The app's own code: the main process, the preload, and its pages. */
 async function buildApp(): Promise<void> {
   rmSync(dist, { recursive: true, force: true });
   mkdirSync(dist, { recursive: true });
@@ -35,7 +35,7 @@ async function buildApp(): Promise<void> {
   await bundle({ ...node, entryPoints: [join(desktop, "main", "index.ts")], outfile: join(dist, "main.mjs"), format: "esm" });
   // a sandboxed preload is CommonJS
   await bundle({ ...node, entryPoints: [join(desktop, "preload.ts")], outfile: join(dist, "preload.cjs"), format: "cjs" });
-  for (const page of ["shell", "launcher"]) {
+  for (const page of ["shell", "launcher", "menu"]) {
     const { script, css } = await bundlePage(join(desktop, page, "main.tsx"));
     writeFileSync(join(dist, page + ".js"), script);
     writeFileSync(join(dist, page + ".css"), css);

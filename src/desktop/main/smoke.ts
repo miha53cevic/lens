@@ -94,6 +94,11 @@ export async function runSmoke(window: AppWindow, themes: Themes, repo: string):
       "typeof window.lensApp !== 'undefined' || typeof require !== 'undefined'",
     );
     report.viewerTitle = await read<string>(viewer, 'document.title');
+    // the strip's theme button is the one: the review's own is hidden, its menu still in the page
+    report.viewerThemeButton = await read<string>(
+      viewer,
+      "getComputedStyle(document.getElementById('theme-btn')).display + ' / ' + document.querySelectorAll('[id^=theme-]:not(#theme-btn)').length",
+    );
     // the tab's picker lies under its review: a page out of sight says so, and its polls stop (poll.ts)
     report.pageUnderReview = await read<string>(window.frontViews()!.launcher.webContents, 'document.visibilityState');
 
@@ -114,13 +119,34 @@ export async function runSmoke(window: AppWindow, themes: Themes, repo: string):
     window.openSettings();
     await shot('4-settings', window.frontViews()!.launcher.webContents);
 
-    await themes.pick('github-light');
+    // the strip's theme menu: the viewer's, in a view of its own over the window
+    await read(strip, "document.getElementById('theme-btn').click()");
+    await until('the theme menu to open', () => window.menuOpen);
+    await pause(300);
+    report.themeMenu = await read(
+      window.menuContents,
+      `(() => {
+        const menu = document.getElementById('theme-menu');
+        const rect = menu.getBoundingClientRect();
+        return { open: menu.matches(':popover-open'), items: menu.querySelectorAll('[role=menuitem]').length,
+          right: Math.round(innerWidth - rect.right), top: Math.round(rect.top), pageBackground: getComputedStyle(document.body).backgroundColor };
+      })()`,
+    );
+    await shot('5-theme-menu', window.menuContents);
+    report.themeMenuStayedOpen = window.menuOpen;
+    await read(window.menuContents, "document.getElementById('theme-github-light').click()");
     await until('the app to take the theme', () => themes.current.name === 'github-light');
+    report.themeMenuClosed = !window.menuOpen;
     await pause(900); // the viewer fetches the theme's tokens
     await shot('5-settings-light', window.frontViews()!.launcher.webContents);
     await shot('5-strip-light', strip);
     window.selectTab(tab.id);
     report.viewerTheme = await read<string>(viewer, 'document.documentElement.dataset.appearance');
+    // a page that was behind another takes a moment to count as in sight, and gives no fresh picture before
+    for (let waited = 0; waited < 5000 && (await read<string>(viewer, 'document.visibilityState')) !== 'visible';) {
+      await pause(100);
+      waited += 100;
+    }
     await shot('5-review-light', viewer);
     await themes.pick('vesper');
 
@@ -134,7 +160,10 @@ export async function runSmoke(window: AppWindow, themes: Themes, repo: string):
     if (!tab.reviewUrl) throw new Error('the review did not open again: ' + JSON.stringify(tab.status));
     window.win.setBounds(LEFT_AT);
     await pause(200);
-    report.ok = report.viewerSeesApp === false;
+    report.ok =
+      report.viewerSeesApp === false &&
+      String(report.viewerThemeButton).startsWith('none / ') &&
+      report.themeMenuClosed === true;
   } catch (error) {
     report.error = (error as Error).stack ?? String(error);
   }

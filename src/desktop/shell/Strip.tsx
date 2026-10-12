@@ -2,7 +2,7 @@ import clsx from 'clsx';
 import { ArrowLeftRight, Folder, Plus, Settings, X } from 'lucide-react';
 import type { StripTab } from '../shared/api.ts';
 import { IconButton } from '../../ui/IconButton.tsx';
-import { Swatch } from '../../ui/Swatch.tsx';
+import { ThemeTrigger } from '../../ui/ThemeMenu.tsx';
 import { useStrip } from './store.ts';
 import './style.css';
 
@@ -79,13 +79,15 @@ export function Strip() {
       <IconButton
         id='theme-btn'
         label={'Code theme: ' + state.theme.name}
-
+        className='theme-trigger'
+        // the viewer's own theme menu (ui/ThemeMenu), with its button here and its list in a view
+        // of its own over the tab's page: a popover of this page would open underneath that
         onClick={(event) => {
           const rect = event.currentTarget.getBoundingClientRect();
-          strip.themeMenu(rect.left, rect.bottom + 4);
+          strip.themeMenu(rect.right, rect.bottom);
         }}
       >
-        <Swatch />
+        <ThemeTrigger />
       </IconButton>
       <IconButton id='settings-btn' label='Settings' onClick={() => strip.settings()}>
         <Settings size={15} />

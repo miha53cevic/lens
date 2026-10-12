@@ -35,6 +35,9 @@ const APP_FILES: Record<string, string> = {
   'launcher.html': 'text/html; charset=utf-8',
   'launcher.js': 'text/javascript; charset=utf-8',
   'launcher.css': 'text/css; charset=utf-8',
+  'menu.html': 'text/html; charset=utf-8',
+  'menu.js': 'text/javascript; charset=utf-8',
+  'menu.css': 'text/css; charset=utf-8',
 };
 
 /** Before the app is ready: the scheme behaves like https (its own origin, a CSP that means something). */

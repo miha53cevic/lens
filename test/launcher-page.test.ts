@@ -10,8 +10,10 @@ import { fireEvent } from '@testing-library/dom';
 import { bundlePage } from '../src/cli-app/render/web/bundle.ts';
 import {
   LAUNCHER_CALLS,
+  MENU_CALLS,
   STRIP_CALLS,
   type LauncherState,
+  type MenuState,
   type RepoInfo,
   type StripState,
   type ThemeSwatch,
@@ -21,10 +23,12 @@ import { themeAttributes } from '../src/desktop/shared/page.ts';
 const app = join(import.meta.dirname, '..', 'src', 'desktop');
 let launcher = '';
 let strip = '';
+let menu = '';
 
 before(async () => {
   launcher = (await bundlePage(join(app, 'launcher', 'main.tsx'))).script;
   strip = (await bundlePage(join(app, 'shell', 'main.tsx'))).script;
+  menu = (await bundlePage(join(app, 'menu', 'main.tsx'))).script;
 });
 
 const VESPER: ThemeSwatch = { name: 'vesper', bg: '#101010', fg: '#ffffff', accent: '#ffc799' };
@@ -87,8 +91,11 @@ async function settle() {
   for (let round = 0; round < 3; round++) await new Promise((resolve) => setTimeout(resolve, 0));
 }
 
+type Area = 'launcher' | 'strip' | 'menu';
+const CALLS: Record<Area, readonly string[]> = { launcher: LAUNCHER_CALLS, strip: STRIP_CALLS, menu: MENU_CALLS };
+
 /** Opens one of the app's pages on a state, with the preload's API in place of the real one. */
-async function open<State>(bundle: string, area: 'launcher' | 'strip', state: State): Promise<Page<State>> {
+async function open<State>(bundle: string, area: Area, state: State): Promise<Page<State>> {
   GlobalRegistrator.register({ url: 'lens-app://app/' + area + '.html', width: 1320, height: 840 });
   const calls: unknown[][] = [];
   let listener: (state: State) => void = () => {};
@@ -98,7 +105,7 @@ async function open<State>(bundle: string, area: 'launcher' | 'strip', state: St
       listener = heard;
     },
   };
-  for (const call of area === 'launcher' ? LAUNCHER_CALLS : STRIP_CALLS) {
+  for (const call of CALLS[area]) {
     api[call] = (...args: unknown[]) => void calls.push([call, ...args]);
   }
   (window as unknown as { lensApp: unknown }).lensApp = { [area]: api };
@@ -114,14 +121,9 @@ async function open<State>(bundle: string, area: 'launcher' | 'strip', state: St
   };
 }
 
-function pageTest<State>(
-  name: string,
-  area: 'launcher' | 'strip',
-  state: State,
-  run: (page: Page<State>) => Promise<void>,
-) {
+function pageTest<State>(name: string, area: Area, state: State, run: (page: Page<State>) => Promise<void>) {
   test(name, async () => {
-    const page = await open(area === 'launcher' ? launcher : strip, area, state);
+    const page = await open({ launcher, strip, menu }[area], area, state);
     try {
       await run(page);
     } finally {
@@ -500,7 +502,10 @@ pageTest(
     await click($('#settings-btn'));
     await click($('#theme-btn'));
     assert.deepEqual(page.calls.slice(0, 5), [['select', 2], ['change', 1], ['close', 2], ['add'], ['settings']]);
-    assert.equal(page.calls[5][0], 'themeMenu', "the themes open as the system's menu, under the button");
+    assert.equal(page.calls[5][0], 'themeMenu', 'the themes open in a menu the main process shows, under the button');
+    assert.equal($('#theme-btn').className, 'icon-btn theme-trigger', "the viewer's own theme button");
+    assert.equal($$('#theme-btn .swatch').length, 1);
+    assert.deepEqual($$('[role=menu]'), [], 'its menu is not in this page: it would open under the tab');
 
     // more tabs than fit scroll sideways: the one that comes to the front is brought into sight
     const sighted: (string | undefined)[] = [];
@@ -512,5 +517,38 @@ pageTest(
     assert.deepEqual(sighted, ['2']);
     assert.equal(document.documentElement.dataset.appearance, 'light');
     assert.ok(document.documentElement.hasAttribute('data-fullscreen'));
+  },
+);
+
+// ---- the strip's theme menu ----
+
+const MENU: MenuState = { theme: VESPER, themes: [VESPER, LIGHT], at: null };
+
+pageTest(
+  "the theme menu: the viewer's list where the strip's button is, a pick by name, and gone when closed",
+  'menu',
+  MENU,
+  async (page) => {
+    assert.deepEqual($$('[role=menu]'), [], 'closed: the page is a clear sheet');
+
+    await page.push({ ...MENU, at: { right: 1100, top: 46 } });
+    assert.equal($('#theme-menu').className, 'menu theme-menu');
+    assert.deepEqual([$('#theme-menu').style.top, $('#theme-menu').style.right], ['46px', '220px']);
+    assert.deepEqual(
+      $$('#theme-menu [role=menuitem]').map(
+        (item) => item.textContent + (item.querySelector('.theme-check') ? ' ✓' : ''),
+      ),
+      ['vesper ✓', 'github-light'],
+    );
+    assert.equal(document.documentElement.style.getPropertyValue('--theme-accent'), VESPER.accent);
+
+    await click($('#theme-vesper'));
+    assert.deepEqual(page.calls, [], 'the theme it is in is not a pick');
+    await click($('#theme-github-light'));
+    assert.deepEqual(page.calls.at(-1), ['pick', 'github-light']);
+
+    await page.push({ ...MENU, theme: LIGHT, at: null });
+    assert.deepEqual($$('[role=menu]'), []);
+    assert.equal(document.documentElement.dataset.appearance, 'light');
   },
 );

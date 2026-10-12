@@ -6,7 +6,6 @@ import { homedir } from 'node:os';
 import { basename } from 'node:path';
 import {
   BrowserWindow,
-  Menu,
   WebContentsView,
   dialog,
   ipcMain,
@@ -16,9 +15,12 @@ import {
 } from 'electron';
 import {
   LAUNCHER_CALLS,
+  MENU_CALLS,
   STRIP_CALLS,
   type LauncherCall,
   type LauncherState,
+  type MenuCall,
+  type MenuState,
   type SetupPart,
   type StripCall,
   type StripState,
@@ -36,6 +38,15 @@ import type { Themes } from './themes.ts';
 
 /** The strip's height: the views start under it. The shell's stylesheet has the same number. */
 export const STRIP_HEIGHT = 40;
+
+/**
+ * A review's own theme button, hidden: in the app the strip's is the one, on every tab. The menu
+ * behind it stays in the page, since that is how a review takes a theme (`themeChanged`).
+ */
+const HIDE_VIEWER_THEME_BUTTON = '#theme-btn { display: none !important; }';
+
+/** Between the strip's button and its menu, as ui/Menu leaves under its own button. */
+const MENU_GAP = 6;
 
 /** How long the window stands still before its place is written down: not on every pixel of a drag. */
 const PLACE_SAVE_MS = 400;
@@ -57,6 +68,13 @@ export class AppWindow implements TabHost {
   readonly win: BrowserWindow;
   readonly tabs = new TabList();
   private readonly views = new Map<number, TabViews>();
+  /**
+   * The strip's theme menu: a clear page in a view over the whole window, there while the menu is
+   * open. The strip's own page is 40px high and lies under the tabs' views, so it can't show one.
+   */
+  private readonly menu: WebContentsView;
+  /** Where that menu hangs (its right edge, its top); null while it is closed */
+  private menuAt: MenuState['at'] = null;
   private readonly deps: WindowDeps;
   private closing = false;
   /** The tabs of the last run are being read again: what is open isn't the session to keep yet */
@@ -89,12 +107,18 @@ export class AppWindow implements TabHost {
     });
     allowOrigin(this.win.webContents, APP_ORIGIN);
     void this.win.loadURL(APP_ORIGIN + '/shell.html');
+    this.menu = new WebContentsView({ webPreferences: appPagePreferences(deps.preload) });
+    this.menu.setBackgroundColor('#00000000');
+    allowOrigin(this.menu.webContents, APP_ORIGIN);
+    // loaded now, in the window only while it is open: a view over the others, even a hidden one, is in their way
+    void this.menu.webContents.loadURL(APP_ORIGIN + '/menu.html');
     this.win.once('ready-to-show', () => {
       // maximizing also shows the window: only now, when there is a page to show
       if (place?.maximized) this.win.maximize();
       this.win.show();
     });
     this.win.on('resize', () => {
+      this.closeMenu();
       this.layout();
       this.placeChanged();
     });
@@ -218,7 +242,7 @@ export class AppWindow implements TabHost {
   }
 
   private dropView(view: WebContentsView): void {
-    this.win.contentView.removeChildView(view);
+    if (this.win.contentView.children.includes(view)) this.win.contentView.removeChildView(view);
     view.webContents.close();
   }
 
@@ -236,12 +260,16 @@ export class AppWindow implements TabHost {
         view.setVisible(view === front);
         if (view === front) view.setBounds(bounds);
       }
-      if (front && !front.webContents.isFocused() && this.win.isFocused()) front.webContents.focus();
+      // not from under the open theme menu: its keys are its own
+      if (front && !this.menuAt && !front.webContents.isFocused() && this.win.isFocused()) front.webContents.focus();
     }
+    // the open theme menu stays above a view that came in under it
+    if (this.menuAt) this.win.contentView.addChildView(this.menu);
   }
 
   /** After anything a tab shows changed: its page, the strip, which view is in front. */
   private show(): void {
+    this.closeMenu();
     const active = this.tabs.active;
     if (active) this.sendLauncher(active);
     this.sendStrip();
@@ -269,6 +297,9 @@ export class AppWindow implements TabHost {
       const view = new WebContentsView({ webPreferences: viewerPreferences() });
       view.setBackgroundColor(this.background());
       allowOrigin(view.webContents, new URL(url).origin);
+      view.webContents.on('dom-ready', () => {
+        void view.webContents.insertCSS(HIDE_VIEWER_THEME_BUTTON).catch(() => {});
+      });
       void view.webContents.loadURL(url);
       this.win.contentView.addChildView(view);
       views.review = view;
@@ -307,6 +338,16 @@ export class AppWindow implements TabHost {
     };
   }
 
+  private menuState(): MenuState {
+    const { themes } = this.deps;
+    return { theme: themes.current, themes: themes.all, at: this.menuAt };
+  }
+
+  private sendMenu(): void {
+    const { webContents } = this.menu;
+    if (!webContents.isDestroyed()) webContents.send('menu:changed', this.menuState());
+  }
+
   private sendStrip(): void {
     if (!this.win.isDestroyed()) this.win.webContents.send('strip:changed', this.stripState());
   }
@@ -330,6 +371,40 @@ export class AppWindow implements TabHost {
       void views?.review?.webContents.executeJavaScript(pick, true).catch(() => {});
     }
     this.sendStrip();
+    this.sendMenu();
+  }
+
+  // ---- the strip's theme menu ----
+
+  get menuOpen(): boolean {
+    return this.menuAt !== null;
+  }
+
+  /** For the smoke run: the menu's page. */
+  get menuContents(): WebContentsView['webContents'] {
+    return this.menu.webContents;
+  }
+
+  /** Under the strip's button, over everything else; the button again closes it. */
+  private toggleMenu(right: number, bottom: number): void {
+    if (this.menuAt) return this.closeMenu();
+    const [width, height] = this.win.getContentSize();
+    this.menuAt = { right: Math.round(right), top: Math.round(bottom) + MENU_GAP };
+    // added last: above every tab's view
+    this.win.contentView.addChildView(this.menu);
+    this.menu.setBounds({ x: 0, y: 0, width, height });
+    // its keys: Esc, and the arrows
+    this.menu.webContents.focus();
+    this.sendMenu();
+  }
+
+  private closeMenu(): void {
+    if (!this.menuAt) return;
+    this.menuAt = null;
+    this.win.contentView.removeChildView(this.menu);
+    this.sendMenu();
+    // the focus goes back to the tab's page
+    this.layout();
   }
 
   // ---- what the pages ask: every call checked for who makes it and what it carries ----
@@ -346,8 +421,18 @@ export class AppWindow implements TabHost {
     return event.sender === this.win.webContents && isAppPage(event.sender, event.senderFrame?.url);
   }
 
+  private isMenu(event: IpcMainEvent | IpcMainInvokeEvent): boolean {
+    return event.sender === this.menu.webContents && isAppPage(event.sender, event.senderFrame?.url);
+  }
+
   private listen(): void {
     ipcMain.handle('strip:state', (event) => (this.isStrip(event) ? this.stripState() : null));
+    ipcMain.handle('menu:state', (event) => (this.isMenu(event) ? this.menuState() : null));
+    for (const call of MENU_CALLS) {
+      ipcMain.on('menu:' + call, (event, ...args: unknown[]) => {
+        if (this.isMenu(event)) this.menuCall(call, args);
+      });
+    }
     ipcMain.handle('launcher:state', (event) => {
       const tab = this.tabOf(event);
       return tab ? this.launcherState(tab) : null;
@@ -380,7 +465,7 @@ export class AppWindow implements TabHost {
       case 'settings':
         return this.openSettings();
       case 'themeMenu':
-        if (typeof first === 'number' && typeof second === 'number') this.themeMenu(first, second);
+        if (typeof first === 'number' && typeof second === 'number') this.toggleMenu(first, second);
         return;
       case 'chrome':
         if (!isHexColor(first) || !isHexColor(second)) return;
@@ -394,18 +479,16 @@ export class AppWindow implements TabHost {
     }
   }
 
-  /** The code themes, as the system's menu: a page's own popover would open under the tab's view. */
-  private themeMenu(x: number, y: number): void {
+  private menuCall(call: MenuCall, [first]: unknown[]): void {
     const { themes } = this.deps;
-    const menu = Menu.buildFromTemplate(
-      themes.all.map((theme) => ({
-        label: theme.name,
-        type: 'radio' as const,
-        checked: theme.name === themes.current.name,
-        click: () => void themes.pick(theme.name),
-      })),
-    );
-    menu.popup({ window: this.win, x: Math.round(x), y: Math.round(y) });
+    switch (call) {
+      case 'pick':
+        // only a theme the menu was given: a page can't name another
+        if (typeof first === 'string' && themes.all.some((theme) => theme.name === first)) void themes.pick(first);
+        return this.closeMenu();
+      case 'close':
+        return this.closeMenu();
+    }
   }
 
   private async launcherCall(tab: Tab, call: LauncherCall, [first]: unknown[]): Promise<void> {
