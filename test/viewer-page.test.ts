@@ -920,7 +920,7 @@ pageTest('Ask with an agent listening sends the question with the selected lines
   await key('\\');
   const range = document.createRange();
   range.setStart($('#code .row[data-line="10"]'), 0);
-  range.setEnd($('#code .row[data-line="11"]'), 1);
+  range.setEnd($('#code .row[data-line="11"]').lastElementChild!, 1);
   document.getSelection()!.removeAllRanges();
   document.getSelection()!.addRange(range);
   document.dispatchEvent(new Event('selectionchange'));
@@ -937,6 +937,47 @@ pageTest('Ask with an agent listening sends the question with the selected lines
     [10, 11],
   );
   assert.equal(($('#ask-input') as HTMLTextAreaElement).value, '', "the input clears once it's sent");
+});
+
+pageTest('the Ask selection takes the lines it holds text of, not the rows its ends sit in', async () => {
+  await key('\\');
+  const select = async (start: Node, startOffset: number, end: Node, endOffset: number) => {
+    const range = document.createRange();
+    range.setStart(start, startOffset);
+    range.setEnd(end, endOffset);
+    document.getSelection()!.removeAllRanges();
+    document.getSelection()!.addRange(range);
+    document.dispatchEvent(new Event('selectionchange'));
+    await settle();
+  };
+  const row = (selector: string) => $('#code ' + selector);
+  const code = (selector: string) => row(selector).lastElementChild!;
+  const line10 = code('.row[data-line="10"]');
+
+  // a double-click past line 10's end selects its line break, which ends at the start of row 11
+  await select(line10, line10.childNodes.length, row('.row[data-line="11"]'), 0);
+  assert.equal($('#ask-chips').textContent, 'orders.tssrc/orders.ts:10');
+  // a triple-click: the line and its break
+  await select(line10, 0, row('.row[data-line="11"]'), 0);
+  assert.equal($('#ask-chips').textContent, 'orders.tssrc/orders.ts:10');
+  assert.deepEqual(
+    $$('#code .row.ask-sel').map((selected) => selected.dataset.line),
+    ['10'],
+  );
+
+  // a slipped click on a fold's pill selects some of its text: that is no code
+  const pill = $('#code .region .pill').lastChild!;
+  await select(pill, 0, pill, 3);
+  assert.equal($('#ask-chips').textContent, 'orders.ts');
+  assert.equal($$('#code .row.ask-sel').length, 0);
+
+  // a drag over a closed fold takes its lines, and so does one that ends on its pill
+  const removed = code('.row[data-old="9"]');
+  await select(removed, 0, line10, 1);
+  assert.equal($('#ask-chips').textContent, 'orders.tssrc/orders.ts:9–10');
+  const logPill = row('.row[data-old="9"]').nextElementSibling!.querySelector('.pill')!.lastChild!;
+  await select(removed, 0, logPill, 2);
+  assert.equal($('#ask-chips').textContent, 'orders.tssrc/orders.ts:9');
 });
 
 pageTest('a question about a unit takes its open concerns along; a dismissed one stays behind', async (page) => {
@@ -973,7 +1014,7 @@ pageTest(
     await key('\\');
     const range = document.createRange();
     range.setStart($('#code .row[data-line="10"]'), 0);
-    range.setEnd($('#code .row[data-line="11"]'), 1);
+    range.setEnd($('#code .row[data-line="11"]').lastElementChild!, 1);
     document.getSelection()!.removeAllRanges();
     document.getSelection()!.addRange(range);
     document.dispatchEvent(new Event('selectionchange'));

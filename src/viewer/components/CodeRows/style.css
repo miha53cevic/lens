@@ -83,10 +83,11 @@
   font-family: var(--font-mono);
 }
 
-/* a fold: a pill that quotes what it hides */
+/* a fold: a pill that quotes what it hides. A control, not code: its text can't be selected */
 .pill-row {
   align-items: baseline;
   cursor: pointer;
+  user-select: none;
 }
 /* baseline alignment collapses the empty gutter mark: stretch it back */
 .pill-row .mark {
