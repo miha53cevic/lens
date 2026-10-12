@@ -273,6 +273,32 @@ pageTest(
   },
 );
 
+pageTest('the picker asks for its repository again when it comes back into sight', 'launcher', PICKER, async (page) => {
+  const asked = () => page.calls.filter(([call]) => call === 'refresh').length;
+  assert.equal(asked(), 0);
+  // the window gets the focus back (you staged something in a terminal): the loop runs what is due
+  window.dispatchEvent(new Event('focus'));
+  await settle();
+  assert.equal(asked(), 1);
+  // the counts are what the main process says now; the picked choice is the page's own
+  await click($('.choice[data-range="worktree"]'));
+  await page.push({ ...PICKER, repo: { ...REPO, changed: 3, staged: 0 } });
+  assert.equal($('.choice[data-range="worktree"] .choice-meta').textContent, '3 files');
+  assert.ok($('.choice[data-range="worktree"]').classList.contains('checked'));
+});
+
+pageTest('Start and Settings have nothing to ask again', 'launcher', START, async (page) => {
+  window.dispatchEvent(new Event('focus'));
+  await settle();
+  await page.push({ ...START, screen: 'settings' });
+  window.dispatchEvent(new Event('focus'));
+  await settle();
+  assert.deepEqual(
+    page.calls.filter(([call]) => call === 'refresh'),
+    [],
+  );
+});
+
 pageTest('the picker: a pull request by number, on the remote it names', 'launcher', PICKER, async (page) => {
   await click($('#picker-mode [data-value="pr"]'));
   assert.equal($$('.choice').length, 0);

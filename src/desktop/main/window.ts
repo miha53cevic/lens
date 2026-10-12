@@ -355,6 +355,10 @@ export class AppWindow implements TabHost {
         if (typeof first === 'string' && known.includes(first)) await tab.refresh(first);
         return;
       }
+      case 'refresh':
+        // only the page in sight: a tab behind another, or one showing its review, has no picker to keep current
+        if (tab === this.tabs.active && tab.showing === 'launcher') await tab.poll();
+        return;
       case 'open': {
         const choice = parseChoice(first);
         if (choice) await tab.open(choice);

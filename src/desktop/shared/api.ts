@@ -101,6 +101,8 @@ export interface LauncherApi {
   forgetRecent(root: string): void;
   /** Recount "this branch vs" against another base */
   setBase(base: string): void;
+  /** Read the repository again: the picker asks while it is in sight, so its counts follow a `git add` done elsewhere */
+  refresh(): void;
   open(choice: ReviewChoice): void;
   cancel(): void;
   dismiss(): void;
@@ -126,6 +128,7 @@ export const LAUNCHER_CALLS = [
   'openRecent',
   'forgetRecent',
   'setBase',
+  'refresh',
   'open',
   'cancel',
   'dismiss',

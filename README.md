@@ -186,7 +186,9 @@ The **picker** then offers what the command does, and shows the command it will 
 | Changes · Custom | `lens diff <what you type>` |
 | Pull request | `lens pr <number or URL>` |
 
-The counts beside the choices come from [`lens info`](#lens-info). Opening loose files
+The counts beside the choices come from [`lens info`](#lens-info), read again every 5
+seconds while the picker is in sight: stage something in a terminal and the picker
+follows. Opening loose files
 (`lens <path…>`) and the flags (`--summary`, `--threshold`, `--theme`, `--json`) stay
 with the command.
 

@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -149,6 +150,39 @@ test("a tab: a folder outside a repository, a repository another tab has, and a 
     } finally {
       await terminal.close();
     }
+  });
+});
+
+test("a tab's picker follows the repository: a quiet poll reports what changed, once, and a folder that is gone", { timeout: 90_000 }, async () => {
+  await withApp(async (dir, tab, host) => {
+    await tab.poll();
+    assert.equal(tab.screen, "start", "nothing to read before a repository is open");
+    await tab.openFolder(dir);
+    assert.deepEqual([tab.repo!.changed, tab.repo!.staged], [2, 0]);
+    let reported = 0;
+    const changed = host.changed;
+    host.changed = (changedTab) => {
+      reported++;
+      changed(changedTab);
+    };
+
+    await tab.poll();
+    assert.equal(reported, 0, "the repository is as shown: the page is told nothing");
+    execFileSync("git", ["add", "src/orders.ts"], { cwd: dir });
+    await tab.poll();
+    assert.deepEqual([tab.repo!.changed, tab.repo!.staged, reported], [1, 1, 1], "a git add done elsewhere shows");
+    // two at once: the second leaves it to the first
+    await Promise.all([tab.poll(), tab.poll()]);
+    assert.equal(reported, 1);
+
+    rmSync(dir, { recursive: true, force: true });
+    await tab.poll();
+    assert.equal(tab.screen, "start");
+    assert.equal(tab.repo, null);
+    assert.deepEqual(tab.status, { kind: "failed", label: `${tildePath(dir)} is gone`, detail: "the folder was deleted or moved" });
+    reported = 0;
+    await tab.poll();
+    assert.equal(reported, 0, "Start has nothing to poll");
   });
 });
 

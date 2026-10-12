@@ -2,6 +2,7 @@
 // the tab's logic, without Electron: what it shows is reported to a TabHost, which the window
 // implements with real views and the tests with a fake.
 
+import { existsSync } from 'node:fs';
 import { basename } from 'node:path';
 import type { LauncherState, LauncherStatus, RepoInfo, StripTab } from '../shared/api.ts';
 import { choiceArgs, choiceLabel, choiceProblem, type ReviewChoice } from '../shared/choice.ts';
@@ -39,6 +40,9 @@ interface Review {
 
 const IDLE: LauncherStatus = { kind: 'idle' };
 
+/** Whether two answers of the CLI say the same. */
+const sameValue = (one: unknown, other: unknown) => JSON.stringify(one) === JSON.stringify(other);
+
 export class Tab {
   readonly id: number;
   screen: LauncherState['screen'];
@@ -49,6 +53,12 @@ export class Tab {
   showing: 'launcher' | 'review' = 'launcher';
   private review_: Review | null = null;
   private starting: StartingReview | null = null;
+  /** The repository's reads asked for so far: an answer counts only while it is the newest one's */
+  private reads = 0;
+  /** How many of them haven't answered yet */
+  private reading = 0;
+  /** What the picker's last poll failed with: said once, not on every poll */
+  private pollFailure: string | null = null;
   private readonly cli: LensCli;
   private readonly store: Store;
   private readonly host: TabHost;
@@ -131,18 +141,61 @@ export class Tab {
   }
 
   /** Reads the repository again: the counts, the branch, and "this branch vs" against `base`. */
-  async refresh(base?: string): Promise<void> {
+  refresh(base?: string): Promise<void> {
+    return this.read(base, false);
+  }
+
+  /**
+   * The picker asks every few seconds while it is in sight, so its counts follow what happens to
+   * the repository elsewhere. Quiet: nothing is reported when nothing changed, and a failure once.
+   */
+  async poll(): Promise<void> {
+    // a read that is under way answers soon enough
+    if (this.screen !== 'picker' || this.status.kind === 'working' || this.reading > 0) return;
+    await this.read(undefined, true);
+  }
+
+  private async read(base: string | undefined, quiet: boolean): Promise<void> {
     const root = this.repo?.root;
     if (!root) return;
+    const read = ++this.reads;
+    // the tab moved on while git answered, or a newer read was asked for (another base)
+    const outdated = () => read !== this.reads || this.repo?.root !== root;
+    this.reading++;
     try {
       const info = await lensInfo(this.cli, root, { base: base ?? this.repo?.base ?? undefined });
-      if (this.repo?.root !== root || !info.repo) return; // the tab moved on while git answered
+      if (outdated()) return;
+      if (!info.repo) return this.repositoryGone(root, 'not inside a git repository anymore');
+      this.pollFailure = null;
+      const running = this.review_ ? this.running : runningServer(root);
+      if (quiet && sameValue(info.repo, this.repo) && sameValue(running, this.running)) return;
       this.repo = info.repo;
-      if (!this.review_) this.running = runningServer(root);
+      this.running = running;
       this.host.changed(this);
     } catch (error) {
-      this.set({ kind: 'failed', label: "Couldn't read the repository", detail: (error as Error).message });
+      if (outdated()) return;
+      if (!existsSync(root)) return this.repositoryGone(root, 'the folder was deleted or moved');
+      const detail = (error as Error).message;
+      if (quiet && detail === this.pollFailure) return;
+      this.pollFailure = detail;
+      this.set({ kind: 'failed', label: "Couldn't read the repository", detail });
+    } finally {
+      this.reading--;
     }
+  }
+
+  /** The picker's repository isn't there anymore: back to Start, saying so. A review that still runs keeps its tab. */
+  private repositoryGone(root: string, detail: string): void {
+    const status: LauncherStatus = { kind: 'failed', label: `${tildePath(root)} is gone`, detail };
+    if (this.review_) {
+      if (this.pollFailure !== detail) this.set(status);
+      this.pollFailure = detail;
+      return;
+    }
+    this.screen = 'start';
+    this.repo = null;
+    this.running = null;
+    this.set(status);
   }
 
   /** Starts the review the picker chose, in place of the one the tab has. */
