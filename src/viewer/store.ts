@@ -10,6 +10,7 @@ import { createStore } from 'zustand/vanilla';
 import type { ViewerPayload } from '../cli-app/render/web/server.ts';
 import type { AskSelection, AskState } from '../cli-app/ask/session.ts';
 import { INITIAL_DATA, readPref } from './shared.ts';
+import { CODE_SIZE_DEFAULT, savedCodeSize } from './codeSize.ts';
 
 export type View = 'code' | 'summary';
 export type ConcernMark = 'real' | 'dismissed';
@@ -69,6 +70,8 @@ export interface LensState {
   hunksOnly: boolean;
   /** Mark the words a replaced line changed (wordDiff.ts) */
   wordDiff: boolean;
+  /** The code's size in px, one of CODE_SIZES (codeSize.ts) */
+  codeSize: number;
   navCollapsed: boolean;
   navWidth: number;
   /** The tree filter's text (transient) */
@@ -128,6 +131,14 @@ function loadMarks(): Map<string, ConcernMark> {
   }
 }
 
+function loadCodeSize(): number {
+  try {
+    return savedCodeSize(document.cookie);
+  } catch {
+    return CODE_SIZE_DEFAULT;
+  }
+}
+
 function savedWidth(key: string, min: number, max: number, fallback: number) {
   const width = Number(readPref(key));
   return width >= min && width <= max ? width : fallback;
@@ -150,6 +161,7 @@ const initialState: LensState = {
   hideTests: readPref('lens.hideTests') !== '0', // on by default
   hunksOnly: readPref('lens.hunksOnly') !== '0', // on by default
   wordDiff: readPref('lens.wordDiff') === '1', // off by default
+  codeSize: loadCodeSize(),
   navCollapsed: readPref('lens.navCollapsed') === '1',
   navWidth: savedWidth('lens.navWidth', 160, 600, 0),
   navQuery: '',

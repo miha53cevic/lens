@@ -304,12 +304,15 @@ same card.
 ### The header and the ⋯ menu
 
 The header keeps four buttons in sight: search, Ask, the code theme and reload.
-Everything else is in the **⋯** menu: the fold level, expand / collapse all, hunks only,
-removed lines, word diff and hide tests (each with its key), then the keyboard shortcuts,
-the settings and *End session*.
+Everything else is in the **⋯** menu: the code size, the fold level, expand / collapse all,
+hunks only, removed lines, word diff and hide tests (each with its key), then the keyboard
+shortcuts, the settings and *End session*.
 
 - **Reload** (`r`) re-runs the analysis (new file contents, a fresh `git diff`, edits to
   `.lens.json`) without restarting the server.
+- **Code size** in ⋯ makes the code larger or smaller, from 10 to 24px, in both the Code
+  and the Summary view. The default is 12px, and the menu says so beside the setting's name. Only the code
+  changes size, not the page around it. Your size is kept for every repository you open.
 - **Settings** in ⋯ shows the effective config.
 - **Ask** (`a`) opens a rail on the right where you ask your agent about the code you're
   reading. See [Ask mode](#ask-mode).

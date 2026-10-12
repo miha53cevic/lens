@@ -30,8 +30,8 @@
   --text-2xl: 27px;
   /* the Start screen's name, and nothing else */
   --text-3xl: 44px;
-  /* the code itself: between sm and md, where a mono face reads best */
-  --text-code: 12.5px;
+  /* the code itself, until the reader picks another size (the viewer's ⋯ menu) */
+  --text-code: 12px;
 
   /* a 4px grid: padding, margins and gaps are 0 or one of these */
   --space-1: 4px;

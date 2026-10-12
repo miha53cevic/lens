@@ -1,0 +1,18 @@
+/* on the Segmented's track, so the two sit together in a menu */
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  gap: var(--space-1);
+  height: var(--control-h-sm);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-full);
+  background: var(--surface-2);
+}
+.stepper output {
+  min-width: 5ch;
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}

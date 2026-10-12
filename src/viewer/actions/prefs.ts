@@ -1,8 +1,9 @@
 // What the reader sets and the browser remembers: the sidebar, the view settings (the
-// header's ⋯ menu) and the viewed marks.
+// header's ⋯ menu), the code's size and the viewed marks.
 
 import { commit, getState, toggled, update, VIEWED_CAP, VIEWED_PREF } from '../store.ts';
 import { fileViewKey, type ViewFile, writePref } from '../shared.ts';
+import { CODE_SIZE_COOKIE, CODE_SIZE_DEFAULT, steppedSize } from '../codeSize.ts';
 import { type Unit, unitViewKey } from '../model/signals.ts';
 import { visibleActive } from './tabs.ts';
 
@@ -55,6 +56,19 @@ export function setThreshold(threshold: number): void {
 
 export function stepThreshold(delta: number): void {
   setThreshold(Math.max(-1, Math.min(3, getState().threshold + delta)));
+}
+
+// The code's size, in both views. Kept in a cookie, so every repository's viewer opens at it.
+
+export function setCodeSize(size: number): void {
+  // the default keeps no cookie: a reader who never chose follows the default if it changes
+  const kept = size === CODE_SIZE_DEFAULT ? '; max-age=0' : '; max-age=31536000';
+  document.cookie = CODE_SIZE_COOKIE + '=' + size + '; path=/' + kept + '; samesite=lax';
+  update({ codeSize: size });
+}
+
+export function stepCodeSize(delta: number): void {
+  setCodeSize(steppedSize(getState().codeSize, delta));
 }
 
 // Viewed marks: keyed by content, so what changes after it was ticked comes back unticked.

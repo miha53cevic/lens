@@ -77,8 +77,8 @@ interface Page {
   tokensAnalysis: string | null;
 }
 
-/** Opens the viewer on the payload, with these localStorage entries already there. */
-async function open(prefs: Record<string, string> = {}, hash = ''): Promise<Page> {
+/** Opens the viewer on the payload, with these localStorage entries (and this cookie) already there. */
+async function open(prefs: Record<string, string> = {}, hash = '', cookie = ''): Promise<Page> {
   GlobalRegistrator.register({ url: 'http://127.0.0.1:5326/' + hash, width: 1400, height: 900 });
   const page: Page = { requests: [], ask: { listening: false, questions: [] }, tokensAnalysis: null };
   globalThis.fetch = (async (input: string | URL, init?: RequestInit) => {
@@ -109,6 +109,7 @@ async function open(prefs: Record<string, string> = {}, hash = ''): Promise<Page
     return new Response('{}', { status: 404 });
   }) as typeof fetch;
   for (const [key, value] of Object.entries(prefs)) localStorage.setItem(key, value);
+  if (cookie) document.cookie = cookie;
   document.body.innerHTML = '<div id="root"></div><script id="lens-data" type="application/json"></script>';
   document.getElementById('lens-data')!.textContent = JSON.stringify(payload);
   new Function(bundle)();
@@ -250,6 +251,42 @@ pageTest('the fold level pins the regions scored above it', async () => {
   assert.equal($$('#code .region.pinned').length, 0);
   assert.equal($('#threshold [aria-checked="true"]').dataset.value, '1');
   assert.equal($('#threshold-hint').textContent, 'Level 1 folds import, guard, logging. [ ]');
+});
+
+pageTest('the code size: the stepper sets it, the cookie keeps it, and the default keeps none', async () => {
+  const codeSize = () => document.documentElement.style.getPropertyValue('--text-code');
+  const [smaller, larger] = $$('#code-size .icon-btn');
+  assert.equal($('#code-size output').textContent, '12px');
+  assert.equal(codeSize(), '', 'at the default the token rules');
+
+  await click(larger);
+  await click(larger);
+  assert.equal($('#code-size output').textContent, '14px');
+  assert.equal(codeSize(), '14px');
+  assert.ok(document.cookie.includes('lens-code-size=14'));
+  assert.equal($('#code-size-hint').textContent, 'default 12px');
+
+  await click(smaller);
+  await click(smaller);
+  assert.equal(codeSize(), '');
+  assert.ok(!document.cookie.includes('lens-code-size'), 'the default keeps no cookie');
+
+  for (let step = 0; step < 5; step++) await click(smaller);
+  assert.ok(document.cookie.includes('lens-code-size=10'));
+  assert.equal($('#code-size output').textContent, '10px', 'it stops at the smallest size');
+  assert.equal((smaller as HTMLButtonElement).disabled, true);
+  await click(larger);
+  await click(larger);
+});
+
+test('the code size comes back from its cookie', async () => {
+  await open({}, '', 'lens-code-size=18; path=/');
+  try {
+    assert.equal(document.documentElement.style.getPropertyValue('--text-code'), '18px');
+    assert.equal($('#code-size output').textContent, '18px');
+  } finally {
+    await close();
+  }
 });
 
 pageTest('hunks only: a click shows a hidden stretch, h shows the whole file', async () => {

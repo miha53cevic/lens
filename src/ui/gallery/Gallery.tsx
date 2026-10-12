@@ -11,6 +11,7 @@ import { Kbd } from '../Kbd.tsx';
 import { Menu, MenuItem, MenuSection, MenuSeparator, MenuSwitch } from '../Menu.tsx';
 import { ProgressRing } from '../ProgressRing.tsx';
 import { Segmented } from '../Segmented.tsx';
+import { Stepper } from '../Stepper.tsx';
 import { StatusBar } from '../StatusBar.tsx';
 import { Swatch } from '../Swatch.tsx';
 import { ThemeMenu } from '../ThemeMenu.tsx';
@@ -51,6 +52,7 @@ export function Gallery() {
   const [theme, setTheme] = useState<ThemeName>('vesper');
   const [view, setView] = useState('code');
   const [level, setLevel] = useState(1);
+  const [size, setSize] = useState(12);
   const [chips, setChips] = useState({ logging: true, imports: false, word: true });
   const [pressed, setPressed] = useState(true);
   const [wordDiff, setWordDiff] = useState(true);
@@ -124,6 +126,19 @@ export function Gallery() {
           value={view}
           onChange={setView}
         />
+      </Section>
+
+      <Section id='g-stepper' title='Stepper'>
+        <Stepper
+          label='code size'
+          value={size + 'px'}
+          lessLabel='Smaller'
+          moreLabel='Larger'
+          atMin={size === 10}
+          atMax={size === 14}
+          onStep={(delta) => setSize(size + delta)}
+        />
+        <Stepper label='at its end' value='24px' lessLabel='Smaller' moreLabel='Larger' atMax onStep={() => {}} />
       </Section>
 
       <Section id='g-chip' title='Chip'>

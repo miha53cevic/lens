@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { relPath } from "../src/cli-app/paths.ts";
+import { CODE_SIZE_DEFAULT } from "../src/viewer/codeSize.ts";
 
 const ROOT = join(import.meta.dirname, "..");
 const TOKENS = "src/ui/styles/tokens.css";
@@ -105,6 +106,10 @@ test("layers and lifts come from the tokens", () => {
     }),
     [],
   );
+});
+
+test("the viewer's default code size is the token's", () => {
+  assert.match(readFileSync(join(ROOT, TOKENS), "utf8"), new RegExp(`--text-code: ${CODE_SIZE_DEFAULT}px;`));
 });
 
 test("the retired tokens stay retired", () => {

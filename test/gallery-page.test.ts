@@ -46,6 +46,8 @@ test('each primitive renders, with the states the design system names', () => {
   assert.equal(count('#g-icon-button .icon-btn[aria-pressed="true"]'), 1);
   assert.equal(count('#g-segmented .seg'), 2);
   assert.equal(count('#g-segmented .seg-lg [aria-checked="true"]'), 1);
+  assert.equal(count('#g-stepper .stepper'), 2);
+  assert.equal(count('#g-stepper .stepper .icon-btn-sm:disabled'), 1, 'a stepper at its end can only go back');
   assert.equal(count('#g-chip .chip'), 3);
   assert.equal(count('#g-chip .chip .dot'), 2, 'a chip without a color has no dot');
   assert.equal(count('#g-field .field'), 3);

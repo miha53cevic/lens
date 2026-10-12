@@ -2,12 +2,21 @@ import { Keyboard, MoreHorizontal, Power, Settings } from 'lucide-react';
 import { useLens } from '../../store.ts';
 import { treeModel } from '../../model/tree.ts';
 import { collapseAll, expandAll } from '../../actions/folds.ts';
-import { setHideTests, setHunksOnly, setShowRemoved, setThreshold, setWordDiff } from '../../actions/prefs.ts';
+import {
+  setHideTests,
+  setHunksOnly,
+  setShowRemoved,
+  setThreshold,
+  setWordDiff,
+  stepCodeSize,
+} from '../../actions/prefs.ts';
+import { CODE_SIZE_DEFAULT, CODE_SIZES } from '../../codeSize.ts';
 import { openDialog } from '../../actions/dialogs.ts';
 import { endSession } from '../../actions/session.ts';
 import { isDiffMode } from '../../shared.ts';
 import { Menu, MenuItem, MenuSection, MenuSeparator, MenuSwitch } from '../../../ui/Menu.tsx';
 import { Segmented } from '../../../ui/Segmented.tsx';
+import { Stepper } from '../../../ui/Stepper.tsx';
 import { foldLevelHint } from './util.ts';
 
 const LEVELS = [
@@ -19,8 +28,8 @@ const LEVELS = [
 ];
 
 /**
- * ⋯: the view settings first (they act on the Code tab's file and the Summary tab's change
- * alike), then the shortcuts and the settings, then end session.
+ * ⋯: the code's size and the view settings first (they act on the Code tab's file and the
+ * Summary tab's change alike), then the shortcuts and the settings, then end session.
  */
 export function MoreMenu() {
   const more = useLens((state) => ({
@@ -32,10 +41,32 @@ export function MoreMenu() {
     showRemoved: state.showRemoved,
     wordDiff: state.wordDiff,
     hideTests: state.hideTests,
+    codeSize: state.codeSize,
   }));
 
   return (
     <Menu id='more-btn' label='View settings and more' trigger={<MoreHorizontal size={17} />}>
+      <MenuSection title='Code'>
+        <div className='menu-row'>
+          <span className='menu-label'>
+            Code size
+            <span className='menu-aside' id='code-size-hint'>
+              default {CODE_SIZE_DEFAULT}px
+            </span>
+          </span>
+          <Stepper
+            id='code-size'
+            label='code size'
+            value={more.codeSize + 'px'}
+            lessLabel='Smaller'
+            moreLabel='Larger'
+            atMin={more.codeSize === CODE_SIZES[0]}
+            atMax={more.codeSize === CODE_SIZES[CODE_SIZES.length - 1]}
+            onStep={stepCodeSize}
+          />
+        </div>
+      </MenuSection>
+      <MenuSeparator />
       <MenuSection title='Folding'>
         <div className='menu-row'>
           <span className='menu-label'>Fold level</span>
