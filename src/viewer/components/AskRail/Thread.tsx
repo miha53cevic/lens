@@ -4,7 +4,7 @@ import type { AskQuestion } from '../../../cli-app/ask/session.ts';
 import { useLens } from '../../store.ts';
 import { askGoto, askMarkdown, askOpenCite } from '../../ask/answers.ts';
 import { askSelLabel } from '../../ask/selection.ts';
-import { CopyCommand } from '../../ui/CopyCommand.tsx';
+import { CopyCommand } from '../../../ui/CopyCommand.tsx';
 
 /** The questions and the agent's answers. A thread scrolled to its end follows new ones (askPoll). */
 export function Thread() {
@@ -85,7 +85,7 @@ function QuestionAndAnswer({ question, listening, files }: QuestionAndAnswerProp
       ) : (
         <div className='ask-a'>
           <div className='ask-who ask-wait'>
-            <span className='ask-spin' />
+            <span className='ask-spin spin' />
             {'waiting for agent · ' + Math.round((Date.now() - question.askedAt) / 1000) + 's'}
           </div>
         </div>

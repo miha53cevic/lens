@@ -10,10 +10,12 @@ import { openSearch } from '../../actions/dialogs.ts';
 import { toggleNav } from '../../actions/prefs.ts';
 import { askSetOpen } from '../../ask/rail.ts';
 import { hiddenStyle } from '../../shared.ts';
-import { IconButton } from '../../ui/IconButton.tsx';
+import { Brand } from '../../../ui/Brand.tsx';
+import { IconButton } from '../../../ui/IconButton.tsx';
 import { ViewSwitch } from './ViewSwitch.tsx';
 import { ThemeMenu } from './ThemeMenu.tsx';
 import { MoreMenu } from './MoreMenu.tsx';
+import { TopBar, TopBarDivider } from '../../../ui/TopBar.tsx';
 import './style.css';
 
 export function Header() {
@@ -26,7 +28,7 @@ export function Header() {
   }));
 
   return (
-    <header className='header'>
+    <TopBar>
       <IconButton
         id='nav-toggle'
         label='Toggle the sidebar'
@@ -35,9 +37,7 @@ export function Header() {
       >
         <PanelLeft size={16} />
       </IconButton>
-      <span className='brand'>
-        lens<em>.</em>
-      </span>
+      <Brand />
       {/* PR mode: "owner/repo#N — title" */}
       {header.label && (
         <span className='header-title' id='pr-label' title={header.label}>
@@ -59,7 +59,7 @@ export function Header() {
       >
         <MessageSquare size={16} />
       </IconButton>
-      <span className='header-divider' />
+      <TopBarDivider />
       <ThemeMenu />
       <IconButton
         id='refresh'
@@ -72,6 +72,6 @@ export function Header() {
         <RefreshCw size={15} className={header.refreshing ? 'spin' : undefined} />
       </IconButton>
       <MoreMenu />
-    </header>
+    </TopBar>
   );
 }

@@ -4,12 +4,13 @@
 import { useState } from 'react';
 import { ArrowLeft, FileDiff, Folder, GitBranch, GitPullRequest } from 'lucide-react';
 import { choiceCommand, choiceProblem, type ReviewChoice } from '../../../shared/choice.ts';
-import { Button } from '../../../../viewer/ui/Button.tsx';
-import { CopyCommand } from '../../../../viewer/ui/CopyCommand.tsx';
-import { IconButton } from '../../../../viewer/ui/IconButton.tsx';
-import { Kbd } from '../../../../viewer/ui/Kbd.tsx';
-import { Segmented } from '../../../../viewer/ui/Segmented.tsx';
-import '../../../../viewer/components/Header/style.css';
+import { Button } from '../../../../ui/Button.tsx';
+import { CopyCommand } from '../../../../ui/CopyCommand.tsx';
+import { IconButton } from '../../../../ui/IconButton.tsx';
+import { Kbd } from '../../../../ui/Kbd.tsx';
+import { Segmented } from '../../../../ui/Segmented.tsx';
+import { Brand } from '../../../../ui/Brand.tsx';
+import { TopBar, TopBarDivider } from '../../../../ui/TopBar.tsx';
 import { useApp } from '../../store.ts';
 import { Changes } from './Changes.tsx';
 import { PullRequest } from './PullRequest.tsx';
@@ -49,7 +50,7 @@ export function ReviewPicker() {
 
   return (
     <>
-      <header className='header picker-header'>
+      <TopBar className='picker-header'>
         <IconButton
           id='picker-back'
           label={current ? 'Back to the review' : 'Back to Start'}
@@ -57,10 +58,8 @@ export function ReviewPicker() {
         >
           <ArrowLeft size={16} />
         </IconButton>
-        <span className='brand'>
-          lens<em>.</em>
-        </span>
-        <span className='header-divider' />
+        <Brand />
+        <TopBarDivider />
         <span className='repo-id'>
           <Folder size={15} />
           <span className='repo-name'>{repo.name}</span>
@@ -73,7 +72,7 @@ export function ReviewPicker() {
             {repoPath}
           </span>
         </span>
-      </header>
+      </TopBar>
       <main className='screen'>
         <div className='column'>
           {/* outside the form: a button in a form submits it */}

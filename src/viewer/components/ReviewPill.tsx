@@ -11,6 +11,7 @@ import { stepFile } from '../actions/tabs.ts';
 import { stepSummary } from '../actions/summary.ts';
 import { toggleFileViewed, toggleUnitViewed } from '../actions/prefs.ts';
 import { isTestFile } from '../shared.ts';
+import { Button } from '../../ui/Button.tsx';
 import './ReviewPill.css';
 
 /** What the pill offers, for the open file or change. */
@@ -48,19 +49,19 @@ export function ReviewPill() {
   if (pill.stage === 'start') {
     return (
       <div className='review-pill' id='review-pill'>
-        <button className='rp-main' id='review-next' onClick={startReview}>
+        <Button variant='primary' size='sm' id='review-next' onClick={startReview}>
           Start review <ArrowRight size={13} />
-        </button>
+        </Button>
       </div>
     );
   }
   return (
     <div className='review-pill' id='review-pill'>
-      <button className='rp-btn' id='review-prev' disabled={pill.atStart} onClick={prev}>
+      <Button variant='ghost' size='sm' id='review-prev' disabled={pill.atStart} onClick={prev}>
         <ArrowLeft size={13} /> Prev
-      </button>
+      </Button>
       {pill.stage === 'all' && (
-        <span className='rp-main' id='review-next'>
+        <span className='rp-all' id='review-next'>
           <Check size={13} /> All {pill.total} {noun + 's'} {markedWord.toLowerCase()}
         </span>
       )}
@@ -70,20 +71,20 @@ export function ReviewPill() {
         </span>
       )}
       {(pill.stage === 'todo' || pill.stage === 'last') && (
-        <button className='rp-main' id='review-next' onClick={markAndNext}>
-          <Check size={13} />{' '}
+        <Button variant='primary' size='sm' id='review-next' onClick={markAndNext}>
+          <Check size={13} />
           {pill.stage === 'todo' ? markedWord + ' · next ' + noun : 'Mark ' + markedWord.toLowerCase()}
-        </button>
+        </Button>
       )}
       {(pill.stage === 'done' || pill.stage === 'all') && (
-        <button className='rp-btn' id='review-undo' onClick={undo}>
+        <Button variant='ghost' size='sm' id='review-undo' onClick={undo}>
           Undo
-        </button>
+        </Button>
       )}
       {pill.stage === 'done' && !pill.atEnd && (
-        <button className='rp-btn' onClick={next}>
+        <Button variant='ghost' size='sm' onClick={next}>
           Next <ArrowRight size={13} />
-        </button>
+        </Button>
       )}
     </div>
   );

@@ -9,7 +9,7 @@ import { codeLines, isTestFile, listedOnlyCount } from '../../shared.ts';
 import { CodeRows } from '../CodeRows/index.tsx';
 import { CodeCard, removedCount } from '../CodeCard.tsx';
 import { OverviewRuler } from '../OverviewRuler.tsx';
-import { fileStatus } from '../../ui/FileStatus.tsx';
+import { fileStatus } from '../../../ui/FileStatus.tsx';
 import { findUsages, restoreFileScroll, saveFileScroll } from './util.ts';
 
 /** The Code view has no concerns: only changes tick the ruler. */

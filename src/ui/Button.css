@@ -1,7 +1,8 @@
 .btn {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   flex: none;
   height: var(--control-h);
   padding: 0 var(--space-3);
@@ -14,14 +15,15 @@
   white-space: nowrap;
   transition:
     background var(--motion),
-    border-color var(--motion);
+    border-color var(--motion),
+    color var(--motion);
 }
+/* the hover tint over the button's own surface, so it stays opaque */
 .btn:hover:not(:disabled) {
-  background: var(--surface-2);
+  background: linear-gradient(var(--hover-bg), var(--hover-bg)), var(--surface);
 }
 .btn-sm {
   height: var(--control-h-sm);
-  padding: 0 10px;
 }
 .btn-ghost {
   border-color: transparent;
@@ -29,6 +31,7 @@
   color: var(--muted);
 }
 .btn-ghost:hover:not(:disabled) {
+  background: var(--hover-bg);
   color: var(--text);
 }
 .btn-primary {
@@ -39,4 +42,9 @@
 }
 .btn-primary:hover:not(:disabled) {
   background: color-mix(in oklab, var(--accent) 88%, var(--text));
+}
+/* on (a verdict given): the selected look. A ghost button has no box to show it in. */
+.btn[aria-pressed='true']:not(.btn-ghost) {
+  border-color: var(--selected-ring);
+  background: var(--selected-bg);
 }

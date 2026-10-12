@@ -1,4 +1,4 @@
-// The polling loop (src/viewer/poll.ts), on node's mock clock: when a watcher runs, and when not.
+// The polling loop (src/ui/poll.ts), on node's mock clock: when a watcher runs, and when not.
 
 import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
@@ -17,7 +17,7 @@ Object.assign(globalThis, {
   window: { addEventListener: listen },
 });
 mock.timers.enable({ apis: ['setTimeout', 'Date'] });
-const { check, watch } = await import('../src/viewer/poll.ts');
+const { check, watch } = await import('../src/ui/poll.ts');
 
 /** Lets the runs that just started get to their end. */
 const settle = () => new Promise((resolve) => setImmediate(resolve));

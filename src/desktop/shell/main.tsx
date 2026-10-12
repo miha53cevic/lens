@@ -2,8 +2,8 @@
 // the main process lays out under it, so this page is only ever 40px of the window.
 
 import { createRoot } from 'react-dom/client';
-import '../../viewer/styles/tokens.css';
-import '../../viewer/styles/base.css';
+import '../../ui/styles/tokens.css';
+import '../../ui/styles/base.css';
 import { applyTheme } from '../shared/page.ts';
 import type { StripState } from '../shared/api.ts';
 import { Strip } from './Strip.tsx';

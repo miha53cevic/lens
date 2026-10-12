@@ -1,0 +1,76 @@
+/* the gallery's own layout: a column of sections, each a row of one primitive's states */
+.gallery {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-6) var(--space-7) var(--space-8);
+}
+.gallery-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+.gallery-head h1 {
+  margin: 0;
+  font: 700 var(--text-xl) var(--font-serif);
+}
+.gallery-section {
+  margin-top: var(--space-6);
+}
+.gallery-section h2 {
+  margin: 0 0 var(--space-2);
+  color: var(--faint);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.gallery-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+.gallery-row .field {
+  width: 240px;
+}
+/* the bars, as wide as a page's */
+.gallery-bars {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+}
+.gallery-space {
+  height: var(--space-4);
+  border-radius: var(--radius-xs);
+  background: var(--accent);
+}
+.gallery-swatch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--muted);
+  font: var(--text-xs) var(--font-mono);
+}
+.gallery-swatch i {
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+}
+.gallery-lift {
+  display: inline-grid;
+  place-items: center;
+  width: 120px;
+  height: 56px;
+  margin: 0 var(--space-4) var(--space-5) 0;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--raised);
+  color: var(--muted);
+  font-size: var(--text-xs);
+}

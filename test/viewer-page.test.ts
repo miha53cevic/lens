@@ -617,7 +617,9 @@ pageTest('? opens the shortcuts in tabs: Global, Code and Summary', async () => 
   await key('?');
   assert.ok(($('#keys-modal') as HTMLDialogElement).open);
   const tabs = () =>
-    $$('.key-tab').map((tab) => tab.textContent + (tab.getAttribute('aria-selected') === 'true' ? '*' : ''));
+    $$('#key-tabs [role="tab"]').map(
+      (tab) => tab.textContent + (tab.getAttribute('aria-selected') === 'true' ? '*' : ''),
+    );
   const keys = () => $$('#keys-modal tr td:first-child').map((cell) => cell.textContent);
   assert.deepEqual(tabs(), ['Global*', 'Code', 'Summary']);
   // each key its own keycap: ⌘P is ⌘ and P
@@ -626,7 +628,7 @@ pageTest('? opens the shortcuts in tabs: Global, Code and Summary', async () => 
     [...search.querySelectorAll('kbd')].map((cap) => cap.textContent),
     ['⌘', 'P', 'Ctrl', 'P'],
   );
-  await click($('.key-tab[data-tab="summary"]'));
+  await click($('#key-tabs [data-value="summary"]'));
   assert.deepEqual(tabs(), ['Global', 'Code', 'Summary*']);
   assert.deepEqual(keys(), ['g', 'j / k', 'o', 'm', '/']);
 });
@@ -1032,6 +1034,35 @@ pageTest('a question about a unit takes its open concerns along; a dismissed one
   await type($('#ask-input'), 'and now?');
   await click($('#ask-send'));
   assert.deepEqual(sentConcerns(), []);
+});
+
+pageTest('Code | Summary is one switch: the picked view is checked, and a click or v moves it', async () => {
+  const picked = () => $('#view-switch [aria-checked="true"]').id;
+  assert.equal($('#view-switch').getAttribute('role'), 'radiogroup');
+  assert.equal(picked(), 'view-code');
+  await click($('#view-summary'));
+  assert.equal(picked(), 'view-summary');
+  await key('v');
+  assert.equal(picked(), 'view-code');
+});
+
+pageTest('the tree filter offers its clear button only while there is text, and it empties the filter', async () => {
+  const files = treeFiles().length;
+  assert.equal(document.querySelector('#filter-clear'), null);
+  await type($('#file-filter'), 'no such file');
+  assert.equal(treeFiles().length, 0);
+  await click($('#filter-clear'));
+  assert.equal(($('#file-filter') as HTMLInputElement).value, '');
+  assert.equal(treeFiles().length, files);
+  assert.equal(document.querySelector('#filter-clear'), null);
+});
+
+pageTest("a tab closes from its button, which is the design system's icon button", async () => {
+  const close = $('#tabbar .tab .tab-close');
+  assert.ok(close.classList.contains('icon-btn'));
+  assert.equal(close.getAttribute('aria-label'), 'close');
+  await click(close);
+  assert.equal($$('#tabbar .tab').length, 0);
 });
 
 pageTest("the shortcuts' tabs sit above the scrolling keys, not in them", async () => {

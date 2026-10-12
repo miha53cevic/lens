@@ -4,7 +4,8 @@
  *   2. semantic — what components use: surfaces, text, lines, accent, diff and signal colors,
  *      mixed from the inputs so the chrome matches any Shiki theme
  *   3. component — the few a part needs (--row-h, --pill-*), defined next to that part
- * Components use tier 2 and the scales, never raw colors.
+ * Components use tier 2 and the scales, never raw colors, and never a size, space, radius, shadow
+ * or layer of their own: test/tokens.test.ts holds them to it.
  */
 
 :root {
@@ -18,13 +19,21 @@
   --font-serif: 'Iowan Old Style', Charter, 'Source Serif 4', Georgia, serif;
   --font-mono: ui-monospace, 'Cascadia Code', SFMono-Regular, Menlo, monospace;
 
+  --text-2xs: 10px;
   --text-xs: 11px;
   --text-sm: 12px;
   --text-md: 13px;
+  /* what is read at length or typed into: prose, a large field */
+  --text-base: 14px;
   --text-lg: 15px;
   --text-xl: 20px;
   --text-2xl: 27px;
+  /* the Start screen's name, and nothing else */
+  --text-3xl: 44px;
+  /* the code itself: between sm and md, where a mono face reads best */
+  --text-code: 12.5px;
 
+  /* a 4px grid: padding, margins and gaps are 0 or one of these */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -34,14 +43,32 @@
   --space-7: 32px;
   --space-8: 48px;
 
+  /* marks in the code, the viewed box */
+  --radius-xs: 3px;
   --radius-sm: 5px;
   --radius-md: 8px;
   --radius-lg: 14px;
   --radius-full: 999px;
 
+  /* a control's height: xs a chip, sm a small button or field, the default, lg a field a dialog is about */
+  --control-h-xs: 22px;
+  --control-h-sm: 26px;
   --control-h: 30px;
-  --control-h-sm: 24px;
+  --control-h-lg: 36px;
+
   --motion: 120ms ease-out;
+  --motion-slow: 300ms ease-out;
+  /* how long the pointer rests on a button before its tooltip shows */
+  --tip-delay: 350ms;
+
+  /* how much of a color a tinted background takes: a badge or a note, and a stronger one */
+  --tint: 12%;
+  --tint-strong: 22%;
+
+  /* layers inside the page (menus and dialogs are the browser's top layer) */
+  --z-sticky: 5;
+  --z-float: 8;
+  --z-tip: 60;
 
   /* ---- semantic: the same for light and dark themes ---- */
   --surface: var(--code-bg);
@@ -51,13 +78,18 @@
   --faint: color-mix(in oklab, var(--text) 42%, var(--code-bg));
   --accent: var(--theme-accent);
   --accent-fg: var(--code-bg);
-  --accent-soft: color-mix(in oklab, var(--accent) 16%, transparent);
-  /* what's selected or open (a tab, a row, a pressed button): the accent, softly; a picked option is solid --accent */
+  /* what's selected, open or on (a tab, a row, a pressed button): the accent, softly; a picked option is solid --accent */
   --selected-bg: color-mix(in oklab, var(--accent) 13%, var(--surface));
   --selected-ring: color-mix(in oklab, var(--accent) 45%, transparent);
   --focus: var(--accent);
+  /* the border of the field being typed into */
+  --field-focus: color-mix(in oklab, var(--accent) 60%, var(--line));
   /* under the pointer, whatever it sits on: the page, a card, a selected pill */
   --hover-bg: color-mix(in oklab, var(--text) 7%, transparent);
+  /* what's lifted off the page, by how far: a card, a tooltip or the review pill; a menu; a dialog */
+  --elev-1: 0 12px 28px -12px var(--shadow);
+  --elev-2: 0 18px 40px -12px var(--shadow);
+  --elev-3: 0 30px 70px -20px var(--shadow);
   --add-bg: color-mix(in oklab, var(--add) 10%, transparent);
   --del-bg: color-mix(in oklab, var(--del) 11%, transparent);
 
@@ -68,6 +100,8 @@
   --raised: color-mix(in oklab, var(--code-bg) 92%, var(--code-fg));
   --text: color-mix(in oklab, var(--code-fg) 90%, #fff);
   --shadow: #000000b0;
+  /* over the page, under a dialog */
+  --scrim: #00000066;
   --add: #6cc58f;
   --mod: #e0b45c;
   --del: #f0855a;
@@ -88,6 +122,7 @@
   --raised: var(--code-bg);
   --text: color-mix(in oklab, var(--code-fg) 78%, #000);
   --shadow: #1c223038;
+  --scrim: #1c223052;
   --add: #1f8a4c;
   --mod: #a16207;
   --del: #c2410c;

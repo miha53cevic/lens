@@ -8,7 +8,7 @@ import { fileSpans } from '../rows.ts';
 import { revealIfTest, visibleActive, withTab } from './tabs.ts';
 import { openFoldAround } from './folds.ts';
 import { isBusy } from '../model/status.ts';
-import type { Watcher } from '../poll.ts';
+import type { Watcher } from '../../ui/poll.ts';
 import { noteDone, reach, request, tracked } from './status.ts';
 
 function viewChange(state: LensState, view: View): Partial<LensState> {

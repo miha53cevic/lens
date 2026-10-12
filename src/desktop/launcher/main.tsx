@@ -3,9 +3,9 @@
 // through window.lensApp; it reads no files and starts nothing itself.
 
 import { createRoot } from 'react-dom/client';
-import '../../viewer/styles/tokens.css';
-import '../../viewer/styles/base.css';
-import { watch } from '../../viewer/poll.ts';
+import '../../ui/styles/tokens.css';
+import '../../ui/styles/base.css';
+import { watch } from '../../ui/poll.ts';
 import type { LauncherState } from '../shared/api.ts';
 import { applyTheme } from '../shared/page.ts';
 import { Launcher } from './components/Launcher.tsx';

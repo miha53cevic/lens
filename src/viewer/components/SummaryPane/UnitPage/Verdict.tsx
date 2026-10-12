@@ -4,6 +4,7 @@ import type { Concern } from '../../../../cli-app/summary/store.ts';
 import type { ConcernMark } from '../../../store.ts';
 import type { Unit } from '../../../model/signals.ts';
 import { setConcernMark } from '../../../actions/summary.ts';
+import { Button } from '../../../../ui/Button.tsx';
 
 interface VerdictProps {
   unit: Unit;
@@ -15,7 +16,9 @@ interface VerdictProps {
 /** The reader's call on one concern: real, or dismiss (which hides it from the counts and the code). */
 export function Verdict({ unit, concern, concernIndex, mark }: VerdictProps) {
   const button = (value: ConcernMark, icon: ReactNode, label: string, tip: string) => (
-    <button
+    <Button
+      variant={value === 'dismissed' ? 'ghost' : 'default'}
+      size='sm'
       className={'vbtn v-' + value}
       data-ci={concernIndex}
       data-mark={value}
@@ -24,7 +27,7 @@ export function Verdict({ unit, concern, concernIndex, mark }: VerdictProps) {
       onClick={() => setConcernMark(unit, concern, value)}
     >
       {icon} {label}
-    </button>
+    </Button>
   );
   if (mark === 'dismissed') {
     return <span className='verdict'>{button('dismissed', <RotateCcw size={11} />, 'Restore', 'bring it back')}</span>;

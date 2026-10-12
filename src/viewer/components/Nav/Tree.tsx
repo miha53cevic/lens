@@ -7,7 +7,7 @@ import { openFile } from '../../actions/tabs.ts';
 import { toggleDir, toggleFileViewed } from '../../actions/prefs.ts';
 import { fileViewKey, type ViewFile } from '../../shared.ts';
 import { ViewedBox } from '../ViewedBox.tsx';
-import { StatusLetter } from '../../ui/FileStatus.tsx';
+import { StatusLetter } from '../../../ui/FileStatus.tsx';
 import { STATUS_TITLE } from './const.ts';
 
 interface TreeContext {

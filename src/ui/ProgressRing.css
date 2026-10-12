@@ -20,7 +20,7 @@
 .progress .fill {
   stroke: var(--add);
   stroke-linecap: round;
-  transition: stroke-dasharray 300ms ease-out;
+  transition: stroke-dasharray var(--motion-slow);
 }
 .progress-text {
   display: flex;

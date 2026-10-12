@@ -6,8 +6,8 @@ import { setHideTests, setHunksOnly, setShowRemoved, setThreshold, setWordDiff }
 import { openDialog } from '../../actions/dialogs.ts';
 import { endSession } from '../../actions/session.ts';
 import { isDiffMode } from '../../shared.ts';
-import { Menu, MenuItem, MenuSection, MenuSeparator, MenuSwitch } from '../../ui/Menu.tsx';
-import { Segmented } from '../../ui/Segmented.tsx';
+import { Menu, MenuItem, MenuSection, MenuSeparator, MenuSwitch } from '../../../ui/Menu.tsx';
+import { Segmented } from '../../../ui/Segmented.tsx';
 import { foldLevelHint } from './util.ts';
 
 const LEVELS = [

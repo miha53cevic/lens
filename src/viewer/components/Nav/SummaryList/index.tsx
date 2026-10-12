@@ -4,7 +4,7 @@ import { useLens } from '../../../store.ts';
 import { listModel } from '../../../model/summaryList.ts';
 import { showOverview, toggleFlow } from '../../../actions/summary.ts';
 import { baseName, plural } from '../../../shared.ts';
-import { Kbd } from '../../../ui/Kbd.tsx';
+import { Kbd } from '../../../../ui/Kbd.tsx';
 import { SignalChips } from './SignalChips.tsx';
 import { UnitItem } from './UnitItem.tsx';
 

@@ -1,6 +1,5 @@
 import { Folder, LoaderCircle } from 'lucide-react';
-// the brand is the viewer header's
-import '../../../viewer/components/Header/style.css';
+import { Brand } from '../../../ui/Brand.tsx';
 import { useApp } from '../store.ts';
 import './Reopening.css';
 
@@ -13,9 +12,7 @@ export function Reopening() {
   const review = useApp((state) => state.reopening?.review);
   return (
     <main className='screen reopening' id='reopening' aria-busy='true'>
-      <h1 className='brand reopening-brand'>
-        lens<em>.</em>
-      </h1>
+      <Brand as='h1' className='reopening-brand' />
       <p className='reopening-repo'>
         <Folder size={15} />
         <span className='reopening-name'>{name}</span>

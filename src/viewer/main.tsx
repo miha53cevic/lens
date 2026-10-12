@@ -4,8 +4,8 @@
 
 import { createRoot } from 'react-dom/client';
 // the design tokens and the page's base styles come first: every component's own CSS builds on them
-import './styles/tokens.css';
-import './styles/base.css';
+import '../ui/styles/tokens.css';
+import '../ui/styles/base.css';
 import './styles/signals.css';
 import { App } from './components/App.tsx';
 import { getState, subscribe, type LensState } from './store.ts';
@@ -15,7 +15,7 @@ import { openFirstTreeFile } from './actions/tabs.ts';
 import { askWatcher } from './ask/rail.ts';
 import { dropForeignSelection, onSelectionChange } from './ask/selection.ts';
 import { onKeyDown } from './keys.ts';
-import { check, watch } from './poll.ts';
+import { check, watch } from '../ui/poll.ts';
 
 /**
  * The document follows the state: the theme's colors (the tokens' inputs), the tab title, the Ask selection's change.

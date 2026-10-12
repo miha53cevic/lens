@@ -10,7 +10,7 @@
 }
 .reopening-brand.brand {
   margin: 0 0 var(--space-2);
-  font-size: 44px;
+  font-size: var(--text-3xl);
 }
 .reopening-repo {
   display: flex;

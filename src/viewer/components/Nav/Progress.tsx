@@ -1,7 +1,7 @@
 import { useLens } from '../../store.ts';
 import { fileProgress, unitProgress } from '../../model/progress.ts';
 import { listModel } from '../../model/summaryList.ts';
-import { ProgressRing } from '../../ui/ProgressRing.tsx';
+import { ProgressRing } from '../../../ui/ProgressRing.tsx';
 
 /** The top of the sidebar: how many files the reader viewed. */
 export function FilesProgress() {

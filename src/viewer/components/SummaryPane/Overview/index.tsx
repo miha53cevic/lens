@@ -39,7 +39,7 @@ export function Overview() {
               aria-pressed={list.signal === signal}
               onClick={() => setSignalFilter(signal)}
             >
-              <i />
+              <i className='dot' />
               <b>{list.counts[signal]}</b> {list.counts[signal] === 1 ? SIGNALS[signal].one : SIGNALS[signal].many}
             </button>
           ))}

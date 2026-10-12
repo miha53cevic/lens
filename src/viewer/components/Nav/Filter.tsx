@@ -1,5 +1,6 @@
-import { Search, X } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { hiddenStyle } from '../../shared.ts';
+import { Field } from '../../../ui/Field.tsx';
 
 interface FilterProps {
   inputId?: string;
@@ -14,30 +15,23 @@ interface FilterProps {
 /** A filter box over the tree or the list: Esc or ✕ clears it. */
 export function Filter({ inputId, clearId, wrapperId, hidden, placeholder, value, onChange }: FilterProps) {
   return (
-    <div className='nav-filter' id={wrapperId} style={hiddenStyle(hidden)}>
-      <Search size={13} className='nav-filter-icon' />
-      <input
-        id={inputId}
-        type='text'
-        placeholder={placeholder}
-        spellCheck={false}
-        autoComplete='off'
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key !== 'Escape') return;
-          onChange('');
-          event.currentTarget.blur();
-        }}
-      />
-      <button
-        id={clearId}
-        aria-label='clear filter'
-        style={hiddenStyle(value.trim() === '')}
-        onClick={() => onChange('')}
-      >
-        <X size={12} />
-      </button>
-    </div>
+    <Field
+      className='nav-filter'
+      wrapperId={wrapperId}
+      style={hiddenStyle(hidden)}
+      icon={<Search size={13} />}
+      id={inputId}
+      placeholder={placeholder}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      onKeyDown={(event) => {
+        if (event.key !== 'Escape') return;
+        onChange('');
+        event.currentTarget.blur();
+      }}
+      onClear={() => onChange('')}
+      clearId={clearId}
+      clearLabel='clear filter'
+    />
   );
 }

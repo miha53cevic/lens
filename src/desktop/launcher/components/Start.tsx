@@ -1,8 +1,7 @@
 import { Folder, FolderOpen, X } from 'lucide-react';
-import { Button } from '../../../viewer/ui/Button.tsx';
-import { IconButton } from '../../../viewer/ui/IconButton.tsx';
-// the brand is the viewer header's
-import '../../../viewer/components/Header/style.css';
+import { Button } from '../../../ui/Button.tsx';
+import { IconButton } from '../../../ui/IconButton.tsx';
+import { Brand } from '../../../ui/Brand.tsx';
 import { useApp } from '../store.ts';
 import './Start.css';
 
@@ -15,9 +14,7 @@ export function Start() {
     <main className='screen start'>
       <div className='column'>
         <div className='start-hero'>
-          <h1 className='brand start-brand'>
-            lens<em>.</em>
-          </h1>
+          <Brand as='h1' className='start-brand' />
           <p className='start-tagline'>Code review for the agentic era.</p>
           <Button id='open-repository' variant='primary' disabled={busy} onClick={() => launcher.openRepository()}>
             <FolderOpen size={15} />

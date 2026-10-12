@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Check, GitBranch, MessageSquare, Terminal } from 'lucide-react';
 import type { SetupItem, SetupPart } from '../../shared/api.ts';
-import { Button } from '../../../viewer/ui/Button.tsx';
+import { Button } from '../../../ui/Button.tsx';
 import { useApp } from '../store.ts';
 import './Settings.css';
 

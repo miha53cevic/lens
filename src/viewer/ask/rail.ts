@@ -6,7 +6,7 @@ import { askConcerns, askContext, askSelection } from '../model/askContext.ts';
 import { waitingQuestion } from '../model/status.ts';
 import { writePref } from '../shared.ts';
 import { endActivity, noteDone, noteFailure, reach, request, ServerGone, startActivity } from '../actions/status.ts';
-import { check, type Watcher } from '../poll.ts';
+import { check, type Watcher } from '../../ui/poll.ts';
 
 const ASK_POLL_MS = 1000;
 export const ASK_MAX_LINES = 400;

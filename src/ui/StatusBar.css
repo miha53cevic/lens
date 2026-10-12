@@ -20,7 +20,7 @@
 .status {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: var(--space-2);
   /* the status gives way last: a long reason is cut, never the notices' fault */
   min-width: 0;
 }
@@ -28,12 +28,8 @@
   flex: none;
 }
 .status-dot {
-  flex: none;
-  width: 6px;
-  height: 6px;
-  margin: 0 3px;
-  border-radius: 50%;
-  background: var(--faint);
+  --dot: var(--faint);
+  margin: 0 var(--space-1);
 }
 .status-label {
   flex: none;
@@ -69,7 +65,7 @@
 /* ui/Button, at the bar's size */
 .status-bar .btn {
   height: var(--bar-control-h);
-  padding: 0 10px;
+  padding: 0 var(--space-3);
   font-size: var(--text-xs);
 }
 
@@ -77,7 +73,7 @@
 .status-notices {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   min-width: 0;
   margin-left: auto;
   overflow: hidden;
@@ -92,20 +88,16 @@
 .status-fact {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   flex: none;
   padding: 0 var(--space-1);
 }
 .notice-dot {
-  flex: none;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--accent);
+  --dot: var(--accent);
 }
 .warn > .notice-dot {
-  background: var(--risk);
+  --dot: var(--risk);
 }
 .live > .notice-dot {
-  background: var(--add);
+  --dot: var(--add);
 }
