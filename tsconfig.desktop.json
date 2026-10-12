@@ -17,5 +17,5 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["src/desktop/**/*", "src/viewer/css.d.ts", "test/launcher-page.test.ts"]
+  "include": ["src/desktop/**/*", "src/ui/css.d.ts", "test/launcher-page.test.ts"]
 }

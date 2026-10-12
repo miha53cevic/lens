@@ -3,6 +3,7 @@ import clsx from 'clsx';
 import { ChevronDown } from 'lucide-react';
 import type { RepoInfo } from '../../../shared/api.ts';
 import { plural } from '../../../../cli-app/text.ts';
+import { Field } from '../../../../ui/Field.tsx';
 import { baseOptions, type Range } from './util.ts';
 
 interface ChangesProps {
@@ -111,7 +112,9 @@ export function Changes({ repo, range, onRange, base, onBase, custom, onCustom }
           </>
         }
         meta={
-          <input
+          <Field
+            size='sm'
+            mono
             id='picker-custom'
             className='choice-input'
             aria-label='git diff arguments'

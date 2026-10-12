@@ -4,20 +4,22 @@
 
 import { createRoot } from 'react-dom/client';
 // the design tokens and the page's base styles come first: every component's own CSS builds on them
-import './styles/tokens.css';
-import './styles/base.css';
+import '../ui/styles/tokens.css';
+import '../ui/styles/base.css';
 import './styles/signals.css';
 import { App } from './components/App.tsx';
 import { getState, subscribe, type LensState } from './store.ts';
 import { isLightColor } from '../cli-app/theme.ts';
-import { checkSummaryStamp, setView } from './actions/views.ts';
+import { CODE_SIZE_DEFAULT } from './codeSize.ts';
+import { setView, stampWatcher } from './actions/views.ts';
 import { openFirstTreeFile } from './actions/tabs.ts';
-import { askPoll } from './ask/rail.ts';
+import { askWatcher } from './ask/rail.ts';
 import { dropForeignSelection, onSelectionChange } from './ask/selection.ts';
 import { onKeyDown } from './keys.ts';
+import { check, watch } from '../ui/poll.ts';
 
 /**
- * The document follows the state: the theme's colors (the tokens' inputs), the tab title, the Ask selection's change.
+ * The document follows the state: the theme's colors (the tokens' inputs), the code's size, the tab title, the Ask selection's change.
  * The chrome's colors are mixed from the code theme's (styles/tokens.css), and a light theme also flips the
  * fixed colors (diff, signals) to their light set. The server writes the same on the page it sends.
  */
@@ -30,6 +32,12 @@ function syncDocument(state: LensState, previous: LensState | null) {
     root.style.setProperty('--theme-accent', accent);
     root.dataset.appearance = isLightColor(bg) ? 'light' : 'dark';
   }
+  // the code's size: at the default the token itself rules
+  if (!previous || previous.codeSize !== state.codeSize) {
+    const root = document.documentElement;
+    if (state.codeSize === CODE_SIZE_DEFAULT) root.style.removeProperty('--text-code');
+    else root.style.setProperty('--text-code', state.codeSize + 'px');
+  }
   // PR mode: "owner/repo#N — title" in the tab title too
   if (!previous || previous.data.label !== label) document.title = label ? 'lens — ' + label : 'lens';
   // a selection from another change goes when the reader opens a different one
@@ -38,12 +46,15 @@ function syncDocument(state: LensState, previous: LensState | null) {
 
 document.addEventListener('keydown', onKeyDown);
 document.addEventListener('selectionchange', onSelectionChange);
-window.addEventListener('focus', checkSummaryStamp);
 subscribe(syncDocument);
 
 openFirstTreeFile();
 syncDocument(getState(), null);
 const { data } = getState();
-if (getState().ask.open) askPoll();
+// what the page watches by asking again (poll.ts): the chat, while it is open or a question waits,
+// and whether the summary or the code moved on
+watch(askWatcher);
+watch(stampWatcher);
+if (getState().ask.open) void check(askWatcher.id);
 createRoot(document.getElementById('root')!).render(<App />);
 if (location.hash === '#summary' && data.summary) setView('summary');

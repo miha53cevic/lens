@@ -1,7 +1,7 @@
 import type { ReactNode, Ref, UIEvent } from 'react';
 import clsx from 'clsx';
 import { baseName } from '../shared.ts';
-import { StatusBadge, type FileStatus } from '../ui/FileStatus.tsx';
+import { StatusBadge, type FileStatus } from '../../ui/FileStatus.tsx';
 import { FoldChips } from './FoldChips.tsx';
 import './CodeCard.css';
 

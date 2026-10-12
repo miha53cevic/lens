@@ -1,5 +1,5 @@
 import type { SummaryView } from '../../../../cli-app/summary/view.ts';
-import { CopyCommand } from '../../../ui/CopyCommand.tsx';
+import { CopyCommand } from '../../../../ui/CopyCommand.tsx';
 
 interface AgentOverviewProps {
   summary: SummaryView;

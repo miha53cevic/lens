@@ -1,6 +1,9 @@
-import { execFileSync } from "node:child_process";
-import { isAbsolute, join } from "node:path";
-import { existsSync, statSync } from "node:fs";
+import { execFile, execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import { isAbsolute, join, resolve } from "node:path";
+import { closeSync, existsSync, lstatSync, openSync, readFileSync, readSync, statSync } from "node:fs";
+import { readFile, stat } from "node:fs/promises";
+import { promisify } from "node:util";
 import type { DiffStatus, RemovedBlock } from "./model.ts";
 import { toPosix } from "./paths.ts";
 
@@ -17,6 +20,13 @@ export interface DiffTarget {
   oldBlob?: string;
 }
 
+/** A changed file git calls binary: listed in the review, with nothing to show. */
+export interface BinaryFile {
+  /** Absolute path: the new side's, or the old one's for a deletion */
+  file: string;
+  status: DiffStatus | "deleted";
+}
+
 export interface RenamedFile {
   from: string;
   to: string;
@@ -30,6 +40,8 @@ export interface DiffResult {
   renamed: RenamedFile[];
   /** Old-side blob SHAs of deleted files, keyed by absolute path */
   deletedBlobs: Map<string, string>;
+  /** Changed binary files: their diffs carry no hunks, so they are in none of the lists above */
+  binary: BinaryFile[];
 }
 
 export interface ParsedDiffFile {
@@ -150,6 +162,27 @@ export function parseRawEntries(output: string): RawEntry[] {
   return entries;
 }
 
+/**
+ * The paths `git diff --numstat -z` counts no lines for ("-\t-\t<path>"): the files git calls
+ * binary. New-side paths, as parseRawEntries gives them.
+ */
+export function parseBinaryPaths(output: string): string[] {
+  const paths: string[] = [];
+  const tokens = output.split("\0");
+  for (let i = 0; i < tokens.length; i++) {
+    const match = /^(-|\d+)\t(-|\d+)\t([\s\S]*)$/.exec(tokens[i]);
+    if (!match) continue;
+    let path = match[3];
+    // a rename or copy has no path of its own: the old and the new one follow
+    if (path === "") {
+      path = tokens[i + 2] ?? "";
+      i += 2;
+    }
+    if (match[1] === "-" && match[2] === "-" && path) paths.push(path);
+  }
+  return paths;
+}
+
 export function runGit(args: string[], cwd: string): string {
   return execFileSync("git", args, { cwd, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
 }
@@ -223,8 +256,102 @@ export function gitRoot(cwd: string): string {
 }
 
 /**
+ * Whether `git diff <gitArgs>` has the working tree as its new side: nothing asks for the index,
+ * and fewer than two revisions are named. If so, the pathspecs it is limited to (none: the whole
+ * repository). Null when it hasn't, or when the arguments can't be read for sure.
+ */
+export function worktreePathspecs(gitArgs: string[], cwd: string): string[] | null {
+  const split = gitArgs.indexOf("--");
+  const before = split === -1 ? gitArgs : gitArgs.slice(0, split);
+  const pathspecs = split === -1 ? [] : gitArgs.slice(split + 1);
+  const isCommit = (name: string) => {
+    try {
+      execFileSync("git", ["rev-parse", "--verify", "--quiet", `${name}^{commit}`], { cwd, stdio: "ignore" });
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  let revisions = 0;
+  for (const arg of before) {
+    if (arg === "--staged" || arg === "--cached" || arg === "--no-index") return null;
+    if (arg.startsWith("-")) continue;
+    // A..B and A...B name two revisions (a path may hold ".." too: "../src")
+    if (arg.includes("..") && !existsSync(resolve(cwd, arg))) return null;
+    // git's own rule without "--": what isn't a revision is a path
+    if (isCommit(arg)) revisions++;
+    else pathspecs.push(arg);
+  }
+  return revisions < 2 ? pathspecs : null;
+}
+
+/**
+ * The files git doesn't track and isn't told to ignore, as paths from the root: what `git status`
+ * lists as untracked. `pathspecs` are relative to `cwd`, as git diff's are.
+ */
+export function untrackedFiles(root: string, cwd: string, pathspecs: string[] = []): string[] {
+  const { args, dir } = untrackedCommand(root, cwd, pathspecs);
+  return runGit(args, dir).split("\0").filter(Boolean);
+}
+
+/** The `git ls-files` that lists the untracked files, and the folder to run it in. */
+function untrackedCommand(root: string, cwd: string, pathspecs: string[]): { args: string[]; dir: string } {
+  const limited = pathspecs.length > 0;
+  return {
+    args: ["ls-files", "--others", "--exclude-standard", "--full-name", "-z", ...(limited ? ["--", ...pathspecs] : [])],
+    // without a pathspec git lists only what is under the folder it runs in: run it at the root
+    dir: limited ? cwd : root,
+  };
+}
+
+/** git's own test for a binary file: a NUL byte in its first 8000 bytes. */
+function isBinaryFile(file: string): boolean {
+  const start = Buffer.alloc(8000);
+  const fd = openSync(file, "r");
+  try {
+    return start.subarray(0, readSync(fd, start, 0, start.length, 0)).includes(0);
+  } finally {
+    closeSync(fd);
+  }
+}
+
+/**
+ * The untracked files of a diff against the working tree, as added files with every line changed:
+ * `git diff` lists tracked files only, so a file that was created and not yet `git add`ed would be
+ * in no review. Nothing is written: no `git add -N`, the index stays as it is.
+ */
+function untrackedTargets(gitArgs: string[], cwd: string, root: string): { targets: DiffTarget[]; binary: BinaryFile[] } {
+  const pathspecs = worktreePathspecs(gitArgs, cwd);
+  const targets: DiffTarget[] = [];
+  const binary: BinaryFile[] = [];
+  if (pathspecs === null) return { targets, binary };
+  for (const path of untrackedFiles(root, cwd, pathspecs)) {
+    const file = toPosix(join(root, path));
+    // a link, or a folder that is its own repository, has no text of its own
+    if (!lstatSync(file, { throwIfNoEntry: false })?.isFile()) continue;
+    // a binary has none to show: it is listed, not read
+    if (isBinaryFile(file)) {
+      binary.push({ file, status: "added" });
+      continue;
+    }
+    const text = readFileSync(file, "utf8");
+    const lineCount = text === "" ? 0 : text.split("\n").length - (text.endsWith("\n") ? 1 : 0);
+    // an empty file has no line to show, as git's diff of one has no hunk
+    if (lineCount === 0) continue;
+    targets.push({
+      file,
+      changedLines: Array.from({ length: lineCount }, (_, index) => index + 1),
+      status: "added",
+      removals: [],
+    });
+  }
+  return { targets, binary };
+}
+
+/**
  * Runs `git diff --unified=0` with the given passthrough args and returns the
  * supported changed files (with status and line numbers) plus deleted files.
+ * Against the working tree, the untracked files come along as added ones.
  */
 export function gitDiffTargets(gitArgs: string[], cwd: string): DiffResult {
   const root = gitRoot(cwd);
@@ -237,6 +364,8 @@ export function gitDiffTargets(gitArgs: string[], cwd: string): DiffResult {
   // read content from git instead of the working tree — which may hold the
   // OLD side, or not hold added files at all.
   const raw = runGit(["diff", "--raw", "-z", "--no-abbrev", "--no-color", "--no-relative", ...gitArgs], cwd);
+  // Third pass for the binary files: their diffs carry no hunks, so the first pass has none of them.
+  const numstat = runGit(["-c", "core.quotePath=false", "diff", "--numstat", "-z", "--no-color", "--no-relative", ...gitArgs], cwd);
   const parsed = parseDiff(output);
   const rawEntries = parseRawEntries(raw);
   const newBlobs = new Map<string, string>();
@@ -246,10 +375,16 @@ export function gitDiffTargets(gitArgs: string[], cwd: string): DiffResult {
     if (e.oldSha) oldBlobs.set(e.path, e.oldSha);
   }
   const abs = (p: string) => toPosix(isAbsolute(p) ? p : join(root, p));
+  const untracked = untrackedTargets(gitArgs, cwd, root);
+  const rawStatus = new Map(rawEntries.map((entry) => [entry.path, entry.status]));
+  const binaryStatus = (path: string): BinaryFile["status"] => {
+    const status = rawStatus.get(path) ?? "M";
+    return status.startsWith("A") ? "added" : status.startsWith("D") ? "deleted" : "modified";
+  };
   // Unsupported file types are kept — the viewer shows their changes without
-  // folding. Binary files never reach here: their diffs carry no hunks.
+  // folding. Binary files are listed apart: there is no text of theirs to show.
   return {
-    targets: parsed.files
+    targets: [...parsed.files
       .map((f) => ({
         file: abs(f.path),
         changedLines: f.changedLines,
@@ -262,10 +397,62 @@ export function gitDiffTargets(gitArgs: string[], cwd: string): DiffResult {
       // too has nothing to show (e.g. deleted since the diff was staged), and
       // a submodule is a directory there.
       .filter((t) => t.newBlob !== undefined || (existsSync(t.file) && statSync(t.file).isFile())),
+      ...untracked.targets],
+    binary: [
+      ...parseBinaryPaths(numstat).map((path) => ({ file: abs(path), status: binaryStatus(path) })),
+      ...untracked.binary,
+    ],
     deleted: parsed.deleted.map(abs),
     renamed: parsed.renamed.map((r) => ({ from: abs(r.from), to: abs(r.to) })),
     deletedBlobs: new Map(parsed.deleted
       .filter((p) => oldBlobs.has(p))
       .map((p) => [abs(p), oldBlobs.get(p)!])),
+  };
+}
+
+const execFileAsync = promisify(execFile);
+
+/**
+ * A fingerprint of what `git diff <gitArgs>` shows right now: it changes when a file of the diff
+ * is edited, staged, committed or removed, and when an untracked file appears. The viewer asks for
+ * it every few seconds to say "the code changed on disk", so it is cheap and never blocks: git
+ * runs beside the server, and a working-tree file is read again only when its size or time moved.
+ * Returns the function that takes it; the files' digests are kept between its calls.
+ */
+export function changeFingerprint(gitArgs: string[], cwd: string): () => Promise<string> {
+  const git = async (args: string[], dir: string) =>
+    (await execFileAsync("git", args, { cwd: dir, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 })).stdout;
+  const digests = new Map<string, { key: string; digest: string }>();
+  // what a working-tree file holds: its content, not its time (saving a file unchanged is no change)
+  const fileDigest = async (file: string): Promise<string> => {
+    let key: string;
+    try {
+      const stats = await stat(file);
+      if (!stats.isFile()) return "not a file";
+      key = `${stats.size}:${stats.mtimeMs}`;
+    } catch {
+      return "gone";
+    }
+    const known = digests.get(file);
+    if (known?.key === key) return known.digest;
+    const digest = createHash("sha256").update(await readFile(file).catch(() => "")).digest("hex");
+    digests.set(file, { key, digest });
+    return digest;
+  };
+  return async () => {
+    const root = (await git(["rev-parse", "--show-toplevel"], cwd)).trim();
+    const raw = await git(["diff", "--raw", "-z", "--no-abbrev", "--no-color", "--no-relative", ...gitArgs], cwd);
+    const hash = createHash("sha256").update(raw);
+    // no new-side blob: the file's content is the working tree's (deletions have none either)
+    const fromDisk = parseRawEntries(raw).filter((entry) => entry.newSha === null && !entry.status.startsWith("D"));
+    const pathspecs = worktreePathspecs(gitArgs, cwd);
+    const untracked = pathspecs === null ? [] : await (async () => {
+      const { args, dir } = untrackedCommand(root, cwd, pathspecs);
+      return (await git(args, dir)).split("\0").filter(Boolean);
+    })();
+    for (const path of [...fromDisk.map((entry) => entry.path), ...untracked]) {
+      hash.update(`\0${path}\0${await fileDigest(join(root, path))}`);
+    }
+    return hash.digest("hex");
   };
 }

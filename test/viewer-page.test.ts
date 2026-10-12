@@ -77,8 +77,8 @@ interface Page {
   tokensAnalysis: string | null;
 }
 
-/** Opens the viewer on the payload, with these localStorage entries already there. */
-async function open(prefs: Record<string, string> = {}, hash = ''): Promise<Page> {
+/** Opens the viewer on the payload, with these localStorage entries (and this cookie) already there. */
+async function open(prefs: Record<string, string> = {}, hash = '', cookie = ''): Promise<Page> {
   GlobalRegistrator.register({ url: 'http://127.0.0.1:5326/' + hash, width: 1400, height: 900 });
   const page: Page = { requests: [], ask: { listening: false, questions: [] }, tokensAnalysis: null };
   globalThis.fetch = (async (input: string | URL, init?: RequestInit) => {
@@ -95,8 +95,8 @@ async function open(prefs: Record<string, string> = {}, hash = ''): Promise<Page
         return reply({ ok: true });
       case 'POST /api/ask/prompt':
         return reply({ text: 'the prompt' });
-      case 'GET /api/summary/stamp':
-        return reply({ stamp: payload.summary!.stamp });
+      case 'GET /api/stamp':
+        return reply({ summary: payload.summary!.stamp, change: payload.changeStamp });
       case 'GET /api/summary':
         return reply(payload.summary);
       case 'GET /api/refresh':
@@ -109,6 +109,7 @@ async function open(prefs: Record<string, string> = {}, hash = ''): Promise<Page
     return new Response('{}', { status: 404 });
   }) as typeof fetch;
   for (const [key, value] of Object.entries(prefs)) localStorage.setItem(key, value);
+  if (cookie) document.cookie = cookie;
   document.body.innerHTML = '<div id="root"></div><script id="lens-data" type="application/json"></script>';
   document.getElementById('lens-data')!.textContent = JSON.stringify(payload);
   new Function(bundle)();
@@ -250,6 +251,42 @@ pageTest('the fold level pins the regions scored above it', async () => {
   assert.equal($$('#code .region.pinned').length, 0);
   assert.equal($('#threshold [aria-checked="true"]').dataset.value, '1');
   assert.equal($('#threshold-hint').textContent, 'Level 1 folds import, guard, logging. [ ]');
+});
+
+pageTest('the code size: the stepper sets it, the cookie keeps it, and the default keeps none', async () => {
+  const codeSize = () => document.documentElement.style.getPropertyValue('--text-code');
+  const [smaller, larger] = $$('#code-size .icon-btn');
+  assert.equal($('#code-size output').textContent, '12px');
+  assert.equal(codeSize(), '', 'at the default the token rules');
+
+  await click(larger);
+  await click(larger);
+  assert.equal($('#code-size output').textContent, '14px');
+  assert.equal(codeSize(), '14px');
+  assert.ok(document.cookie.includes('lens-code-size=14'));
+  assert.equal($('#code-size-hint').textContent, 'default 12px');
+
+  await click(smaller);
+  await click(smaller);
+  assert.equal(codeSize(), '');
+  assert.ok(!document.cookie.includes('lens-code-size'), 'the default keeps no cookie');
+
+  for (let step = 0; step < 5; step++) await click(smaller);
+  assert.ok(document.cookie.includes('lens-code-size=10'));
+  assert.equal($('#code-size output').textContent, '10px', 'it stops at the smallest size');
+  assert.equal((smaller as HTMLButtonElement).disabled, true);
+  await click(larger);
+  await click(larger);
+});
+
+test('the code size comes back from its cookie', async () => {
+  await open({}, '', 'lens-code-size=18; path=/');
+  try {
+    assert.equal(document.documentElement.style.getPropertyValue('--text-code'), '18px');
+    assert.equal($('#code-size output').textContent, '18px');
+  } finally {
+    await close();
+  }
 });
 
 pageTest('hunks only: a click shows a hidden stretch, h shows the whole file', async () => {
@@ -527,7 +564,9 @@ pageTest('a standing notice shows only while it has something to say, and leads 
   assert.deepEqual(notices(), []);
   // the agent submitted a summary while the reader was away
   const undo = answering((path) =>
-    path === '/api/summary/stamp' ? new Response(JSON.stringify({ stamp: payload.summary!.stamp! + 1 })) : undefined,
+    path === '/api/stamp'
+      ? new Response(JSON.stringify({ summary: payload.summary!.stamp! + 1, change: payload.changeStamp }))
+      : undefined,
   );
   window.dispatchEvent(new Event('focus'));
   await settle();
@@ -540,10 +579,40 @@ pageTest('a standing notice shows only while it has something to say, and leads 
   assert.deepEqual(status(), { kind: 'done', label: 'New summary loaded', detail: '' });
 });
 
+pageTest(
+  'code that changed on disk shows as a notice: undoing the change takes it back, a click refreshes',
+  async () => {
+    const notices = () => $$('#status-bar .status-notices > *').map((notice) => notice.textContent);
+    assert.ok(payload.changeStamp, 'a diff has a fingerprint');
+    let change = 'the fingerprint after an edit';
+    const undo = answering((path) =>
+      path === '/api/stamp' ? new Response(JSON.stringify({ summary: payload.summary!.stamp, change })) : undefined,
+    );
+    // the page asks when its window gets the focus, as it does every few seconds while in sight
+    window.dispatchEvent(new Event('focus'));
+    await settle();
+    assert.deepEqual(notices(), ['Code changed on disk · Refresh']);
+    change = payload.changeStamp!; // the edit was undone
+    window.dispatchEvent(new Event('focus'));
+    await settle();
+    assert.deepEqual(notices(), [], 'the notice is only there while it is true');
+    change = 'the fingerprint after another edit';
+    window.dispatchEvent(new Event('focus'));
+    await settle();
+    undo();
+    await click($('#status-bar .status-notice'));
+    await settle();
+    assert.deepEqual(notices(), []);
+    assert.deepEqual(status(), { kind: 'done', label: 'Refreshed', detail: 'nothing changed' });
+  },
+);
+
 pageTest('a refresh brings the newest summary: none is left waiting', async () => {
   const notices = () => $$('#status-bar .status-notices > *').map((notice) => notice.textContent);
   const undo = answering((path) =>
-    path === '/api/summary/stamp' ? new Response(JSON.stringify({ stamp: payload.summary!.stamp! + 1 })) : undefined,
+    path === '/api/stamp'
+      ? new Response(JSON.stringify({ summary: payload.summary!.stamp! + 1, change: payload.changeStamp }))
+      : undefined,
   );
   window.dispatchEvent(new Event('focus'));
   await settle();
@@ -585,7 +654,9 @@ pageTest('? opens the shortcuts in tabs: Global, Code and Summary', async () => 
   await key('?');
   assert.ok(($('#keys-modal') as HTMLDialogElement).open);
   const tabs = () =>
-    $$('.key-tab').map((tab) => tab.textContent + (tab.getAttribute('aria-selected') === 'true' ? '*' : ''));
+    $$('#key-tabs [role="tab"]').map(
+      (tab) => tab.textContent + (tab.getAttribute('aria-selected') === 'true' ? '*' : ''),
+    );
   const keys = () => $$('#keys-modal tr td:first-child').map((cell) => cell.textContent);
   assert.deepEqual(tabs(), ['Global*', 'Code', 'Summary']);
   // each key its own keycap: ⌘P is ⌘ and P
@@ -594,7 +665,7 @@ pageTest('? opens the shortcuts in tabs: Global, Code and Summary', async () => 
     [...search.querySelectorAll('kbd')].map((cap) => cap.textContent),
     ['⌘', 'P', 'Ctrl', 'P'],
   );
-  await click($('.key-tab[data-tab="summary"]'));
+  await click($('#key-tabs [data-value="summary"]'));
   assert.deepEqual(tabs(), ['Global', 'Code', 'Summary*']);
   assert.deepEqual(keys(), ['g', 'j / k', 'o', 'm', '/']);
 });
@@ -720,7 +791,7 @@ test('a summary submitted after the page loaded: the overview doesn\'t say "not 
     let release = () => {};
     const held = new Promise<void>((resolve) => (release = resolve));
     globalThis.fetch = (async (input: string | URL, init?: RequestInit) => {
-      if (String(input).includes('/api/summary/stamp')) await held;
+      if (String(input).includes('/api/stamp')) await held;
       return realFetch(input, init);
     }) as typeof fetch;
     await key('v');
@@ -920,7 +991,7 @@ pageTest('Ask with an agent listening sends the question with the selected lines
   await key('\\');
   const range = document.createRange();
   range.setStart($('#code .row[data-line="10"]'), 0);
-  range.setEnd($('#code .row[data-line="11"]'), 1);
+  range.setEnd($('#code .row[data-line="11"]').lastElementChild!, 1);
   document.getSelection()!.removeAllRanges();
   document.getSelection()!.addRange(range);
   document.dispatchEvent(new Event('selectionchange'));
@@ -937,6 +1008,47 @@ pageTest('Ask with an agent listening sends the question with the selected lines
     [10, 11],
   );
   assert.equal(($('#ask-input') as HTMLTextAreaElement).value, '', "the input clears once it's sent");
+});
+
+pageTest('the Ask selection takes the lines it holds text of, not the rows its ends sit in', async () => {
+  await key('\\');
+  const select = async (start: Node, startOffset: number, end: Node, endOffset: number) => {
+    const range = document.createRange();
+    range.setStart(start, startOffset);
+    range.setEnd(end, endOffset);
+    document.getSelection()!.removeAllRanges();
+    document.getSelection()!.addRange(range);
+    document.dispatchEvent(new Event('selectionchange'));
+    await settle();
+  };
+  const row = (selector: string) => $('#code ' + selector);
+  const code = (selector: string) => row(selector).lastElementChild!;
+  const line10 = code('.row[data-line="10"]');
+
+  // a double-click past line 10's end selects its line break, which ends at the start of row 11
+  await select(line10, line10.childNodes.length, row('.row[data-line="11"]'), 0);
+  assert.equal($('#ask-chips').textContent, 'orders.tssrc/orders.ts:10');
+  // a triple-click: the line and its break
+  await select(line10, 0, row('.row[data-line="11"]'), 0);
+  assert.equal($('#ask-chips').textContent, 'orders.tssrc/orders.ts:10');
+  assert.deepEqual(
+    $$('#code .row.ask-sel').map((selected) => selected.dataset.line),
+    ['10'],
+  );
+
+  // a slipped click on a fold's pill selects some of its text: that is no code
+  const pill = $('#code .region .pill').lastChild!;
+  await select(pill, 0, pill, 3);
+  assert.equal($('#ask-chips').textContent, 'orders.ts');
+  assert.equal($$('#code .row.ask-sel').length, 0);
+
+  // a drag over a closed fold takes its lines, and so does one that ends on its pill
+  const removed = code('.row[data-old="9"]');
+  await select(removed, 0, line10, 1);
+  assert.equal($('#ask-chips').textContent, 'orders.tssrc/orders.ts:9–10');
+  const logPill = row('.row[data-old="9"]').nextElementSibling!.querySelector('.pill')!.lastChild!;
+  await select(removed, 0, logPill, 2);
+  assert.equal($('#ask-chips').textContent, 'orders.tssrc/orders.ts:9');
 });
 
 pageTest('a question about a unit takes its open concerns along; a dismissed one stays behind', async (page) => {
@@ -961,6 +1073,35 @@ pageTest('a question about a unit takes its open concerns along; a dismissed one
   assert.deepEqual(sentConcerns(), []);
 });
 
+pageTest('Code | Summary is one switch: the picked view is checked, and a click or v moves it', async () => {
+  const picked = () => $('#view-switch [aria-checked="true"]').id;
+  assert.equal($('#view-switch').getAttribute('role'), 'radiogroup');
+  assert.equal(picked(), 'view-code');
+  await click($('#view-summary'));
+  assert.equal(picked(), 'view-summary');
+  await key('v');
+  assert.equal(picked(), 'view-code');
+});
+
+pageTest('the tree filter offers its clear button only while there is text, and it empties the filter', async () => {
+  const files = treeFiles().length;
+  assert.equal(document.querySelector('#filter-clear'), null);
+  await type($('#file-filter'), 'no such file');
+  assert.equal(treeFiles().length, 0);
+  await click($('#filter-clear'));
+  assert.equal(($('#file-filter') as HTMLInputElement).value, '');
+  assert.equal(treeFiles().length, files);
+  assert.equal(document.querySelector('#filter-clear'), null);
+});
+
+pageTest("a tab closes from its button, which is the design system's icon button", async () => {
+  const close = $('#tabbar .tab .tab-close');
+  assert.ok(close.classList.contains('icon-btn'));
+  assert.equal(close.getAttribute('aria-label'), 'close');
+  await click(close);
+  assert.equal($$('#tabbar .tab').length, 0);
+});
+
 pageTest("the shortcuts' tabs sit above the scrolling keys, not in them", async () => {
   await key('?');
   assert.equal($('.key-tabs').closest('.modal-body'), null);
@@ -973,7 +1114,7 @@ pageTest(
     await key('\\');
     const range = document.createRange();
     range.setStart($('#code .row[data-line="10"]'), 0);
-    range.setEnd($('#code .row[data-line="11"]'), 1);
+    range.setEnd($('#code .row[data-line="11"]').lastElementChild!, 1);
     document.getSelection()!.removeAllRanges();
     document.getSelection()!.addRange(range);
     document.dispatchEvent(new Event('selectionchange'));
@@ -1016,6 +1157,7 @@ pageTest('a question with no agent to answer it says so, instead of counting the
     'No agent is listening. Run /lens-ask in your agent to get this answered.',
   );
   assert.equal(document.querySelector('.ask-wait'), null, 'no spinner and no wait time');
+  assert.equal(document.querySelector('.ask-lines'), null, 'and no answer on its way');
   assert.deepEqual(status(), {
     kind: 'waiting',
     label: 'No agent for your question',
@@ -1027,8 +1169,66 @@ pageTest('a question with no agent to answer it says so, instead of counting the
   await key('\\');
   await key('\\');
   assert.match($('.ask-wait').textContent!, /^waiting for agent · \d+s$/);
+  assert.equal(document.querySelectorAll('.ask-lines .skeleton').length, 3, "the answer's place, while one is written");
   assert.equal(document.querySelector('.ask-noagent'), null);
   assert.equal(status().label, 'Waiting for your agent');
+});
+
+pageTest("an answer's markdown is drawn, its cites link, and nothing in it runs or leaves", async (page) => {
+  const markdown = [
+    'Two things happen in `src/orders.ts:10`:',
+    '- it *reads* the row (src/orders.ts:11)',
+    '  - nested',
+    '',
+    '### Check',
+    '',
+    '| Case | Now |',
+    '| --- | --- |',
+    '| empty | error |',
+    '',
+    '<img src=x onerror="alert(1)"> ![p](https://example.com/t.png) [docs](https://example.com/a) [x](javascript:alert(1))',
+  ].join('\n');
+  const cite = (line: number) => ({ ref: 'src/orders.ts:' + line, file: 'src/orders.ts', line });
+  page.ask = {
+    listening: true,
+    questions: [
+      {
+        id: 'q1',
+        text: 'what does it do?',
+        file: 'src/orders.ts',
+        unitId: null,
+        label: 'orders.ts',
+        hash: 'h1',
+        selection: null,
+        concerns: [],
+        askedAt: Date.now() - 9000,
+        handedAt: null,
+        answer: { markdown, cites: [cite(10), cite(11)], at: Date.now() },
+        stale: false,
+      },
+    ],
+  };
+  await key('\\');
+  const answer = $('.ask-a');
+  // a list right under its intro line is a list, and keeps its nesting
+  assert.equal(answer.querySelector('p')!.textContent, 'Two things happen in src/orders.ts:10:');
+  assert.equal(answer.querySelectorAll(':scope > ul > li').length, 1);
+  assert.equal(answer.querySelector('ul ul li')!.textContent, 'nested');
+  assert.equal(answer.querySelector('em')!.textContent, 'reads');
+  assert.equal(answer.querySelector('h3')!.textContent, 'Check');
+  assert.equal(answer.querySelectorAll('td').length, 2);
+  // cites link in text and inside `code`
+  assert.deepEqual(
+    [...answer.querySelectorAll<HTMLElement>('.ask-cite')].map((button) => button.dataset.line),
+    ['10', '11'],
+  );
+  assert.ok(answer.querySelector('code .ask-cite'));
+  // html is shown, not run; no image is fetched; a link is its text and its address
+  assert.equal(answer.querySelector('img'), null);
+  assert.equal(answer.querySelector('a'), null);
+  assert.match(answer.textContent!, /<img src=x onerror="alert\(1\)">/);
+  assert.match(answer.textContent!, /docs \(https:\/\/example\.com\/a\)/);
+  assert.match(answer.textContent!, /\[x\]\(javascript:alert\(1\)\)/);
 });
 
 pageTest('⏻ end stops the server and leaves a note', async (page) => {
@@ -1036,4 +1236,89 @@ pageTest('⏻ end stops the server and leaves a note', async (page) => {
   assert.ok(page.requests.some((request) => request.method === 'POST' && request.path === '/api/shutdown'));
   // (screen binds to the document at import, before happy-dom is there)
   assert.equal(within(document.body).getByText(/Session ended/).className, 'ended');
+});
+
+test('a changed binary file is a row of the tree: its status, dimmed, and nothing to open', async () => {
+  const whole = payload;
+  payload = { ...whole, binary: [{ file: 'src/logo.png', status: 'modified' }] };
+  try {
+    await open();
+    const row = $('#tree .file.binary');
+    assert.equal(row.querySelector('.fname')!.firstChild!.textContent, 'logo.png');
+    assert.equal(row.querySelector('.kind')!.textContent, 'binary');
+    assert.ok(row.classList.contains('modified') && row.querySelector('.status-letter.st-modified'));
+    assert.ok((row as HTMLButtonElement).disabled, "it can't be opened");
+    assert.match(row.title, /^src\/logo\.png — modified, a binary file/);
+    assert.equal($$('#tree .file .viewed-box:not(.placeholder)').length, 1, 'no viewed box: it is not a file to read');
+
+    // j / k walk the files that open, and the filter finds the row by its name
+    const active = () => $('#tree .file.active .fname').textContent;
+    const first = active();
+    await key('j');
+    await key('k');
+    assert.equal(active(), first);
+    await type($('.nav-filter input'), 'logo');
+    assert.deepEqual(
+      $$('#tree .file').map((file) => file.className),
+      ['file modified binary'],
+    );
+  } finally {
+    payload = whole;
+    await close();
+  }
+});
+
+pageTest('a concern marked real can be copied for the agent from the overview; none real, no block', async () => {
+  await key('v');
+  assert.equal($$('.ov-real').length, 0, 'nothing is confirmed yet');
+  await key('j');
+  await click($('.concern .vbtn.v-real'));
+  await key('g');
+  assert.equal($('.ov-real-count').textContent, '1 confirmed concern in 1 change');
+
+  await click($('.ov-real-copy'));
+  assert.equal(
+    await navigator.clipboard.readText(),
+    [
+      'Fix these review findings. Each was raised in a lens review and confirmed by the reviewer.',
+      '',
+      '1. [bug] src/orders.ts:10 — findOrders',
+      '   deleted is a string column',
+      '',
+    ].join('\n'),
+  );
+  assert.ok($('.ov-real-copy .lucide-check'));
+  assert.equal($('#status .status-label').textContent, 'Copied 1 concern');
+
+  // taking the verdict back takes the block away
+  await key('j');
+  await click($('.concern .vbtn.v-real'));
+  await key('g');
+  assert.equal($$('.ov-real').length, 0);
+});
+
+test('the copied concerns name a removed line as one, in the order of the summary', async () => {
+  const marks = Object.fromEntries(
+    payload
+      .summary!.units.filter((unit) => unit.summary)
+      .flatMap((unit) =>
+        unit.summary!.concerns.map((concern) => [
+          `${unit.id}@${unit.hash}#${concern.kind}:${concern.line}:${concern.text}`,
+          'real',
+        ]),
+      ),
+  );
+  await open({ 'lens.concernMarks': JSON.stringify(marks) }, '#summary');
+  try {
+    assert.equal($('.ov-real-count').textContent, '2 confirmed concerns in 2 changes');
+    await click($('.ov-real-copy'));
+    const text = await navigator.clipboard.readText();
+    assert.match(text, /\d\. \[bug\] src\/orders\.ts:10 — findOrders\n {3}deleted is a string column\n/);
+    assert.match(
+      text,
+      /\d\. \[question\] src\/orders\.ts \(removed line 17\) — legacyTotal\n {3}did anything still call it\?\n/,
+    );
+  } finally {
+    await close();
+  }
 });

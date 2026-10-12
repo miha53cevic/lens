@@ -1,15 +1,15 @@
 import clsx from 'clsx';
-import { ArrowLeftRight, Folder, Plus, Settings, X } from 'lucide-react';
+import { ArrowLeftRight, Folder, Plus, Settings, Shapes, X } from 'lucide-react';
 import type { StripTab } from '../shared/api.ts';
-import { IconButton } from '../../viewer/ui/IconButton.tsx';
-// the theme swatch is the viewer header's
-import '../../viewer/components/Header/style.css';
+import { IconButton } from '../../ui/IconButton.tsx';
+import { ThemeTrigger } from '../../ui/ThemeMenu.tsx';
 import { useStrip } from './store.ts';
 import './style.css';
 
 function TabIcon({ icon }: { icon: StripTab['icon'] }) {
   if (icon === 'folder') return <Folder size={13} />;
   if (icon === 'settings') return <Settings size={13} />;
+  if (icon === 'sandbox') return <Shapes size={13} />;
   return <Plus size={13} />;
 }
 
@@ -36,18 +36,19 @@ function RepoTab({ tab, active }: { tab: StripTab; active: boolean }) {
       {/* on every tab with a review, shown or not, so a tab keeps its width when another comes to the front */}
       {tab.canChange && (
         // an icon alone: the title says what it swaps
-        <button
+        <IconButton
+          size='sm'
           className='rtab-btn'
-          aria-label="Change what's reviewed"
+          label="Change what's reviewed"
           title="Change what's reviewed"
           onClick={() => strip.change(tab.id)}
         >
           <ArrowLeftRight size={12} />
-        </button>
+        </IconButton>
       )}
-      <button className='rtab-btn' aria-label={'Close ' + tab.title} onClick={() => strip.close(tab.id)}>
+      <IconButton size='sm' className='rtab-btn' label={'Close ' + tab.title} onClick={() => strip.close(tab.id)}>
         <X size={12} />
-      </button>
+      </IconButton>
     </div>
   );
 }
@@ -72,22 +73,24 @@ export function Strip() {
           <RepoTab key={tab.id} tab={tab} active={tab.id === state.activeId} />
         ))}
       </div>
-      <IconButton id='new-tab' label='New tab' className='strip-btn' onClick={() => strip.add()}>
+      <IconButton id='new-tab' label='New tab' onClick={() => strip.add()}>
         <Plus size={14} />
       </IconButton>
       <span className='spacer' />
       <IconButton
         id='theme-btn'
         label={'Code theme: ' + state.theme.name}
-        className='strip-btn'
+        className='theme-trigger'
+        // the viewer's own theme menu (ui/ThemeMenu), with its button here and its list in a view
+        // of its own over the tab's page: a popover of this page would open underneath that
         onClick={(event) => {
           const rect = event.currentTarget.getBoundingClientRect();
-          strip.themeMenu(rect.left, rect.bottom + 4);
+          strip.themeMenu(rect.right, rect.bottom);
         }}
       >
-        <span className='swatch current' />
+        <ThemeTrigger />
       </IconButton>
-      <IconButton id='settings-btn' label='Settings' className='strip-btn' onClick={() => strip.settings()}>
+      <IconButton id='settings-btn' label='Settings' onClick={() => strip.settings()}>
         <Settings size={15} />
       </IconButton>
     </header>

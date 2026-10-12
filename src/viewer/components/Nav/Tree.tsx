@@ -7,8 +7,8 @@ import { openFile } from '../../actions/tabs.ts';
 import { toggleDir, toggleFileViewed } from '../../actions/prefs.ts';
 import { fileViewKey, type ViewFile } from '../../shared.ts';
 import { ViewedBox } from '../ViewedBox.tsx';
-import { StatusLetter } from '../../ui/FileStatus.tsx';
-import { STATUS_TITLE } from './const.ts';
+import { StatusLetter } from '../../../ui/FileStatus.tsx';
+import { BINARY_TITLE, STATUS_TITLE } from './const.ts';
 
 interface TreeContext {
   filter: string;
@@ -67,12 +67,15 @@ function FileRow({ entry, indent, context }: { entry: TreeFile; indent: number; 
   const title =
     entry.status === 'renamed'
       ? entry.renamedFrom + ' → ' + entry.path + ' — ' + STATUS_TITLE.renamed
-      : entry.path + (entry.status ? ' — ' + STATUS_TITLE[entry.status] : '');
+      : entry.path +
+        (entry.status ? ' — ' + STATUS_TITLE[entry.status] : '') +
+        (entry.binary ? ', ' + BINARY_TITLE : '');
   return (
     <button
       className={clsx(
         'file',
         entry.status,
+        entry.binary && 'binary',
         fileIndex !== null && fileIndex === context.active && 'active',
         viewed && 'viewed',
       )}
@@ -90,6 +93,7 @@ function FileRow({ entry, indent, context }: { entry: TreeFile; indent: number; 
       )}
       <span className='fname'>
         <FilterMatch name={entry.name} filter={context.filter} />
+        {entry.binary && <span className='kind'>binary</span>}
       </span>
       {entry.status && <StatusLetter status={entry.status} />}
     </button>

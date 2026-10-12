@@ -2,9 +2,9 @@
 // from Node or Electron itself. The viewer is loaded without this script.
 
 import { contextBridge, ipcRenderer } from 'electron';
-import { LAUNCHER_CALLS, STRIP_CALLS, type LensAppApi } from './shared/api.ts';
+import { LAUNCHER_CALLS, MENU_CALLS, STRIP_CALLS, type LensAppApi } from './shared/api.ts';
 
-function area<Api>(name: 'strip' | 'launcher', calls: readonly string[]): Api {
+function area<Api>(name: 'strip' | 'launcher' | 'menu', calls: readonly string[]): Api {
   const api: Record<string, unknown> = {
     state: () => ipcRenderer.invoke(name + ':state'),
     onState: (listener: (state: unknown) => void) => {
@@ -20,5 +20,6 @@ function area<Api>(name: 'strip' | 'launcher', calls: readonly string[]): Api {
 const api: LensAppApi = {
   strip: area('strip', STRIP_CALLS),
   launcher: area('launcher', LAUNCHER_CALLS),
+  menu: area('menu', MENU_CALLS),
 };
 contextBridge.exposeInMainWorld('lensApp', api);

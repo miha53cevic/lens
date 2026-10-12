@@ -70,7 +70,7 @@ the review for you, and installs the command and the skills from its Settings.
 | command | what it opens or prints |
 | --- | --- |
 | `lens <path…>` | files or directories, folded |
-| `lens diff` | the worktree against the index |
+| `lens diff` | the worktree against the index, new untracked files included |
 | `lens diff --staged` | staged changes |
 | `lens diff HEAD~1` | any `git diff` arguments pass through |
 | `lens pr 123` | a PR on the origin remote |
@@ -80,7 +80,7 @@ the review for you, and installs the command and the skills from its Settings.
 
 | flag | meaning |
 | --- | --- |
-| `--port <n>` | the viewer's port (default 5326) |
+| `--port <n>` | the viewer's port (default: the repository's own, see below) |
 | `--no-open` | don't open the browser |
 | `--summary` | open on the Summary tab |
 | `--threshold <n>` | fold regions with a score up to `n` |
@@ -92,12 +92,28 @@ the review for you, and installs the command and the skills from its Settings.
 `lens <path…>` opens any code folded, not just changes. Use it to:
 
 - read an unfamiliar module before reviewing a change to it,
-- open new files that aren't tracked yet (no `git add -N` needed),
 - use lens outside a git repo,
 - check what a `.lens.json` edit folds across a whole folder (`lens src/ --json`).
 
 Directory walks skip `node_modules`, `dist`, `build`, `out`, `coverage`, dotfolders and
 `exclude` matches. A file passed explicitly is always analyzed.
+
+### Ports
+
+Without `--port`, each repository gets its own port, from 5400 up, worked out from its path. So
+two reviews in two repositories run side by side, and a repository opens on the same port every
+time: the viewed marks and verdicts your browser keeps for it are there again. When another
+program holds the port, lens takes the next free one. A second `lens` in a repository whose viewer
+is already running stops and names that viewer's address.
+
+### New files
+
+`git diff` lists tracked files only. lens adds the untracked ones itself, as added files, whenever
+the diff's new side is the working tree: `lens diff`, `lens diff HEAD`, `lens diff main`, each with
+or without paths. So a file your agent just created is in the review without a `git add`, as it is
+in VS Code's Source Control list. Ignored files stay out (`.gitignore`), and so do empty ones; a
+binary one is listed, as [any changed binary](#reading-a-diff) is. `--staged`, `A..B`, `A...B` and PRs don't read the working tree, so they add none. lens only
+reads: your index is never touched.
 
 ### Pull requests
 
@@ -157,16 +173,35 @@ than fit scroll sideways (a mouse's wheel moves them too), and the tab in front 
 | **⇄** on a tab with a review | opens the picker over the review, to change what's reviewed; its back arrow returns to the review as you left it |
 | **×** | closes the tab and stops its review |
 | **+** | a new tab, on Start |
-| the theme swatch | the code themes; picking one recolors the app and the open reviews |
-| the gear | Settings, in a tab of its own |
+| the theme swatch | the code themes; picking one recolors the app and the open reviews. It is the app's one theme button: a review's own, in its header, is hidden here |
+| the gear | Settings, in a tab of its own (and from there the Sandbox, in another) |
 
 A repository gets one tab: opening it again goes to the tab it has. *End session* in a
 review's ⋯ menu ends the review and leaves the tab on its picker.
 
+### Where you left off
+
+The app opens as you left it: the window where it was (maximized if it was), and the tabs
+that had a repository, each on the review it showed.
+
+- The tab in front starts its review again right away. The others start theirs the first
+  time you click them, so a tab you don't look at costs nothing.
+- Until its review shows, a reopened tab is a loading screen in the review's shape, not
+  the picker. **Cancel** in the status bar stops it and shows the picker.
+- A tab whose repository is gone (deleted, moved, not a repository anymore) isn't
+  reopened.
+- A review that can't start anymore leaves its tab on the picker, with the reason in the
+  status bar: the base branch was deleted, the PR can't be fetched offline, nothing is
+  changed anymore.
+- A window last seen on a monitor that isn't there opens centered on the main display.
+
+Start, Settings and Sandbox tabs aren't kept, and full screen isn't.
+
 ### Picking what to review
 
 **Start** has one button, *Open repository*, and the folders you opened before. The
-list remembers only the folders, no branch and no past review.
+list remembers only the folders, no branch and no past review. A folder that is deleted
+while its picker is open sends the tab back to Start, which says so.
 
 The **picker** then offers what the command does, and shows the command it will run:
 
@@ -178,7 +213,9 @@ The **picker** then offers what the command does, and shows the command it will 
 | Changes · Custom | `lens diff <what you type>` |
 | Pull request | `lens pr <number or URL>` |
 
-The counts beside the choices come from [`lens info`](#lens-info). Opening loose files
+The counts beside the choices come from [`lens info`](#lens-info), read again every 5
+seconds while the picker is in sight: stage something in a terminal and the picker
+follows. Opening loose files
 (`lens <path…>`) and the flags (`--summary`, `--threshold`, `--theme`, `--json`) stay
 with the command.
 
@@ -205,6 +242,10 @@ install the command again from there.
 Uninstall removes only what the app installed. A `lens` command or a skill folder that
 came from somewhere else, such as this checkout's `npm run install-cli`, is shown as
 *Not the app's* and never touched.
+
+Settings → Design system opens the **Sandbox** in a tab of its own: every control lens is
+built from, in each of its states, in the code theme the app is in. It is for working on
+lens itself.
 
 ### What the app may do
 
@@ -245,7 +286,8 @@ get change markers and syntax colors, just no folding.
 Each file shows its status as a colored letter in the tree and on its tab: `A` added,
 `M` modified, `D` deleted, `R` renamed (pure renames show as `R` rows), `⊘` excluded.
 Lockfiles and minified files (`exclude`) are listed as dimmed `⊘` rows without being
-read. The code card's header spells the status out, next to the file's path, the lines
+read. A changed binary file (an image, a font) is listed too, dimmed, with its status and
+*binary* after its name: there is nothing of it to show, but you see that it changed. The code card's header spells the status out, next to the file's path, the lines
 it added and removed, and its fold chips. The Summary tab shows a change's code in the
 same card.
 
@@ -275,12 +317,15 @@ same card.
 ### The header and the ⋯ menu
 
 The header keeps four buttons in sight: search, Ask, the code theme and reload.
-Everything else is in the **⋯** menu: the fold level, expand / collapse all, hunks only,
-removed lines, word diff and hide tests (each with its key), then the keyboard shortcuts,
-the settings and *End session*.
+Everything else is in the **⋯** menu: the code size, the fold level, expand / collapse all,
+hunks only, removed lines, word diff and hide tests (each with its key), then the keyboard
+shortcuts, the settings and *End session*.
 
 - **Reload** (`r`) re-runs the analysis (new file contents, a fresh `git diff`, edits to
   `.lens.json`) without restarting the server.
+- **Code size** in ⋯ makes the code larger or smaller, from 10 to 24px, in both the Code
+  and the Summary view. The default is 12px, and the menu says so beside the setting's name. Only the code
+  changes size, not the page around it. Your size is kept for every repository you open.
 - **Settings** in ⋯ shows the effective config.
 - **Ask** (`a`) opens a rail on the right where you ask your agent about the code you're
   reading. See [Ask mode](#ask-mode).
@@ -311,8 +356,14 @@ On the left, one status:
   it;
 - *Server stopped*, when a request can't reach lens anymore (*Retry* looks for it again).
 
-On the right, notices that show only while they apply: summaries the code has outgrown,
-a new summary waiting (click to load it), an agent listening.
+On the right, notices that show only while they apply: code that changed on disk since
+this page read it (click to reload), summaries the code has outgrown, a new summary
+waiting (click to load it), an agent listening.
+
+lens looks for the first and the third by itself, every 5 seconds while the page is in
+sight: an edit, a `git add`, a commit or a new file shows as *Code changed on disk*
+without a click. Nothing on screen moves until you reload. A PR review has no such
+notice: a PR changes only when it is fetched, which reload does.
 
 ### Keys
 
@@ -366,6 +417,12 @@ lists them).
 
 The tab opens on the **overview** (<kbd>g</kbd>): what the agent flagged (click a count
 to list just those changes) and its account of the whole diff.
+
+Once you mark a concern *real*, the overview counts the confirmed ones and offers *Copy for
+your agent*: one click copies them as a list to paste to your agent, each with its kind, its
+`path:line`, the change it is in and the concern's text. A confirmed concern on code that
+changed since the summary was written is left out, and the list says how many were. lens
+fixes nothing itself.
 
 Before anything is summarized, the overview shows the command to run in your agent in
 that place, and the changes can already be read one by one (*Start review*, or the list).
@@ -474,6 +531,9 @@ the code while you review: "why is this check needed?", "what calls this?".
   label to go back).
 - Answers cite code as `path:line`. lens checks each one, and a valid cite flashes that
   line when clicked.
+- Answers are markdown: lists, tables, headings, quotes and code are drawn. HTML in an
+  answer is shown as text, images aren't loaded, and a link is its text followed by its
+  address, not something to click.
 - After a reload, questions whose code changed are dimmed and their cites stop linking.
 - The chat lives in the running viewer and ends with it.
 - Drag the rail's edge to resize it; `\` hides it, `Esc` leaves the input.
@@ -606,12 +666,13 @@ if (!input) {
 
 ```bash
 npm test            # typecheck + node --test
-npm run app         # the desktop app, from this checkout
+npm run app         # the desktop app, from this checkout (its Settings → Sandbox shows the design system)
 npm run app:smoke   # the app's own tour of itself: pictures of each screen in dist/smoke
 ```
 
-- The sources are three folders under `src/`: `cli-app/` (the `lens` command and the
-  viewer's server), `viewer/` (the page it serves) and `desktop/` (the desktop app).
+- The sources are four folders under `src/`: `cli-app/` (the `lens` command and the
+  viewer's server), `ui/` (the design system every page shares: tokens and primitives),
+  `viewer/` (the page the server serves) and `desktop/` (the desktop app).
 - Classifier rules live in `src/cli-app/classify/typescript.ts` (shared by ts/tsx/js).
 - The viewer is `src/viewer/`, a React app (TypeScript), which the server
   (`src/cli-app/render/web/`) bundles with esbuild when it starts and inlines into one

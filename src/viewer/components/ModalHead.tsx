@@ -1,5 +1,5 @@
 import { X } from 'lucide-react';
-import { IconButton } from '../ui/IconButton.tsx';
+import { IconButton } from '../../ui/IconButton.tsx';
 import './ModalHead.css';
 
 /** A modal's title row; its close button closes the <dialog> natively. */

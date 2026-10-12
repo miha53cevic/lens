@@ -1,11 +1,14 @@
 // The Code view and the Summary tab: switching between them, jumping to a line.
 
+import type { StampResponse } from '../../cli-app/render/web/server.ts';
 import type { SummaryView } from '../../cli-app/summary/view.ts';
 import { commit, getState, type LensState, toggled, update, type View } from '../store.ts';
 import { flashRow } from '../shared.ts';
 import { fileSpans } from '../rows.ts';
 import { revealIfTest, visibleActive, withTab } from './tabs.ts';
 import { openFoldAround } from './folds.ts';
+import { isBusy } from '../model/status.ts';
+import type { Watcher } from '../../ui/poll.ts';
 import { noteDone, reach, request, tracked } from './status.ts';
 
 function viewChange(state: LensState, view: View): Partial<LensState> {
@@ -19,7 +22,7 @@ export function setView(view: View): void {
   update({ ...viewChange(state, view), ...(view === 'summary' && { summaryChecking: true }) });
   if (view === 'summary') {
     if (state.summaryDot) loadSummary().finally(() => update({ summaryChecking: false }));
-    else checkSummaryStamp(); // a submit while the window kept its focus
+    else void checkStamp(); // a submit since the last poll
   }
 }
 
@@ -36,18 +39,24 @@ async function loadSummary(): Promise<void> {
   );
 }
 
-// A submit from the agent lands in summary.json; notice it when the reader comes back
-// to the window, or opens the Summary tab.
-export async function checkSummaryStamp(): Promise<void> {
-  const summary = getState().data.summary;
-  if (!summary) return;
+/**
+ * What moved since this page's analysis, asked in one request: a summary the agent submitted
+ * (it lands in summary.json), and the code itself (an edit, a `git add`, a new file).
+ * The reader is told; nothing on screen changes until they open the Summary tab or refresh.
+ */
+export async function checkStamp(): Promise<void> {
   try {
     // not a slow action: only whether the server is there goes to the status bar
-    const response = await reach('/api/summary/stamp');
-    const { stamp } = await response.json();
-    if (stamp !== null && stamp !== summary.stamp) {
-      if (getState().view === 'summary') await loadSummary();
-      else update({ summaryDot: true });
+    const response = await reach('/api/stamp');
+    if (!response.ok) return;
+    const stamp: StampResponse = await response.json();
+    const { data, changedOnDisk, summaryDot, view } = getState();
+    // only what both sides know: a review without a fingerprint (a PR) claims nothing
+    const changed = stamp.change !== null && data.changeStamp !== null && stamp.change !== data.changeStamp;
+    if (changed !== changedOnDisk) update({ changedOnDisk: changed });
+    if (data.summary && stamp.summary !== null && stamp.summary !== data.summary.stamp) {
+      if (view === 'summary') await loadSummary();
+      else if (!summaryDot) update({ summaryDot: true });
     }
   } catch {
     /* server gone — nothing to do */
@@ -55,6 +64,21 @@ export async function checkSummaryStamp(): Promise<void> {
     if (getState().summaryChecking) update({ summaryChecking: false });
   }
 }
+
+/** How often the page asks what moved. */
+const STAMP_POLL_MS = 5000;
+
+/** The stamp is polled while the page is in sight (the loop is poll.ts), and not during a refresh, which takes it all anyway. */
+export const stampWatcher: Watcher = {
+  id: 'stamp',
+  every: STAMP_POLL_MS,
+  when: () => {
+    const state = getState();
+    const watched = state.data.summary !== null || state.data.changeStamp !== null;
+    return watched && !state.serverGone && !isBusy(state, 'refresh');
+  },
+  run: checkStamp,
+};
 
 /**
  * Show the target line in the code view: expand a hidden stretch or a fold covering it,

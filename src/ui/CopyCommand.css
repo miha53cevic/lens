@@ -1,0 +1,51 @@
+/* a command in a sentence, as a chip: bordered like a button, a copy icon after it */
+.copy-cmd {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: 100%;
+  padding: 0 var(--space-1) 0 var(--space-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font: var(--text-sm) / 1.6 var(--font-mono);
+  vertical-align: baseline;
+  cursor: pointer;
+  transition:
+    background var(--motion),
+    border-color var(--motion);
+}
+.copy-cmd-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: text;
+}
+.copy-cmd svg {
+  flex: none;
+  color: var(--muted);
+}
+.copy-cmd:hover {
+  border-color: var(--selected-ring);
+  background: var(--selected-bg);
+}
+.copy-cmd:hover svg {
+  color: var(--accent);
+}
+.copy-cmd.copied svg {
+  color: var(--add);
+}
+/* its own row */
+.copy-cmd.block {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+  margin: var(--space-3) 0;
+  padding: var(--space-2) var(--space-3);
+  border-color: var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  font-size: var(--text-md);
+}

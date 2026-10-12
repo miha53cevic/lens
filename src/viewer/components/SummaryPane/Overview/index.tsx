@@ -7,6 +7,7 @@ import { listModel } from '../../../model/summaryList.ts';
 import { setSignalFilter } from '../../../actions/summary.ts';
 import { plural } from '../../../shared.ts';
 import { AgentOverview } from './AgentOverview.tsx';
+import { RealConcerns } from './RealConcerns.tsx';
 
 const SHOWN_SIGNALS: SignalId[] = ['bug', 'risk', 'question', 'breaks'];
 
@@ -39,12 +40,13 @@ export function Overview() {
               aria-pressed={list.signal === signal}
               onClick={() => setSignalFilter(signal)}
             >
-              <i />
+              <i className='dot' />
               <b>{list.counts[signal]}</b> {list.counts[signal] === 1 ? SIGNALS[signal].one : SIGNALS[signal].many}
             </button>
           ))}
         </div>
       )}
+      <RealConcerns />
       <AgentOverview summary={summary} anySummarized={list.summarized > 0} checking={checking} />
     </div>
   );

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { useLens } from '../store.ts';
 import { catColor } from '../shared.ts';
+import { CODE_SIZE_DEFAULT } from '../codeSize.ts';
 import { ModalHead } from './ModalHead.tsx';
 import './SettingsDialog.css';
 
@@ -44,12 +45,13 @@ function Section({ title, hint, rows }: { title: string; hint?: string; rows: [R
 
 /** The settings in effect: where they come from, this session's choices, every rule. */
 export function SettingsDialog() {
-  const { data, threshold, hideTests, hunksOnly, wordDiff } = useLens((state) => ({
+  const { data, threshold, hideTests, hunksOnly, wordDiff, codeSize } = useLens((state) => ({
     data: state.data,
     threshold: state.threshold,
     hideTests: state.hideTests,
     hunksOnly: state.hunksOnly,
     wordDiff: state.wordDiff,
+    codeSize: state.codeSize,
   }));
   const config = data.config;
   const categories = Object.keys(config.categories || {});
@@ -70,6 +72,13 @@ export function SettingsDialog() {
               <>
                 {threshold < 0 ? 'off' : threshold}
                 {threshold !== config.threshold && <span className='set-aside'>config: {config.threshold}</span>}
+              </>,
+            ],
+            [
+              'Code size',
+              <>
+                {codeSize}px
+                {codeSize !== CODE_SIZE_DEFAULT && <span className='set-aside'>default: {CODE_SIZE_DEFAULT}px</span>}
               </>,
             ],
             ['Theme', data.theme],

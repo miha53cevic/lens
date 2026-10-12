@@ -32,6 +32,36 @@ function askCodeRoot(state: LensState): Element | null {
     : document.getElementById('code');
 }
 
+const rowOf = (node: Node) => (node instanceof Element ? node : node.parentElement)?.closest<HTMLElement>('.row');
+
+/**
+ * The rows a selection takes: those it holds at least one character of. Where its ends sit says
+ * less: a double-click past a line's end, or a triple-click, selects a line break, which ends at
+ * the start of the next row without holding any of it. Such a selection takes the row it starts on.
+ */
+function selectedRows(rows: HTMLElement[], selected: Range): HTMLElement[] {
+  const range = selected.cloneRange();
+  const startPill = rowOf(range.startContainer)?.closest('.pill-row');
+  const endPill = rowOf(range.endContainer)?.closest('.pill-row');
+  // inside one fold's pill: a slipped click on a control, not a selection of code
+  if (endPill && endPill === startPill) return [];
+  // a drag that ends on a fold's pill takes in the fold: its lines come after the pill
+  const region = endPill?.closest('.region');
+  if (region) range.setEndAfter(region);
+  const code = document.createRange();
+  const held = rows.filter((row) => {
+    code.selectNodeContents(row.lastElementChild!);
+    // the selection starts before the row's code ends, and ends after it starts
+    return (
+      range.compareBoundaryPoints(Range.END_TO_START, code) < 0 &&
+      range.compareBoundaryPoints(Range.START_TO_END, code) > 0
+    );
+  });
+  if (held.length > 0) return held;
+  const startRow = rowOf(range.startContainer);
+  return startRow && rows.includes(startRow) ? [startRow] : [];
+}
+
 // A selection that ends in the code is taken whole-line; one that moves elsewhere
 // (the textarea taking focus) leaves the kept selection alone.
 export function onSelectionChange(): void {
@@ -45,46 +75,23 @@ export function onSelectionChange(): void {
     askSetSelection(null);
     return;
   }
-  const rowOf = (node: Node) => (node instanceof Element ? node : node.parentElement)?.closest('.row');
   const rows = [...root.querySelectorAll<HTMLElement>('.row')].filter(
     (row) => !row.matches('.pill-row, .gap, .unit-gap'),
   );
-  // [first, last] row index an end of the selection covers: an end on a fold's pill takes in its
-  // region; one off the rows (a ⋯ row, blank space under the code) counts as the gap between the
-  // rows around it — the first row after it when it starts the range, the last before when it ends it
-  const span = (node: Node, offset: number): [number, number] => {
-    const row = rowOf(node);
-    const rowIndex = rows.indexOf(row as HTMLElement);
-    if (rowIndex >= 0) return [rowIndex, rowIndex];
-    const inRegion = [...(row?.closest('.region')?.querySelectorAll<HTMLElement>('.row') ?? [])]
-      .map((regionRow) => rows.indexOf(regionRow))
-      .filter((index) => index >= 0);
-    if (inRegion.length > 0) return [Math.min(...inRegion), Math.max(...inRegion)];
-    const point = document.createRange();
-    point.setStart(node, offset);
-    const rowsBefore = rows.filter((candidate) => point.comparePoint(candidate, 0) < 0).length;
-    return [rowsBefore, rowsBefore - 1];
-  };
-  const anchorSpan = span(selection.anchorNode!, selection.anchorOffset);
-  const focusSpan = span(selection.focusNode!, selection.focusOffset);
-  const from = Math.min(anchorSpan[0], focusSpan[0]);
-  const to = Math.max(anchorSpan[1], focusSpan[1]);
-  if (from > to) {
-    askSetSelection(null); // nothing but ⋯ rows and blank space
+  const taken = selectedRows(rows, selection.getRangeAt(0));
+  if (taken.length === 0) {
+    askSetSelection(null); // nothing but ⋯ rows, a pill's text or blank space
     return;
   }
-  const lines = rows
-    .slice(from, to + 1)
-    .slice(0, ASK_MAX_LINES)
-    .map((row) => {
-      const lineNumber = row.dataset.line ?? row.dataset.old;
-      const text = row.lastElementChild ? (row.lastElementChild.textContent ?? '') : '';
-      return {
-        n: lineNumber ? Number(lineNumber) : null,
-        side: row.classList.contains('removed') ? ('old' as const) : ('new' as const),
-        text: text === ' ' ? '' : text,
-      };
-    });
+  const lines = taken.slice(0, ASK_MAX_LINES).map((row) => {
+    const lineNumber = row.dataset.line ?? row.dataset.old;
+    const text = row.lastElementChild ? (row.lastElementChild.textContent ?? '') : '';
+    return {
+      n: lineNumber ? Number(lineNumber) : null,
+      side: row.classList.contains('removed') ? ('old' as const) : ('new' as const),
+      text: text === ' ' ? '' : text,
+    };
+  });
   askSetSelection({ key: context.key, file: context.file, lines });
 }
 

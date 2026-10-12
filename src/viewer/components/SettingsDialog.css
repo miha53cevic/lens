@@ -22,7 +22,7 @@
   grid-template-columns: 9.5rem minmax(0, 1fr);
   gap: var(--space-3);
   align-items: baseline;
-  padding: 7px 0;
+  padding: var(--space-2) 0;
   border-bottom: 1px solid var(--line);
 }
 .set-rows > div:last-child {
@@ -46,12 +46,6 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-}
-.set-cat .dot {
-  flex: none;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
 }
 .set-off {
   opacity: 0.6;
@@ -97,7 +91,7 @@
   gap: var(--space-1);
 }
 .set-list code {
-  padding: 1px 6px;
+  padding: 0 var(--space-2);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--surface);

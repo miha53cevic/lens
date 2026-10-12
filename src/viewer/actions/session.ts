@@ -50,6 +50,8 @@ function contentKeys(data: ViewerPayload): Map<string, string> {
   const keys = new Map(data.files.map((file) => [file.file, fileViewKey(file)]));
   for (const path of data.deleted || []) keys.set(path, 'deleted');
   for (const path of data.excluded || []) keys.set(path, 'excluded');
+  // a binary's content isn't read: its row says only that it changed, and how
+  for (const file of data.binary || []) keys.set(file.file, 'binary ' + file.status);
   for (const rename of data.renamed || []) keys.set(rename.to, 'renamed from ' + rename.from);
   return keys;
 }
@@ -82,6 +84,7 @@ export function refresh(theme = getState().data.theme): Promise<boolean> {
         // the summary went away (e.g. a refresh in path mode): back to the code
         view: data.summary ? state.view : 'code',
         summaryDot: false, // the analysis came with the newest summary: none waits
+        changedOnDisk: false, // and with the code as it is now
       };
     });
     noteDone('Refreshed', changeNote(before, contentKeys(data)));

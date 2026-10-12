@@ -33,6 +33,19 @@ function readServerInfo(file: string): ServerInfo | null {
   }
 }
 
+/** The viewer that runs for `root` right now: its server.json, while the process that wrote it lives. */
+export function runningServer(root: string): ServerInfo | null {
+  const info = readServerInfo(serverInfoPath(root));
+  if (!info || !Number.isInteger(info.pid)) return null;
+  try {
+    process.kill(info.pid, 0); // signal 0 sends nothing: it only asks whether the process is there
+    return info;
+  } catch (err) {
+    // EPERM: it is there, and someone else's
+    return (err as NodeJS.ErrnoException).code === "EPERM" ? info : null;
+  }
+}
+
 /** The nearest .lens/server.json from `cwd` upwards. */
 export function findServerInfo(cwd: string): ServerInfo | null {
   let dir = cwd;

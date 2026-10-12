@@ -1,5 +1,6 @@
-// The agent's answers: the little markdown agents write, and the cites in it.
+// The agent's answers: the markdown agents write, and the cites in it.
 
+import MarkdownIt from 'markdown-it';
 import type { AskCite, AskQuestion } from '../../cli-app/ask/session.ts';
 import { getState } from '../store.ts';
 import { currentUnit } from '../model/summaryList.ts';
@@ -9,56 +10,55 @@ import { flashCited, openSummaryUnit } from '../actions/summary.ts';
 import { jumpToLine, setView } from '../actions/views.ts';
 import { openFile } from '../actions/tabs.ts';
 
-/**
- * The little markdown agents write: fenced code, paragraphs, - / 1. lists,
- * `code` and **bold**. Escaped first; valid cites become buttons.
- */
+/** What a render is given: the cites that become buttons. */
+interface AskEnv {
+  cites: AskCite[];
+}
+
+// html stays off (the default), so an answer's <tags> are shown and never run. No images: a
+// review fetches nothing an answer names. A line break in the answer is one in the rail.
+const parser = new MarkdownIt({ breaks: true }).disable('image');
+
+/** Valid cites become buttons, in the escaped text of a text or `code` token. */
+function linkCites(html: string, cites: AskCite[]): string {
+  for (const cite of cites) {
+    // the ref as the escaped text holds it: `R&D.ts:12` is `R&amp;D.ts:12` there
+    const ref = escapeHtml(cite.ref).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    html = html.replace(
+      new RegExp('(?<![\\w./-])' + ref + '(?!\\d)', 'g'),
+      '<button class="cite ask-cite" data-file="' +
+        escapeHtml(cite.file) +
+        '" data-line="' +
+        cite.line +
+        '">' +
+        escapeHtml(cite.ref) +
+        '</button>',
+    );
+  }
+  return html;
+}
+
+// markdown-it hands a rule the env of its render untyped: askMarkdown below always passes an AskEnv
+const citesOf = (env: unknown) => (env as AskEnv).cites;
+parser.renderer.rules.text = (tokens, index, _options, env) =>
+  linkCites(escapeHtml(tokens[index].content), citesOf(env));
+parser.renderer.rules.code_inline = (tokens, index, _options, env) =>
+  '<code>' + linkCites(escapeHtml(tokens[index].content), citesOf(env)) + '</code>';
+// a link is its text and then its address, as text: nothing in an answer leaves the review
+parser.renderer.rules.link_open = () => '';
+parser.renderer.rules.link_close = (tokens, index) => {
+  // <https://…> already reads as its address
+  if (tokens[index].markup === 'autolink') return '';
+  let openIndex = index - 1;
+  while (tokens[openIndex].type !== 'link_open' || tokens[openIndex].level !== tokens[index].level) openIndex--;
+  return ' (' + escapeHtml(String(tokens[openIndex].attrGet('href') ?? '')) + ')';
+};
+
+/** The agent's markdown as HTML (markdown-it: CommonMark and tables). Valid cites become buttons. */
 export function askMarkdown(markdown: string, cites: AskCite[], files: { file: string }[]): string {
-  const inline = (text: string) => {
-    let html = escapeHtml(text)
-      .replace(/`([^`]+)`/g, '<code>$1</code>')
-      .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
-    // a cite into a file the viewer doesn't have (outside the diff) has nowhere to go: it stays text
-    for (const cite of cites.filter((candidate) => files.some((file) => file.file === candidate.file))) {
-      // the ref as the escaped text holds it: `R&D.ts:12` is `R&amp;D.ts:12` there
-      const ref = escapeHtml(cite.ref).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      html = html.replace(
-        new RegExp('(?<![\\w./-])' + ref + '(?!\\d)', 'g'),
-        '<button class="cite ask-cite" data-file="' +
-          escapeHtml(cite.file) +
-          '" data-line="' +
-          cite.line +
-          '">' +
-          escapeHtml(cite.ref) +
-          '</button>',
-      );
-    }
-    return html;
-  };
-  const out: string[] = [];
-  const parts = markdown.split(/^```[^\n]*\n([\s\S]*?)^```\s*$/m);
-  parts.forEach((part, partIndex) => {
-    if (partIndex % 2 === 1) {
-      out.push('<pre><code>' + escapeHtml(part.replace(/\n$/, '')) + '</code></pre>');
-      return;
-    }
-    for (const block of part.split(/\n\s*\n/)) {
-      const lines = block.split('\n').filter((line) => line.trim());
-      if (lines.length === 0) continue;
-      if (lines.every((line) => /^\s*[-*] /.test(line))) {
-        out.push(
-          '<ul>' + lines.map((line) => '<li>' + inline(line.replace(/^\s*[-*] /, '')) + '</li>').join('') + '</ul>',
-        );
-      } else if (lines.every((line) => /^\s*\d+\. /.test(line))) {
-        out.push(
-          '<ol>' + lines.map((line) => '<li>' + inline(line.replace(/^\s*\d+\. /, '')) + '</li>').join('') + '</ol>',
-        );
-      } else {
-        out.push('<p>' + lines.map(inline).join('<br>') + '</p>');
-      }
-    }
-  });
-  return out.join('');
+  // a cite into a file the viewer doesn't have (outside the diff) has nowhere to go: it stays text
+  const shown = cites.filter((candidate) => files.some((file) => file.file === candidate.file));
+  return parser.render(markdown, { cites: shown } satisfies AskEnv);
 }
 
 /** A cite: flash it in the open unit's code when it's there, else jump to it in the code view. */

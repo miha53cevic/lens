@@ -4,7 +4,7 @@
 }
 .start-brand.brand {
   margin: 0;
-  font-size: 44px;
+  font-size: var(--text-3xl);
 }
 .start-tagline {
   margin: var(--space-2) 0 var(--space-4);
@@ -13,7 +13,7 @@
 
 .recents {
   display: grid;
-  gap: 2px;
+  gap: var(--space-1);
   margin: 0;
   padding: 0;
   list-style: none;

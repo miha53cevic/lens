@@ -1,5 +1,5 @@
 // What both of the app's pages do with the code theme: the same as the viewer's main.tsx, so the
-// design tokens (src/viewer/styles/tokens.css) mix the chrome from the theme's colors here too.
+// design tokens (src/ui/styles/tokens.css) mix the chrome from the theme's colors here too.
 
 import { isLightColor } from '../../cli-app/theme.ts';
 import type { LensAppApi, ThemeSwatch } from './api.ts';

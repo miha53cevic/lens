@@ -1,7 +1,8 @@
 import { Fragment, useState } from 'react';
 import { useLens } from '../../store.ts';
 import { ModalHead } from '../ModalHead.tsx';
-import { Kbd } from '../../ui/Kbd.tsx';
+import { Kbd } from '../../../ui/Kbd.tsx';
+import { Segmented } from '../../../ui/Segmented.tsx';
 import { KEY_TABS, type KeyTab } from './const.ts';
 import './style.css';
 
@@ -16,19 +17,16 @@ export function KeysDialog() {
     <dialog id='keys-modal'>
       <ModalHead title='Keyboard shortcuts' />
       {/* outside the body: the keys scroll under the tabs, not with them */}
-      <div className='key-tabs' role='tablist'>
-        {tabs.map((keyTab) => (
-          <button
-            key={keyTab.id}
-            className='key-tab'
-            role='tab'
-            data-tab={keyTab.id}
-            aria-selected={keyTab.id === shown.id}
-            onClick={() => setTab(keyTab.id)}
-          >
-            {keyTab.label}
-          </button>
-        ))}
+      <div className='key-tabs'>
+        <Segmented
+          id='key-tabs'
+          label='shortcuts for'
+          size='lg'
+          tabs
+          options={tabs.map((keyTab) => ({ value: keyTab.id, label: keyTab.label }))}
+          value={shown.id}
+          onChange={setTab}
+        />
       </div>
       <div className='modal-body'>
         <table className='set-table'>

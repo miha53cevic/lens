@@ -6,8 +6,8 @@ import { plural } from '../../shared.ts';
 import { askSelLabel } from '../../ask/selection.ts';
 import { waitingQuestion } from '../../model/status.ts';
 import { askSend, growInput, setAsk } from '../../ask/rail.ts';
-import { Button } from '../../ui/Button.tsx';
-import { Kbd } from '../../ui/Kbd.tsx';
+import { Button } from '../../../ui/Button.tsx';
+import { Kbd } from '../../../ui/Kbd.tsx';
 
 /** The question being written, with what goes along with it: the open change and the selection. */
 export function Composer() {

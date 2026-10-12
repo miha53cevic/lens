@@ -1,10 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync, utimesSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { parseDiff, parseRawEntries, gitDiffTargets, readBlobs } from "../src/cli-app/git.ts";
+import { toPosix } from "../src/cli-app/paths.ts";
+import { changeFingerprint, parseBinaryPaths, parseDiff, parseRawEntries, gitDiffTargets, readBlobs, worktreePathspecs } from "../src/cli-app/git.ts";
 
 const SAMPLE = `diff --git a/src/api.ts b/src/api.ts
 index 111..222 100644
@@ -260,12 +261,57 @@ test("gitDiffTargets keeps unsupported text files and skips binaries", () => {
 
     const result = gitDiffTargets(["--staged"], dir);
     const names = result.targets.map((t) => t.file.split("/").pop()).sort();
-    assert.deepEqual(names, ["README.md", "code.ts"], "md kept, binary skipped");
+    assert.deepEqual(names, ["README.md", "code.ts"], "md kept, the binary has no text to show");
+    assert.deepEqual(result.binary, [{ file: toPosix(join(realpathSync.native(dir), "logo.bin")), status: "modified" }]);
     const readme = result.targets.find((t) => t.file.endsWith("README.md"));
     assert.ok(readme);
     assert.equal(readme.status, "modified");
     assert.ok(readme.changedLines.length > 0);
   });
+});
+
+test("gitDiffTargets: binary files are listed with how they changed, never as text", () => {
+  withRepo((dir, git) => {
+    const bytes = (...values: number[]) => Buffer.from([0, ...values, 0, 255]);
+    mkdirSync(join(dir, "img"));
+    writeFileSync(join(dir, "a.ts"), "export const a = 1;\n");
+    writeFileSync(join(dir, "img", "logo.png"), bytes(1));
+    writeFileSync(join(dir, "img", "old.png"), bytes(2));
+    writeFileSync(join(dir, "img", "moved.png"), Buffer.concat([bytes(3), Buffer.alloc(4000, 7)]));
+    writeFileSync(join(dir, "empty.txt"), "");
+    git("add", "-A");
+    git("commit", "-qm", "base");
+
+    writeFileSync(join(dir, "a.ts"), "export const a = 2;\n");
+    writeFileSync(join(dir, "img", "logo.png"), bytes(9));
+    rmSync(join(dir, "img", "old.png"));
+    writeFileSync(join(dir, "img", "new.png"), bytes(4));
+    git("mv", "img/moved.png", "img/renamed.png");
+    writeFileSync(join(dir, "img", "renamed.png"), Buffer.concat([bytes(3), Buffer.alloc(4000, 7), bytes(5)]));
+    git("add", "-A");
+    writeFileSync(join(dir, "img", "untracked.png"), bytes(6));
+    writeFileSync(join(dir, "also-empty.txt"), "");
+
+    const listed = (args: string[]) =>
+      gitDiffTargets(args, dir).binary.map((file) => `${file.status} ${file.file.split("/").slice(-2).join("/")}`).sort();
+    assert.deepEqual(listed(["--staged", "-M"]), [
+      "added img/new.png",
+      "deleted img/old.png",
+      "modified img/logo.png",
+      "modified img/renamed.png",
+    ], "a renamed binary that changed too is listed where it is now");
+    assert.deepEqual(listed(["HEAD"]).filter((row) => row.includes("untracked")), ["added img/untracked.png"],
+      "an untracked binary comes along, as untracked text does");
+    const all = gitDiffTargets(["HEAD"], dir);
+    assert.deepEqual(all.targets.map((t) => t.file.split("/").pop()), ["a.ts"], "no binary among the files to read");
+    assert.ok(!all.binary.some((file) => file.file.endsWith(".txt")), "an empty file has no hunk either, and is no binary");
+  });
+});
+
+test("parseBinaryPaths: only the files numstat counts no lines for, a rename by its new path", () => {
+  const numstat = ["3\t1\ta.ts", "-\t-\timg/logo.png", "-\t-\t", "img/old name.png", "img/new name.png", "0\t0\t", "x.ts", "y.ts", ""].join("\0");
+  assert.deepEqual(parseBinaryPaths(numstat), ["img/logo.png", "img/new name.png"]);
+  assert.deepEqual(parseBinaryPaths(""), []);
 });
 
 test("gitDiffTargets: non-ASCII paths and diff.noprefix / mnemonicPrefix configs parse the same", () => {
@@ -283,4 +329,118 @@ test("gitDiffTargets: non-ASCII paths and diff.noprefix / mnemonicPrefix configs
       assert.deepEqual(result.targets.map((t) => [t.file.split("/").pop(), t.changedLines]), [["é.ts", [1]]], config.join("="));
     }
   });
+});
+
+test("gitDiffTargets: against the working tree, untracked files come along as added, every line changed", () => {
+  withRepo((dir, git) => {
+    writeFileSync(join(dir, "a.ts"), "export const a = 1;\n");
+    writeFileSync(join(dir, ".gitignore"), "ignored.ts\n");
+    git("add", "-A");
+    git("commit", "-qm", "base");
+
+    writeFileSync(join(dir, "a.ts"), "export const a = 2;\n");
+    mkdirSync(join(dir, "src"));
+    writeFileSync(join(dir, "src", "new.ts"), "export const one = 1;\nexport const two = 2;\n");
+    writeFileSync(join(dir, "notes.md"), "no newline at the end");
+    writeFileSync(join(dir, "ignored.ts"), "export const ignored = 1;\n");
+    writeFileSync(join(dir, "logo.bin"), Buffer.from([0, 1, 2, 255, 0, 3]));
+    writeFileSync(join(dir, "empty.ts"), "");
+    const names = (args: string[], cwd = dir) =>
+      gitDiffTargets(args, cwd).targets.map((t) => t.file.split("/").pop()).sort();
+
+    const result = gitDiffTargets([], dir);
+    assert.deepEqual(names([]), ["a.ts", "new.ts", "notes.md"], "ignored, binary and empty files stay out");
+    const added = result.targets.find((t) => t.file.endsWith("src/new.ts"))!;
+    assert.equal(added.status, "added");
+    assert.deepEqual(added.changedLines, [1, 2]);
+    assert.equal(added.newBlob, undefined, "read from disk, as any working-tree file");
+    assert.deepEqual(result.targets.find((t) => t.file.endsWith("notes.md"))!.changedLines, [1]);
+    assert.equal(git("status", "--porcelain", "--", "src/new.ts").slice(0, 2), "??", "the index is untouched");
+
+    // the working tree against a commit is the working tree still
+    assert.deepEqual(names(["HEAD"]), ["a.ts", "new.ts", "notes.md"]);
+    // a pathspec limits them, with or without "--", and from a subfolder too
+    assert.deepEqual(names(["--", "src"]), ["new.ts"]);
+    assert.deepEqual(names(["src"]), ["new.ts"]);
+    assert.deepEqual(names([], join(dir, "src")), ["a.ts", "new.ts", "notes.md"], "the whole repository, as the diff");
+    assert.deepEqual(names(["--", "."], join(dir, "src")), ["new.ts"]);
+
+    // the index or two commits as the new side: no working tree, no untracked files
+    assert.deepEqual(names(["--staged"]), []);
+    assert.deepEqual(names(["--cached"]), []);
+    assert.deepEqual(names(["HEAD", "HEAD"]), []);
+    assert.deepEqual(names(["HEAD..HEAD"]), []);
+    assert.deepEqual(names(["HEAD...HEAD"]), []);
+  });
+});
+
+test("worktreePathspecs: which diffs have the working tree as their new side", () => {
+  withRepo((dir, git) => {
+    writeFileSync(join(dir, "a.ts"), "export const a = 1;\n");
+    git("add", "-A");
+    git("commit", "-qm", "base");
+    assert.deepEqual(worktreePathspecs([], dir), []);
+    assert.deepEqual(worktreePathspecs(["HEAD"], dir), []);
+    assert.deepEqual(worktreePathspecs(["main", "--", "a.ts"], dir), ["a.ts"]);
+    assert.deepEqual(worktreePathspecs(["-w", "--stat", "a.ts"], dir), ["a.ts"]);
+    assert.equal(worktreePathspecs(["--staged"], dir), null);
+    assert.equal(worktreePathspecs(["main", "HEAD"], dir), null);
+    assert.equal(worktreePathspecs(["main...HEAD"], dir), null);
+    assert.equal(worktreePathspecs(["--no-index", "a.ts", "b.ts"], dir), null);
+  });
+});
+
+test("changeFingerprint: it moves with an edit, a git add, a commit and a new file, and with nothing else", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "lens-git-"));
+  const git = (...args: string[]) => execFileSync("git", args, { cwd: dir, encoding: "utf8" });
+  try {
+    git("init", "-q", "-b", "main");
+    git("config", "user.email", "t@t");
+    git("config", "user.name", "t");
+    writeFileSync(join(dir, "a.ts"), "export const a = 1;\n");
+    git("add", "-A");
+    git("commit", "-qm", "base");
+    writeFileSync(join(dir, "a.ts"), "export const a = 2;\n");
+
+    const worktree = changeFingerprint([], dir);
+    const staged = changeFingerprint(["--staged"], dir);
+    const seen = new Set<string>();
+    /** Whether the working tree's fingerprint is one not seen before. */
+    const moved = async () => {
+      const print = await worktree();
+      const fresh = !seen.has(print);
+      seen.add(print);
+      return fresh;
+    };
+    assert.equal(await moved(), true);
+    assert.equal(await moved(), false, "asking again changes nothing");
+
+    // saved again as it was: a new time, the same content
+    utimesSync(join(dir, "a.ts"), new Date(), new Date(Date.now() + 5000));
+    assert.equal(await moved(), false);
+
+    writeFileSync(join(dir, "a.ts"), "export const a = 3;\n"); // the same size, another content
+    utimesSync(join(dir, "a.ts"), new Date(), new Date(Date.now() + 10000));
+    assert.equal(await moved(), true, "an edit to a file that was already changed");
+
+    writeFileSync(join(dir, "new.ts"), "export const fresh = 1;\n");
+    assert.equal(await moved(), true, "an untracked file appears");
+    writeFileSync(join(dir, "new.ts"), "export const fresh = 2;\n");
+    utimesSync(join(dir, "new.ts"), new Date(), new Date(Date.now() + 15000));
+    assert.equal(await moved(), true, "and is edited");
+
+    const stagedBefore = await staged();
+    git("add", "a.ts");
+    assert.equal(await moved(), true, "staging takes the file out of the working tree's diff");
+    assert.notEqual(await staged(), stagedBefore, "and puts it in the staged one");
+    const stagedNow = await staged();
+    writeFileSync(join(dir, "new.ts"), "export const fresh = 3;\n");
+    assert.equal(await staged(), stagedNow, "the staged diff doesn't read the working tree");
+
+    git("commit", "-qm", "two");
+    assert.notEqual(await staged(), stagedNow);
+    await assert.rejects(changeFingerprint(["no-such-rev..HEAD"], dir)(), "git's failure is the caller's to handle");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

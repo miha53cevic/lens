@@ -8,7 +8,7 @@ import type { ReviewChoice } from './choice.ts';
 
 export type { RepoInfo, ThemeSwatch };
 
-export type TabIcon = 'new' | 'folder' | 'settings';
+export type TabIcon = 'new' | 'folder' | 'settings' | 'sandbox';
 
 export interface StripTab {
   id: number;
@@ -56,7 +56,8 @@ export interface SetupItem {
 }
 
 export interface LauncherState {
-  screen: 'start' | 'picker' | 'settings';
+  /** sandbox: the design system's primitives (ui/sandbox), in a tab of its own that Settings opens */
+  screen: 'start' | 'picker' | 'settings' | 'sandbox';
   /** The picker over a running review: its back arrow returns to the review */
   canGoBack: boolean;
   recents: Recent[];
@@ -68,6 +69,13 @@ export interface LauncherState {
   current: ReviewChoice | null;
   /** A lens that already runs for this repository, started somewhere else */
   running: { port: number } | null;
+  /**
+   * A tab the app reopened that is still on its way back to its review: the page shows that
+   * instead of a screen to pick from. `review` is null while its repository is still being read.
+   */
+  reopening: { name: string; review: string | null } | null;
+  /** A review the picker started that doesn't show yet: the page covers the picker with the review's shape */
+  opening: boolean;
   status: LauncherStatus;
   /** git's version, or null when it wasn't found */
   git: string | null;
@@ -85,8 +93,8 @@ export interface StripApi {
   add(): void;
   /** ▾ on a review's tab */
   change(id: number): void;
-  /** The code themes, as the system's menu under the button at (x, y) */
-  themeMenu(x: number, y: number): void;
+  /** The code themes, as a menu under the button whose right and bottom edges are these; again closes it */
+  themeMenu(right: number, bottom: number): void;
   settings(): void;
   /** The strip's own colors: what a new tab shows before its page paints, and the window buttons Windows draws */
   chrome(color: string, symbolColor: string): void;
@@ -101,6 +109,8 @@ export interface LauncherApi {
   forgetRecent(root: string): void;
   /** Recount "this branch vs" against another base */
   setBase(base: string): void;
+  /** Read the repository again: the picker asks while it is in sight, so its counts follow a `git add` done elsewhere */
+  refresh(): void;
   open(choice: ReviewChoice): void;
   cancel(): void;
   dismiss(): void;
@@ -110,13 +120,33 @@ export interface LauncherApi {
   /** Look for git again */
   recheck(): void;
   settings(): void;
+  /** The design system's sandbox, in a tab of its own */
+  sandbox(): void;
   install(part: SetupPart): void;
   uninstall(part: SetupPart): void;
+}
+
+/** The strip's theme menu: a page of its own, in a view over the whole window while it is open. */
+export interface MenuState {
+  theme: ThemeSwatch;
+  themes: ThemeSwatch[];
+  /** Where the menu hangs, in the window: its right edge and its top. Null: closed. */
+  at: { right: number; top: number } | null;
+}
+
+export interface MenuApi {
+  state(): Promise<MenuState>;
+  onState(listener: (state: MenuState) => void): void;
+  /** One of the themes the menu was given, by name */
+  pick(name: string): void;
+  /** Esc, or a click outside */
+  close(): void;
 }
 
 export interface LensAppApi {
   strip: StripApi;
   launcher: LauncherApi;
+  menu: MenuApi;
 }
 
 /** The calls a page may make: the preload forwards these names and nothing else. */
@@ -126,6 +156,7 @@ export const LAUNCHER_CALLS = [
   'openRecent',
   'forgetRecent',
   'setBase',
+  'refresh',
   'open',
   'cancel',
   'dismiss',
@@ -133,9 +164,13 @@ export const LAUNCHER_CALLS = [
   'showRunning',
   'recheck',
   'settings',
+  'sandbox',
   'install',
   'uninstall',
 ] as const;
 
+export const MENU_CALLS = ['pick', 'close'] as const;
+
 export type StripCall = (typeof STRIP_CALLS)[number];
+export type MenuCall = (typeof MENU_CALLS)[number];
 export type LauncherCall = (typeof LAUNCHER_CALLS)[number];

@@ -6,9 +6,9 @@
 .code {
   --row-h: 1.75;
   min-width: max-content;
-  padding: 6px 0 var(--space-3);
+  padding: var(--space-1) 0 var(--space-3);
   color: var(--code-fg);
-  font: 12.5px / var(--row-h) var(--font-mono);
+  font: var(--text-code) / var(--row-h) var(--font-mono);
 }
 
 .row {
@@ -32,7 +32,7 @@
   flex: none;
   width: 3px;
   margin: 0 -0.8rem 0 -0.35rem;
-  border-radius: 2px;
+  border-radius: var(--radius-xs);
 }
 .mark.changed {
   background: var(--add);
@@ -46,7 +46,7 @@
   color: color-mix(in oklab, var(--code-fg) 72%, var(--del));
 }
 .row.removed:hover {
-  background: color-mix(in oklab, var(--del) 17%, transparent);
+  background: color-mix(in oklab, var(--del) var(--tint-strong), transparent);
 }
 .row.removed .num {
   color: var(--del);
@@ -58,16 +58,16 @@
 /* word diff: the words a replaced line changed, on both sides */
 .w-add {
   background: color-mix(in oklab, var(--add) 32%, transparent);
-  border-radius: 2px;
+  border-radius: var(--radius-xs);
 }
 .w-del {
   background: color-mix(in oklab, var(--del) 34%, transparent);
-  border-radius: 2px;
+  border-radius: var(--radius-xs);
 }
 
 /* hunks only: the hidden stretch, one click from showing */
 .row.gap {
-  margin: 4px 0;
+  margin: var(--space-1) 0;
   border-block: 1px dashed var(--line);
   background: color-mix(in oklab, var(--surface-2) 55%, transparent);
   color: var(--faint);
@@ -83,10 +83,11 @@
   font-family: var(--font-mono);
 }
 
-/* a fold: a pill that quotes what it hides */
+/* a fold: a pill that quotes what it hides. A control, not code: its text can't be selected */
 .pill-row {
   align-items: baseline;
   cursor: pointer;
+  user-select: none;
 }
 /* baseline alignment collapses the empty gutter mark: stretch it back */
 .pill-row .mark {
@@ -97,7 +98,7 @@
   display: inline-flex;
   align-items: baseline;
   gap: 0.7ch;
-  padding: 0 10px;
+  padding: 0 var(--space-3);
   border-radius: var(--radius-full);
   background: var(--surface-2);
   color: var(--muted);
@@ -112,7 +113,7 @@
 }
 .pill .cat {
   color: var(--cat);
-  font-size: 10px;
+  font-size: var(--text-2xs);
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -124,7 +125,7 @@
 /* category hues are picked for dark backgrounds: darken small text on light ones */
 :root[data-appearance='light'] .pill .cat,
 :root[data-appearance='light'] .pill .caret {
-  color: color-mix(in oklab, var(--cat) 62%, #333a45);
+  color: color-mix(in oklab, var(--cat) 62%, var(--text));
 }
 .region.open .pill .caret {
   transform: rotate(90deg);
@@ -154,7 +155,7 @@
 
 /* a jump lands: the line flashes, then stays marked (an accent bar and number) until the next jump */
 .row.landed {
-  background: color-mix(in oklab, var(--accent) 10%, transparent);
+  background: color-mix(in oklab, var(--accent) var(--tint), transparent);
   box-shadow: inset 3px 0 0 var(--accent);
 }
 .row.landed .num {
@@ -178,14 +179,14 @@
       inset 0 0 0 1px var(--selected-ring);
   }
   100% {
-    background: color-mix(in oklab, var(--accent) 10%, transparent);
+    background: color-mix(in oklab, var(--accent) var(--tint), transparent);
     box-shadow: inset 3px 0 0 var(--accent);
   }
 }
 
 /* the reader's selection, kept for the Ask rail */
 .row.ask-sel {
-  background: color-mix(in oklab, var(--question) 18%, transparent);
+  background: color-mix(in oklab, var(--question) var(--tint-strong), transparent);
 }
 .row.ask-sel .num {
   color: var(--question);

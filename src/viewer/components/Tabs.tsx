@@ -3,7 +3,8 @@ import clsx from 'clsx';
 import { useLens } from '../store.ts';
 import { baseName, hiddenStyle } from '../shared.ts';
 import { closeTab, openFile, pinTab } from '../actions/tabs.ts';
-import { StatusLetter } from '../ui/FileStatus.tsx';
+import { StatusLetter } from '../../ui/FileStatus.tsx';
+import { IconButton } from '../../ui/IconButton.tsx';
 import './Tabs.css';
 
 /** The Code view's editor tabs. */
@@ -42,16 +43,17 @@ export function Tabs() {
             {file.status && <StatusLetter status={file.status} />}
             <span className='tab-name'>{name}</span>
             {baseNameCounts.get(name)! > 1 && dir && <span className='tab-dir'>{dir}</span>}
-            <button
+            <IconButton
+              size='sm'
               className='tab-close'
-              aria-label='close'
+              label='close'
               onClick={(event) => {
                 event.stopPropagation();
                 closeTab(tab.index);
               }}
             >
               <X size={12} />
-            </button>
+            </IconButton>
           </div>
         );
       })}

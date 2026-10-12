@@ -4,14 +4,17 @@
 
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { GlobalRegistrator } from '@happy-dom/global-registrator';
 import { fireEvent } from '@testing-library/dom';
 import { bundlePage } from '../src/cli-app/render/web/bundle.ts';
 import {
   LAUNCHER_CALLS,
+  MENU_CALLS,
   STRIP_CALLS,
   type LauncherState,
+  type MenuState,
   type RepoInfo,
   type StripState,
   type ThemeSwatch,
@@ -19,12 +22,15 @@ import {
 import { themeAttributes } from '../src/desktop/shared/page.ts';
 
 const app = join(import.meta.dirname, '..', 'src', 'desktop');
+const ui = join(import.meta.dirname, '..', 'src', 'ui');
 let launcher = '';
 let strip = '';
+let menu = '';
 
 before(async () => {
   launcher = (await bundlePage(join(app, 'launcher', 'main.tsx'))).script;
   strip = (await bundlePage(join(app, 'shell', 'main.tsx'))).script;
+  menu = (await bundlePage(join(app, 'menu', 'main.tsx'))).script;
 });
 
 const VESPER: ThemeSwatch = { name: 'vesper', bg: '#101010', fg: '#ffffff', accent: '#ffc799' };
@@ -54,6 +60,8 @@ const START: LauncherState = {
   repoPath: null,
   current: null,
   running: null,
+  reopening: null,
+  opening: false,
   status: { kind: 'idle' },
   git: '2.47.1',
   version: '0.1.0',
@@ -86,8 +94,11 @@ async function settle() {
   for (let round = 0; round < 3; round++) await new Promise((resolve) => setTimeout(resolve, 0));
 }
 
+type Area = 'launcher' | 'strip' | 'menu';
+const CALLS: Record<Area, readonly string[]> = { launcher: LAUNCHER_CALLS, strip: STRIP_CALLS, menu: MENU_CALLS };
+
 /** Opens one of the app's pages on a state, with the preload's API in place of the real one. */
-async function open<State>(bundle: string, area: 'launcher' | 'strip', state: State): Promise<Page<State>> {
+async function open<State>(bundle: string, area: Area, state: State): Promise<Page<State>> {
   GlobalRegistrator.register({ url: 'lens-app://app/' + area + '.html', width: 1320, height: 840 });
   const calls: unknown[][] = [];
   let listener: (state: State) => void = () => {};
@@ -97,7 +108,7 @@ async function open<State>(bundle: string, area: 'launcher' | 'strip', state: St
       listener = heard;
     },
   };
-  for (const call of area === 'launcher' ? LAUNCHER_CALLS : STRIP_CALLS) {
+  for (const call of CALLS[area]) {
     api[call] = (...args: unknown[]) => void calls.push([call, ...args]);
   }
   (window as unknown as { lensApp: unknown }).lensApp = { [area]: api };
@@ -113,14 +124,9 @@ async function open<State>(bundle: string, area: 'launcher' | 'strip', state: St
   };
 }
 
-function pageTest<State>(
-  name: string,
-  area: 'launcher' | 'strip',
-  state: State,
-  run: (page: Page<State>) => Promise<void>,
-) {
+function pageTest<State>(name: string, area: Area, state: State, run: (page: Page<State>) => Promise<void>) {
   test(name, async () => {
-    const page = await open(area === 'launcher' ? launcher : strip, area, state);
+    const page = await open({ launcher, strip, menu }[area], area, state);
     try {
       await run(page);
     } finally {
@@ -273,6 +279,32 @@ pageTest(
   },
 );
 
+pageTest('the picker asks for its repository again when it comes back into sight', 'launcher', PICKER, async (page) => {
+  const asked = () => page.calls.filter(([call]) => call === 'refresh').length;
+  assert.equal(asked(), 0);
+  // the window gets the focus back (you staged something in a terminal): the loop runs what is due
+  window.dispatchEvent(new Event('focus'));
+  await settle();
+  assert.equal(asked(), 1);
+  // the counts are what the main process says now; the picked choice is the page's own
+  await click($('.choice[data-range="worktree"]'));
+  await page.push({ ...PICKER, repo: { ...REPO, changed: 3, staged: 0 } });
+  assert.equal($('.choice[data-range="worktree"] .choice-meta').textContent, '3 files');
+  assert.ok($('.choice[data-range="worktree"]').classList.contains('checked'));
+});
+
+pageTest('Start and Settings have nothing to ask again', 'launcher', START, async (page) => {
+  window.dispatchEvent(new Event('focus'));
+  await settle();
+  await page.push({ ...START, screen: 'settings' });
+  window.dispatchEvent(new Event('focus'));
+  await settle();
+  assert.deepEqual(
+    page.calls.filter(([call]) => call === 'refresh'),
+    [],
+  );
+});
+
 pageTest('the picker: a pull request by number, on the remote it names', 'launcher', PICKER, async (page) => {
   await click($('#picker-mode [data-value="pr"]'));
   assert.equal($$('.choice').length, 0);
@@ -334,6 +366,84 @@ pageTest(
   },
 );
 
+// ---- a reopened tab ----
+
+const WORKTREE = { kind: 'diff', range: 'worktree' } as const;
+const REOPENING: LauncherState = {
+  ...PICKER,
+  canGoBack: true,
+  current: WORKTREE,
+  reopening: { name: 'storefront', review: 'working tree' },
+  status: { kind: 'working', label: 'Opening working tree…', cancellable: true },
+};
+
+/** The loading screen: what it is called, and whether it is the review's shape with nothing to read or press */
+const reopening = () => {
+  const screen = $('#reopening');
+  const shaped = screen.querySelectorAll('.review-skeleton .skeleton').length > 20;
+  return [screen.getAttribute('aria-label'), screen.getAttribute('aria-busy'), shaped, $$('#reopening button').length];
+};
+
+pageTest(
+  'a reopened tab: a loading screen until its review shows, with nothing to pick from',
+  'launcher',
+  { ...START, reopening: { name: 'storefront', review: null } } as LauncherState,
+  async (page) => {
+    // its repository is still being read: not Start's button and recents
+    assert.deepEqual(reopening(), ['Reading storefront', 'true', true, 0]);
+    assert.equal(text('#reopening .brand'), 'lens.', 'what is known is real: only the rest is a placeholder');
+    assert.ok(!$('#reopening').classList.contains('reopening-over'), 'the whole screen, at once');
+    assert.deepEqual($$('#open-repository, .recent, #picker-back, #open-review'), []);
+
+    // read: its review starts, and the picker stays out of sight
+    await page.push(REOPENING);
+    assert.deepEqual(reopening(), ['Reopening storefront, working tree', 'true', true, 0]);
+    assert.deepEqual($$('#picker-back, #open-review, .picker-header'), []);
+    assert.deepEqual(status(), ['Opening working tree…']);
+    await click($('#status-action'));
+    assert.deepEqual(page.calls.at(-1), ['cancel']);
+
+    // it couldn't start: the picker, on the review it showed, with the reason
+    await page.push({
+      ...REOPENING,
+      reopening: null,
+      status: { kind: 'failed', label: "Couldn't open the review", detail: 'nothing changed' },
+    });
+    assert.deepEqual($$('#reopening'), []);
+    assert.ok($('#picker-back'));
+    assert.deepEqual(status(), ["Couldn't open the review", 'nothing changed']);
+  },
+);
+
+pageTest(
+  'a review the picker started: its shape covers the picker, which keeps its pick underneath',
+  'launcher',
+  PICKER,
+  async (page) => {
+    await click($$('.choice')[1]);
+    const picked = choices();
+    const opening: LauncherState = {
+      ...PICKER,
+      opening: true,
+      status: { kind: 'working', label: 'Opening staged changes…', cancellable: true },
+    };
+    await page.push(opening);
+    assert.deepEqual(reopening(), ['Opening the review', 'true', true, 0]);
+    assert.ok($('#reopening').classList.contains('reopening-over'), 'over the picker, once the wait is worth showing');
+    assert.ok($('#open-review'), 'the picker is still there');
+    assert.deepEqual(status(), ['Opening staged changes…']);
+
+    // it couldn't start: the picker as it was left, with the reason
+    await page.push({
+      ...PICKER,
+      status: { kind: 'failed', label: "Couldn't open the review", detail: 'nothing is staged' },
+    });
+    assert.deepEqual($$('#reopening'), []);
+    assert.deepEqual(choices(), picked, 'the pick is intact');
+    assert.deepEqual(status(), ["Couldn't open the review", 'nothing is staged']);
+  },
+);
+
 // ---- Settings ----
 
 const SETTINGS: LauncherState = {
@@ -380,6 +490,82 @@ pageTest(
     await page.push({ ...SETTINGS, git: null });
     await click($('#setup-git button'));
     assert.deepEqual(page.calls.at(-1), ['recheck']);
+
+    await click($('#setup-sandbox button'));
+    assert.deepEqual(page.calls.at(-1), ['sandbox'], 'the way to the sandbox');
+  },
+);
+
+// ---- the sandbox ----
+
+// The design system's sandbox (ui/sandbox), on the screen Settings opens. It must show every
+// primitive of src/ui, so a primitive added without a place there fails.
+
+test('the sandbox imports every primitive of ui/', () => {
+  const source = readFileSync(join(ui, 'sandbox', 'Sandbox.tsx'), 'utf8');
+  const primitives = readdirSync(ui).filter((name) => /^[A-Z].*\.tsx$/.test(name));
+  // Tip is shown through the buttons that carry it
+  const missing = primitives.filter((name) => name !== 'Tip.tsx' && !source.includes(`'../${name}'`));
+  assert.deepEqual(missing, []);
+});
+
+const SANDBOX: LauncherState = { ...START, screen: 'sandbox' };
+
+pageTest(
+  'the sandbox: each primitive renders, with the states the design system names',
+  'launcher',
+  SANDBOX,
+  async (page) => {
+    const count = (selector: string) => $$(selector).length;
+    assert.equal(text('.sandbox h1'), 'Sandbox');
+    assert.equal(count('.settings, .start'), 0, 'the screen is its own');
+    assert.equal(count('#g-button .btn'), 7);
+    assert.equal(count('#g-button .btn-primary'), 1);
+    assert.equal(count('#g-button .btn .tip.tip-start kbd'), 1, 'a button with a key teaches it');
+    assert.equal(count('#g-icon-button .icon-btn'), 4);
+    assert.equal(count('#g-icon-button .icon-btn-sm'), 1);
+    assert.equal(count('#g-icon-button .icon-btn[aria-pressed="true"]'), 1);
+    assert.equal(count('#g-segmented .seg'), 2);
+    assert.equal(count('#g-segmented .seg-lg [aria-checked="true"]'), 1);
+    assert.equal(count('#g-stepper .stepper'), 2);
+    assert.equal(count('#g-stepper .stepper .icon-btn-sm:disabled'), 1, 'a stepper at its end can only go back');
+    assert.equal(count('#g-chip .chip'), 3);
+    assert.equal(count('#g-chip .chip .dot'), 2, 'a chip without a color has no dot');
+    assert.equal(count('#g-field .field'), 3);
+    assert.equal(count('#g-field .field-md .icon-btn-sm'), 1, 'a field with text offers to clear it');
+    assert.equal(count('#g-menu [role="menu"]:not(.theme-menu) [role="menuitem"]'), 2);
+    assert.equal(count('#g-menu .theme-trigger .swatch'), 1, 'the theme menu shows the theme on its button');
+    assert.equal(count('#g-menu .theme-menu [role="menuitem"] .swatch'), 2);
+    assert.equal(count('#g-menu .theme-menu .theme-check'), 1, 'the theme the menu is given is checked');
+    assert.equal(count('#g-status .status-letter'), 5);
+    assert.equal(count('#g-status .status-badge'), 5);
+    assert.equal(count('#g-kbd .kbd-combo'), 3);
+    assert.equal(count('#g-kbd .copy-cmd'), 1);
+    assert.equal(count('#g-kbd .progress'), 1);
+    assert.equal(count('#g-skeleton .skeleton'), 8);
+    assert.equal(count('#g-skeleton .skeleton-round'), 2);
+    assert.equal(count('#g-skeleton .skeleton[aria-hidden="true"]'), 8, 'a placeholder says nothing to a reader');
+    assert.equal(count('#g-review-skeleton .review-skeleton .header .brand'), 1, 'the name is real');
+    assert.equal(count('#g-review-skeleton .review-skeleton-row'), 48);
+    assert.equal(count('#g-bars .header .brand'), 1);
+    assert.equal(count('#g-bars .header .swatch'), 2);
+    assert.equal(count('#g-bars .status-bar .status-failed #status-action'), 0, 'the action sits beside the status');
+    assert.equal(count('#g-bars .status-bar #status-action'), 1);
+    assert.equal(count('#g-bars .status-notices > *'), 3);
+    assert.equal(count('#g-bars .status-notices .notice-dot'), 2, 'a plain fact has no dot');
+
+    // a field's clear button empties it and goes
+    const field = $('#g-field .field-md');
+    await click(field.querySelector('.icon-btn-sm')!);
+    assert.equal(field.querySelector('input')!.value, '');
+    assert.equal(field.querySelector('.icon-btn-sm'), null);
+
+    // its theme is the app's: the strip's button switches it, as on every page
+    assert.equal(document.documentElement.dataset.appearance, 'dark');
+    await page.push({ ...SANDBOX, theme: LIGHT });
+    assert.equal(document.documentElement.dataset.appearance, 'light');
+    assert.equal(document.documentElement.style.getPropertyValue('--code-bg'), LIGHT.bg);
+    assert.deepEqual(page.calls, [], 'nothing here asks the main process for anything');
   },
 );
 
@@ -429,7 +615,10 @@ pageTest(
     await click($('#settings-btn'));
     await click($('#theme-btn'));
     assert.deepEqual(page.calls.slice(0, 5), [['select', 2], ['change', 1], ['close', 2], ['add'], ['settings']]);
-    assert.equal(page.calls[5][0], 'themeMenu', "the themes open as the system's menu, under the button");
+    assert.equal(page.calls[5][0], 'themeMenu', 'the themes open in a menu the main process shows, under the button');
+    assert.equal($('#theme-btn').className, 'icon-btn theme-trigger', "the viewer's own theme button");
+    assert.equal($$('#theme-btn .swatch').length, 1);
+    assert.deepEqual($$('[role=menu]'), [], 'its menu is not in this page: it would open under the tab');
 
     // more tabs than fit scroll sideways: the one that comes to the front is brought into sight
     const sighted: (string | undefined)[] = [];
@@ -441,5 +630,38 @@ pageTest(
     assert.deepEqual(sighted, ['2']);
     assert.equal(document.documentElement.dataset.appearance, 'light');
     assert.ok(document.documentElement.hasAttribute('data-fullscreen'));
+  },
+);
+
+// ---- the strip's theme menu ----
+
+const MENU: MenuState = { theme: VESPER, themes: [VESPER, LIGHT], at: null };
+
+pageTest(
+  "the theme menu: the viewer's list where the strip's button is, a pick by name, and gone when closed",
+  'menu',
+  MENU,
+  async (page) => {
+    assert.deepEqual($$('[role=menu]'), [], 'closed: the page is a clear sheet');
+
+    await page.push({ ...MENU, at: { right: 1100, top: 46 } });
+    assert.equal($('#theme-menu').className, 'menu theme-menu');
+    assert.deepEqual([$('#theme-menu').style.top, $('#theme-menu').style.right], ['46px', '220px']);
+    assert.deepEqual(
+      $$('#theme-menu [role=menuitem]').map(
+        (item) => item.textContent + (item.querySelector('.theme-check') ? ' ✓' : ''),
+      ),
+      ['vesper ✓', 'github-light'],
+    );
+    assert.equal(document.documentElement.style.getPropertyValue('--theme-accent'), VESPER.accent);
+
+    await click($('#theme-vesper'));
+    assert.deepEqual(page.calls, [], 'the theme it is in is not a pick');
+    await click($('#theme-github-light'));
+    assert.deepEqual(page.calls.at(-1), ['pick', 'github-light']);
+
+    await page.push({ ...MENU, theme: LIGHT, at: null });
+    assert.deepEqual($$('[role=menu]'), []);
+    assert.equal(document.documentElement.dataset.appearance, 'light');
   },
 );

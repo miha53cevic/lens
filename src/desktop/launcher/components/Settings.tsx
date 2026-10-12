@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
-import { Check, GitBranch, MessageSquare, Terminal } from 'lucide-react';
+import { Check, GitBranch, MessageSquare, Shapes, Terminal } from 'lucide-react';
 import type { SetupItem, SetupPart } from '../../shared/api.ts';
-import { Button } from '../../../viewer/ui/Button.tsx';
+import { Button } from '../../../ui/Button.tsx';
 import { useApp } from '../store.ts';
 import './Settings.css';
 
@@ -51,7 +51,7 @@ function SetupRow({ part, icon, name, what, item, busy }: SetupRowProps) {
   );
 }
 
-/** Settings, in a tab of its own. For now: what your agent needs to work with lens. */
+/** Settings, in a tab of its own: what your agent needs to work with lens, and the way to the sandbox. */
 export function Settings() {
   const setup = useApp((state) => state.setup);
   const git = useApp((state) => state.git);
@@ -116,6 +116,23 @@ export function Settings() {
           Uninstall removes only what the app installed. A <code>lens</code> command or a skill folder that came from
           somewhere else, such as a checkout's <code>npm run install-cli</code>, is never touched.
         </p>
+        <h2 className='section-title'>Design system</h2>
+        <ul className='setup'>
+          <li className='setup-item' id='setup-sandbox'>
+            <Shapes size={16} />
+            <span className='setup-text'>
+              <span className='setup-name'>Sandbox</span>
+              <span className='setup-sub'>
+                Every control lens is built from, in each of its states. It follows the code theme.
+              </span>
+            </span>
+            <span className='setup-actions'>
+              <Button size='sm' onClick={() => window.lensApp.launcher.sandbox()}>
+                Open
+              </Button>
+            </span>
+          </li>
+        </ul>
       </div>
     </main>
   );

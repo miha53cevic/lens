@@ -22,7 +22,7 @@
 }
 /* the icon, on the name's line */
 .setup-item > svg {
-  margin-top: 1px;
+  margin-top: 0;
   color: var(--muted);
 }
 .setup-text {
@@ -60,7 +60,7 @@
 .setup-ok {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--space-1);
   color: var(--add);
   font-size: var(--text-sm);
   white-space: nowrap;

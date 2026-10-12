@@ -565,3 +565,28 @@ test("prepare → submit → view round trip, with re-prepare skipping done unit
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("an untracked file of a working-tree diff gets units like any added file", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "lens-summary-"));
+  const git = (...args: string[]) => execFileSync("git", args, { cwd: dir, encoding: "utf8" });
+  try {
+    git("init", "-q");
+    git("config", "user.email", "t@t");
+    git("config", "user.name", "t");
+    mkdirSync(join(dir, "src"));
+    writeFileSync(join(dir, "src/repo.ts"), OLD_REPO);
+    git("add", "-A");
+    git("commit", "-qm", "init");
+    // never `git add`ed: git diff alone would not list it
+    writeFileSync(join(dir, "src/fresh.ts"), "export function fresh(): number {\n  return 1;\n}\n\nexport function other(): number {\n  return 2;\n}\n");
+
+    const diff = await loadDiff("diff", [], dir, DEFAULT_CONFIG);
+    assert.deepEqual(diff.targets.map((t) => [t.status, t.changedLines.length]), [["added", 7]]);
+    // collectUnits checks the coverage itself: every line of the file is in exactly one unit
+    const units = await collectUnits(diff, DEFAULT_CONFIG, dir);
+    assert.deepEqual(units.map((u) => u.id).sort(), ["src/fresh.ts#fresh", "src/fresh.ts#other"]);
+    assert.ok(units.every((u) => u.status === "new"));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
