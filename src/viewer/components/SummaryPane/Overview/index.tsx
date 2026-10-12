@@ -7,6 +7,7 @@ import { listModel } from '../../../model/summaryList.ts';
 import { setSignalFilter } from '../../../actions/summary.ts';
 import { plural } from '../../../shared.ts';
 import { AgentOverview } from './AgentOverview.tsx';
+import { RealConcerns } from './RealConcerns.tsx';
 
 const SHOWN_SIGNALS: SignalId[] = ['bug', 'risk', 'question', 'breaks'];
 
@@ -45,6 +46,7 @@ export function Overview() {
           ))}
         </div>
       )}
+      <RealConcerns />
       <AgentOverview summary={summary} anySummarized={list.summarized > 0} checking={checking} />
     </div>
   );

@@ -90,6 +90,7 @@ export async function analyze(
     deleted: diff ? diff.deleted.map(shown) : [],
     excluded: diff ? diff.excluded : [],
     renamed: diff ? diff.renamed.map((r) => ({ from: shown(r.from), to: shown(r.to) })) : [],
+    binary: diff ? diff.binary.map((b) => ({ file: shown(b.file), status: b.status })) : [],
     config,
     configSource: findConfigPath(cwd),
     label: diff ? diff.label : null,

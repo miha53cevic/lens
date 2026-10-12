@@ -103,6 +103,35 @@
   text-decoration-color: var(--sig);
   text-underline-offset: 4px;
 }
+/* the concerns marked real, to hand to the agent */
+.ov-real {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+.ov-real-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+}
+.ov-real-count {
+  min-width: 0;
+  color: var(--muted);
+}
+.ov-real-count b {
+  color: var(--text);
+}
+.ov-real-text {
+  margin: var(--space-3) 0 0;
+  color: var(--muted);
+  font: var(--text-sm) / 1.6 var(--font-mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
 .ov-what-label {
   margin-bottom: var(--space-1);
   color: var(--accent);

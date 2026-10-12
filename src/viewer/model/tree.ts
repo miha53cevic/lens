@@ -12,9 +12,11 @@ export type TreeStatus = 'added' | 'modified' | 'deleted' | 'excluded' | 'rename
 export interface TreeFile {
   path: string;
   name: string;
-  /** null: listed, but the viewer can't open it (deleted, excluded, renamed) */
+  /** null: listed, but the viewer can't open it (deleted, excluded, renamed, binary) */
   index: number | null;
   status: TreeStatus | null;
+  /** A binary file: it has its status, and no text to show */
+  binary?: boolean;
   renamedFrom?: string;
 }
 
@@ -41,11 +43,13 @@ const buildTree = memo(
     const visible = (path: string) => !(hideTests && isTestFile(path));
     const shown = (path: string) => visible(path) && (filter === '' || path.toLowerCase().includes(filter));
     const renamed = data.renamed || [];
+    const binary = data.binary || [];
     const paths = [
       ...data.files.map((file) => file.file),
       ...(data.deleted || []),
       ...(data.excluded || []),
       ...renamed.map((rename) => rename.to),
+      ...binary.map((file) => file.file),
     ];
 
     const entries: Omit<TreeFile, 'name'>[] = data.files
@@ -55,6 +59,10 @@ const buildTree = memo(
     for (const path of (data.excluded || []).filter(shown)) entries.push({ path, index: null, status: 'excluded' });
     for (const rename of renamed.filter((candidate) => shown(candidate.to))) {
       entries.push({ path: rename.to, index: null, status: 'renamed', renamedFrom: rename.from });
+    }
+
+    for (const file of binary.filter((candidate) => shown(candidate.file))) {
+      entries.push({ path: file.file, index: null, status: file.status, binary: true });
     }
 
     const root: TreeDir = { name: '', dirs: new Map(), files: [] };

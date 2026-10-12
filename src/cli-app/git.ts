@@ -20,6 +20,13 @@ export interface DiffTarget {
   oldBlob?: string;
 }
 
+/** A changed file git calls binary: listed in the review, with nothing to show. */
+export interface BinaryFile {
+  /** Absolute path: the new side's, or the old one's for a deletion */
+  file: string;
+  status: DiffStatus | "deleted";
+}
+
 export interface RenamedFile {
   from: string;
   to: string;
@@ -33,6 +40,8 @@ export interface DiffResult {
   renamed: RenamedFile[];
   /** Old-side blob SHAs of deleted files, keyed by absolute path */
   deletedBlobs: Map<string, string>;
+  /** Changed binary files: their diffs carry no hunks, so they are in none of the lists above */
+  binary: BinaryFile[];
 }
 
 export interface ParsedDiffFile {
@@ -151,6 +160,27 @@ export function parseRawEntries(output: string): RawEntry[] {
     if (path) entries.push({ path, oldSha: blob(srcSha, srcMode), newSha: blob(dstSha, dstMode), status });
   }
   return entries;
+}
+
+/**
+ * The paths `git diff --numstat -z` counts no lines for ("-\t-\t<path>"): the files git calls
+ * binary. New-side paths, as parseRawEntries gives them.
+ */
+export function parseBinaryPaths(output: string): string[] {
+  const paths: string[] = [];
+  const tokens = output.split("\0");
+  for (let i = 0; i < tokens.length; i++) {
+    const match = /^(-|\d+)\t(-|\d+)\t([\s\S]*)$/.exec(tokens[i]);
+    if (!match) continue;
+    let path = match[3];
+    // a rename or copy has no path of its own: the old and the new one follow
+    if (path === "") {
+      path = tokens[i + 2] ?? "";
+      i += 2;
+    }
+    if (match[1] === "-" && match[2] === "-" && path) paths.push(path);
+  }
+  return paths;
 }
 
 export function runGit(args: string[], cwd: string): string {
@@ -290,14 +320,20 @@ function isBinaryFile(file: string): boolean {
  * `git diff` lists tracked files only, so a file that was created and not yet `git add`ed would be
  * in no review. Nothing is written: no `git add -N`, the index stays as it is.
  */
-function untrackedTargets(gitArgs: string[], cwd: string, root: string): DiffTarget[] {
+function untrackedTargets(gitArgs: string[], cwd: string, root: string): { targets: DiffTarget[]; binary: BinaryFile[] } {
   const pathspecs = worktreePathspecs(gitArgs, cwd);
-  if (pathspecs === null) return [];
   const targets: DiffTarget[] = [];
+  const binary: BinaryFile[] = [];
+  if (pathspecs === null) return { targets, binary };
   for (const path of untrackedFiles(root, cwd, pathspecs)) {
     const file = toPosix(join(root, path));
-    // a link, or a folder that is its own repository, has no text of its own; a binary has none to show
-    if (!lstatSync(file, { throwIfNoEntry: false })?.isFile() || isBinaryFile(file)) continue;
+    // a link, or a folder that is its own repository, has no text of its own
+    if (!lstatSync(file, { throwIfNoEntry: false })?.isFile()) continue;
+    // a binary has none to show: it is listed, not read
+    if (isBinaryFile(file)) {
+      binary.push({ file, status: "added" });
+      continue;
+    }
     const text = readFileSync(file, "utf8");
     const lineCount = text === "" ? 0 : text.split("\n").length - (text.endsWith("\n") ? 1 : 0);
     // an empty file has no line to show, as git's diff of one has no hunk
@@ -309,7 +345,7 @@ function untrackedTargets(gitArgs: string[], cwd: string, root: string): DiffTar
       removals: [],
     });
   }
-  return targets;
+  return { targets, binary };
 }
 
 /**
@@ -328,6 +364,8 @@ export function gitDiffTargets(gitArgs: string[], cwd: string): DiffResult {
   // read content from git instead of the working tree — which may hold the
   // OLD side, or not hold added files at all.
   const raw = runGit(["diff", "--raw", "-z", "--no-abbrev", "--no-color", "--no-relative", ...gitArgs], cwd);
+  // Third pass for the binary files: their diffs carry no hunks, so the first pass has none of them.
+  const numstat = runGit(["-c", "core.quotePath=false", "diff", "--numstat", "-z", "--no-color", "--no-relative", ...gitArgs], cwd);
   const parsed = parseDiff(output);
   const rawEntries = parseRawEntries(raw);
   const newBlobs = new Map<string, string>();
@@ -337,8 +375,14 @@ export function gitDiffTargets(gitArgs: string[], cwd: string): DiffResult {
     if (e.oldSha) oldBlobs.set(e.path, e.oldSha);
   }
   const abs = (p: string) => toPosix(isAbsolute(p) ? p : join(root, p));
+  const untracked = untrackedTargets(gitArgs, cwd, root);
+  const rawStatus = new Map(rawEntries.map((entry) => [entry.path, entry.status]));
+  const binaryStatus = (path: string): BinaryFile["status"] => {
+    const status = rawStatus.get(path) ?? "M";
+    return status.startsWith("A") ? "added" : status.startsWith("D") ? "deleted" : "modified";
+  };
   // Unsupported file types are kept — the viewer shows their changes without
-  // folding. Binary files never reach here: their diffs carry no hunks.
+  // folding. Binary files are listed apart: there is no text of theirs to show.
   return {
     targets: [...parsed.files
       .map((f) => ({
@@ -353,7 +397,11 @@ export function gitDiffTargets(gitArgs: string[], cwd: string): DiffResult {
       // too has nothing to show (e.g. deleted since the diff was staged), and
       // a submodule is a directory there.
       .filter((t) => t.newBlob !== undefined || (existsSync(t.file) && statSync(t.file).isFile())),
-      ...untrackedTargets(gitArgs, cwd, root)],
+      ...untracked.targets],
+    binary: [
+      ...parseBinaryPaths(numstat).map((path) => ({ file: abs(path), status: binaryStatus(path) })),
+      ...untracked.binary,
+    ],
     deleted: parsed.deleted.map(abs),
     renamed: parsed.renamed.map((r) => ({ from: abs(r.from), to: abs(r.to) })),
     deletedBlobs: new Map(parsed.deleted

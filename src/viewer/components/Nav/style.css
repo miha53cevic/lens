@@ -78,8 +78,15 @@ nav .file.deleted .fname {
   text-decoration: line-through;
   text-decoration-color: var(--del);
 }
-nav .file.excluded {
+nav .file.excluded,
+nav .file.binary {
   opacity: 0.6;
+}
+/* what a row is, after its name: a binary file */
+nav .file .kind {
+  margin-left: var(--space-2);
+  color: var(--faint);
+  font: var(--text-xs) var(--font-sans);
 }
 nav .file.excluded .fname {
   font-style: italic;
@@ -88,7 +95,8 @@ nav .file:disabled {
   opacity: 1;
   cursor: default;
 }
-nav .file.excluded:disabled {
+nav .file.excluded:disabled,
+nav .file.binary:disabled {
   opacity: 0.6;
 }
 

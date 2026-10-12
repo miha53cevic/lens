@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { gitDiffTargets, gitRoot, readBlobs, runGit, type DiffTarget, type RenamedFile } from "../git.ts";
+import { gitDiffTargets, gitRoot, readBlobs, runGit, type BinaryFile, type DiffTarget, type RenamedFile } from "../git.ts";
 import { resolvePr } from "../pr.ts";
 import { compilePatterns, matchesAny } from "../glob.ts";
 import { relPath } from "../paths.ts";
@@ -23,6 +23,8 @@ export interface LoadedDiff {
   /** Absolute path → old blob SHA, for deleted files */
   deletedBlobs: Map<string, string>;
   renamed: RenamedFile[];
+  /** Changed binary files (absolute paths), the excluded ones already dropped: listed, never read */
+  binary: BinaryFile[];
 }
 
 /**
@@ -47,6 +49,11 @@ export async function loadDiff(command: "diff" | "pr", args: string[], cwd: stri
     if (matchesAny(display, excludeRegexes)) { excluded.push(display); return false; }
     return true;
   });
+  const binary = result.binary.filter((b) => {
+    const display = relPath(cwd, b.file);
+    if (matchesAny(display, excludeRegexes)) { excluded.push(display); return false; }
+    return true;
+  });
   // New-side content: from git for ref diffs, from disk for the working tree.
   const newBlobs = readBlobs(targets.flatMap((t) => (t.newBlob !== undefined ? [t.newBlob] : [])), cwd);
   return {
@@ -56,6 +63,7 @@ export async function loadDiff(command: "diff" | "pr", args: string[], cwd: stri
     deleted: result.deleted,
     deletedBlobs: result.deletedBlobs,
     renamed: result.renamed,
+    binary,
   };
 }
 

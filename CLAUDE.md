@@ -40,6 +40,7 @@ src/desktop/      the desktop app: an Electron shell that runs the command and s
 ```
 cli.ts            arg parsing → analyze() → serveViewer(), or runSummary() / runAsk() / runInfo()
 info.ts           `lens info`: what could be reviewed in a repository (the desktop app's picker reads it)
+port.ts           the viewer's port without --port: the repository's own, from its path
 analyze.ts        paths | diff | pr → ViewerInput; re-run on ↻ refresh
 git.ts, pr.ts     git diff parsing, PR refs via plain git fetch (no GitHub API)
 config.ts         lens.defaults.json merged with the nearest .lens.json
@@ -64,7 +65,7 @@ ask/              ask mode: the viewer's Ask rail and `lens ask listen|reply` (s
 
 - The viewer is a React app in `src/viewer/`, written in strict TypeScript (`main.tsx` is the entry). `bundle.ts` (in `render/web/`, with `server.ts` and `viewer.html`) bundles it with esbuild when the server starts, so there's still no build step: one script, plus one stylesheet collected from the `.css` files the code imports. `server.ts` inlines both into `viewer.html` (a `#root` element and nothing else), and puts the payload in the `lens-data` JSON script, which `src/viewer/shared.ts` reads as `INITIAL_DATA`.
 - Shared state lives in `src/viewer/store.ts`: one immutable `LensState`, replaced on every change. Components read it with `useLens(selector)`.
-  - `model/` derives what the components show, as pure functions: `tree.ts`, `plans.ts` (folds, row plans and the fold chips' categories), `signals.ts`, `summaryList.ts`, `progress.ts` (files viewed, changes reviewed, what's next) and `askContext.ts`.
+  - `model/` derives what the components show, as pure functions: `tree.ts`, `plans.ts` (folds, row plans and the fold chips' categories), `signals.ts`, `realConcerns.ts` (the concerns marked real, as text for the agent), `summaryList.ts`, `progress.ts` (files viewed, changes reviewed, what's next) and `askContext.ts`.
   - `actions/` changes the state, one file per area: `tabs`, `folds`, `views` (including `jumpToLine`), `summary`, `dialogs` (including search), `session`, `prefs` (the sidebar, the view settings and the viewed marks), `review` (the review pill) and `status` (what the status bar reports).
   - `ask/` is the Ask rail's logic: `rail.ts`, `selection.ts` and `answers.ts`.
   - Use `commit()` instead of `update()` when the DOM must show the new state before you touch it, e.g. scrolling to a row.

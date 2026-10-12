@@ -40,6 +40,8 @@ export interface ViewerInput {
   excluded: string[];
   /** Pure renames — listed, nothing to analyze */
   renamed: { from: string; to: string }[];
+  /** Changed binary files (an image, a font) — listed with their status, nothing of theirs to show */
+  binary: { file: string; status: "added" | "modified" | "deleted" }[];
   /** The effective merged config, shown in the viewer's settings modal */
   config: LensConfig;
   configSource: string | null;

@@ -1,10 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, utimesSync, writeFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync, utimesSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { changeFingerprint, parseDiff, parseRawEntries, gitDiffTargets, readBlobs, worktreePathspecs } from "../src/cli-app/git.ts";
+import { toPosix } from "../src/cli-app/paths.ts";
+import { changeFingerprint, parseBinaryPaths, parseDiff, parseRawEntries, gitDiffTargets, readBlobs, worktreePathspecs } from "../src/cli-app/git.ts";
 
 const SAMPLE = `diff --git a/src/api.ts b/src/api.ts
 index 111..222 100644
@@ -260,12 +261,57 @@ test("gitDiffTargets keeps unsupported text files and skips binaries", () => {
 
     const result = gitDiffTargets(["--staged"], dir);
     const names = result.targets.map((t) => t.file.split("/").pop()).sort();
-    assert.deepEqual(names, ["README.md", "code.ts"], "md kept, binary skipped");
+    assert.deepEqual(names, ["README.md", "code.ts"], "md kept, the binary has no text to show");
+    assert.deepEqual(result.binary, [{ file: toPosix(join(realpathSync.native(dir), "logo.bin")), status: "modified" }]);
     const readme = result.targets.find((t) => t.file.endsWith("README.md"));
     assert.ok(readme);
     assert.equal(readme.status, "modified");
     assert.ok(readme.changedLines.length > 0);
   });
+});
+
+test("gitDiffTargets: binary files are listed with how they changed, never as text", () => {
+  withRepo((dir, git) => {
+    const bytes = (...values: number[]) => Buffer.from([0, ...values, 0, 255]);
+    mkdirSync(join(dir, "img"));
+    writeFileSync(join(dir, "a.ts"), "export const a = 1;\n");
+    writeFileSync(join(dir, "img", "logo.png"), bytes(1));
+    writeFileSync(join(dir, "img", "old.png"), bytes(2));
+    writeFileSync(join(dir, "img", "moved.png"), Buffer.concat([bytes(3), Buffer.alloc(4000, 7)]));
+    writeFileSync(join(dir, "empty.txt"), "");
+    git("add", "-A");
+    git("commit", "-qm", "base");
+
+    writeFileSync(join(dir, "a.ts"), "export const a = 2;\n");
+    writeFileSync(join(dir, "img", "logo.png"), bytes(9));
+    rmSync(join(dir, "img", "old.png"));
+    writeFileSync(join(dir, "img", "new.png"), bytes(4));
+    git("mv", "img/moved.png", "img/renamed.png");
+    writeFileSync(join(dir, "img", "renamed.png"), Buffer.concat([bytes(3), Buffer.alloc(4000, 7), bytes(5)]));
+    git("add", "-A");
+    writeFileSync(join(dir, "img", "untracked.png"), bytes(6));
+    writeFileSync(join(dir, "also-empty.txt"), "");
+
+    const listed = (args: string[]) =>
+      gitDiffTargets(args, dir).binary.map((file) => `${file.status} ${file.file.split("/").slice(-2).join("/")}`).sort();
+    assert.deepEqual(listed(["--staged", "-M"]), [
+      "added img/new.png",
+      "deleted img/old.png",
+      "modified img/logo.png",
+      "modified img/renamed.png",
+    ], "a renamed binary that changed too is listed where it is now");
+    assert.deepEqual(listed(["HEAD"]).filter((row) => row.includes("untracked")), ["added img/untracked.png"],
+      "an untracked binary comes along, as untracked text does");
+    const all = gitDiffTargets(["HEAD"], dir);
+    assert.deepEqual(all.targets.map((t) => t.file.split("/").pop()), ["a.ts"], "no binary among the files to read");
+    assert.ok(!all.binary.some((file) => file.file.endsWith(".txt")), "an empty file has no hunk either, and is no binary");
+  });
+});
+
+test("parseBinaryPaths: only the files numstat counts no lines for, a rename by its new path", () => {
+  const numstat = ["3\t1\ta.ts", "-\t-\timg/logo.png", "-\t-\t", "img/old name.png", "img/new name.png", "0\t0\t", "x.ts", "y.ts", ""].join("\0");
+  assert.deepEqual(parseBinaryPaths(numstat), ["img/logo.png", "img/new name.png"]);
+  assert.deepEqual(parseBinaryPaths(""), []);
 });
 
 test("gitDiffTargets: non-ASCII paths and diff.noprefix / mnemonicPrefix configs parse the same", () => {

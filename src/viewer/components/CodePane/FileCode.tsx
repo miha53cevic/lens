@@ -51,7 +51,7 @@ export function FileCode() {
         {fileCount > 0
           ? 'No file open: pick one from the tree.'
           : listedOnly > 0
-            ? 'Nothing to analyze: this diff only renamed, deleted or excluded files (see the tree).'
+            ? 'Nothing to analyze: this diff only renamed, deleted or excluded files, or changed binary ones (see the tree).'
             : 'No supported files found.'}
       </div>
     );

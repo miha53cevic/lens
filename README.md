@@ -80,7 +80,7 @@ the review for you, and installs the command and the skills from its Settings.
 
 | flag | meaning |
 | --- | --- |
-| `--port <n>` | the viewer's port (default 5326) |
+| `--port <n>` | the viewer's port (default: the repository's own, see below) |
 | `--no-open` | don't open the browser |
 | `--summary` | open on the Summary tab |
 | `--threshold <n>` | fold regions with a score up to `n` |
@@ -98,13 +98,21 @@ the review for you, and installs the command and the skills from its Settings.
 Directory walks skip `node_modules`, `dist`, `build`, `out`, `coverage`, dotfolders and
 `exclude` matches. A file passed explicitly is always analyzed.
 
+### Ports
+
+Without `--port`, each repository gets its own port, from 5400 up, worked out from its path. So
+two reviews in two repositories run side by side, and a repository opens on the same port every
+time: the viewed marks and verdicts your browser keeps for it are there again. When another
+program holds the port, lens takes the next free one. A second `lens` in a repository whose viewer
+is already running stops and names that viewer's address.
+
 ### New files
 
 `git diff` lists tracked files only. lens adds the untracked ones itself, as added files, whenever
 the diff's new side is the working tree: `lens diff`, `lens diff HEAD`, `lens diff main`, each with
 or without paths. So a file your agent just created is in the review without a `git add`, as it is
-in VS Code's Source Control list. Ignored files stay out (`.gitignore`), and so do binary and empty
-ones. `--staged`, `A..B`, `A...B` and PRs don't read the working tree, so they add none. lens only
+in VS Code's Source Control list. Ignored files stay out (`.gitignore`), and so do empty ones; a
+binary one is listed, as [any changed binary](#reading-a-diff) is. `--staged`, `A..B`, `A...B` and PRs don't read the working tree, so they add none. lens only
 reads: your index is never touched.
 
 ### Pull requests
@@ -274,7 +282,8 @@ get change markers and syntax colors, just no folding.
 Each file shows its status as a colored letter in the tree and on its tab: `A` added,
 `M` modified, `D` deleted, `R` renamed (pure renames show as `R` rows), `⊘` excluded.
 Lockfiles and minified files (`exclude`) are listed as dimmed `⊘` rows without being
-read. The code card's header spells the status out, next to the file's path, the lines
+read. A changed binary file (an image, a font) is listed too, dimmed, with its status and
+*binary* after its name: there is nothing of it to show, but you see that it changed. The code card's header spells the status out, next to the file's path, the lines
 it added and removed, and its fold chips. The Summary tab shows a change's code in the
 same card.
 
@@ -404,6 +413,12 @@ lists them).
 
 The tab opens on the **overview** (<kbd>g</kbd>): what the agent flagged (click a count
 to list just those changes) and its account of the whole diff.
+
+Once you mark a concern *real*, the overview counts the confirmed ones and offers *Copy for
+your agent*: one click copies them as a list to paste to your agent, each with its kind, its
+`path:line`, the change it is in and the concern's text. A confirmed concern on code that
+changed since the summary was written is left out, and the list says how many were. lens
+fixes nothing itself.
 
 Before anything is summarized, the overview shows the command to run in your agent in
 that place, and the changes can already be read one by one (*Start review*, or the list).
@@ -644,12 +659,14 @@ if (!input) {
 
 ```bash
 npm test            # typecheck + node --test
+npm run gallery     # the design system's gallery, written to dist/gallery.html
 npm run app         # the desktop app, from this checkout
 npm run app:smoke   # the app's own tour of itself: pictures of each screen in dist/smoke
 ```
 
-- The sources are three folders under `src/`: `cli-app/` (the `lens` command and the
-  viewer's server), `viewer/` (the page it serves) and `desktop/` (the desktop app).
+- The sources are four folders under `src/`: `cli-app/` (the `lens` command and the
+  viewer's server), `ui/` (the design system every page shares: tokens and primitives),
+  `viewer/` (the page the server serves) and `desktop/` (the desktop app).
 - Classifier rules live in `src/cli-app/classify/typescript.ts` (shared by ts/tsx/js).
 - The viewer is `src/viewer/`, a React app (TypeScript), which the server
   (`src/cli-app/render/web/`) bundles with esbuild when it starts and inlines into one

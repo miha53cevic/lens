@@ -1180,3 +1180,88 @@ pageTest('⏻ end stops the server and leaves a note', async (page) => {
   // (screen binds to the document at import, before happy-dom is there)
   assert.equal(within(document.body).getByText(/Session ended/).className, 'ended');
 });
+
+test('a changed binary file is a row of the tree: its status, dimmed, and nothing to open', async () => {
+  const whole = payload;
+  payload = { ...whole, binary: [{ file: 'src/logo.png', status: 'modified' }] };
+  try {
+    await open();
+    const row = $('#tree .file.binary');
+    assert.equal(row.querySelector('.fname')!.firstChild!.textContent, 'logo.png');
+    assert.equal(row.querySelector('.kind')!.textContent, 'binary');
+    assert.ok(row.classList.contains('modified') && row.querySelector('.status-letter.st-modified'));
+    assert.ok((row as HTMLButtonElement).disabled, "it can't be opened");
+    assert.match(row.title, /^src\/logo\.png — modified, a binary file/);
+    assert.equal($$('#tree .file .viewed-box:not(.placeholder)').length, 1, 'no viewed box: it is not a file to read');
+
+    // j / k walk the files that open, and the filter finds the row by its name
+    const active = () => $('#tree .file.active .fname').textContent;
+    const first = active();
+    await key('j');
+    await key('k');
+    assert.equal(active(), first);
+    await type($('.nav-filter input'), 'logo');
+    assert.deepEqual(
+      $$('#tree .file').map((file) => file.className),
+      ['file modified binary'],
+    );
+  } finally {
+    payload = whole;
+    await close();
+  }
+});
+
+pageTest('a concern marked real can be copied for the agent from the overview; none real, no block', async () => {
+  await key('v');
+  assert.equal($$('.ov-real').length, 0, 'nothing is confirmed yet');
+  await key('j');
+  await click($('.concern .vbtn.v-real'));
+  await key('g');
+  assert.equal($('.ov-real-count').textContent, '1 confirmed concern in 1 change');
+
+  await click($('.ov-real-copy'));
+  assert.equal(
+    await navigator.clipboard.readText(),
+    [
+      'Fix these review findings. Each was raised in a lens review and confirmed by the reviewer.',
+      '',
+      '1. [bug] src/orders.ts:10 — findOrders',
+      '   deleted is a string column',
+      '',
+    ].join('\n'),
+  );
+  assert.ok($('.ov-real-copy .lucide-check'));
+  assert.equal($('#status .status-label').textContent, 'Copied 1 concern');
+
+  // taking the verdict back takes the block away
+  await key('j');
+  await click($('.concern .vbtn.v-real'));
+  await key('g');
+  assert.equal($$('.ov-real').length, 0);
+});
+
+test('the copied concerns name a removed line as one, in the order of the summary', async () => {
+  const marks = Object.fromEntries(
+    payload
+      .summary!.units.filter((unit) => unit.summary)
+      .flatMap((unit) =>
+        unit.summary!.concerns.map((concern) => [
+          `${unit.id}@${unit.hash}#${concern.kind}:${concern.line}:${concern.text}`,
+          'real',
+        ]),
+      ),
+  );
+  await open({ 'lens.concernMarks': JSON.stringify(marks) }, '#summary');
+  try {
+    assert.equal($('.ov-real-count').textContent, '2 confirmed concerns in 2 changes');
+    await click($('.ov-real-copy'));
+    const text = await navigator.clipboard.readText();
+    assert.match(text, /\d\. \[bug\] src\/orders\.ts:10 — findOrders\n {3}deleted is a string column\n/);
+    assert.match(
+      text,
+      /\d\. \[question\] src\/orders\.ts \(removed line 17\) — legacyTotal\n {3}did anything still call it\?\n/,
+    );
+  } finally {
+    await close();
+  }
+});

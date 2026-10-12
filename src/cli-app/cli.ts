@@ -6,6 +6,7 @@ import { analyze } from "./analyze.ts";
 import { runSummary } from "./summary/command.ts";
 import { runAsk } from "./ask/command.ts";
 import { runInfo } from "./info.ts";
+import { pickPort } from "./port.ts";
 import type { LensConfig } from "./model.ts";
 
 const HELP = `lens — a reading lens for AI-generated code (static analysis, no AI)
@@ -32,7 +33,7 @@ ask mode (the viewer's Ask rail, answered by your own agent — see skills/lens-
 
 output (default: local web viewer):
   --json            print the fold model as JSON (for debugging)
-  --port <n>        web viewer port (default 5326)
+  --port <n>        web viewer port (default: the repository's own, from 5400 up)
   --no-open         don't open the browser
   --summary         open the browser on the Summary tab (diff/PR mode)
   --threshold <n>   fold regions with score <= n (default 1; from .lens.json)
@@ -54,7 +55,7 @@ type Command = "paths" | "diff" | "pr" | "config" | "info" | "summary" | "ask";
 const COMMANDS: string[] = ["diff", "pr", "config", "info", "summary", "ask"] satisfies Command[];
 
 function parseCli(argv: string[]): { command: Command; rest: string[]; opts: CliOptions } {
-  const opts: CliOptions = { json: false, open: true, openSummary: false, port: 5326, portSet: false, threshold: null, theme: null };
+  const opts: CliOptions = { json: false, open: true, openSummary: false, port: 0, portSet: false, threshold: null, theme: null };
   const rest: string[] = [];
   let command: Command = "paths";
   const args = [...argv];
@@ -90,7 +91,7 @@ async function main(): Promise<void> {
   if (command === "summary") return runSummary(rest, cwd);
   if (command === "ask") return runAsk(rest, cwd, opts.portSet ? opts.port : null);
 
-  if (!Number.isInteger(opts.port) || opts.port < 1 || opts.port > 65535) {
+  if (opts.portSet && (!Number.isInteger(opts.port) || opts.port < 1 || opts.port > 65535)) {
     throw new Error("--port needs a number between 1 and 65535");
   }
   if (opts.threshold !== null && Number.isNaN(opts.threshold)) {
@@ -113,8 +114,8 @@ async function main(): Promise<void> {
   }
 
   const initial = await analyze(command, rest, cwd, config, !opts.json);
-  const { files, deleted, excluded, renamed } = initial;
-  if (files.length === 0 && deleted.length === 0 && excluded.length === 0 && renamed.length === 0) {
+  const { files, deleted, excluded, renamed, binary } = initial;
+  if (files.length === 0 && deleted.length === 0 && excluded.length === 0 && renamed.length === 0 && binary.length === 0) {
     throw new Error(
       command === "diff" ? "no changed supported files in this diff"
       : command === "pr" ? "no changed supported files in this PR"
@@ -129,13 +130,16 @@ async function main(): Promise<void> {
       ...(deleted.length > 0 ? { deleted } : {}),
       ...(excluded.length > 0 ? { excluded } : {}),
       ...(renamed.length > 0 ? { renamed } : {}),
+      ...(binary.length > 0 ? { binary } : {}),
     };
     console.log(JSON.stringify(model, null, 2));
     return;
   }
+  // without --port, the repository's own: two reviews run side by side, each on the same port every time
+  const port = opts.portSet ? opts.port : await pickPort(initial.root);
   await serveViewer(
     initial,
-    { port: opts.port, open: opts.open, openSummary: opts.openSummary, theme: config.theme, themePinned: opts.theme !== null },
+    { port, open: opts.open, openSummary: opts.openSummary, theme: config.theme, themePinned: opts.theme !== null },
     () => analyze(command, rest, cwd, resolveConfig()),
   );
 }

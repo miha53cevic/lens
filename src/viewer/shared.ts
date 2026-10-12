@@ -127,9 +127,14 @@ export function fileViewKey(file: ViewFile): string {
   return key;
 }
 
-// changed files the diff lists but the viewer can't open: deleted, excluded, renamed
+// changed files the diff lists but the viewer can't open: deleted, excluded, renamed, binary
 export function listedOnlyCount(data: ViewerPayload): number {
-  return (data.deleted || []).length + (data.excluded || []).length + (data.renamed || []).length;
+  return (
+    (data.deleted || []).length +
+    (data.excluded || []).length +
+    (data.renamed || []).length +
+    (data.binary || []).length
+  );
 }
 
 export function isDiffMode(data: ViewerPayload): boolean {

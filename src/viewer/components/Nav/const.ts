@@ -8,3 +8,6 @@ export const STATUS_TITLE: Record<TreeStatus, string> = {
   excluded: 'changed, but excluded from analysis (exclude patterns in config)',
   renamed: 'renamed, content unchanged',
 };
+
+/** What a binary file's row adds to its status: why it can't be opened. */
+export const BINARY_TITLE = 'a binary file: nothing to show';
