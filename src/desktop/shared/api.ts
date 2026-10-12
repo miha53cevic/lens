@@ -8,7 +8,7 @@ import type { ReviewChoice } from './choice.ts';
 
 export type { RepoInfo, ThemeSwatch };
 
-export type TabIcon = 'new' | 'folder' | 'settings';
+export type TabIcon = 'new' | 'folder' | 'settings' | 'sandbox';
 
 export interface StripTab {
   id: number;
@@ -56,7 +56,8 @@ export interface SetupItem {
 }
 
 export interface LauncherState {
-  screen: 'start' | 'picker' | 'settings';
+  /** sandbox: the design system's primitives (ui/sandbox), in a tab of its own that Settings opens */
+  screen: 'start' | 'picker' | 'settings' | 'sandbox';
   /** The picker over a running review: its back arrow returns to the review */
   canGoBack: boolean;
   recents: Recent[];
@@ -119,6 +120,8 @@ export interface LauncherApi {
   /** Look for git again */
   recheck(): void;
   settings(): void;
+  /** The design system's sandbox, in a tab of its own */
+  sandbox(): void;
   install(part: SetupPart): void;
   uninstall(part: SetupPart): void;
 }
@@ -161,6 +164,7 @@ export const LAUNCHER_CALLS = [
   'showRunning',
   'recheck',
   'settings',
+  'sandbox',
   'install',
   'uninstall',
 ] as const;

@@ -1,5 +1,5 @@
 // The app's own screens, shown in a tab until a review runs there: Start, a repository's picker,
-// Settings. The page draws what the main process says the tab shows, and asks it for everything
+// Settings, the design system's sandbox. The page draws what the main process says the tab shows, and asks it for everything
 // through window.lensApp; it reads no files and starts nothing itself.
 
 import { createRoot } from 'react-dom/client';

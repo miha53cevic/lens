@@ -174,7 +174,7 @@ than fit scroll sideways (a mouse's wheel moves them too), and the tab in front 
 | **×** | closes the tab and stops its review |
 | **+** | a new tab, on Start |
 | the theme swatch | the code themes; picking one recolors the app and the open reviews. It is the app's one theme button: a review's own, in its header, is hidden here |
-| the gear | Settings, in a tab of its own |
+| the gear | Settings, in a tab of its own (and from there the Sandbox, in another) |
 
 A repository gets one tab: opening it again goes to the tab it has. *End session* in a
 review's ⋯ menu ends the review and leaves the tab on its picker.
@@ -195,7 +195,7 @@ that had a repository, each on the review it showed.
   changed anymore.
 - A window last seen on a monitor that isn't there opens centered on the main display.
 
-Start and Settings tabs aren't kept, and full screen isn't.
+Start, Settings and Sandbox tabs aren't kept, and full screen isn't.
 
 ### Picking what to review
 
@@ -242,6 +242,10 @@ install the command again from there.
 Uninstall removes only what the app installed. A `lens` command or a skill folder that
 came from somewhere else, such as this checkout's `npm run install-cli`, is shown as
 *Not the app's* and never touched.
+
+Settings → Design system opens the **Sandbox** in a tab of its own: every control lens is
+built from, in each of its states, in the code theme the app is in. It is for working on
+lens itself.
 
 ### What the app may do
 
@@ -527,6 +531,9 @@ the code while you review: "why is this check needed?", "what calls this?".
   label to go back).
 - Answers cite code as `path:line`. lens checks each one, and a valid cite flashes that
   line when clicked.
+- Answers are markdown: lists, tables, headings, quotes and code are drawn. HTML in an
+  answer is shown as text, images aren't loaded, and a link is its text followed by its
+  address, not something to click.
 - After a reload, questions whose code changed are dimmed and their cites stop linking.
 - The chat lives in the running viewer and ends with it.
 - Drag the rail's edge to resize it; `\` hides it, `Esc` leaves the input.
@@ -659,8 +666,7 @@ if (!input) {
 
 ```bash
 npm test            # typecheck + node --test
-npm run gallery     # the design system's gallery, written to dist/gallery.html
-npm run app         # the desktop app, from this checkout
+npm run app         # the desktop app, from this checkout (its Settings → Sandbox shows the design system)
 npm run app:smoke   # the app's own tour of itself: pictures of each screen in dist/smoke
 ```
 

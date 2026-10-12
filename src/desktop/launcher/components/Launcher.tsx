@@ -1,3 +1,4 @@
+import { Sandbox } from '../../../ui/sandbox/Sandbox.tsx';
 import { useLauncher } from '../store.ts';
 import { Reopening } from './Reopening.tsx';
 import { ReviewPicker } from './ReviewPicker/index.tsx';
@@ -24,6 +25,7 @@ export function Launcher() {
         {!reopening && screen === 'start' && <Start />}
         {!reopening && screen === 'picker' && hasRepo && <ReviewPicker key={pickerKey} />}
         {screen === 'settings' && <Settings />}
+        {screen === 'sandbox' && <Sandbox />}
         {(reopening || opening) && <Reopening />}
       </div>
       <StatusLine />

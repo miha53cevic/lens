@@ -20,10 +20,10 @@ import { ThemeMenu } from '../ThemeMenu.tsx';
 import { TopBar, TopBarDivider } from '../TopBar.tsx';
 import './style.css';
 
-/** The two code themes a mock is shown in: the tokens' inputs, as the viewer's payload gives them. */
+/** Two code themes for the theme menu to list: the page itself is in the theme of the page that shows it. */
 const THEMES = {
-  vesper: { bg: '#101010', fg: '#ffffff', accent: '#ffc799', appearance: 'dark' },
-  'github-light': { bg: '#ffffff', fg: '#24292e', accent: '#6f42c1', appearance: 'light' },
+  vesper: { bg: '#101010', accent: '#ffc799' },
+  'github-light': { bg: '#ffffff', accent: '#6f42c1' },
 } as const;
 type ThemeName = keyof typeof THEMES;
 
@@ -32,25 +32,21 @@ const TEXT_STEPS = ['2xs', 'xs', 'sm', 'md', 'base', 'lg', 'xl', '2xl'];
 const SPACE_STEPS = [1, 2, 3, 4, 5, 6, 7, 8];
 const SURFACES = ['bg', 'surface', 'surface-2', 'raised', 'selected-bg', 'accent', 'add', 'mod', 'del', 'danger'];
 
-function applyTheme(name: ThemeName) {
-  const theme = THEMES[name];
-  const root = document.documentElement;
-  root.style.setProperty('--code-bg', theme.bg);
-  root.style.setProperty('--code-fg', theme.fg);
-  root.style.setProperty('--theme-accent', theme.accent);
-  root.dataset.appearance = theme.appearance;
-}
-
 function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
-    <section className='gallery-section' id={id}>
+    <section className='sandbox-section' id={id}>
       <h2>{title}</h2>
-      <div className='gallery-row'>{children}</div>
+      <div className='sandbox-row'>{children}</div>
     </section>
   );
 }
 
-export function Gallery() {
+/**
+ * The design system's sandbox: every primitive of ui/ and its states. It is where a new control is
+ * looked at before it is used, and what a mock is checked against. The desktop app shows it in a
+ * tab (Settings → Sandbox), in the app's code theme: switch that to see it dark and light.
+ */
+export function Sandbox() {
   const [theme, setTheme] = useState<ThemeName>('vesper');
   const [view, setView] = useState('code');
   const [level, setLevel] = useState(1);
@@ -61,23 +57,9 @@ export function Gallery() {
   const [query, setQuery] = useState('orders');
 
   return (
-    <main className='gallery'>
-      <header className='gallery-head'>
-        <h1>lens design system</h1>
-        <Segmented
-          id='gallery-theme'
-          label='code theme'
-          size='lg'
-          options={[
-            { value: 'vesper', label: 'vesper' },
-            { value: 'github-light', label: 'github-light' },
-          ]}
-          value={theme}
-          onChange={(name) => {
-            applyTheme(name);
-            setTheme(name);
-          }}
-        />
+    <main className='sandbox'>
+      <header className='sandbox-head'>
+        <h1>Sandbox</h1>
       </header>
 
       <Section id='g-button' title='Button'>
@@ -186,10 +168,7 @@ export function Gallery() {
         <ThemeMenu
           theme={theme}
           themes={Object.entries(THEMES).map(([name, colors]) => ({ name, ...colors }))}
-          onPick={(name) => {
-            applyTheme(name as ThemeName);
-            setTheme(name as ThemeName);
-          }}
+          onPick={(name) => setTheme(name as ThemeName)}
         />
       </Section>
 
@@ -211,9 +190,9 @@ export function Gallery() {
         <span className='dot' />
       </Section>
 
-      <section className='gallery-section' id='g-bars'>
+      <section className='sandbox-section' id='g-bars'>
         <h2>TopBar, Brand, Swatch, StatusBar</h2>
-        <div className='gallery-bars'>
+        <div className='sandbox-bars'>
           <TopBar>
             <Brand />
             <TopBarDivider />
@@ -237,7 +216,7 @@ export function Gallery() {
       </section>
 
       <Section id='g-skeleton' title='Skeleton'>
-        <div className='gallery-skeleton-lines'>
+        <div className='sandbox-skeleton-lines'>
           <Skeleton width='14ch' />
           <Skeleton width='22ch' />
           <Skeleton width='9ch' />
@@ -249,9 +228,9 @@ export function Gallery() {
         <Skeleton size='lg' round width='168px' />
       </Section>
 
-      <section className='gallery-section' id='g-review-skeleton'>
+      <section className='sandbox-section' id='g-review-skeleton'>
         <h2>ReviewSkeleton</h2>
-        <div className='gallery-review-skeleton'>
+        <div className='sandbox-review-skeleton'>
           <ReviewSkeleton />
         </div>
       </section>
@@ -269,7 +248,7 @@ export function Gallery() {
         {SPACE_STEPS.map((step) => (
           <span
             key={step}
-            className='gallery-space'
+            className='sandbox-space'
             style={{ width: `var(--space-${step})` }}
             title={'--space-' + step}
           />
@@ -278,7 +257,7 @@ export function Gallery() {
 
       <Section id='g-color' title='Surfaces and colors'>
         {SURFACES.map((name) => (
-          <span key={name} className='gallery-swatch'>
+          <span key={name} className='sandbox-swatch'>
             <i style={{ background: `var(--${name})` }} />
             {name}
           </span>
@@ -287,7 +266,7 @@ export function Gallery() {
 
       <Section id='g-elevation' title='Elevation'>
         {[1, 2, 3].map((step) => (
-          <span key={step} className='gallery-lift' style={{ boxShadow: `var(--elev-${step})` }}>
+          <span key={step} className='sandbox-lift' style={{ boxShadow: `var(--elev-${step})` }}>
             elev-{step}
           </span>
         ))}

@@ -4,6 +4,7 @@
 
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { GlobalRegistrator } from '@happy-dom/global-registrator';
 import { fireEvent } from '@testing-library/dom';
@@ -21,6 +22,7 @@ import {
 import { themeAttributes } from '../src/desktop/shared/page.ts';
 
 const app = join(import.meta.dirname, '..', 'src', 'desktop');
+const ui = join(import.meta.dirname, '..', 'src', 'ui');
 let launcher = '';
 let strip = '';
 let menu = '';
@@ -488,6 +490,82 @@ pageTest(
     await page.push({ ...SETTINGS, git: null });
     await click($('#setup-git button'));
     assert.deepEqual(page.calls.at(-1), ['recheck']);
+
+    await click($('#setup-sandbox button'));
+    assert.deepEqual(page.calls.at(-1), ['sandbox'], 'the way to the sandbox');
+  },
+);
+
+// ---- the sandbox ----
+
+// The design system's sandbox (ui/sandbox), on the screen Settings opens. It must show every
+// primitive of src/ui, so a primitive added without a place there fails.
+
+test('the sandbox imports every primitive of ui/', () => {
+  const source = readFileSync(join(ui, 'sandbox', 'Sandbox.tsx'), 'utf8');
+  const primitives = readdirSync(ui).filter((name) => /^[A-Z].*\.tsx$/.test(name));
+  // Tip is shown through the buttons that carry it
+  const missing = primitives.filter((name) => name !== 'Tip.tsx' && !source.includes(`'../${name}'`));
+  assert.deepEqual(missing, []);
+});
+
+const SANDBOX: LauncherState = { ...START, screen: 'sandbox' };
+
+pageTest(
+  'the sandbox: each primitive renders, with the states the design system names',
+  'launcher',
+  SANDBOX,
+  async (page) => {
+    const count = (selector: string) => $$(selector).length;
+    assert.equal(text('.sandbox h1'), 'Sandbox');
+    assert.equal(count('.settings, .start'), 0, 'the screen is its own');
+    assert.equal(count('#g-button .btn'), 7);
+    assert.equal(count('#g-button .btn-primary'), 1);
+    assert.equal(count('#g-button .btn .tip.tip-start kbd'), 1, 'a button with a key teaches it');
+    assert.equal(count('#g-icon-button .icon-btn'), 4);
+    assert.equal(count('#g-icon-button .icon-btn-sm'), 1);
+    assert.equal(count('#g-icon-button .icon-btn[aria-pressed="true"]'), 1);
+    assert.equal(count('#g-segmented .seg'), 2);
+    assert.equal(count('#g-segmented .seg-lg [aria-checked="true"]'), 1);
+    assert.equal(count('#g-stepper .stepper'), 2);
+    assert.equal(count('#g-stepper .stepper .icon-btn-sm:disabled'), 1, 'a stepper at its end can only go back');
+    assert.equal(count('#g-chip .chip'), 3);
+    assert.equal(count('#g-chip .chip .dot'), 2, 'a chip without a color has no dot');
+    assert.equal(count('#g-field .field'), 3);
+    assert.equal(count('#g-field .field-md .icon-btn-sm'), 1, 'a field with text offers to clear it');
+    assert.equal(count('#g-menu [role="menu"]:not(.theme-menu) [role="menuitem"]'), 2);
+    assert.equal(count('#g-menu .theme-trigger .swatch'), 1, 'the theme menu shows the theme on its button');
+    assert.equal(count('#g-menu .theme-menu [role="menuitem"] .swatch'), 2);
+    assert.equal(count('#g-menu .theme-menu .theme-check'), 1, 'the theme the menu is given is checked');
+    assert.equal(count('#g-status .status-letter'), 5);
+    assert.equal(count('#g-status .status-badge'), 5);
+    assert.equal(count('#g-kbd .kbd-combo'), 3);
+    assert.equal(count('#g-kbd .copy-cmd'), 1);
+    assert.equal(count('#g-kbd .progress'), 1);
+    assert.equal(count('#g-skeleton .skeleton'), 8);
+    assert.equal(count('#g-skeleton .skeleton-round'), 2);
+    assert.equal(count('#g-skeleton .skeleton[aria-hidden="true"]'), 8, 'a placeholder says nothing to a reader');
+    assert.equal(count('#g-review-skeleton .review-skeleton .header .brand'), 1, 'the name is real');
+    assert.equal(count('#g-review-skeleton .review-skeleton-row'), 48);
+    assert.equal(count('#g-bars .header .brand'), 1);
+    assert.equal(count('#g-bars .header .swatch'), 2);
+    assert.equal(count('#g-bars .status-bar .status-failed #status-action'), 0, 'the action sits beside the status');
+    assert.equal(count('#g-bars .status-bar #status-action'), 1);
+    assert.equal(count('#g-bars .status-notices > *'), 3);
+    assert.equal(count('#g-bars .status-notices .notice-dot'), 2, 'a plain fact has no dot');
+
+    // a field's clear button empties it and goes
+    const field = $('#g-field .field-md');
+    await click(field.querySelector('.icon-btn-sm')!);
+    assert.equal(field.querySelector('input')!.value, '');
+    assert.equal(field.querySelector('.icon-btn-sm'), null);
+
+    // its theme is the app's: the strip's button switches it, as on every page
+    assert.equal(document.documentElement.dataset.appearance, 'dark');
+    await page.push({ ...SANDBOX, theme: LIGHT });
+    assert.equal(document.documentElement.dataset.appearance, 'light');
+    assert.equal(document.documentElement.style.getPropertyValue('--code-bg'), LIGHT.bg);
+    assert.deepEqual(page.calls, [], 'nothing here asks the main process for anything');
   },
 );
 

@@ -1174,6 +1174,63 @@ pageTest('a question with no agent to answer it says so, instead of counting the
   assert.equal(status().label, 'Waiting for your agent');
 });
 
+pageTest("an answer's markdown is drawn, its cites link, and nothing in it runs or leaves", async (page) => {
+  const markdown = [
+    'Two things happen in `src/orders.ts:10`:',
+    '- it *reads* the row (src/orders.ts:11)',
+    '  - nested',
+    '',
+    '### Check',
+    '',
+    '| Case | Now |',
+    '| --- | --- |',
+    '| empty | error |',
+    '',
+    '<img src=x onerror="alert(1)"> ![p](https://example.com/t.png) [docs](https://example.com/a) [x](javascript:alert(1))',
+  ].join('\n');
+  const cite = (line: number) => ({ ref: 'src/orders.ts:' + line, file: 'src/orders.ts', line });
+  page.ask = {
+    listening: true,
+    questions: [
+      {
+        id: 'q1',
+        text: 'what does it do?',
+        file: 'src/orders.ts',
+        unitId: null,
+        label: 'orders.ts',
+        hash: 'h1',
+        selection: null,
+        concerns: [],
+        askedAt: Date.now() - 9000,
+        handedAt: null,
+        answer: { markdown, cites: [cite(10), cite(11)], at: Date.now() },
+        stale: false,
+      },
+    ],
+  };
+  await key('\\');
+  const answer = $('.ask-a');
+  // a list right under its intro line is a list, and keeps its nesting
+  assert.equal(answer.querySelector('p')!.textContent, 'Two things happen in src/orders.ts:10:');
+  assert.equal(answer.querySelectorAll(':scope > ul > li').length, 1);
+  assert.equal(answer.querySelector('ul ul li')!.textContent, 'nested');
+  assert.equal(answer.querySelector('em')!.textContent, 'reads');
+  assert.equal(answer.querySelector('h3')!.textContent, 'Check');
+  assert.equal(answer.querySelectorAll('td').length, 2);
+  // cites link in text and inside `code`
+  assert.deepEqual(
+    [...answer.querySelectorAll<HTMLElement>('.ask-cite')].map((button) => button.dataset.line),
+    ['10', '11'],
+  );
+  assert.ok(answer.querySelector('code .ask-cite'));
+  // html is shown, not run; no image is fetched; a link is its text and its address
+  assert.equal(answer.querySelector('img'), null);
+  assert.equal(answer.querySelector('a'), null);
+  assert.match(answer.textContent!, /<img src=x onerror="alert\(1\)">/);
+  assert.match(answer.textContent!, /docs \(https:\/\/example\.com\/a\)/);
+  assert.match(answer.textContent!, /\[x\]\(javascript:alert\(1\)\)/);
+});
+
 pageTest('⏻ end stops the server and leaves a note', async (page) => {
   await click($('#end-session'));
   assert.ok(page.requests.some((request) => request.method === 'POST' && request.path === '/api/shutdown'));

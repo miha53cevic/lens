@@ -118,6 +118,10 @@ export async function runSmoke(window: AppWindow, themes: Themes, repo: string):
 
     window.openSettings();
     await shot('4-settings', window.frontViews()!.launcher.webContents);
+    // the design system's sandbox, which Settings leads to: a tab of its own
+    window.openSandbox();
+    await shot('4-sandbox', window.frontViews()!.launcher.webContents);
+    window.openSettings();
 
     // the strip's theme menu: the viewer's, in a view of its own over the window
     await read(strip, "document.getElementById('theme-btn').click()");

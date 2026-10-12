@@ -104,6 +104,52 @@
   padding: 0;
   background: none;
 }
+.ask-a :is(h1, h2, h3, h4, h5, h6) {
+  margin: var(--space-3) 0 var(--space-1);
+  font-weight: 700;
+  font-size: var(--text-md);
+  line-height: 1.4;
+}
+.ask-a li > ul,
+.ask-a li > ol {
+  margin: 0;
+}
+.ask-a li > p {
+  margin: 0;
+}
+.ask-a blockquote {
+  margin: 0 0 var(--space-2);
+  padding: 0 0 0 var(--space-3);
+  border-left: 2px solid var(--line-strong);
+  color: var(--muted);
+}
+.ask-a blockquote > :last-child {
+  margin-bottom: 0;
+}
+.ask-a hr {
+  margin: var(--space-3) 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+/* a table wider than the rail scrolls in its own box */
+.ask-a table {
+  display: block;
+  margin: 0 0 var(--space-2);
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.ask-a th,
+.ask-a td {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--line);
+  text-align: left;
+  white-space: nowrap;
+}
+.ask-a th {
+  color: var(--muted);
+  font-weight: 600;
+}
 .ask-a .cite {
   vertical-align: 1px;
 }

@@ -24,7 +24,7 @@ export interface StoredTab {
   choice: ReviewChoice | null;
 }
 
-/** The tabs that had a repository, in order. Start and Settings tabs aren't kept. */
+/** The tabs that had a repository, in order. Start, Settings and sandbox tabs aren't kept. */
 export interface Session {
   tabs: StoredTab[];
   /** Which of `tabs` was in front; -1: a tab that isn't kept was */

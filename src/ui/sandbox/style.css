@@ -1,23 +1,24 @@
-/* the gallery's own layout: a column of sections, each a row of one primitive's states */
-.gallery {
+/* the sandbox's own layout: a column of sections, each a row of one primitive's states */
+.sandbox {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: var(--space-6) var(--space-7) var(--space-8);
 }
-.gallery-head {
+.sandbox-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
 }
-.gallery-head h1 {
+.sandbox-head h1 {
   margin: 0;
   font: 700 var(--text-xl) var(--font-serif);
 }
-.gallery-section {
+.sandbox-section {
   margin-top: var(--space-6);
 }
-.gallery-section h2 {
+.sandbox-section h2 {
   margin: 0 0 var(--space-2);
   color: var(--faint);
   font-size: var(--text-xs);
@@ -25,7 +26,7 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
-.gallery-row {
+.sandbox-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -35,46 +36,46 @@
   border-radius: var(--radius-lg);
   background: var(--surface);
 }
-.gallery-row .field {
+.sandbox-row .field {
   width: 240px;
 }
 /* the bars, as wide as a page's */
-.gallery-bars {
+.sandbox-bars {
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
 }
 /* a window's worth of the review's shape */
-.gallery-review-skeleton {
+.sandbox-review-skeleton {
   display: flex;
   height: 420px;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
 }
-.gallery-skeleton-lines {
+.sandbox-skeleton-lines {
   display: grid;
   gap: var(--space-2);
 }
-.gallery-space {
+.sandbox-space {
   height: var(--space-4);
   border-radius: var(--radius-xs);
   background: var(--accent);
 }
-.gallery-swatch {
+.sandbox-swatch {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
   color: var(--muted);
   font: var(--text-xs) var(--font-mono);
 }
-.gallery-swatch i {
+.sandbox-swatch i {
   width: 24px;
   height: 24px;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-sm);
 }
-.gallery-lift {
+.sandbox-lift {
   display: inline-grid;
   place-items: center;
   width: 120px;

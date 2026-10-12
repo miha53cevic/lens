@@ -279,7 +279,7 @@ test("the tab list: a new tab goes after the one in front, and closing brings a 
   const host = fakeHost();
   const store = openStore(join(tmpdir(), "lens-never-written.json"));
   const tabs = new TabList();
-  const make = (screen: "start" | "settings" = "start") => new Tab(tabs.newId(), screen, cli, store, host);
+  const make = (screen: "start" | "settings" | "sandbox" = "start") => new Tab(tabs.newId(), screen, cli, store, host);
   const [a, b, c] = [make(), make(), make()];
   tabs.add(a);
   tabs.add(b);
@@ -296,7 +296,8 @@ test("the tab list: a new tab goes after the one in front, and closing brings a 
 
   const settings = make("settings");
   tabs.add(settings);
-  assert.equal(tabs.settings(), settings);
+  assert.equal(tabs.onScreen("settings"), settings);
+  assert.equal(tabs.onScreen("sandbox"), null);
   assert.deepEqual(tabs.strip(), {
     tabs: [
       { id: a.id, icon: "new", title: "New tab", detail: "", canChange: false },

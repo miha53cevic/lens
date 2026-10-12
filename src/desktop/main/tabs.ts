@@ -2,7 +2,7 @@
 
 import type { StripTab } from '../shared/api.ts';
 import type { Session } from './store.ts';
-import type { Tab } from './tab.ts';
+import type { OwnScreen, Tab } from './tab.ts';
 
 export class TabList {
   private tabs: Tab[] = [];
@@ -52,8 +52,9 @@ export class TabList {
     return this.tabs.find((tab) => tab !== except && tab.repo?.root === root) ?? null;
   }
 
-  settings(): Tab | null {
-    return this.tabs.find((tab) => tab.screen === 'settings') ?? null;
+  /** The tab Settings or the sandbox has, if it is open: each gets one. */
+  onScreen(screen: OwnScreen): Tab | null {
+    return this.tabs.find((tab) => tab.screen === screen) ?? null;
   }
 
   /** What the app keeps between runs: the tabs that have a repository, in order, and which was in front. */

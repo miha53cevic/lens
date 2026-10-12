@@ -32,7 +32,7 @@ import { tildePath } from './display.ts';
 import { APP_ORIGIN, allowOrigin, appPagePreferences, isAppPage, viewerPreferences } from './security.ts';
 import { install, setupState, uninstall, type SetupEnv } from './setup.ts';
 import type { Session, Store } from './store.ts';
-import { Tab, type TabHost } from './tab.ts';
+import { Tab, type OwnScreen, type TabHost } from './tab.ts';
 import { TabList } from './tabs.ts';
 import type { Themes } from './themes.ts';
 
@@ -171,7 +171,7 @@ export class AppWindow implements TabHost {
     this.restoring = true;
     const tabs = stored.map(() => this.addTab('start'));
     const front = stored.findIndex((tab) => tab.root === session.tabs[session.active]?.root);
-    // a tab that isn't kept was in front (Start, Settings): a new one is, again
+    // a tab that isn't kept was in front (Start, Settings, the sandbox): a new one is, again
     if (front === -1) this.addTab('start');
     else this.selectTab(tabs[front].id);
     void Promise.all(tabs.map((tab, index) => tab.restore(stored[index].root, stored[index].choice))).then(
@@ -188,7 +188,7 @@ export class AppWindow implements TabHost {
     if (!this.closing && !this.restoring) this.deps.store.setSession(this.tabs.session());
   }
 
-  addTab(screen: 'start' | 'settings'): Tab {
+  addTab(screen: OwnScreen | 'start'): Tab {
     const tab = new Tab(this.tabs.newId(), screen, this.deps.cli, this.deps.store, this);
     const launcher = new WebContentsView({ webPreferences: appPagePreferences(this.deps.preload) });
     launcher.setBackgroundColor(this.background());
@@ -218,9 +218,19 @@ export class AppWindow implements TabHost {
   }
 
   openSettings(): void {
-    const settings = this.tabs.settings();
-    if (settings) this.selectTab(settings.id);
-    else this.addTab('settings');
+    this.openOwn('settings');
+  }
+
+  /** The design system's sandbox: Settings leads to it. */
+  openSandbox(): void {
+    this.openOwn('sandbox');
+  }
+
+  /** A screen that has one tab: that tab to the front, or a new one for it. */
+  private openOwn(screen: OwnScreen): void {
+    const open = this.tabs.onScreen(screen);
+    if (open) this.selectTab(open.id);
+    else this.addTab(screen);
   }
 
   /**
@@ -536,6 +546,8 @@ export class AppWindow implements TabHost {
         return this.show();
       case 'settings':
         return this.openSettings();
+      case 'sandbox':
+        return this.openSandbox();
       case 'install':
       case 'uninstall':
         if (first === 'cli' || first === 'skills') await this.setup(tab, call, first);

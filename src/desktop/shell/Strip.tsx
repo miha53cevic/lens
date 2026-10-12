@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { ArrowLeftRight, Folder, Plus, Settings, X } from 'lucide-react';
+import { ArrowLeftRight, Folder, Plus, Settings, Shapes, X } from 'lucide-react';
 import type { StripTab } from '../shared/api.ts';
 import { IconButton } from '../../ui/IconButton.tsx';
 import { ThemeTrigger } from '../../ui/ThemeMenu.tsx';
@@ -9,6 +9,7 @@ import './style.css';
 function TabIcon({ icon }: { icon: StripTab['icon'] }) {
   if (icon === 'folder') return <Folder size={13} />;
   if (icon === 'settings') return <Settings size={13} />;
+  if (icon === 'sandbox') return <Shapes size={13} />;
   return <Plus size={13} />;
 }
 
