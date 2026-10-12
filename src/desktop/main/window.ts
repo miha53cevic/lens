@@ -10,6 +10,7 @@ import {
   WebContentsView,
   dialog,
   ipcMain,
+  screen,
   type IpcMainEvent,
   type IpcMainInvokeEvent,
 } from 'electron';
@@ -23,6 +24,7 @@ import {
   type StripState,
 } from '../shared/api.ts';
 import { parseChoice } from '../shared/choice.ts';
+import { MIN_SIZE, placeWindow } from './bounds.ts';
 import type { LensCli } from './cli.ts';
 import { tildePath } from './display.ts';
 import { APP_ORIGIN, allowOrigin, appPagePreferences, isAppPage, viewerPreferences } from './security.ts';
@@ -34,6 +36,9 @@ import type { Themes } from './themes.ts';
 
 /** The strip's height: the views start under it. The shell's stylesheet has the same number. */
 export const STRIP_HEIGHT = 40;
+
+/** How long the window stands still before its place is written down: not on every pixel of a drag. */
+const PLACE_SAVE_MS = 400;
 
 interface TabViews {
   launcher: WebContentsView;
@@ -54,17 +59,24 @@ export class AppWindow implements TabHost {
   private readonly views = new Map<number, TabViews>();
   private readonly deps: WindowDeps;
   private closing = false;
+  private placeTimer: ReturnType<typeof setTimeout> | null = null;
   /** The pages' own background in the theme of the moment, as the strip's page measured it */
   private pageBackground: string | null = null;
 
   constructor(deps: WindowDeps) {
     this.deps = deps;
     const { bg, fg } = deps.themes.current;
+    // where it was when the app last ran, as far as a display is still there
+    const place = deps.store.window();
+    const primary = screen.getPrimaryDisplay();
+    const others = screen.getAllDisplays().filter((display) => display.id !== primary.id);
     this.win = new BrowserWindow({
-      width: 1320,
-      height: 880,
-      minWidth: 760,
-      minHeight: 480,
+      ...placeWindow(
+        place,
+        [primary, ...others].map((display) => display.workArea),
+      ),
+      minWidth: MIN_SIZE.width,
+      minHeight: MIN_SIZE.height,
       show: false,
       backgroundColor: bg,
       // no system title bar: the OS draws only its buttons, over the strip
@@ -75,19 +87,46 @@ export class AppWindow implements TabHost {
     });
     allowOrigin(this.win.webContents, APP_ORIGIN);
     void this.win.loadURL(APP_ORIGIN + '/shell.html');
-    this.win.once('ready-to-show', () => this.win.show());
-    this.win.on('resize', () => this.layout());
+    this.win.once('ready-to-show', () => {
+      // maximizing also shows the window: only now, when there is a page to show
+      if (place?.maximized) this.win.maximize();
+      this.win.show();
+    });
+    this.win.on('resize', () => {
+      this.layout();
+      this.placeChanged();
+    });
+    this.win.on('move', () => this.placeChanged());
+    this.win.on('maximize', () => this.savePlace());
+    this.win.on('unmaximize', () => this.savePlace());
     this.win.on('enter-full-screen', () => this.sendStrip());
     this.win.on('leave-full-screen', () => this.sendStrip());
     // nothing of a review outlives the window: its tabs stop their CLI processes first
     this.win.on('close', (event) => {
       if (this.closing) return;
       event.preventDefault();
+      this.savePlace();
       this.closing = true;
       void Promise.allSettled(this.tabs.all.map((tab) => tab.close())).then(() => this.win.destroy());
     });
     this.listen();
     this.addTab('start');
+  }
+
+  // ---- the window's place ----
+
+  /** The window moved or changed size: written down once it stands still. */
+  private placeChanged(): void {
+    if (this.placeTimer) clearTimeout(this.placeTimer);
+    this.placeTimer = setTimeout(() => this.savePlace(), PLACE_SAVE_MS);
+  }
+
+  /** Its place when it isn't maximized (what it returns to), and whether it is. Full screen isn't kept. */
+  private savePlace(): void {
+    if (this.placeTimer) clearTimeout(this.placeTimer);
+    this.placeTimer = null;
+    if (this.closing || this.win.isDestroyed()) return;
+    this.deps.store.setWindow({ ...this.win.getNormalBounds(), maximized: this.win.isMaximized() });
   }
 
   // ---- tabs ----
