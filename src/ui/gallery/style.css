@@ -44,6 +44,18 @@
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
 }
+/* a window's worth of the review's shape */
+.gallery-review-skeleton {
+  display: flex;
+  height: 420px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+}
+.gallery-skeleton-lines {
+  display: grid;
+  gap: var(--space-2);
+}
 .gallery-space {
   height: var(--space-4);
   border-radius: var(--radius-xs);

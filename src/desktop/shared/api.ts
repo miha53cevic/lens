@@ -73,6 +73,8 @@ export interface LauncherState {
    * instead of a screen to pick from. `review` is null while its repository is still being read.
    */
   reopening: { name: string; review: string | null } | null;
+  /** A review the picker started that doesn't show yet: the page covers the picker with the review's shape */
+  opening: boolean;
   status: LauncherStatus;
   /** git's version, or null when it wasn't found */
   git: string | null;

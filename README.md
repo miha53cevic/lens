@@ -178,8 +178,8 @@ that had a repository, each on the review it showed.
 
 - The tab in front starts its review again right away. The others start theirs the first
   time you click them, so a tab you don't look at costs nothing.
-- Until its review shows, a reopened tab is a loading screen (the repository, the review
-  it had), not the picker. **Cancel** in the status bar stops it and shows the picker.
+- Until its review shows, a reopened tab is a loading screen in the review's shape, not
+  the picker. **Cancel** in the status bar stops it and shows the picker.
 - A tab whose repository is gone (deleted, moved, not a repository anymore) isn't
   reopened.
 - A review that can't start anymore leaves its tab on the picker, with the reason in the

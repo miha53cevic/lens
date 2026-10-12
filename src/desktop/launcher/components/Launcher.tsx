@@ -15,13 +15,17 @@ export function Launcher() {
   const hasRepo = useLauncher((store) => store.state?.repo != null);
   // a reopened tab on its way back to its review: nothing to pick from until that is settled
   const reopening = useLauncher((store) => store.state?.reopening != null);
+  // a review the picker started: its shape covers the picker, which stays as it is underneath
+  const opening = useLauncher((store) => store.state?.opening === true);
   if (screen === null) return null;
   return (
     <>
-      {reopening && <Reopening />}
-      {!reopening && screen === 'start' && <Start />}
-      {!reopening && screen === 'picker' && hasRepo && <ReviewPicker key={pickerKey} />}
-      {screen === 'settings' && <Settings />}
+      <div className='stage'>
+        {!reopening && screen === 'start' && <Start />}
+        {!reopening && screen === 'picker' && hasRepo && <ReviewPicker key={pickerKey} />}
+        {screen === 'settings' && <Settings />}
+        {(reopening || opening) && <Reopening />}
+      </div>
       <StatusLine />
     </>
   );

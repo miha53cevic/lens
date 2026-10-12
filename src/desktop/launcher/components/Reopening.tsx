@@ -1,27 +1,29 @@
-import { Folder, LoaderCircle } from 'lucide-react';
-import { Brand } from '../../../ui/Brand.tsx';
+import clsx from 'clsx';
+import { ReviewSkeleton } from '../../../ui/ReviewSkeleton.tsx';
 import { useApp } from '../store.ts';
 import './Reopening.css';
 
 /**
- * A tab the app reopened, until its review shows: whose it is and that it is coming, in place of
- * Start or the picker. The status bar under it says what runs, and holds the Cancel.
+ * A review on its way to the tab, in the viewer's shape: a tab the app reopened, in place of
+ * Start or the picker, or a review the picker started, over that picker (which keeps its pick
+ * for a review that fails or is cancelled). The tab says whose it is; the status bar under it
+ * says what runs, and holds the Cancel.
  */
 export function Reopening() {
-  const name = useApp((state) => state.reopening?.name);
-  const review = useApp((state) => state.reopening?.review);
+  const reopening = useApp((state) => state.reopening !== null);
+  const label = useApp((state) => {
+    if (!state.reopening) return 'Opening the review';
+    const { name, review } = state.reopening;
+    return review ? `Reopening ${name}, ${review}` : `Reading ${name}`;
+  });
   return (
-    <main className='screen reopening' id='reopening' aria-busy='true'>
-      <Brand as='h1' className='reopening-brand' />
-      <p className='reopening-repo'>
-        <Folder size={15} />
-        <span className='reopening-name'>{name}</span>
-        {review && <span className='reopening-review'>{review}</span>}
-      </p>
-      <p className='reopening-what'>
-        <LoaderCircle size={14} className='spin' />
-        {review ? 'Reopening the review…' : 'Reading the repository…'}
-      </p>
+    <main
+      className={clsx('screen reopening', !reopening && 'reopening-over')}
+      id='reopening'
+      aria-busy='true'
+      aria-label={label}
+    >
+      <ReviewSkeleton />
     </main>
   );
 }

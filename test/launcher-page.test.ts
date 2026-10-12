@@ -59,6 +59,7 @@ const START: LauncherState = {
   current: null,
   running: null,
   reopening: null,
+  opening: false,
   status: { kind: 'idle' },
   git: '2.47.1',
   version: '0.1.0',
@@ -374,9 +375,12 @@ const REOPENING: LauncherState = {
   status: { kind: 'working', label: 'Opening working tree…', cancellable: true },
 };
 
-/** What the loading screen says: whose tab it is, the review it had, what is under way */
-const reopening = () =>
-  $$('#reopening :is(.reopening-name, .reopening-review, .reopening-what)').map((part) => part.textContent);
+/** The loading screen: what it is called, and whether it is the review's shape with nothing to read or press */
+const reopening = () => {
+  const screen = $('#reopening');
+  const shaped = screen.querySelectorAll('.review-skeleton .skeleton').length > 20;
+  return [screen.getAttribute('aria-label'), screen.getAttribute('aria-busy'), shaped, $$('#reopening button').length];
+};
 
 pageTest(
   'a reopened tab: a loading screen until its review shows, with nothing to pick from',
@@ -384,12 +388,14 @@ pageTest(
   { ...START, reopening: { name: 'storefront', review: null } } as LauncherState,
   async (page) => {
     // its repository is still being read: not Start's button and recents
-    assert.deepEqual(reopening(), ['storefront', 'Reading the repository…']);
+    assert.deepEqual(reopening(), ['Reading storefront', 'true', true, 0]);
+    assert.equal(text('#reopening .brand'), 'lens.', 'what is known is real: only the rest is a placeholder');
+    assert.ok(!$('#reopening').classList.contains('reopening-over'), 'the whole screen, at once');
     assert.deepEqual($$('#open-repository, .recent, #picker-back, #open-review'), []);
 
     // read: its review starts, and the picker stays out of sight
     await page.push(REOPENING);
-    assert.deepEqual(reopening(), ['storefront', 'working tree', 'Reopening the review…']);
+    assert.deepEqual(reopening(), ['Reopening storefront, working tree', 'true', true, 0]);
     assert.deepEqual($$('#picker-back, #open-review, .picker-header'), []);
     assert.deepEqual(status(), ['Opening working tree…']);
     await click($('#status-action'));
@@ -404,6 +410,35 @@ pageTest(
     assert.deepEqual($$('#reopening'), []);
     assert.ok($('#picker-back'));
     assert.deepEqual(status(), ["Couldn't open the review", 'nothing changed']);
+  },
+);
+
+pageTest(
+  'a review the picker started: its shape covers the picker, which keeps its pick underneath',
+  'launcher',
+  PICKER,
+  async (page) => {
+    await click($$('.choice')[1]);
+    const picked = choices();
+    const opening: LauncherState = {
+      ...PICKER,
+      opening: true,
+      status: { kind: 'working', label: 'Opening staged changes…', cancellable: true },
+    };
+    await page.push(opening);
+    assert.deepEqual(reopening(), ['Opening the review', 'true', true, 0]);
+    assert.ok($('#reopening').classList.contains('reopening-over'), 'over the picker, once the wait is worth showing');
+    assert.ok($('#open-review'), 'the picker is still there');
+    assert.deepEqual(status(), ['Opening staged changes…']);
+
+    // it couldn't start: the picker as it was left, with the reason
+    await page.push({
+      ...PICKER,
+      status: { kind: 'failed', label: "Couldn't open the review", detail: 'nothing is staged' },
+    });
+    assert.deepEqual($$('#reopening'), []);
+    assert.deepEqual(choices(), picked, 'the pick is intact');
+    assert.deepEqual(status(), ["Couldn't open the review", 'nothing is staged']);
   },
 );
 

@@ -1157,6 +1157,7 @@ pageTest('a question with no agent to answer it says so, instead of counting the
     'No agent is listening. Run /lens-ask in your agent to get this answered.',
   );
   assert.equal(document.querySelector('.ask-wait'), null, 'no spinner and no wait time');
+  assert.equal(document.querySelector('.ask-lines'), null, 'and no answer on its way');
   assert.deepEqual(status(), {
     kind: 'waiting',
     label: 'No agent for your question',
@@ -1168,6 +1169,7 @@ pageTest('a question with no agent to answer it says so, instead of counting the
   await key('\\');
   await key('\\');
   assert.match($('.ask-wait').textContent!, /^waiting for agent · \d+s$/);
+  assert.equal(document.querySelectorAll('.ask-lines .skeleton').length, 3, "the answer's place, while one is written");
   assert.equal(document.querySelector('.ask-noagent'), null);
   assert.equal(status().label, 'Waiting for your agent');
 });

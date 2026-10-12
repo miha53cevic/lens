@@ -123,6 +123,14 @@
   border-top-color: var(--accent);
   border-radius: var(--radius-full);
 }
+/* the answer on its way: three lines of ui/Skeleton, each in a line of the answer's own height */
+.ask-lines {
+  display: grid;
+  margin-top: var(--space-2);
+}
+.ask-lines .skeleton {
+  margin: 0.45em 0;
+}
 .ask-q.stale,
 .ask-a.stale {
   opacity: 0.55;

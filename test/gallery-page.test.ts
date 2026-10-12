@@ -61,6 +61,11 @@ test('each primitive renders, with the states the design system names', () => {
   assert.equal(count('#g-kbd .kbd-combo'), 3);
   assert.equal(count('#g-kbd .copy-cmd'), 1);
   assert.equal(count('#g-kbd .progress'), 1);
+  assert.equal(count('#g-skeleton .skeleton'), 8);
+  assert.equal(count('#g-skeleton .skeleton-round'), 2);
+  assert.equal(count('#g-skeleton .skeleton[aria-hidden="true"]'), 8, 'a placeholder says nothing to a reader');
+  assert.equal(count('#g-review-skeleton .review-skeleton .header .brand'), 1, 'the name is real');
+  assert.equal(count('#g-review-skeleton .review-skeleton-row'), 48);
   assert.equal(count('#g-bars .header .brand'), 1);
   assert.equal(count('#g-bars .header .swatch'), 2);
   assert.equal(count('#g-bars .status-bar .status-failed #status-action'), 0, 'the action sits beside the status');

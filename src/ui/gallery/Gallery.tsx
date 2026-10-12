@@ -10,7 +10,9 @@ import { IconButton } from '../IconButton.tsx';
 import { Kbd } from '../Kbd.tsx';
 import { Menu, MenuItem, MenuSection, MenuSeparator, MenuSwitch } from '../Menu.tsx';
 import { ProgressRing } from '../ProgressRing.tsx';
+import { ReviewSkeleton } from '../ReviewSkeleton.tsx';
 import { Segmented } from '../Segmented.tsx';
+import { Skeleton } from '../Skeleton.tsx';
 import { Stepper } from '../Stepper.tsx';
 import { StatusBar } from '../StatusBar.tsx';
 import { Swatch } from '../Swatch.tsx';
@@ -231,6 +233,26 @@ export function Gallery() {
               { id: 'git', text: 'git 2.47.1', tone: 'plain' },
             ]}
           />
+        </div>
+      </section>
+
+      <Section id='g-skeleton' title='Skeleton'>
+        <div className='gallery-skeleton-lines'>
+          <Skeleton width='14ch' />
+          <Skeleton width='22ch' />
+          <Skeleton width='9ch' />
+        </div>
+        <Skeleton size='icon' />
+        <Skeleton size='sm' width='160px' />
+        <Skeleton size='md' width='160px' />
+        <Skeleton size='xs' round width='72px' />
+        <Skeleton size='lg' round width='168px' />
+      </Section>
+
+      <section className='gallery-section' id='g-review-skeleton'>
+        <h2>ReviewSkeleton</h2>
+        <div className='gallery-review-skeleton'>
+          <ReviewSkeleton />
         </div>
       </section>
 

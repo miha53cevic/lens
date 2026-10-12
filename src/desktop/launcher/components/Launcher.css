@@ -1,4 +1,12 @@
 /* What the launcher's screens share: a centered column over the status bar. */
+/* the screen's place: what covers a screen (a review on its way) is laid over it here */
+.stage {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
 .screen {
   flex: 1;
   min-height: 0;

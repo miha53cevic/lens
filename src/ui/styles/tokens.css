@@ -86,6 +86,9 @@
   --field-focus: color-mix(in oklab, var(--accent) 60%, var(--line));
   /* under the pointer, whatever it sits on: the page, a card, a selected pill */
   --hover-bg: color-mix(in oklab, var(--text) 7%, transparent);
+  /* a placeholder for what isn't there yet (ui/Skeleton), and the highlight that sweeps over it */
+  --skeleton: color-mix(in oklab, var(--text) 9%, transparent);
+  --skeleton-glint: color-mix(in oklab, var(--text) 17%, transparent);
   /* what's lifted off the page, by how far: a card, a tooltip or the review pill; a menu; a dialog */
   --elev-1: 0 12px 28px -12px var(--shadow);
   --elev-2: 0 18px 40px -12px var(--shadow);

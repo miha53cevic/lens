@@ -69,7 +69,10 @@ test("a tab: from Start to a repository's picker, to its review, and back when t
     assert.equal(tab.strip().detail, "choose a review");
     assert.deepEqual(openStore(join(data, "state.json")).recents(), [toPosix(dir)], "it joins the recents");
 
-    await tab.open({ kind: "diff", range: "worktree" });
+    const opening = tab.open({ kind: "diff", range: "worktree" });
+    assert.equal(tab.state().opening, true, "its page covers the picker with the review's shape");
+    await opening;
+    assert.equal(tab.state().opening, false);
     assert.deepEqual(tab.status, { kind: "idle" });
     assert.equal(tab.showing, "review");
     assert.deepEqual(tab.strip(), { id: 1, icon: "folder", title: tab.repo!.name, detail: "working tree", canChange: true });
@@ -113,6 +116,7 @@ test("a tab: a new review replaces the running one on the same port, and a failu
     assert.deepEqual(tab.status, { kind: "failed", label: "Couldn't open the review", detail: "no changed supported files in this diff" });
     assert.equal(tab.reviewUrl, null, "the review it replaced is gone");
     assert.equal(tab.showing, "launcher");
+    assert.equal(tab.state().opening, false, "nothing is coming: the picker shows again");
     tab.dismiss();
     assert.deepEqual(tab.status, { kind: "idle" });
 

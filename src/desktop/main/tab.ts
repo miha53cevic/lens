@@ -30,7 +30,7 @@ export interface TabHost {
 /** What a tab's launcher page shows of the tab itself; the window adds what all tabs share. */
 export type TabState = Pick<
   LauncherState,
-  'screen' | 'canGoBack' | 'repo' | 'current' | 'running' | 'reopening' | 'status'
+  'screen' | 'canGoBack' | 'repo' | 'current' | 'running' | 'reopening' | 'opening' | 'status'
 >;
 
 interface Review {
@@ -56,6 +56,8 @@ export class Tab {
   showing: 'launcher' | 'review' = 'launcher';
   private review_: Review | null = null;
   private starting: StartingReview | null = null;
+  /** A review is on its way to the tab, from `open` until it shows or fails */
+  private opening = false;
   /** The repository's reads asked for so far: an answer counts only while it is the newest one's */
   private reads = 0;
   /** How many of them haven't answered yet */
@@ -94,6 +96,7 @@ export class Tab {
       current: this.review_?.choice ?? this.restored,
       running: this.review_ ? null : this.running,
       reopening: this.comingBack(),
+      opening: this.opening,
       status: this.status,
     };
   }
@@ -288,6 +291,7 @@ export class Tab {
 
     const label = choiceLabel(choice);
     this.autoStart = false;
+    this.opening = true;
     this.set({
       kind: 'working',
       label: choice.kind === 'pr' ? `Fetching ${label}…` : `Opening ${label}…`,
@@ -300,6 +304,7 @@ export class Tab {
       this.review_ = { choice, session, url: session.url };
       this.restored = null;
       this.resuming = false;
+      this.opening = false;
       this.showing = 'review';
       this.status = IDLE;
       this.host.review(this, session.url);
@@ -307,8 +312,9 @@ export class Tab {
       void session.exited.then(() => this.reviewExited(session));
     } catch (error) {
       const message = (error as Error).message;
-      // a reopened review that didn't start: the picker, with the reason
+      // a review that didn't start, reopened or picked: the picker, with the reason
       this.resuming = false;
+      this.opening = false;
       this.set(message === 'cancelled' ? IDLE : { kind: 'failed', label: "Couldn't open the review", detail: message });
     } finally {
       this.starting = null;
