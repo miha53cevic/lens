@@ -319,8 +319,14 @@ On the left, one status:
   it;
 - *Server stopped*, when a request can't reach lens anymore (*Retry* looks for it again).
 
-On the right, notices that show only while they apply: summaries the code has outgrown,
-a new summary waiting (click to load it), an agent listening.
+On the right, notices that show only while they apply: code that changed on disk since
+this page read it (click to reload), summaries the code has outgrown, a new summary
+waiting (click to load it), an agent listening.
+
+lens looks for the first and the third by itself, every 5 seconds while the page is in
+sight: an edit, a `git add`, a commit or a new file shows as *Code changed on disk*
+without a click. Nothing on screen moves until you reload. A PR review has no such
+notice: a PR changes only when it is fetched, which reload does.
 
 ### Keys
 

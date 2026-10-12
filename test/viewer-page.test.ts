@@ -95,8 +95,8 @@ async function open(prefs: Record<string, string> = {}, hash = ''): Promise<Page
         return reply({ ok: true });
       case 'POST /api/ask/prompt':
         return reply({ text: 'the prompt' });
-      case 'GET /api/summary/stamp':
-        return reply({ stamp: payload.summary!.stamp });
+      case 'GET /api/stamp':
+        return reply({ summary: payload.summary!.stamp, change: payload.changeStamp });
       case 'GET /api/summary':
         return reply(payload.summary);
       case 'GET /api/refresh':
@@ -527,7 +527,9 @@ pageTest('a standing notice shows only while it has something to say, and leads 
   assert.deepEqual(notices(), []);
   // the agent submitted a summary while the reader was away
   const undo = answering((path) =>
-    path === '/api/summary/stamp' ? new Response(JSON.stringify({ stamp: payload.summary!.stamp! + 1 })) : undefined,
+    path === '/api/stamp'
+      ? new Response(JSON.stringify({ summary: payload.summary!.stamp! + 1, change: payload.changeStamp }))
+      : undefined,
   );
   window.dispatchEvent(new Event('focus'));
   await settle();
@@ -540,10 +542,40 @@ pageTest('a standing notice shows only while it has something to say, and leads 
   assert.deepEqual(status(), { kind: 'done', label: 'New summary loaded', detail: '' });
 });
 
+pageTest(
+  'code that changed on disk shows as a notice: undoing the change takes it back, a click refreshes',
+  async () => {
+    const notices = () => $$('#status-bar .status-notices > *').map((notice) => notice.textContent);
+    assert.ok(payload.changeStamp, 'a diff has a fingerprint');
+    let change = 'the fingerprint after an edit';
+    const undo = answering((path) =>
+      path === '/api/stamp' ? new Response(JSON.stringify({ summary: payload.summary!.stamp, change })) : undefined,
+    );
+    // the page asks when its window gets the focus, as it does every few seconds while in sight
+    window.dispatchEvent(new Event('focus'));
+    await settle();
+    assert.deepEqual(notices(), ['Code changed on disk · Refresh']);
+    change = payload.changeStamp!; // the edit was undone
+    window.dispatchEvent(new Event('focus'));
+    await settle();
+    assert.deepEqual(notices(), [], 'the notice is only there while it is true');
+    change = 'the fingerprint after another edit';
+    window.dispatchEvent(new Event('focus'));
+    await settle();
+    undo();
+    await click($('#status-bar .status-notice'));
+    await settle();
+    assert.deepEqual(notices(), []);
+    assert.deepEqual(status(), { kind: 'done', label: 'Refreshed', detail: 'nothing changed' });
+  },
+);
+
 pageTest('a refresh brings the newest summary: none is left waiting', async () => {
   const notices = () => $$('#status-bar .status-notices > *').map((notice) => notice.textContent);
   const undo = answering((path) =>
-    path === '/api/summary/stamp' ? new Response(JSON.stringify({ stamp: payload.summary!.stamp! + 1 })) : undefined,
+    path === '/api/stamp'
+      ? new Response(JSON.stringify({ summary: payload.summary!.stamp! + 1, change: payload.changeStamp }))
+      : undefined,
   );
   window.dispatchEvent(new Event('focus'));
   await settle();
@@ -720,7 +752,7 @@ test('a summary submitted after the page loaded: the overview doesn\'t say "not 
     let release = () => {};
     const held = new Promise<void>((resolve) => (release = resolve));
     globalThis.fetch = (async (input: string | URL, init?: RequestInit) => {
-      if (String(input).includes('/api/summary/stamp')) await held;
+      if (String(input).includes('/api/stamp')) await held;
       return realFetch(input, init);
     }) as typeof fetch;
     await key('v');

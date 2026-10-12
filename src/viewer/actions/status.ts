@@ -133,7 +133,7 @@ export function retryServer(): Promise<boolean> {
   return tracked(
     { id: 'reconnect', label: 'Looking for the lens server…', failed: 'The server answered with an error' },
     async () => {
-      await request('/api/summary/stamp');
+      await request('/api/stamp');
     },
   );
 }

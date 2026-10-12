@@ -2,7 +2,7 @@ import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { analyzeSource } from "./classify/index.ts";
 import { findConfigPath } from "./config.ts";
-import type { DiffTarget } from "./git.ts";
+import { changeFingerprint, type DiffTarget } from "./git.ts";
 import { languageForFile } from "./parse/parser.ts";
 import type { ViewerInput } from "./render/web/server.ts";
 import { compilePatterns, matchesAny } from "./glob.ts";
@@ -33,6 +33,11 @@ export async function analyze(
   // Path mode carries only `file`; diff mode fills in the rest.
   let targets: (Partial<DiffTarget> & { file: string })[];
   let diff: LoadedDiff | null = null;
+  // Taken before the diff is read: an edit that lands while this analysis runs then shows as a
+  // change, instead of being missed. A PR has none: it moves only when it is fetched.
+  const latestChange = command === "diff" ? changeFingerprint(args, cwd) : null;
+  // a diff git can't run fails below, with git's own reason
+  const changeStamp = latestChange ? await latestChange().catch(() => null) : null;
   if (command === "paths") {
     // Directory walks skip excluded files silently; a file passed explicitly
     // on the command line is always analyzed.
@@ -90,6 +95,8 @@ export async function analyze(
     label: diff ? diff.label : null,
     summary,
     latestSummary,
+    changeStamp,
+    latestChange,
   };
 }
 

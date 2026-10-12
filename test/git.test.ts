@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, utimesSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { parseDiff, parseRawEntries, gitDiffTargets, readBlobs, worktreePathspecs } from "../src/cli-app/git.ts";
+import { changeFingerprint, parseDiff, parseRawEntries, gitDiffTargets, readBlobs, worktreePathspecs } from "../src/cli-app/git.ts";
 
 const SAMPLE = `diff --git a/src/api.ts b/src/api.ts
 index 111..222 100644
@@ -342,4 +342,59 @@ test("worktreePathspecs: which diffs have the working tree as their new side", (
     assert.equal(worktreePathspecs(["main...HEAD"], dir), null);
     assert.equal(worktreePathspecs(["--no-index", "a.ts", "b.ts"], dir), null);
   });
+});
+
+test("changeFingerprint: it moves with an edit, a git add, a commit and a new file, and with nothing else", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "lens-git-"));
+  const git = (...args: string[]) => execFileSync("git", args, { cwd: dir, encoding: "utf8" });
+  try {
+    git("init", "-q", "-b", "main");
+    git("config", "user.email", "t@t");
+    git("config", "user.name", "t");
+    writeFileSync(join(dir, "a.ts"), "export const a = 1;\n");
+    git("add", "-A");
+    git("commit", "-qm", "base");
+    writeFileSync(join(dir, "a.ts"), "export const a = 2;\n");
+
+    const worktree = changeFingerprint([], dir);
+    const staged = changeFingerprint(["--staged"], dir);
+    const seen = new Set<string>();
+    /** Whether the working tree's fingerprint is one not seen before. */
+    const moved = async () => {
+      const print = await worktree();
+      const fresh = !seen.has(print);
+      seen.add(print);
+      return fresh;
+    };
+    assert.equal(await moved(), true);
+    assert.equal(await moved(), false, "asking again changes nothing");
+
+    // saved again as it was: a new time, the same content
+    utimesSync(join(dir, "a.ts"), new Date(), new Date(Date.now() + 5000));
+    assert.equal(await moved(), false);
+
+    writeFileSync(join(dir, "a.ts"), "export const a = 3;\n"); // the same size, another content
+    utimesSync(join(dir, "a.ts"), new Date(), new Date(Date.now() + 10000));
+    assert.equal(await moved(), true, "an edit to a file that was already changed");
+
+    writeFileSync(join(dir, "new.ts"), "export const fresh = 1;\n");
+    assert.equal(await moved(), true, "an untracked file appears");
+    writeFileSync(join(dir, "new.ts"), "export const fresh = 2;\n");
+    utimesSync(join(dir, "new.ts"), new Date(), new Date(Date.now() + 15000));
+    assert.equal(await moved(), true, "and is edited");
+
+    const stagedBefore = await staged();
+    git("add", "a.ts");
+    assert.equal(await moved(), true, "staging takes the file out of the working tree's diff");
+    assert.notEqual(await staged(), stagedBefore, "and puts it in the staged one");
+    const stagedNow = await staged();
+    writeFileSync(join(dir, "new.ts"), "export const fresh = 3;\n");
+    assert.equal(await staged(), stagedNow, "the staged diff doesn't read the working tree");
+
+    git("commit", "-qm", "two");
+    assert.notEqual(await staged(), stagedNow);
+    await assert.rejects(changeFingerprint(["no-such-rev..HEAD"], dir)(), "git's failure is the caller's to handle");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

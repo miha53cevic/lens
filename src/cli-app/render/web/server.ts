@@ -49,6 +49,10 @@ export interface ViewerInput {
   summary: SummaryView | null;
   /** The summary as stored now: the same object until a submit changes summary.json */
   latestSummary: (() => SummaryView) | null;
+  /** Diff mode: the change's fingerprint when this analysis read it (changeFingerprint in git.ts) */
+  changeStamp: string | null;
+  /** The change's fingerprint as it is on disk now: another one than `changeStamp` means the code moved on */
+  latestChange: (() => Promise<string>) | null;
 }
 
 export interface ViewerOptions {
@@ -62,7 +66,7 @@ export interface ViewerOptions {
 }
 
 /** What the page gets as DATA (client/shared.ts): ViewerInput made serializable, plus one theme's tokens. */
-export type ViewerPayload = Omit<ViewerInput, "root" | "cwd" | "files" | "latestSummary"> & {
+export type ViewerPayload = Omit<ViewerInput, "root" | "cwd" | "files" | "latestSummary" | "latestChange"> & {
   theme: string;
   /** The theme menu's themes, each with its colors */
   themes: ThemeSwatch[];
@@ -84,6 +88,15 @@ export interface ThemeTokens {
   accent: string;
   /** tokens[fileIndex] — aligned with the files array */
   tokens: ViewerToken[][][];
+}
+
+/**
+ * What /api/stamp answers, everything the page watches for in one request: the stored summary's
+ * stamp, and the change's fingerprint as it is on disk now (null when this review has none).
+ */
+export interface StampResponse {
+  summary: number | null;
+  change: string | null;
 }
 
 /** What /api/tokens answers: a theme's tokens, and the analysis whose files they are. */
@@ -128,7 +141,7 @@ export function viewerPayload(
   input: ViewerInput, t: ThemeTokens, themes: ThemeSwatch[],
   opts: { themePinned: boolean; canRefresh: boolean; analysis: string },
 ): ViewerPayload {
-  const { root: _root, cwd: _cwd, latestSummary: _latest, ...data } = input;
+  const { root: _root, cwd: _cwd, latestSummary: _latest, latestChange: _change, ...data } = input;
   return {
     ...data,
     theme: t.theme,
@@ -233,6 +246,15 @@ export async function serveViewer(
     if (summary !== current.summary) current = { ...current, summary };
   }
 
+  // Polls that arrive while git answers share its answer. One that fails (the folder is gone)
+  // says null: nothing is known, so nothing is claimed.
+  let pendingChange: Promise<string | null> | null = null;
+  function changeNow(): Promise<string | null> {
+    const latest = current.latestChange;
+    if (!latest) return Promise.resolve(null);
+    return (pendingChange ??= latest().catch(() => null).finally(() => { pendingChange = null; }));
+  }
+
   async function htmlFor(theme: string): Promise<string> {
     // the page opens with the summary as it is now, not as it was when the server started
     syncSummary();
@@ -283,9 +305,10 @@ export async function serveViewer(
         // A submit since the page loaded: take the stored summary (↻ refresh recomputes the units).
         syncSummary();
         sendJson(res, 200, current.summary);
-      } else if (url.pathname === "/api/summary/stamp") {
+      } else if (url.pathname === "/api/stamp") {
         syncSummary();
-        sendJson(res, 200, { stamp: current.summary?.stamp ?? null });
+        const stamp: StampResponse = { summary: current.summary?.stamp ?? null, change: await changeNow() };
+        sendJson(res, 200, stamp);
       } else if (url.pathname === "/api/shutdown" && req.method === "POST") {
         res.writeHead(200, { "content-type": "application/json" });
         res.end(JSON.stringify({ ok: true }), () => {

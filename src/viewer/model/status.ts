@@ -84,7 +84,7 @@ export function barStatus(state: LensState): Status {
 }
 
 export type NoticeTone = 'warn' | 'accent' | 'live';
-export type NoticeActionId = 'openOverview' | 'openSummary';
+export type NoticeActionId = 'openOverview' | 'openSummary' | 'refresh';
 
 export interface Notice {
   id: string;
@@ -104,6 +104,12 @@ const staleSummaries: NoticeSource = (state) => {
   return { id: 'stale-summaries', text, tone: 'warn', action: 'openOverview' };
 };
 
+const changedOnDisk: NoticeSource = (state) =>
+  // known only from the stamp poll, which sets it and takes it back (see stampWatcher)
+  state.changedOnDisk && state.data.canRefresh && !state.serverGone
+    ? { id: 'changed-on-disk', text: 'Code changed on disk · Refresh', tone: 'warn', action: 'refresh' }
+    : null;
+
 const newSummary: NoticeSource = (state) =>
   state.summaryDot ? { id: 'new-summary', text: 'New summary waiting', tone: 'accent', action: 'openSummary' } : null;
 
@@ -115,7 +121,7 @@ const agentListening: NoticeSource = (state) => {
     : null;
 };
 
-const NOTICE_SOURCES: NoticeSource[] = [staleSummaries, newSummary, agentListening];
+const NOTICE_SOURCES: NoticeSource[] = [changedOnDisk, staleSummaries, newSummary, agentListening];
 
 // The last list: the same array comes back while what it says stays the same, so the bar's
 // selector doesn't re-render it on every change.

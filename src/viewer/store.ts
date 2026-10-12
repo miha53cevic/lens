@@ -83,6 +83,8 @@ export interface LensState {
   summaryUnit: string | null;
   /** A newer summary waits on the server */
   summaryDot: boolean;
+  /** The change on disk isn't the one this page shows anymore, as the last stamp poll found it (a refresh takes it) */
+  changedOnDisk: boolean;
   /** Asking the server for a newer summary: the overview holds off on "not written yet" until it knows */
   summaryChecking: boolean;
   /** The list filter's text (transient) */
@@ -157,6 +159,7 @@ const initialState: LensState = {
   search: { query: '', word: false, matchCase: false, pinOrigin: false, selected: 0 },
   summaryUnit: null,
   summaryDot: false,
+  changedOnDisk: false,
   summaryChecking: false,
   sumQuery: '',
   sumSignal: null,

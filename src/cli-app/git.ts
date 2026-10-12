@@ -1,6 +1,9 @@
-import { execFileSync } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { isAbsolute, join, resolve } from "node:path";
 import { closeSync, existsSync, lstatSync, openSync, readFileSync, readSync, statSync } from "node:fs";
+import { readFile, stat } from "node:fs/promises";
+import { promisify } from "node:util";
 import type { DiffStatus, RemovedBlock } from "./model.ts";
 import { toPosix } from "./paths.ts";
 
@@ -257,13 +260,18 @@ export function worktreePathspecs(gitArgs: string[], cwd: string): string[] | nu
  * lists as untracked. `pathspecs` are relative to `cwd`, as git diff's are.
  */
 export function untrackedFiles(root: string, cwd: string, pathspecs: string[] = []): string[] {
+  const { args, dir } = untrackedCommand(root, cwd, pathspecs);
+  return runGit(args, dir).split("\0").filter(Boolean);
+}
+
+/** The `git ls-files` that lists the untracked files, and the folder to run it in. */
+function untrackedCommand(root: string, cwd: string, pathspecs: string[]): { args: string[]; dir: string } {
   const limited = pathspecs.length > 0;
-  // without a pathspec git lists only what is under the folder it runs in: run it at the root
-  const output = runGit(
-    ["ls-files", "--others", "--exclude-standard", "--full-name", "-z", ...(limited ? ["--", ...pathspecs] : [])],
-    limited ? cwd : root,
-  );
-  return output.split("\0").filter(Boolean);
+  return {
+    args: ["ls-files", "--others", "--exclude-standard", "--full-name", "-z", ...(limited ? ["--", ...pathspecs] : [])],
+    // without a pathspec git lists only what is under the folder it runs in: run it at the root
+    dir: limited ? cwd : root,
+  };
 }
 
 /** git's own test for a binary file: a NUL byte in its first 8000 bytes. */
@@ -351,5 +359,52 @@ export function gitDiffTargets(gitArgs: string[], cwd: string): DiffResult {
     deletedBlobs: new Map(parsed.deleted
       .filter((p) => oldBlobs.has(p))
       .map((p) => [abs(p), oldBlobs.get(p)!])),
+  };
+}
+
+const execFileAsync = promisify(execFile);
+
+/**
+ * A fingerprint of what `git diff <gitArgs>` shows right now: it changes when a file of the diff
+ * is edited, staged, committed or removed, and when an untracked file appears. The viewer asks for
+ * it every few seconds to say "the code changed on disk", so it is cheap and never blocks: git
+ * runs beside the server, and a working-tree file is read again only when its size or time moved.
+ * Returns the function that takes it; the files' digests are kept between its calls.
+ */
+export function changeFingerprint(gitArgs: string[], cwd: string): () => Promise<string> {
+  const git = async (args: string[], dir: string) =>
+    (await execFileAsync("git", args, { cwd: dir, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 })).stdout;
+  const digests = new Map<string, { key: string; digest: string }>();
+  // what a working-tree file holds: its content, not its time (saving a file unchanged is no change)
+  const fileDigest = async (file: string): Promise<string> => {
+    let key: string;
+    try {
+      const stats = await stat(file);
+      if (!stats.isFile()) return "not a file";
+      key = `${stats.size}:${stats.mtimeMs}`;
+    } catch {
+      return "gone";
+    }
+    const known = digests.get(file);
+    if (known?.key === key) return known.digest;
+    const digest = createHash("sha256").update(await readFile(file).catch(() => "")).digest("hex");
+    digests.set(file, { key, digest });
+    return digest;
+  };
+  return async () => {
+    const root = (await git(["rev-parse", "--show-toplevel"], cwd)).trim();
+    const raw = await git(["diff", "--raw", "-z", "--no-abbrev", "--no-color", "--no-relative", ...gitArgs], cwd);
+    const hash = createHash("sha256").update(raw);
+    // no new-side blob: the file's content is the working tree's (deletions have none either)
+    const fromDisk = parseRawEntries(raw).filter((entry) => entry.newSha === null && !entry.status.startsWith("D"));
+    const pathspecs = worktreePathspecs(gitArgs, cwd);
+    const untracked = pathspecs === null ? [] : await (async () => {
+      const { args, dir } = untrackedCommand(root, cwd, pathspecs);
+      return (await git(args, dir)).split("\0").filter(Boolean);
+    })();
+    for (const path of [...fromDisk.map((entry) => entry.path), ...untracked]) {
+      hash.update(`\0${path}\0${await fileDigest(join(root, path))}`);
+    }
+    return hash.digest("hex");
   };
 }

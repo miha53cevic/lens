@@ -10,7 +10,7 @@ import './styles/signals.css';
 import { App } from './components/App.tsx';
 import { getState, subscribe, type LensState } from './store.ts';
 import { isLightColor } from '../cli-app/theme.ts';
-import { checkSummaryStamp, setView } from './actions/views.ts';
+import { setView, stampWatcher } from './actions/views.ts';
 import { openFirstTreeFile } from './actions/tabs.ts';
 import { askWatcher } from './ask/rail.ts';
 import { dropForeignSelection, onSelectionChange } from './ask/selection.ts';
@@ -39,14 +39,15 @@ function syncDocument(state: LensState, previous: LensState | null) {
 
 document.addEventListener('keydown', onKeyDown);
 document.addEventListener('selectionchange', onSelectionChange);
-window.addEventListener('focus', checkSummaryStamp);
 subscribe(syncDocument);
 
 openFirstTreeFile();
 syncDocument(getState(), null);
 const { data } = getState();
-// what the page watches by asking again (poll.ts): the chat, while it is open or a question waits
+// what the page watches by asking again (poll.ts): the chat, while it is open or a question waits,
+// and whether the summary or the code moved on
 watch(askWatcher);
+watch(stampWatcher);
 if (getState().ask.open) void check(askWatcher.id);
 createRoot(document.getElementById('root')!).render(<App />);
 if (location.hash === '#summary' && data.summary) setView('summary');
