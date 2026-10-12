@@ -83,11 +83,11 @@ nav .file {
   font: var(--text-sm) / 1.5 var(--font-mono);
   text-align: left;
 }
-/* the tree's files and the Summary tab's items */
-nav .file:hover:not(:disabled),
-.sum-overview-item:hover,
-.sum-item:hover {
-  background: color-mix(in oklab, var(--surface) 60%, transparent);
+/* the tree's files and the Summary tab's items: under the pointer, unless it is the selected one (that keeps its own look) */
+nav .file:hover:not(:disabled, .active),
+.sum-overview-item:hover:not(.active),
+.sum-item:hover:not(.active) {
+  background: var(--hover-bg);
   color: var(--text);
 }
 nav .file.active,
