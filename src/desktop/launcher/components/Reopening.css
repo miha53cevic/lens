@@ -1,0 +1,41 @@
+/* The whole screen, with nothing to press: the tab is on its way back to its review. */
+.reopening {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  text-align: center;
+}
+.reopening-brand.brand {
+  margin: 0 0 var(--space-2);
+  font-size: 44px;
+}
+.reopening-repo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 100%;
+  margin: 0;
+  color: var(--muted);
+}
+.reopening-name {
+  overflow: hidden;
+  color: var(--text);
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.reopening-review {
+  flex: none;
+  font: var(--text-sm) / 1.4 var(--font-mono);
+}
+.reopening-what {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}

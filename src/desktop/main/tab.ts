@@ -28,7 +28,10 @@ export interface TabHost {
 }
 
 /** What a tab's launcher page shows of the tab itself; the window adds what all tabs share. */
-export type TabState = Pick<LauncherState, 'screen' | 'canGoBack' | 'repo' | 'current' | 'running' | 'status'>;
+export type TabState = Pick<
+  LauncherState,
+  'screen' | 'canGoBack' | 'repo' | 'current' | 'running' | 'reopening' | 'status'
+>;
 
 interface Review {
   /** null: a lens started elsewhere, shown here */
@@ -65,6 +68,8 @@ export class Tab {
   private restored: ReviewChoice | null = null;
   /** That review starts by itself, the first time the tab is in front */
   private autoStart = false;
+  /** That start is under way */
+  private resuming = false;
   private readonly cli: LensCli;
   private readonly store: Store;
   private readonly host: TabHost;
@@ -88,8 +93,21 @@ export class Tab {
       repo: this.repo,
       current: this.review_?.choice ?? this.restored,
       running: this.review_ ? null : this.running,
+      reopening: this.comingBack(),
       status: this.status,
     };
+  }
+
+  /**
+   * A reopened tab until it is where it was left: while its repository is read, while its review
+   * waits for the tab to be in front, and while that review starts. Its page shows a loading
+   * screen for all of it, so the picker is only seen when there is something to pick.
+   */
+  private comingBack(): LauncherState['reopening'] {
+    if (this.reopening) return { name: basename(this.reopening), review: null };
+    if (!this.repo || !this.restored) return null;
+    const starts = this.autoStart && !this.running; // `shown` will start it
+    return starts || this.resuming ? { name: this.repo.name, review: choiceLabel(this.restored) } : null;
   }
 
   strip(): StripTab {
@@ -133,7 +151,7 @@ export class Tab {
   async restore(root: string, choice: ReviewChoice | null): Promise<boolean> {
     if (this.screen !== 'start' || this.repo) return false;
     this.reopening = root;
-    this.host.changed(this);
+    this.set({ kind: 'working', label: `Reading ${basename(root)}…`, cancellable: false });
     let repo: RepoInfo | null = null;
     try {
       // a folder that is gone can't be asked about: the CLI would have nowhere to run
@@ -142,6 +160,7 @@ export class Tab {
       /* git can't read it: as good as gone */
     }
     this.reopening = null;
+    this.status = IDLE;
     if (!repo) return false;
     this.repo = repo;
     this.screen = 'picker';
@@ -157,7 +176,8 @@ export class Tab {
     if (!this.autoStart || !this.restored) return;
     this.autoStart = false;
     // a lens already runs for the repository, started elsewhere: the picker offers that one instead
-    if (this.running) return;
+    if (this.running || this.status.kind === 'working') return;
+    this.resuming = true;
     void this.open(this.restored);
   }
 
@@ -279,6 +299,7 @@ export class Tab {
       const session = await this.start(root, choiceArgs(choice));
       this.review_ = { choice, session, url: session.url };
       this.restored = null;
+      this.resuming = false;
       this.showing = 'review';
       this.status = IDLE;
       this.host.review(this, session.url);
@@ -286,6 +307,8 @@ export class Tab {
       void session.exited.then(() => this.reviewExited(session));
     } catch (error) {
       const message = (error as Error).message;
+      // a reopened review that didn't start: the picker, with the reason
+      this.resuming = false;
       this.set(message === 'cancelled' ? IDLE : { kind: 'failed', label: "Couldn't open the review", detail: message });
     } finally {
       this.starting = null;

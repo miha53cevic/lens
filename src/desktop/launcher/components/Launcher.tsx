@@ -1,4 +1,5 @@
 import { useLauncher } from '../store.ts';
+import { Reopening } from './Reopening.tsx';
 import { ReviewPicker } from './ReviewPicker/index.tsx';
 import { Settings } from './Settings.tsx';
 import { Start } from './Start.tsx';
@@ -12,11 +13,14 @@ export function Launcher() {
     (store) => (store.state?.repo?.root ?? '') + '|' + JSON.stringify(store.state?.current),
   );
   const hasRepo = useLauncher((store) => store.state?.repo != null);
+  // a reopened tab on its way back to its review: nothing to pick from until that is settled
+  const reopening = useLauncher((store) => store.state?.reopening != null);
   if (screen === null) return null;
   return (
     <>
-      {screen === 'start' && <Start />}
-      {screen === 'picker' && hasRepo && <ReviewPicker key={pickerKey} />}
+      {reopening && <Reopening />}
+      {!reopening && screen === 'start' && <Start />}
+      {!reopening && screen === 'picker' && hasRepo && <ReviewPicker key={pickerKey} />}
       {screen === 'settings' && <Settings />}
       <StatusLine />
     </>

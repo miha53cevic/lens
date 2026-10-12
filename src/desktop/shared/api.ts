@@ -68,6 +68,11 @@ export interface LauncherState {
   current: ReviewChoice | null;
   /** A lens that already runs for this repository, started somewhere else */
   running: { port: number } | null;
+  /**
+   * A tab the app reopened that is still on its way back to its review: the page shows that
+   * instead of a screen to pick from. `review` is null while its repository is still being read.
+   */
+  reopening: { name: string; review: string | null } | null;
   status: LauncherStatus;
   /** git's version, or null when it wasn't found */
   git: string | null;

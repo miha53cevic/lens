@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, realpathSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { tmpdir } from "node:os";
 import { lensCli } from "../src/desktop/main/cli.ts";
 import { tildePath } from "../src/desktop/main/display.ts";
@@ -191,9 +191,14 @@ test("a reopened tab: its picker on the review it showed, which starts when the 
     const store = openStore(join(data, "state.json"));
     const worktree = { kind: "diff" as const, range: "worktree" as const };
 
-    assert.equal(await tab.restore(dir, worktree), true);
+    const restoring = tab.restore(dir, worktree);
+    assert.deepEqual(tab.state().reopening, { name: basename(dir), review: null }, "its page shows that it is coming, not Start");
+    assert.equal(tab.status.kind, "working");
+    assert.equal(await restoring, true);
     assert.equal(tab.screen, "picker");
     assert.equal(tab.repo?.root, toPosix(dir));
+    assert.deepEqual(tab.state().reopening, { name: tab.repo!.name, review: "working tree" }, "nor the picker: its review is about to start");
+    assert.deepEqual(tab.status, { kind: "idle" });
     assert.deepEqual(tab.state().current, worktree, "the picker starts on the review it showed");
     assert.deepEqual(tab.strip(), { id: 1, icon: "folder", title: tab.repo!.name, detail: "working tree", canChange: false });
     assert.deepEqual(tab.stored, { root: toPosix(dir), choice: worktree }, "kept as it is, started or not");
@@ -201,8 +206,10 @@ test("a reopened tab: its picker on the review it showed, which starts when the 
     assert.deepEqual(store.recents(), [], "reopening is not opening: the recents keep their order");
 
     tab.shown();
+    assert.deepEqual(tab.state().reopening, { name: tab.repo!.name, review: "working tree" }, "while it starts, too");
     await host.until(tab, (it) => it.reviewUrl !== null);
     assert.equal(tab.showing, "review");
+    assert.equal(tab.state().reopening, null);
     assert.equal((await fetch(tab.reviewUrl!)).status, 200);
     const url = tab.reviewUrl;
     tab.shown();
@@ -244,6 +251,7 @@ test("a reopened tab that can't be: a repository that is gone gets no tab, a rev
     await host.until(tab, (it) => it.status.kind === "failed");
     assert.equal(tab.status.kind === "failed" && tab.status.label, "Couldn't open the review");
     assert.equal(tab.screen, "picker");
+    assert.equal(tab.state().reopening, null, "the picker shows, with the reason");
     assert.equal(tab.reviewUrl, null);
     assert.deepEqual(tab.state().current, branch, "still picked: the next launch tries it again");
     assert.deepEqual(tab.stored, { root: toPosix(dir), choice: branch });
@@ -254,6 +262,7 @@ test("a reopened tab that can't be: a repository that is gone gets no tab, a rev
     const edited = another(4);
     assert.equal(await edited.restore(dir, { kind: "diff", range: "custom", args: "--json" }), true);
     assert.deepEqual([edited.state().current, edited.strip().detail], [null, "choose a review"]);
+    assert.equal(edited.state().reopening, null, "nothing is coming: its picker shows");
     edited.shown();
     assert.deepEqual(edited.status, { kind: "idle" });
 

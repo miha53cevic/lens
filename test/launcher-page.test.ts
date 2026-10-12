@@ -54,6 +54,7 @@ const START: LauncherState = {
   repoPath: null,
   current: null,
   running: null,
+  reopening: null,
   status: { kind: 'idle' },
   git: '2.47.1',
   version: '0.1.0',
@@ -357,6 +358,50 @@ pageTest(
     assert.equal(($('#picker-base') as HTMLSelectElement).value, 'release');
     assert.equal(text('.copy-cmd-text'), 'lens diff release...HEAD');
     assert.equal($('#picker-back').getAttribute('aria-label'), 'Back to the review');
+  },
+);
+
+// ---- a reopened tab ----
+
+const WORKTREE = { kind: 'diff', range: 'worktree' } as const;
+const REOPENING: LauncherState = {
+  ...PICKER,
+  canGoBack: true,
+  current: WORKTREE,
+  reopening: { name: 'storefront', review: 'working tree' },
+  status: { kind: 'working', label: 'Opening working tree…', cancellable: true },
+};
+
+/** What the loading screen says: whose tab it is, the review it had, what is under way */
+const reopening = () =>
+  $$('#reopening :is(.reopening-name, .reopening-review, .reopening-what)').map((part) => part.textContent);
+
+pageTest(
+  'a reopened tab: a loading screen until its review shows, with nothing to pick from',
+  'launcher',
+  { ...START, reopening: { name: 'storefront', review: null } } as LauncherState,
+  async (page) => {
+    // its repository is still being read: not Start's button and recents
+    assert.deepEqual(reopening(), ['storefront', 'Reading the repository…']);
+    assert.deepEqual($$('#open-repository, .recent, #picker-back, #open-review'), []);
+
+    // read: its review starts, and the picker stays out of sight
+    await page.push(REOPENING);
+    assert.deepEqual(reopening(), ['storefront', 'working tree', 'Reopening the review…']);
+    assert.deepEqual($$('#picker-back, #open-review, .picker-header'), []);
+    assert.deepEqual(status(), ['Opening working tree…']);
+    await click($('#status-action'));
+    assert.deepEqual(page.calls.at(-1), ['cancel']);
+
+    // it couldn't start: the picker, on the review it showed, with the reason
+    await page.push({
+      ...REOPENING,
+      reopening: null,
+      status: { kind: 'failed', label: "Couldn't open the review", detail: 'nothing changed' },
+    });
+    assert.deepEqual($$('#reopening'), []);
+    assert.ok($('#picker-back'));
+    assert.deepEqual(status(), ["Couldn't open the review", 'nothing changed']);
   },
 );
 
