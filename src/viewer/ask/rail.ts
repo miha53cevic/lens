@@ -6,13 +6,12 @@ import { askConcerns, askContext, askSelection } from '../model/askContext.ts';
 import { waitingQuestion } from '../model/status.ts';
 import { writePref } from '../shared.ts';
 import { endActivity, noteDone, noteFailure, reach, request, ServerGone, startActivity } from '../actions/status.ts';
+import { check, type Watcher } from '../poll.ts';
 
 const ASK_POLL_MS = 1000;
 export const ASK_MAX_LINES = 400;
 const ASK_MAX_INPUT_ROWS = 8;
 const ASK_GONE = "the lens viewer isn't running anymore";
-
-let pollTimer: ReturnType<typeof setTimeout> | null = null;
 
 export function setAsk(patch: Partial<LensState['ask']>) {
   update((state) => ({ ask: { ...state.ask, ...patch } }));
@@ -21,7 +20,7 @@ export function setAsk(patch: Partial<LensState['ask']>) {
 export function askSetOpen(open: boolean): void {
   writePref('lens.askOpen', open ? '1' : '0');
   setAsk({ open });
-  if (open) askPoll();
+  if (open) void check(askWatcher.id);
 }
 
 /** `a`: the rail opens and its input takes the keys. */
@@ -29,7 +28,7 @@ export function askOpenAndFocus(): void {
   if (!getState().ask.open) {
     writePref('lens.askOpen', '1');
     commit((state) => ({ ask: { ...state.ask, open: true } }));
-    askPoll();
+    void check(askWatcher.id);
   }
   document.getElementById('ask-input')?.focus();
 }
@@ -46,12 +45,8 @@ export function growInput(input: HTMLTextAreaElement) {
   input.style.height = Math.min(input.scrollHeight, lineHeight * ASK_MAX_INPUT_ROWS + 12) + 'px';
 }
 
-/** Polls the chat while the rail is open or a question waits for its answer. */
-export async function askPoll(): Promise<void> {
-  if (pollTimer) {
-    clearTimeout(pollTimer);
-    pollTimer = null;
-  }
+/** Reads the chat once: the questions, their answers, whether an agent listens. */
+async function askPoll(): Promise<void> {
   const patch: Partial<LensState['ask']> = {};
   const waitedFor = waitingQuestion(getState());
   try {
@@ -75,8 +70,15 @@ export async function askPoll(): Promise<void> {
   // the answer came with the rail closed: the status bar says so
   const answered = waitedFor && state.ask.data.questions.find((question) => question.id === waitedFor.id)?.answer;
   if (answered && !state.ask.open) noteDone('Your agent answered');
-  if (state.ask.open || waitingQuestion(state)) pollTimer = setTimeout(askPoll, ASK_POLL_MS);
 }
+
+/** The chat is polled while the rail is open or a question waits for its answer (the loop is poll.ts). */
+export const askWatcher: Watcher = {
+  id: 'ask',
+  every: ASK_POLL_MS,
+  when: () => getState().ask.open || waitingQuestion(getState()) !== null,
+  run: askPoll,
+};
 
 /**
  * Sends the question to the listening agent, or puts it on the clipboard as a prompt.
@@ -114,6 +116,6 @@ export async function askSend(text: string): Promise<'sent' | 'copied' | null> {
   } finally {
     endActivity('ask-send');
   }
-  askPoll();
+  void check(askWatcher.id);
   return result;
 }

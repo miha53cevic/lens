@@ -12,9 +12,10 @@ import { getState, subscribe, type LensState } from './store.ts';
 import { isLightColor } from '../cli-app/theme.ts';
 import { checkSummaryStamp, setView } from './actions/views.ts';
 import { openFirstTreeFile } from './actions/tabs.ts';
-import { askPoll } from './ask/rail.ts';
+import { askWatcher } from './ask/rail.ts';
 import { dropForeignSelection, onSelectionChange } from './ask/selection.ts';
 import { onKeyDown } from './keys.ts';
+import { check, watch } from './poll.ts';
 
 /**
  * The document follows the state: the theme's colors (the tokens' inputs), the tab title, the Ask selection's change.
@@ -44,6 +45,8 @@ subscribe(syncDocument);
 openFirstTreeFile();
 syncDocument(getState(), null);
 const { data } = getState();
-if (getState().ask.open) askPoll();
+// what the page watches by asking again (poll.ts): the chat, while it is open or a question waits
+watch(askWatcher);
+if (getState().ask.open) void check(askWatcher.id);
 createRoot(document.getElementById('root')!).render(<App />);
 if (location.hash === '#summary' && data.summary) setView('summary');

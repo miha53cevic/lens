@@ -17,5 +17,5 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["src/viewer/**/*", "test/viewer-page.test.ts"]
+  "include": ["src/viewer/**/*", "test/viewer-page.test.ts", "test/poll.test.ts"]
 }
