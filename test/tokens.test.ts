@@ -1,7 +1,7 @@
 // The design system's rules, held by the suite: a stylesheet takes its colors, type sizes, spaces,
 // radii, shadows and layers from src/ui/styles/tokens.css, and writes none of its own.
 
-import test from "node:test";
+import { test } from "bun:test";
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";

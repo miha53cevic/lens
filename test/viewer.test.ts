@@ -1,8 +1,5 @@
-import { test } from 'node:test';
+import { test } from 'bun:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { tmpdir } from 'node:os';
 import { bundleViewer } from '../src/cli-app/render/web/bundle.ts';
 import { fileSpans, hiddenCount, planCode, unitSpans, type CodeItem, type RemovedLine } from '../src/viewer/rows.ts';
 import { lineHtml, pairWordDiffs, splitAt, wordDiff } from '../src/viewer/wordDiff.ts';
@@ -20,14 +17,8 @@ test("the viewer's browser code bundles into one script and one stylesheet, both
 });
 
 test('a bundle made ahead of time is used as it is, instead of bundling again', async () => {
-  const dir = mkdtempSync(join(tmpdir(), 'lens-bundle-'));
-  try {
-    const prebuilt = join(dir, 'viewer-bundle.json');
-    writeFileSync(prebuilt, JSON.stringify({ script: 'made();', css: '.made{}' }));
-    assert.deepEqual(await bundleViewer(prebuilt), { script: 'made();', css: '.made{}' });
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
+  const made = { script: 'made();', css: '.made{}' };
+  assert.deepEqual(await bundleViewer(async () => made), made);
 });
 
 // "L3" a line, "-5" a removed line (its old-side number), "R2-4[…]" a fold, "gap:14-20", "⋯" a break

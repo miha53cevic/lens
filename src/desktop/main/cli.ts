@@ -1,19 +1,21 @@
-// How the app runs the lens CLI: the app's own executable in Node mode, on the CLI's sources.
-// Electron's Node runs the .ts files as the `lens` command's Node does, so the app and the
-// terminal run the same code; installed, the sources sit in the app's resources.
+// How the app runs the lens CLI: once packed, the compiled lens in its resources (bun run
+// compile made it from the same sources); from a checkout, Bun on the sources themselves, as
+// the `lens` command a checkout installs runs them. Either way the app and the terminal run
+// the same code.
 
 import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import type { LensInfo } from '../../cli-app/info.ts';
 
 export interface LensCli {
   /** The program to start */
   command: string;
-  /** Its arguments before lens's own: the path of cli.ts */
+  /** Its arguments before lens's own: the path of cli.ts, when it is bun */
   args: string[];
   env: NodeJS.ProcessEnv;
-  /** The folder that holds src/cli-app, skills/ and package.json */
+  /** The folder that holds the CLI (its sources, or the compiled lens) and skills/ */
   root: string;
 }
 
@@ -28,17 +30,39 @@ function extraPaths(platform: NodeJS.Platform, env: NodeJS.ProcessEnv): string[]
   return [];
 }
 
-/** The environment the CLI runs in: the app's, in Node mode, with git's usual homes on the PATH. */
+/** The environment the CLI runs in: the app's, with git's usual homes on the PATH. */
 export function cliEnv(env: NodeJS.ProcessEnv = process.env, platform: NodeJS.Platform = process.platform) {
   const key = Object.keys(env).find((name) => name.toUpperCase() === 'PATH') ?? 'PATH';
   const current = (env[key] ?? '').split(delimiter).filter(Boolean);
   const added = extraPaths(platform, env).filter((dir) => !current.includes(dir) && existsSync(dir));
-  return { ...env, [key]: [...current, ...added].join(delimiter), ELECTRON_RUN_AS_NODE: '1' };
+  return { ...env, [key]: [...current, ...added].join(delimiter) };
 }
 
-/** The CLI in `root`, run by `execPath` (the app's executable). */
-export function lensCli(root: string, execPath: string = process.execPath): LensCli {
-  return { command: execPath, args: [join(root, 'src', 'cli-app', 'cli.ts')], env: cliEnv(), root };
+/** The compiled lens in `root`: what the packed app runs, from its resources. */
+export function compiledCli(root: string, platform: NodeJS.Platform = process.platform): LensCli {
+  return { command: join(root, platform === 'win32' ? 'lens.exe' : 'lens'), args: [], env: cliEnv(), root };
+}
+
+/** The CLI's sources in `root` (a checkout), run by `bun`. */
+export function sourceCli(root: string, bun: string): LensCli {
+  return { command: bun, args: [join(root, 'src', 'cli-app', 'cli.ts')], env: cliEnv(), root };
+}
+
+/**
+ * Where bun is, for running a checkout's sources: on the PATH, or in one of its usual homes
+ * (Homebrew's, and ~/.bun/bin, where its own installer puts it), which an app started from
+ * the desktop may not have on its PATH. Null when there is none.
+ */
+export function findBun(
+  env: NodeJS.ProcessEnv = process.env,
+  platform: NodeJS.Platform = process.platform,
+  home: string = homedir(),
+): string | null {
+  const key = Object.keys(env).find((name) => name.toUpperCase() === 'PATH') ?? 'PATH';
+  const usual = platform === 'win32' ? [] : ['/opt/homebrew/bin', '/usr/local/bin'];
+  const dirs = [...(env[key] ?? '').split(delimiter).filter(Boolean), ...usual, join(home, '.bun', 'bin')];
+  const name = platform === 'win32' ? 'bun.exe' : 'bun';
+  return dirs.map((dir) => join(dir, name)).find((file) => existsSync(file)) ?? null;
 }
 
 /** Runs the CLI to its end and returns what it printed; its `lens: reason` is the error. */

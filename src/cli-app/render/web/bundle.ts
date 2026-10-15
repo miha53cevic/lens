@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+/// <reference path="./viewer-bundle.d.ts" />
 import { fileURLToPath } from "node:url";
 import { join, dirname } from "node:path";
 
@@ -7,11 +7,11 @@ const webDir = dirname(fileURLToPath(import.meta.url));
 const entry = join(webDir, "..", "..", "..", "viewer", "main.tsx");
 
 /**
- * A bundle made ahead of time. The desktop app's build writes one next to its copy of this
- * file, so the installed app needs neither esbuild nor the client's sources. It is
- * never written into src/: from source, the viewer is always bundled fresh.
+ * The module the compiled `lens` (scripts/compile.ts) carries the viewer in, bundled ahead of
+ * time, so the binary needs neither the viewer's sources nor a bundler run on each start. It
+ * exists only in the binary: from source, the import fails and the viewer is bundled fresh.
  */
-export const PREBUILT_BUNDLE = join(webDir, "viewer-bundle.json");
+export const VIEWER_MODULE = "lens:viewer-bundle";
 
 export interface ViewerBundle {
   /** The viewer's code, safe to inline in a <script> element */
@@ -25,38 +25,39 @@ export interface ViewerBundle {
  * from the .css files the code imports. The desktop app's own pages are bundled this way too.
  */
 export async function bundlePage(entryPoint: string): Promise<ViewerBundle> {
-  // imported only when it's needed: the installed app ships without esbuild
-  const { build } = await import("esbuild");
-  const result = await build({
-    entryPoints: [entryPoint],
-    bundle: true,
-    write: false,
-    // never written: esbuild only needs a directory to name the .js and .css outputs
-    outdir: "viewer-bundle",
+  const result = await Bun.build({
+    entrypoints: [entryPoint],
     format: "iife",
-    target: "es2022",
-    charset: "utf8",
-    legalComments: "none",
-    jsx: "automatic",
-    logLevel: "silent",
+    target: "browser",
+    jsx: { runtime: "automatic" },
     define: { "process.env.NODE_ENV": '"production"' },
+    throw: true,
   });
-  const output = (extension: string) =>
-    result.outputFiles.find((file) => file.path.endsWith(extension))?.text ?? "";
+  const output = (extension: string) => result.outputs.find((file) => file.path.endsWith(extension))?.text() ?? "";
+  const [script, css] = await Promise.all([output(".js"), output(".css")]);
   return {
     // "</script" anywhere in the code would end the inline script early; "<\/" means the same in
     // strings, template literals and regexes alike
-    script: output(".js").replace(/<\/script/gi, "<\\/script"),
+    script: script.replace(/<\/script/gi, "<\\/script"),
     // the same for the inline <style>
-    css: output(".css").replace(/<\/style/gi, "<\\/style"),
+    css: css.replace(/<\/style/gi, "<\\/style"),
   };
 }
 
+/** The viewer bundled ahead of time, when this is the compiled `lens`. */
+async function prebuiltViewer(): Promise<ViewerBundle | null> {
+  try {
+    // VIEWER_MODULE, spelled out: the bundler only follows an import it can read
+    return (await import("lens:viewer-bundle")).default;
+  } catch {
+    return null;
+  }
+}
+
 /**
- * The viewer's browser code (client/), bundled when the server starts — lens has no build
- * step. Components import their own .css files; esbuild collects them into one stylesheet.
+ * The viewer's browser code (src/viewer), bundled when the server starts — lens has no build
+ * step. Components import their own .css files; Bun.build collects them into one stylesheet.
  */
-export async function bundleViewer(prebuilt = PREBUILT_BUNDLE): Promise<ViewerBundle> {
-  if (existsSync(prebuilt)) return JSON.parse(readFileSync(prebuilt, "utf8")) as ViewerBundle;
-  return bundlePage(entry);
+export async function bundleViewer(prebuilt = prebuiltViewer): Promise<ViewerBundle> {
+  return (await prebuilt()) ?? bundlePage(entry);
 }

@@ -10,8 +10,9 @@
     "erasableSyntaxOnly": true,
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
+    "resolveJsonModule": true,
     "skipLibCheck": true,
-    "types": ["node"]
+    "types": ["bun"]
   },
   "include": ["src/cli-app/**/*.ts", "test/**/*.ts", "scripts/**/*.ts", "forge.config.ts"],
   "exclude": ["test/fixtures", "test/viewer-page.test.ts", "test/launcher-page.test.ts", "test/poll.test.ts"]

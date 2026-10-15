@@ -1,8 +1,9 @@
+/// <reference types="bun" />
 // The viewer page itself: the real bundle (bundle.ts) running in happy-dom on a real
 // analysis of a fixture repo, driven like a reader would — clicks, keys, typing.
 // Type-checked by tsconfig.viewer.json (it needs the DOM types).
 
-import { test, before, after } from 'node:test';
+import { test, beforeAll, afterAll } from 'bun:test';
 import assert from 'node:assert/strict';
 import { rmSync } from 'node:fs';
 import { GlobalRegistrator } from '@happy-dom/global-registrator';
@@ -21,7 +22,7 @@ let bundle = '';
 let payload: ViewerPayload;
 let lightTokens: unknown;
 
-before(async () => {
+beforeAll(async () => {
   repo = makeViewerRepo();
   bundle = (await bundleViewer()).script;
   const input = await analyze('diff', [], repo, loadConfig(repo));
@@ -64,7 +65,7 @@ before(async () => {
   lightTokens = await highlightFiles(input.files, 'github-light');
 });
 
-after(() => rmSync(repo, { recursive: true, force: true }));
+afterAll(() => rmSync(repo, { recursive: true, force: true }));
 
 // ---- the page harness ----
 
@@ -842,6 +843,41 @@ test('a flow is its name: the priority only orders it, and a P3 flow starts fold
     assert.deepEqual([title(), count()], ['Order cleanup', null]);
     assert.equal($$('.sum-section:not(.folded) .sum-item').length, 2);
     assert.equal($$('.sum-section:not(.folded) .sum-item .side').length, 0, 'no layer labels');
+  } finally {
+    summary.flows = [];
+    await close();
+  }
+});
+
+test('a unit in several flows: only the listing the reader picked is marked, and j/k walk on from it', async () => {
+  const summary = payload.summary!;
+  const id = (name: string) => summary.units.find((unit) => unit.name === name)!.id;
+  summary.flows = [
+    { title: 'Reads', path: 'repo', priority: 1, units: { [id('findOrders')]: 'repo' } },
+    { title: 'Cleanup', path: 'repo', priority: 2, units: { [id('findOrders')]: 'repo', [id('legacyTotal')]: 'repo' } },
+  ];
+  await open();
+  try {
+    // each listing, as "flow:name", the marked one with ">"
+    const listed = () =>
+      $$('.sum-item').map(
+        (item) =>
+          (item.classList.contains('active') ? '>' : '') +
+          item.closest('.sum-section')!.querySelector('.sum-section-title .t')!.textContent +
+          ':' +
+          item.querySelector('.name')!.textContent,
+      );
+    await key('v');
+    const items = $$('.sum-item');
+    await click(items[0]);
+    assert.deepEqual(listed(), ['>Reads:findOrders', 'Cleanup:findOrders', 'Cleanup:legacyTotal']);
+    await click(items[1]);
+    assert.deepEqual(listed(), ['Reads:findOrders', '>Cleanup:findOrders', 'Cleanup:legacyTotal']);
+    await key('j');
+    assert.deepEqual(listed(), ['Reads:findOrders', 'Cleanup:findOrders', '>Cleanup:legacyTotal']);
+    await key('k');
+    await key('k');
+    assert.deepEqual(listed(), ['>Reads:findOrders', 'Cleanup:findOrders', 'Cleanup:legacyTotal']);
   } finally {
     summary.flows = [];
     await close();

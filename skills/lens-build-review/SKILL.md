@@ -48,4 +48,4 @@ In a few lines: the build is summarized in lens (give the URL it printed), how m
 units there are, and the concerns the subagent recorded, bugs first — those are where
 to start reading; the user confirms or dismisses each one in the viewer. Don't repeat the summary itself; the viewer shows it next to the code.
 
-If `lens` isn't on the PATH, ask the user to run `npm run install-cli` in the lens repo.
+If `lens` isn't on the PATH, ask the user to install it from the lens desktop app (Settings → Agent).

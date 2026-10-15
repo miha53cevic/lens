@@ -1,7 +1,7 @@
 // Which folder of src/ may import which: ui/ is what the pages share and knows neither of them,
 // the viewer and the desktop app know ui/ and not each other's pages, and the command knows none.
 
-import test from "node:test";
+import { test } from "bun:test";
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -32,6 +32,8 @@ function crossings(folder: string): string[] {
     const source = readFileSync(file, "utf8");
     for (const [, specifier] of source.matchAll(/(?:from|import)\s*\(?\s*['"](\.{1,2}\/[^'"]+)['"]/g)) {
       const target = relPath(SRC, resolve(dirname(file), specifier)).split("/")[0];
+      // a file outside src/ (lens.defaults.json, package.json) is no folder's code
+      if (target === "..") continue;
       if (target !== folder && !MAY_IMPORT[folder].includes(target)) found.add(`${relPath(SRC, file)} → ${target}`);
     }
   }

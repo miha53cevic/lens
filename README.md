@@ -40,15 +40,16 @@ Editors fold by syntax. lens folds by review relevance.
 
 ## Quick start
 
-Requires Node >= 23.6 (lens runs its TypeScript directly, via type stripping).
+Requires [Bun](https://bun.com) >= 1.4 (`brew install bun`): lens runs its TypeScript directly, with no build step.
 
 ```bash
-npm install
-npm run install-cli     # links a global `lens` command (it follows the source)
-npm run install-skill   # links /lens-review, /lens-build-review and /lens-ask into ~/.claude/skills
+bun install
+bun run app             # the desktop app: Settings → Agent installs the `lens` command and the skills
 ```
 
-Then, in a repository with changes:
+The [desktop app](#desktop-app) picks the repository and the review for you. For your agent,
+and for you in a terminal, install the `lens` command and the skills from its Settings. Then,
+in a repository with changes:
 
 ```bash
 lens diff               # open your uncommitted changes in the viewer
@@ -60,10 +61,7 @@ And in your agent, to get the Summary tab written:
 /lens-review            # same arguments as `lens diff`
 ```
 
-To remove them again: `npm run uninstall-cli` and `npm run uninstall-skill`.
-
-Prefer a window to a terminal? The [desktop app](#desktop-app) picks the repository and
-the review for you, and installs the command and the skills from its Settings.
+Settings removes them again.
 
 ## Commands
 
@@ -147,8 +145,8 @@ you and shows its viewer in a tab, so everything in [The viewer](#the-viewer),
 keeps working on its own, with or without the app.
 
 ```bash
-npm run app            # run it from this checkout
-npm run app:dist       # pack it for this machine into release/
+bun run app            # run it from this checkout
+bun run app:dist       # pack it for this machine into release/
 ```
 
 `app:dist` makes a folder, not an installer: `release/Lens-darwin-arm64/` with `Lens.app`
@@ -157,10 +155,18 @@ Each is made on its own system. Keep the folder wherever you like and run the ap
 it; removing the app is deleting the folder. The app needs git on the machine and
 nothing else: it carries its own copy of the CLI.
 
+Every merge to `main` also releases the macOS app, on GitHub Actions
+(`.github/workflows/macos-app.yml`): it steps the patch version in `package.json`,
+commits that to `main` with the tag `v<version>`, and publishes `Lens-darwin-arm64.zip`
+(`Lens.app`, for Apple-silicon Macs) as that tag's GitHub Release. To step the minor or
+major version instead, start the workflow by hand from the Actions tab (Run workflow) and
+pick it there. `bun run version:bump [patch|minor|major]` steps it locally.
+
 It isn't signed with a certificate. An app you packed yourself opens as any other; one
 copied from another machine may need a confirmation first: on macOS, right-click the app
 and choose Open (or allow it under System Settings → Privacy & Security); on Windows,
-More info → Run anyway.
+More info → Run anyway. That includes the app downloaded from a GitHub Release. If macOS
+says it is damaged, clear the download mark: `xattr -dr com.apple.quarantine Lens.app`.
 
 ### Tabs
 
@@ -237,11 +243,12 @@ what that takes, and removes it again:
   `~/.claude/skills`.
 
 The command points at where the app is. After moving the app's folder, Settings says so:
-install the command again from there.
+install the command again from there. The same goes once after updating from an app that
+ran the CLI with its own Node: the old command no longer starts, and Settings offers to
+install it again.
 
 Uninstall removes only what the app installed. A `lens` command or a skill folder that
-came from somewhere else, such as this checkout's `npm run install-cli`, is shown as
-*Not the app's* and never touched.
+came from somewhere else is shown as *Not the app's* and never touched.
 
 Settings → Design system opens the **Sandbox** in a tab of its own: every control lens is
 built from, in each of its states, in the code theme the app is in. It is for working on
@@ -456,7 +463,7 @@ reorder the list, and the change you're on stays listed under a filter.
 The summary is written by your coding agent, on your existing subscription:
 
 ```bash
-# in your agent (Claude Code: after npm run install-skill)
+# in your agent (Claude Code: after installing the skills from the app's Settings)
 /lens-review --staged          # same arguments as `lens diff`, or: pr 87
 ```
 
@@ -543,7 +550,7 @@ the code while you review: "why is this check needed?", "what calls this?".
 Answers come from your own agent, the same way summaries do:
 
 ```bash
-# in your agent (Claude Code: after npm run install-skill)
+# in your agent (Claude Code: after installing the skills from the app's Settings)
 /lens-ask
 ```
 
@@ -665,9 +672,10 @@ if (!input) {
 ## Development
 
 ```bash
-npm test            # typecheck + node --test
-npm run app         # the desktop app, from this checkout (its Settings → Sandbox shows the design system)
-npm run app:smoke   # the app's own tour of itself: pictures of each screen in dist/smoke
+bun run test        # typecheck, format check, bun test
+bun run app         # the desktop app, from this checkout (its Settings → Sandbox shows the design system)
+bun run app:smoke   # the app's own tour of itself: pictures of each screen in dist/smoke
+bun run compile     # lens as one executable for this machine, in dist/lens (what the app runs)
 ```
 
 - The sources are four folders under `src/`: `cli-app/` (the `lens` command and the
@@ -675,13 +683,14 @@ npm run app:smoke   # the app's own tour of itself: pictures of each screen in d
   `viewer/` (the page the server serves) and `desktop/` (the desktop app).
 - Classifier rules live in `src/cli-app/classify/typescript.ts` (shared by ts/tsx/js).
 - The viewer is `src/viewer/`, a React app (TypeScript), which the server
-  (`src/cli-app/render/web/`) bundles with esbuild when it starts and inlines into one
+  (`src/cli-app/render/web/`) bundles with Bun.build when it starts and inlines into one
   page, `viewer.html`. There's no build step. `tsconfig.viewer.json` type-checks it as part of
-  `npm test`.
+  `bun run test`.
 - Fixture-driven tests are the main defense against a fold hiding a real bug: a rule
   change that suddenly folds more fails loudly.
-- The desktop app is `src/desktop/`: an Electron shell that holds no lens logic. It runs the
-  CLI's sources with its own Node, so the app and the command are always the same code.
+- The desktop app is `src/desktop/`: an Electron shell that holds no lens logic. From a
+  checkout it runs the CLI's sources with bun; packed, it carries them compiled into one
+  executable (`bun run compile`), so the app and the command are always the same code.
   Electron Forge builds, starts and packs it (`forge.config.ts`); add `--packed` to
   `app:smoke` to tour the packed app.
 

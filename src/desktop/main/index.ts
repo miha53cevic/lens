@@ -5,7 +5,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { app, dialog } from 'electron';
-import { lensCli } from './cli.ts';
+import { compiledCli, findBun, sourceCli, type LensCli } from './cli.ts';
 import { setAppMenu } from './menu.ts';
 import { lockDown, registerAppScheme, viewerSession } from './security.ts';
 import { setWindowsUserPath, terminalPath, type SetupEnv } from './setup.ts';
@@ -16,7 +16,7 @@ import { AppWindow } from './window.ts';
 
 // this file, bundled, is dist/main.mjs: the pages and the preload sit next to it
 const distDir = import.meta.dirname;
-// the CLI's sources: the checkout in development, the app's resources once installed
+// the CLI: the checkout in development, the app's resources once installed
 const lensRoot = app.isPackaged ? join(process.resourcesPath, 'lens') : join(distDir, '..');
 
 // a folder of its own for the app's data (tests and the smoke run point it somewhere else)
@@ -33,15 +33,24 @@ registerAppScheme();
 
 let window: AppWindow | null = null;
 
+/** What runs lens: the compiled lens the packed app carries, or bun on the checkout's sources. */
+function lensCli(): LensCli {
+  if (app.isPackaged) return compiledCli(lensRoot);
+  const bun = findBun();
+  if (!bun)
+    throw new Error("bun isn't installed: from a checkout, the app runs lens's sources with it (brew install bun)");
+  return sourceCli(lensRoot, bun);
+}
+
 async function start(): Promise<void> {
-  const cli = lensCli(lensRoot);
+  const cli = lensCli();
   const themes = new Themes(cli, viewerSession(), () => window?.themeChanged());
   lockDown(distDir, () => themes.current);
   await themes.load();
   themes.watch();
 
   const setup: SetupEnv = {
-    execPath: process.execPath,
+    command: [cli.command, ...cli.args],
     lensRoot,
     home: homedir(),
     platform: process.platform,

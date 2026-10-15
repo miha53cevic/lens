@@ -1,6 +1,6 @@
 {
   // Type-checks the viewer's browser code (src/viewer), which bundle.ts bundles
-  // with esbuild when the server starts, and the page tests, which need the DOM types.
+  // with Bun.build when the server starts, and the page tests, which need the DOM types.
   "compilerOptions": {
     "target": "es2022",
     "lib": ["es2024", "dom", "dom.iterable"],

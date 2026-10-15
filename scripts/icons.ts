@@ -1,4 +1,4 @@
-// npm run app:icons: the desktop app's icon files, made from src/desktop/icons/icon.png.
+// bun run app:icons: the desktop app's icon files, made from src/desktop/icons/icon.png.
 // Forge wants an .icns (macOS) and an .ico (Windows) ready-made. macOS only (sips and iconutil
 // ship with it); the results are checked in, so this runs when the icon changes.
 

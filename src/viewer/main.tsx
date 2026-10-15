@@ -1,4 +1,4 @@
-// lens viewer: the page's entry point, bundled by esbuild when the server starts (see bundle.ts).
+// lens viewer: the page's entry point, bundled by Bun.build when the server starts (see bundle.ts).
 // What belongs to the document rather than to a component is set up here: the global
 // listeners, and the store subscriptions that keep the document in step with the state.
 

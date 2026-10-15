@@ -1,14 +1,14 @@
-import test from "node:test";
+import { test } from "bun:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { choiceArgs, choiceCommand, choiceLabel, choiceProblem, parseChoice, splitArgs, type ReviewChoice } from "../src/desktop/shared/choice.ts";
-import { lensCli, runLens } from "../src/desktop/main/cli.ts";
+import { sourceCli, runLens } from "../src/desktop/main/cli.ts";
 import { makeViewerRepo } from "./fixtures/viewerRepo.ts";
 
-// the CLI as the tests run it: this Node on the sources (the app uses its own executable instead)
-const cli = { ...lensCli(join(import.meta.dirname, ".."), process.execPath), env: process.env };
+// the CLI as the tests run it: this bun on the sources, as the app runs it from a checkout
+const cli = { ...sourceCli(join(import.meta.dirname, ".."), process.execPath), env: process.env };
 
 test("choiceArgs: each choice is the words you would type after `lens`", () => {
   assert.deepEqual(choiceArgs({ kind: "diff", range: "worktree" }), ["diff"]);
@@ -51,7 +51,7 @@ test("parseChoice: what a page sends is a choice or nothing, never a command lin
 
 // The contract: the real CLI takes each kind of choice. --json makes it print the fold model
 // and exit instead of serving, so this checks the arguments without starting a viewer.
-test("every kind of choice is something the real lens CLI opens", { timeout: 60_000 }, async () => {
+test("every kind of choice is something the real lens CLI opens", async () => {
   const dir = makeViewerRepo(); // orders.ts and its test changed in the working tree
   const git = (...args: string[]) => execFileSync("git", args, { cwd: dir, encoding: "utf8" });
   const files = async (choice: ReviewChoice): Promise<string[]> => {
@@ -78,4 +78,4 @@ test("every kind of choice is something the real lens CLI opens", { timeout: 60_
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
-});
+}, 60_000);

@@ -20,4 +20,4 @@ here needs an API key — you are the model.
 4. Tell the user the summary is ready: refresh the lens viewer (↻) and open the
    Summary tab (`v`).
 
-If `lens` isn't on the PATH, ask the user to run `npm run install-cli` in the lens repo.
+If `lens` isn't on the PATH, ask the user to install it from the lens desktop app (Settings → Agent).

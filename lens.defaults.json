@@ -49,5 +49,5 @@
 
   "testFilePatterns": ["*.spec.*", "*.test.*", "__tests__/**"],
 
-  "exclude": ["package-lock.json", "yarn.lock", "pnpm-lock.yaml", "*.min.js", "*.min.css", "*.map"]
+  "exclude": ["package-lock.json", "yarn.lock", "pnpm-lock.yaml", "bun.lock", "bun.lockb", "*.min.js", "*.min.css", "*.map"]
 }

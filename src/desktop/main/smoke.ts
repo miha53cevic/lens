@@ -1,4 +1,4 @@
-// A scripted run of the real app, for `npm run app:smoke` (scripts/smoke.ts): it opens a repository, starts
+// A scripted run of the real app, for `bun run app:smoke` (scripts/smoke.ts): it opens a repository, starts
 // a review, opens Settings and switches the theme, saving a picture of each page and what it
 // found. The script then starts the app a second time on the same data, and that run checks that
 // the window and its tab came back as the first run left them.

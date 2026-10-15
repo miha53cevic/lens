@@ -1,8 +1,9 @@
+/// <reference types="bun" />
 // The app's own pages: the real bundles of the launcher and the tab strip running in happy-dom,
 // with window.lensApp (what the preload gives them) stubbed, driven like a reader would.
 // Type-checked by tsconfig.desktop.json (it needs the DOM types).
 
-import { test, before } from 'node:test';
+import { test, beforeAll } from 'bun:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -27,7 +28,7 @@ let launcher = '';
 let strip = '';
 let menu = '';
 
-before(async () => {
+beforeAll(async () => {
   launcher = (await bundlePage(join(app, 'launcher', 'main.tsx'))).script;
   strip = (await bundlePage(join(app, 'shell', 'main.tsx'))).script;
   menu = (await bundlePage(join(app, 'menu', 'main.tsx'))).script;

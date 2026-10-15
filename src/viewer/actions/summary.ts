@@ -7,8 +7,9 @@ import { concernKey, type Unit } from '../model/signals.ts';
 import { currentUnit, listModel } from '../model/summaryList.ts';
 import { jumpToLine, landOn } from './views.ts';
 
-export function openSummaryUnit(unitId: string): void {
-  update({ summaryUnit: unitId });
+/** Opens a unit; `flow` is the listing it was picked from, for a unit in several flows (none: the first). */
+export function openSummaryUnit(unitId: string, flow: string | null = null): void {
+  update({ summaryUnit: unitId, summaryFlow: flow });
 }
 
 export function showOverview(): void {
@@ -18,12 +19,16 @@ export function showOverview(): void {
 export function stepSummary(direction: number): void {
   const state = getState();
   const list = listModel(state);
-  if (!list || list.order.length === 0) return;
+  if (!list || list.entries.length === 0) return;
   // from the overview, j starts at the top of the list and k at the bottom
-  const position = state.summaryUnit === null ? -1 : list.order.indexOf(list.activeId!);
+  const position =
+    state.summaryUnit === null
+      ? -1
+      : list.entries.findIndex((entry) => entry.unitId === list.activeId && entry.flow === list.activeFlow);
   // stops at the first and the last change: no wrapping around
-  const target = position === -1 ? (direction > 0 ? 0 : list.order.length - 1) : position + direction;
-  if (target >= 0 && target < list.order.length) openSummaryUnit(list.order[target]);
+  const target = position === -1 ? (direction > 0 ? 0 : list.entries.length - 1) : position + direction;
+  const entry = list.entries[target];
+  if (entry) openSummaryUnit(entry.unitId, entry.flow);
 }
 
 export function openUnitInCode(unit: Unit | null): void {

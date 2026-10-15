@@ -1,6 +1,7 @@
-// The polling loop (src/ui/poll.ts), on node's mock clock: when a watcher runs, and when not.
+/// <reference types="bun" />
+// The polling loop (src/ui/poll.ts), on Bun's fake clock: when a watcher runs, and when not.
 
-import test, { mock } from 'node:test';
+import { jest, test } from 'bun:test';
 import assert from 'node:assert/strict';
 
 // The page, as far as the loop looks at it: whether it is hidden, and its two events.
@@ -16,14 +17,14 @@ Object.assign(globalThis, {
   },
   window: { addEventListener: listen },
 });
-mock.timers.enable({ apis: ['setTimeout', 'Date'] });
+jest.useFakeTimers();
 const { check, watch } = await import('../src/ui/poll.ts');
 
 /** Lets the runs that just started get to their end. */
 const settle = () => new Promise((resolve) => setImmediate(resolve));
 
 async function tick(ms: number): Promise<void> {
-  mock.timers.tick(ms);
+  jest.advanceTimersByTime(ms);
   await settle();
 }
 

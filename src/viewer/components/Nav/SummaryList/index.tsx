@@ -11,7 +11,9 @@ import { UnitItem } from './UnitItem.tsx';
 /** The Summary tab's list: flows (the agent's priority orders them), then the changes in no flow. */
 export function SummaryList() {
   const { list, overview } = useLens((state) => ({ list: listModel(state)!, overview: state.summaryUnit === null }));
-  const isActive = (unitId: string) => !overview && unitId === list.activeId;
+  // a unit in several flows is listed under each: only the listing the reader picked is marked (and scrolled to)
+  const isActive = (unitId: string, flow: string | null) =>
+    !overview && unitId === list.activeId && flow === list.activeFlow;
 
   return (
     <>
@@ -39,7 +41,10 @@ export function SummaryList() {
                 </span>
               )}
             </button>
-            {!folded && members.map((unit) => <UnitItem key={unit.id} unit={unit} active={isActive(unit.id)} />)}
+            {!folded &&
+              members.map((unit) => (
+                <UnitItem key={unit.id} unit={unit} flow={flow.title} active={isActive(unit.id, flow.title)} />
+              ))}
           </div>
         );
       })}
@@ -51,7 +56,13 @@ export function SummaryList() {
             </div>
           )}
           {list.others.map((unit) => (
-            <UnitItem key={unit.id} unit={unit} side={baseName(unit.displayFile)} active={isActive(unit.id)} />
+            <UnitItem
+              key={unit.id}
+              unit={unit}
+              flow={null}
+              side={baseName(unit.displayFile)}
+              active={isActive(unit.id, null)}
+            />
           ))}
         </div>
       )}

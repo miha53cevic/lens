@@ -1,21 +1,23 @@
-import { createRequire } from "node:module";
+/// <reference path="./wasm.d.ts" />
+import { readFileSync } from "node:fs";
 import { extname } from "node:path";
-import type {
-  Parser as ParserType,
-  Language as LanguageType,
-  Tree,
-} from "@vscode/tree-sitter-wasm";
+import { Parser, Language, type Tree } from "@vscode/tree-sitter-wasm";
+// Imported as files, so the compiled `lens` carries tree-sitter and the three grammars lens
+// parses with, and none of the dozen others the package ships.
+import coreWasm from "@vscode/tree-sitter-wasm/wasm/tree-sitter.wasm" with { type: "file" };
+import typescriptWasm from "@vscode/tree-sitter-wasm/wasm/tree-sitter-typescript.wasm" with { type: "file" };
+import tsxWasm from "@vscode/tree-sitter-wasm/wasm/tree-sitter-tsx.wasm" with { type: "file" };
+import javascriptWasm from "@vscode/tree-sitter-wasm/wasm/tree-sitter-javascript.wasm" with { type: "file" };
 import type { LanguageId } from "../model.ts";
 
-// The package is a UMD/CJS bundle; require() is the reliable way to load it from ESM.
-const require = createRequire(import.meta.url);
-const { Parser, Language } = require("@vscode/tree-sitter-wasm") as {
-  Parser: typeof ParserType;
-  Language: typeof LanguageType;
+const GRAMMARS: Record<LanguageId, string> = {
+  typescript: typescriptWasm,
+  tsx: tsxWasm,
+  javascript: javascriptWasm,
 };
 
 let initialized = false;
-const languages = new Map<LanguageId, LanguageType>();
+const languages = new Map<LanguageId, Language>();
 
 const EXTENSION_LANGUAGE: Record<string, LanguageId> = {
   ".ts": "typescript",
@@ -34,13 +36,12 @@ export function languageForFile(file: string): LanguageId | null {
 
 export async function parseSource(source: string, lang: LanguageId): Promise<Tree> {
   if (!initialized) {
-    await Parser.init();
+    await Parser.init({ locateFile: () => coreWasm });
     initialized = true;
   }
   let language = languages.get(lang);
   if (!language) {
-    const wasmPath = require.resolve(`@vscode/tree-sitter-wasm/wasm/tree-sitter-${lang}.wasm`);
-    language = await Language.load(wasmPath);
+    language = await Language.load(readFileSync(GRAMMARS[lang]));
     languages.set(lang, language);
   }
   const parser = new Parser();
