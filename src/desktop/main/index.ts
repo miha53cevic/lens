@@ -37,8 +37,7 @@ let window: AppWindow | null = null;
 function lensCli(): LensCli {
   if (app.isPackaged) return compiledCli(lensRoot);
   const bun = findBun();
-  if (!bun)
-    throw new Error("bun isn't installed: from a checkout, the app runs lens's sources with it (brew install bun)");
+  if (!bun) throw new Error("bun isn't installed: from a checkout, the app runs lens's sources with it (npm i -g bun)");
   return sourceCli(lensRoot, bun);
 }
 

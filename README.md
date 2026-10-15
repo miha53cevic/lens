@@ -40,7 +40,7 @@ Editors fold by syntax. lens folds by review relevance.
 
 ## Quick start
 
-Requires [Bun](https://bun.com) >= 1.4 (`brew install bun`): lens runs its TypeScript directly, with no build step.
+Requires [Bun](https://bun.com) >= 1.4 (`npm i -g bun`): lens runs its TypeScript directly, with no build step.
 
 ```bash
 bun install
@@ -162,11 +162,27 @@ commits that to `main` with the tag `v<version>`, and publishes `Lens-darwin-arm
 major version instead, start the workflow by hand from the Actions tab (Run workflow) and
 pick it there. `bun run version:bump [patch|minor|major]` steps it locally.
 
-It isn't signed with a certificate. An app you packed yourself opens as any other; one
-copied from another machine may need a confirmation first: on macOS, right-click the app
-and choose Open (or allow it under System Settings → Privacy & Security); on Windows,
-More info → Run anyway. That includes the app downloaded from a GitHub Release. If macOS
-says it is damaged, clear the download mark: `xattr -dr com.apple.quarantine Lens.app`.
+### Installing a release
+
+The app isn't signed with a developer certificate or notarized by Apple, so macOS blocks
+a downloaded copy and says "Lens is damaged and can't be opened". It isn't damaged: a
+browser marks everything it downloads as quarantined, and macOS refuses a quarantined app
+without Apple's notarization. To install a release:
+
+1. Download `Lens-darwin-arm64.zip` from the [latest release](https://github.com/miha53cevic/lens/releases/latest) and
+   unzip it.
+2. Move `Lens.app` to `/Applications` (or anywhere you like).
+3. Clear the download mark, once per download:
+
+   ```bash
+   xattr -dr com.apple.quarantine /Applications/Lens.app
+   ```
+
+4. Open it as any other app.
+
+An app you packed yourself with `bun run app:dist` never gets the mark, so it opens
+without this step. On Windows, a copy from another machine asks once: More info → Run
+anyway.
 
 ### Tabs
 
