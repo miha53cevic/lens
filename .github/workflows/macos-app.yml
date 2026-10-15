@@ -1,0 +1,80 @@
+# The desktop app for macOS, packed on every merge to main (and by hand from the Actions tab).
+# Each merge steps package.json's version (`bun run version:bump`: a patch, or what a manual run
+# picks), then the same steps as on a Mac: the tests, then `bun run app:dist`. Once the app is
+# packed, the version commit and its tag v<version> go to main, and the unsigned Lens.app,
+# zipped, is published as that tag's GitHub Release. A failed run bumps nothing.
+# macOS only for now: Forge packs for the system it runs on, so Windows would be a job of its own
+# on a Windows runner.
+
+name: macOS app
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Which part of the version to step
+        type: choice
+        options: [patch, minor, major]
+        default: patch
+
+permissions:
+  # to push the version commit and its tag, and publish the release
+  contents: write
+
+concurrency:
+  group: macos-app-${{ github.ref }}
+  # one release at a time, so each bumps from the last one's version
+  cancel-in-progress: false
+
+jobs:
+  build:
+    # Apple silicon (arm64), like the README's release/Lens-darwin-arm64
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      # main as it is now, not the merge that started the run: it has the last release's version commit
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.3
+
+      - run: bun install --frozen-lockfile
+
+      - name: Bump the version
+        id: version
+        run: echo "version=$(bun run --silent version:bump ${{ inputs.bump || 'patch' }})" >> "$GITHUB_OUTPUT"
+
+      - run: bun run test
+
+      - run: bun run app:dist
+
+      # ditto keeps the bundle's symlinks and its ad hoc signature, which a plain zip breaks
+      - name: Zip Lens.app
+        run: ditto -c -k --sequesterRsrc --keepParent release/Lens-darwin-arm64/Lens.app Lens-darwin-arm64.zip
+
+      # the bot's own push starts no new run (GITHUB_TOKEN pushes don't), and [skip ci] makes sure
+      - name: Commit and tag the version
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "chore: release v$VERSION [skip ci]"
+          git tag "v$VERSION"
+          git push origin HEAD:main "v$VERSION"
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          gh release create "v$VERSION" Lens-darwin-arm64.zip \
+            --verify-tag \
+            --title "Lens $VERSION" \
+            --generate-notes \
+            --latest

@@ -155,10 +155,18 @@ Each is made on its own system. Keep the folder wherever you like and run the ap
 it; removing the app is deleting the folder. The app needs git on the machine and
 nothing else: it carries its own copy of the CLI.
 
+Every merge to `main` also releases the macOS app, on GitHub Actions
+(`.github/workflows/macos-app.yml`): it steps the patch version in `package.json`,
+commits that to `main` with the tag `v<version>`, and publishes `Lens-darwin-arm64.zip`
+(`Lens.app`, for Apple-silicon Macs) as that tag's GitHub Release. To step the minor or
+major version instead, start the workflow by hand from the Actions tab (Run workflow) and
+pick it there. `bun run version:bump [patch|minor|major]` steps it locally.
+
 It isn't signed with a certificate. An app you packed yourself opens as any other; one
 copied from another machine may need a confirmation first: on macOS, right-click the app
 and choose Open (or allow it under System Settings → Privacy & Security); on Windows,
-More info → Run anyway.
+More info → Run anyway. That includes the app downloaded from a GitHub Release. If macOS
+says it is damaged, clear the download mark: `xattr -dr com.apple.quarantine Lens.app`.
 
 ### Tabs
 
