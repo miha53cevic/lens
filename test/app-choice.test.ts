@@ -1,4 +1,4 @@
-import test from "node:test";
+import { test } from "bun:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { rmSync, writeFileSync } from "node:fs";
@@ -51,7 +51,7 @@ test("parseChoice: what a page sends is a choice or nothing, never a command lin
 
 // The contract: the real CLI takes each kind of choice. --json makes it print the fold model
 // and exit instead of serving, so this checks the arguments without starting a viewer.
-test("every kind of choice is something the real lens CLI opens", { timeout: 60_000 }, async () => {
+test("every kind of choice is something the real lens CLI opens", async () => {
   const dir = makeViewerRepo(); // orders.ts and its test changed in the working tree
   const git = (...args: string[]) => execFileSync("git", args, { cwd: dir, encoding: "utf8" });
   const files = async (choice: ReviewChoice): Promise<string[]> => {
@@ -78,4 +78,4 @@ test("every kind of choice is something the real lens CLI opens", { timeout: 60_
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
-});
+}, 60_000);

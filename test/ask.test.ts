@@ -1,4 +1,4 @@
-import test from "node:test";
+import { test } from "bun:test";
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import { createServer, type IncomingMessage, type Server } from "node:http";
@@ -318,7 +318,7 @@ function lens(cwd: string, ...args: string[]): Promise<{ code: number; stdout: s
   });
 }
 
-test("lens ask: listen gets the viewer's question, reply answers it, server.json comes and goes", { timeout: 60_000 }, async () => {
+test("lens ask: listen gets the viewer's question, reply answers it, server.json comes and goes", async () => {
   await withRepo(async (dir, git) => {
     writeFileSync(join(dir, "calc.ts"), OLD);
     git("add", "-A");
@@ -372,4 +372,4 @@ test("lens ask: listen gets the viewer's question, reply answers it, server.json
       await exited; // Windows keeps the temp dir busy while the process lives
     }
   });
-});
+}, 60_000);

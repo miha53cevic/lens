@@ -1,4 +1,4 @@
-import test from "node:test";
+import { test } from "bun:test";
 import assert from "node:assert/strict";
 import { parsePrRef, githubRepoFromRemoteUrl, matchRemote, parseRemoteRefs } from "../src/cli-app/pr.ts";
 

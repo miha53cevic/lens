@@ -1,6 +1,6 @@
-// npm run install-skill / uninstall-skill: links each folder in skills/ into
-// ~/.claude/skills. Plain Node, so it works the same from any shell (npm runs
-// scripts with cmd.exe on Windows). On Windows the links are junctions, which
+// bun run install-skill / uninstall-skill: links each folder in skills/ into
+// ~/.claude/skills. Plain TypeScript, so it works the same from any shell (bun runs
+// it the same everywhere). On Windows the links are junctions, which
 // need no admin rights or developer mode.
 
 import { existsSync, lstatSync, mkdirSync, readdirSync, realpathSync, rmSync, symlinkSync } from "node:fs";
@@ -56,6 +56,6 @@ if (action === "install") {
     console.log(`removed ${target}${linked === null ? " (a dangling link)" : ""}`);
   }
 } else {
-  console.error("usage: node scripts/skills.ts install | uninstall");
+  console.error("usage: bun scripts/skills.ts install | uninstall");
   process.exit(1);
 }

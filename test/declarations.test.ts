@@ -1,4 +1,4 @@
-import { test } from "node:test";
+import { test } from "bun:test";
 import assert from "node:assert/strict";
 import { analyzeSource } from "../src/cli-app/classify/index.ts";
 import { DEFAULT_CONFIG } from "../src/cli-app/config.ts";

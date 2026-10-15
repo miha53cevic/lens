@@ -1,7 +1,7 @@
 // Which folder of src/ may import which: ui/ is what the pages share and knows neither of them,
 // the viewer and the desktop app know ui/ and not each other's pages, and the command knows none.
 
-import test from "node:test";
+import { test } from "bun:test";
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";

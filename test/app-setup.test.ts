@@ -1,4 +1,4 @@
-import test from "node:test";
+import { test } from "bun:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
@@ -33,7 +33,7 @@ function withHome(fn: (env: SetupEnv, home: string, bin: string) => Promise<void
   };
 }
 
-test("the lens command: installed where terminals look, runs the real CLI, and is removed again", { skip: process.platform === "win32" },
+test.skipIf(process.platform === "win32")("the lens command: installed where terminals look, runs the real CLI, and is removed again",
   withHome(async (env, _home, bin) => {
     assert.deepEqual(setupState(env).cli, { state: "missing", where: "~/.local/bin/lens", note: null });
 
@@ -56,7 +56,7 @@ test("the lens command: installed where terminals look, runs the real CLI, and i
     assert.equal(await uninstall(env, "cli"), "The lens command was not installed by the app");
   }));
 
-test("the lens command: one that isn't the app's is left alone, and one off the PATH says so", { skip: process.platform === "win32" },
+test.skipIf(process.platform === "win32")("the lens command: one that isn't the app's is left alone, and one off the PATH says so",
   withHome(async (env, home, bin) => {
     writeFileSync(join(bin, "lens"), "#!/usr/bin/env node\n// npm link put this here\n");
     const state = setupState(env).cli;

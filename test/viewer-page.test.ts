@@ -1,8 +1,9 @@
+/// <reference types="bun" />
 // The viewer page itself: the real bundle (bundle.ts) running in happy-dom on a real
 // analysis of a fixture repo, driven like a reader would — clicks, keys, typing.
 // Type-checked by tsconfig.viewer.json (it needs the DOM types).
 
-import { test, before, after } from 'node:test';
+import { test, beforeAll, afterAll } from 'bun:test';
 import assert from 'node:assert/strict';
 import { rmSync } from 'node:fs';
 import { GlobalRegistrator } from '@happy-dom/global-registrator';
@@ -21,7 +22,7 @@ let bundle = '';
 let payload: ViewerPayload;
 let lightTokens: unknown;
 
-before(async () => {
+beforeAll(async () => {
   repo = makeViewerRepo();
   bundle = (await bundleViewer()).script;
   const input = await analyze('diff', [], repo, loadConfig(repo));
@@ -64,7 +65,7 @@ before(async () => {
   lightTokens = await highlightFiles(input.files, 'github-light');
 });
 
-after(() => rmSync(repo, { recursive: true, force: true }));
+afterAll(() => rmSync(repo, { recursive: true, force: true }));
 
 // ---- the page harness ----
 

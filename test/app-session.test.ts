@@ -1,4 +1,4 @@
-import test from "node:test";
+import { test } from "bun:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
@@ -12,7 +12,7 @@ import { makeViewerRepo } from "./fixtures/viewerRepo.ts";
 // the CLI as the tests run it: this Node on the sources (the app uses its own executable instead)
 const cli = { ...lensCli(join(import.meta.dirname, ".."), process.execPath), env: process.env };
 
-test("a review starts on the line the CLI prints, serves its viewer, and stops clean", { timeout: 60_000 }, async () => {
+test("a review starts on the line the CLI prints, serves its viewer, and stops clean", async () => {
   const dir = makeViewerRepo();
   try {
     const port = await freePort();
@@ -35,9 +35,9 @@ test("a review starts on the line the CLI prints, serves its viewer, and stops c
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
-});
+}, 60_000);
 
-test("a review that can't start fails with the CLI's own reason", { timeout: 60_000 }, async () => {
+test("a review that can't start fails with the CLI's own reason", async () => {
   const dir = makeViewerRepo();
   try {
     execFileSync("git", ["checkout", "-q", "--", "."], { cwd: dir }); // nothing changed anymore
@@ -48,9 +48,9 @@ test("a review that can't start fails with the CLI's own reason", { timeout: 60_
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
-});
+}, 60_000);
 
-test("a review ended from the viewer is noticed, and cancelling one that is starting ends it", { timeout: 60_000 }, async () => {
+test("a review ended from the viewer is noticed, and cancelling one that is starting ends it", async () => {
   const dir = makeViewerRepo();
   try {
     const session = await startReview(cli, dir, ["diff"], await freePort()).ready;
@@ -64,9 +64,9 @@ test("a review ended from the viewer is noticed, and cancelling one that is star
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
-});
+}, 60_000);
 
-test("lens info through the CLI, as the picker reads it", { timeout: 60_000 }, async () => {
+test("lens info through the CLI, as the picker reads it", async () => {
   const dir = makeViewerRepo();
   try {
     const info = await lensInfo(cli, dir, { themes: true });
@@ -77,7 +77,7 @@ test("lens info through the CLI, as the picker reads it", { timeout: 60_000 }, a
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
-});
+}, 60_000);
 
 test("cliReason and cliEnv: the CLI's last word, and an environment that runs it", () => {
   assert.equal(cliReason("warning: something\nlens: first\nlens: the reason\n"), "the reason");

@@ -9,22 +9,22 @@
   },
   "main": "dist/main.mjs",
   "engines": {
-    "node": ">=23.6"
+    "bun": ">=1.4"
   },
   "scripts": {
-    "lens": "node src/cli-app/cli.ts",
-    "install-cli": "npm link",
-    "uninstall-cli": "npm unlink -g lens",
+    "lens": "bun src/cli-app/cli.ts",
+    "install-cli": "bun scripts/cli.ts install",
+    "uninstall-cli": "bun scripts/cli.ts uninstall",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.viewer.json && tsc -p tsconfig.desktop.json",
     "format": "prettier --write src/ui src/viewer src/desktop test/viewer-page.test.ts test/launcher-page.test.ts test/viewer.test.ts test/poll.test.ts test/fixtures/viewerRepo.ts",
     "format:check": "prettier --check src/ui src/viewer src/desktop test/viewer-page.test.ts test/launcher-page.test.ts test/viewer.test.ts test/poll.test.ts test/fixtures/viewerRepo.ts",
-    "test": "npm run typecheck && npm run format:check && node --test test/*.test.ts",
-    "install-skill": "node scripts/skills.ts install",
-    "uninstall-skill": "node scripts/skills.ts uninstall",
+    "test": "bun run typecheck && bun run format:check && bun test --isolate test/",
+    "install-skill": "bun scripts/skills.ts install",
+    "uninstall-skill": "bun scripts/skills.ts uninstall",
     "app": "electron-forge start",
     "app:dist": "electron-forge package",
-    "app:smoke": "node scripts/smoke.ts",
-    "app:icons": "node scripts/icons.ts"
+    "app:smoke": "bun scripts/smoke.ts",
+    "app:icons": "bun scripts/icons.ts"
   },
   "devDependencies": {
     "@electron-forge/cli": "^8.0.1",
@@ -32,6 +32,7 @@
     "@electron/fuses": "^2.1.3",
     "@happy-dom/global-registrator": "^20.14.6",
     "@testing-library/dom": "^10.4.2",
+    "@types/bun": "^1.4.3",
     "@types/markdown-it": "^14.2.0",
     "@types/node": "^26.2.0",
     "@types/react": "^19.3.0",

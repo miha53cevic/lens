@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 import { loadConfig, findConfigPath } from "./config.ts";
 import { isBundledTheme } from "./render/highlight.ts";
 import { serveViewer } from "./render/web/server.ts";

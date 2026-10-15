@@ -1,4 +1,4 @@
-import test from "node:test";
+import { test } from "bun:test";
 import assert from "node:assert/strict";
 import { compilePatterns, matchesAny } from "../src/cli-app/glob.ts";
 

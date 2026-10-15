@@ -1,4 +1,4 @@
-import test from "node:test";
+import { test } from "bun:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, realpathSync, rmSync } from "node:fs";
@@ -58,7 +58,7 @@ async function withApp(fn: (dir: string, tab: Tab, host: ReturnType<typeof fakeH
   }
 }
 
-test("a tab: from Start to a repository's picker, to its review, and back when the review ends", { timeout: 90_000 }, async () => {
+test("a tab: from Start to a repository's picker, to its review, and back when the review ends", async () => {
   await withApp(async (dir, tab, host, data) => {
     assert.deepEqual(tab.strip(), { id: 1, icon: "new", title: "New tab", detail: "", canChange: false });
 
@@ -100,9 +100,9 @@ test("a tab: from Start to a repository's picker, to its review, and back when t
     assert.equal(tab.screen, "start", "with no review behind it, the picker's back goes to Start");
     assert.equal(tab.repo, null);
   });
-});
+}, 90_000);
 
-test("a tab: a new review replaces the running one on the same port, and a failure says why", { timeout: 90_000 }, async () => {
+test("a tab: a new review replaces the running one on the same port, and a failure says why", async () => {
   await withApp(async (dir, tab) => {
     await tab.openFolder(dir);
     await tab.open({ kind: "diff", range: "worktree" });
@@ -123,9 +123,9 @@ test("a tab: a new review replaces the running one on the same port, and a failu
     await tab.open({ kind: "pr", ref: " " });
     assert.deepEqual(tab.status, { kind: "failed", label: "Couldn't open the review", detail: "Enter a PR number or URL" });
   });
-});
+}, 90_000);
 
-test("a tab: a folder outside a repository, a repository another tab has, and a lens already running", { timeout: 90_000 }, async () => {
+test("a tab: a folder outside a repository, a repository another tab has, and a lens already running", async () => {
   await withApp(async (dir, tab, host, data) => {
     await tab.openFolder(data);
     assert.deepEqual(tab.status, { kind: "failed", label: `Couldn't open ${tildePath(data)}`, detail: "not inside a git repository" });
@@ -155,9 +155,9 @@ test("a tab: a folder outside a repository, a repository another tab has, and a 
       await terminal.close();
     }
   });
-});
+}, 90_000);
 
-test("a tab's picker follows the repository: a quiet poll reports what changed, once, and a folder that is gone", { timeout: 90_000 }, async () => {
+test("a tab's picker follows the repository: a quiet poll reports what changed, once, and a folder that is gone", async () => {
   await withApp(async (dir, tab, host) => {
     await tab.poll();
     assert.equal(tab.screen, "start", "nothing to read before a repository is open");
@@ -188,9 +188,9 @@ test("a tab's picker follows the repository: a quiet poll reports what changed, 
     await tab.poll();
     assert.equal(reported, 0, "Start has nothing to poll");
   });
-});
+}, 90_000);
 
-test("a reopened tab: its picker on the review it showed, which starts when the tab is first in front", { timeout: 90_000 }, async () => {
+test("a reopened tab: its picker on the review it showed, which starts when the tab is first in front", async () => {
   await withApp(async (dir, tab, host, data) => {
     const store = openStore(join(data, "state.json"));
     const worktree = { kind: "diff" as const, range: "worktree" as const };
@@ -234,9 +234,9 @@ test("a reopened tab: its picker on the review it showed, which starts when the 
     await host.until(tab, (it) => it.reviewUrl === null);
     assert.deepEqual(tab.stored, { root: toPosix(dir), choice: null });
   });
-});
+}, 90_000);
 
-test("a reopened tab that can't be: a repository that is gone gets no tab, a review that can't start says why", { timeout: 90_000 }, async () => {
+test("a reopened tab that can't be: a repository that is gone gets no tab, a review that can't start says why", async () => {
   await withApp(async (dir, tab, host, data) => {
     const store = openStore(join(data, "state.json"));
     const another = (id: number) => new Tab(id, "start", cli, store, host);
@@ -273,7 +273,7 @@ test("a reopened tab that can't be: a repository that is gone gets no tab, a rev
     // a tab that already has a repository isn't one to reopen into
     assert.equal(await tab.restore(dir, null), false);
   });
-});
+}, 90_000);
 
 test("the tab list: a new tab goes after the one in front, and closing brings a neighbor forward", () => {
   const host = fakeHost();
