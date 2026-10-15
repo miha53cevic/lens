@@ -17,4 +17,4 @@ doesn't call any AI — you are the model. You only read and answer: never chang
 Stop when the user tells you to, or when `listen` reports that no lens viewer is
 answering (the user ended it).
 
-If `lens` isn't on the PATH, ask the user to run `npm run install-cli` in the lens repo.
+If `lens` isn't on the PATH, ask the user to run `bun run install-cli` in the lens repo.

@@ -52,7 +52,7 @@ const config: ForgeConfig = {
     name: "Lens",
     appBundleId: "dev.lens.app",
     appCategoryType: "public.app-category.developer-tools",
-    // icon.icns on macOS, icon.ico on Windows: `npm run app:icons` makes both from icon.png
+    // icon.icns on macOS, icon.ico on Windows: `bun run app:icons` makes both from icon.png
     icon: "src/desktop/icons/icon",
     asar: true,
     prune: false,

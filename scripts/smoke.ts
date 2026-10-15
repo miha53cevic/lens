@@ -1,8 +1,8 @@
-// npm run app:smoke [-- --packed]: runs the desktop app through its own scripted tour
+// bun run app:smoke [-- --packed]: runs the desktop app through its own scripted tour
 // (src/desktop/main/smoke.ts) on a small repository, and reports what the tour found.
 // Twice, on the same data: the second run checks that the app reopens as the first left it.
 // From the checkout by default, as `electron-forge start` runs it; --packed tours the app
-// `npm run app:dist` made. It opens the app's window on screen.
+// `bun run app:dist` made. It opens the app's window on screen.
 
 import { spawn } from "node:child_process";
 import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
@@ -20,7 +20,7 @@ function packedApp(): string {
   const app = process.platform === "darwin"
     ? join(packedFolder, "Lens.app", "Contents", "MacOS", "Lens")
     : join(packedFolder, "Lens.exe");
-  if (!existsSync(app)) throw new Error("no packed app in release/: run `npm run app:dist` first");
+  if (!existsSync(app)) throw new Error("no packed app in release/: run `bun run app:dist` first");
   return app;
 }
 
