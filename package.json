@@ -18,8 +18,6 @@
     "format": "prettier --write src/ui src/viewer src/desktop test/viewer-page.test.ts test/launcher-page.test.ts test/viewer.test.ts test/poll.test.ts test/fixtures/viewerRepo.ts",
     "format:check": "prettier --check src/ui src/viewer src/desktop test/viewer-page.test.ts test/launcher-page.test.ts test/viewer.test.ts test/poll.test.ts test/fixtures/viewerRepo.ts",
     "test": "bun run typecheck && bun run format:check && bun test --isolate test/",
-    "install-skill": "bun scripts/skills.ts install",
-    "uninstall-skill": "bun scripts/skills.ts uninstall",
     "app": "bun --bun electron-forge start",
     "app:dist": "bun --bun electron-forge package",
     "app:smoke": "bun scripts/smoke.ts",

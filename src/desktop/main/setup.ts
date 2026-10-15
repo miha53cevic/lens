@@ -156,7 +156,7 @@ function skillNames(env: SetupEnv): string[] {
 
 type SkillState = 'missing' | 'ours' | 'external';
 
-/** A link (bun run install-skill makes those) or a folder without the marker is someone else's. */
+/** A link or a folder without the marker is someone else's. */
 function skillState(target: string): SkillState {
   try {
     if (lstatSync(target).isSymbolicLink()) return 'external';

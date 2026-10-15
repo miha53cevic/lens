@@ -101,7 +101,7 @@ test("the agent skills: copied with a marker, removed by it, and a linked one is
     assert.equal(setupState(env).skills.state, "installed");
     assert.match(readFileSync(join(skills, "lens-review", "SKILL.md"), "utf8"), /lens/);
 
-    // one of them is a link from a checkout (bun run install-skill): the app's hands stay off it
+    // one of them is a link from a checkout: the app's hands stay off it
     rmSync(join(skills, "lens-ask"), { recursive: true });
     symlinkSync(join(lensRoot, "skills", "lens-ask"), join(skills, "lens-ask"), "junction");
     assert.equal(setupState(env).skills.state, "external");

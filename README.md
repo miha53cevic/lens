@@ -61,8 +61,7 @@ And in your agent, to get the Summary tab written:
 /lens-review            # same arguments as `lens diff`
 ```
 
-Settings removes them again. Working on lens's skills themselves? `bun run install-skill`
-links them from this checkout instead (`bun run uninstall-skill` removes the links).
+Settings removes them again.
 
 ## Commands
 
@@ -241,8 +240,7 @@ ran the CLI with its own Node: the old command no longer starts, and Settings of
 install it again.
 
 Uninstall removes only what the app installed. A `lens` command or a skill folder that
-came from somewhere else, such as this checkout's `bun run install-skill`, is shown as
-*Not the app's* and never touched.
+came from somewhere else is shown as *Not the app's* and never touched.
 
 Settings → Design system opens the **Sandbox** in a tab of its own: every control lens is
 built from, in each of its states, in the code theme the app is in. It is for working on
@@ -457,7 +455,7 @@ reorder the list, and the change you're on stays listed under a filter.
 The summary is written by your coding agent, on your existing subscription:
 
 ```bash
-# in your agent (Claude Code: after bun run install-skill)
+# in your agent (Claude Code: after installing the skills from the app's Settings)
 /lens-review --staged          # same arguments as `lens diff`, or: pr 87
 ```
 
@@ -544,7 +542,7 @@ the code while you review: "why is this check needed?", "what calls this?".
 Answers come from your own agent, the same way summaries do:
 
 ```bash
-# in your agent (Claude Code: after bun run install-skill)
+# in your agent (Claude Code: after installing the skills from the app's Settings)
 /lens-ask
 ```
 
