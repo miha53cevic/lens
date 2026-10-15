@@ -1,13 +1,13 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
-import { basename, dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { basename } from "node:path";
 import { loadConfig } from "./config.ts";
 import { runGit, untrackedFiles } from "./git.ts";
 import { toPosix } from "./paths.ts";
 import { matchRemote } from "./pr.ts";
 import { SUGGESTED_THEMES, isBundledTheme, themeSwatch, type ThemeSwatch } from "./render/highlight.ts";
 import { plural } from "./text.ts";
+// imported, so the compiled `lens` carries it
+import manifest from "../../package.json" with { type: "json" };
 
 // `lens info`: what a picker needs to know before a review starts — is there git, is this a
 // repository, what could be reviewed in it. Read-only: it fetches nothing and writes nothing.
@@ -55,11 +55,6 @@ export interface InfoOptions {
   themes?: boolean;
   /** --theme: this theme instead of the config's, so --themes gives its colors too */
   theme?: string;
-}
-
-function lensVersion(): string {
-  const manifest = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "package.json");
-  return JSON.parse(readFileSync(manifest, "utf8")).version;
 }
 
 function gitVersion(): string | null {
@@ -136,7 +131,7 @@ export async function lensInfo(cwd: string, options: InfoOptions = {}): Promise<
     throw new Error(`unknown theme "${theme}" — pick a Shiki theme name (https://shiki.style/themes)`);
   }
   const info: LensInfo = {
-    version: lensVersion(),
+    version: manifest.version,
     git,
     repo: git === null ? null : repoInfo(cwd, options.base),
     theme,

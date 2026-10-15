@@ -1,9 +1,6 @@
 import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
-import { readFileSync } from "node:fs";
 import { spawn } from "node:child_process";
-import { fileURLToPath } from "node:url";
-import { join, dirname } from "node:path";
 import type { FileFoldModel, LensConfig } from "../../model.ts";
 import type { SummaryView } from "../../summary/view.ts";
 import { removeServerInfo, writeServerInfo } from "../../ask/discovery.ts";
@@ -12,6 +9,9 @@ import { isLocalRequest, readCookie, sendJson } from "./http.ts";
 import { escapeHtml } from "../../text.ts";
 import { isLightColor, THEME_COOKIE } from "../../theme.ts";
 import { bundleViewer } from "./bundle.ts";
+// Imported as text, so the compiled `lens` carries it. bun-types types every .html import as an
+// HTML bundle (what Bun.serve takes), which an import as text isn't.
+import viewerTemplate from "./viewer.html" with { type: "text" };
 import {
   highlightSource,
   themeSwatch,
@@ -168,13 +168,11 @@ export function renderPage(template: string, payload: ViewerPayload): string {
   return template.replace("/*__LENS_ROOT__*/", () => root).replace("/*__LENS_DATA__*/", () => data);
 }
 
-const webDir = dirname(fileURLToPath(import.meta.url));
-
 /** viewer.html with the bundled viewer's stylesheet and script inlined: one self-contained page. */
 async function loadTemplate(): Promise<string> {
   const { script, css } = await bundleViewer();
   // Function replacements: plain strings would expand $-sequences in the code.
-  return readFileSync(join(webDir, "viewer.html"), "utf8")
+  return (viewerTemplate as unknown as string)
     .replace("/*__LENS_CSS__*/", () => css)
     .replace("/*__LENS_JS__*/", () => script);
 }

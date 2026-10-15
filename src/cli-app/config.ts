@@ -1,11 +1,10 @@
 import { readFileSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import type { CallPattern, LensConfig } from "./model.ts";
-
 // The base rules are themselves just a config file (lens.defaults.json) in
 // the same shape as a project's .lens.json — the "base game" is a mod too.
-const defaultsPath = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "lens.defaults.json");
+// Imported, so the compiled `lens` carries it.
+import defaults from "../../lens.defaults.json" with { type: "json" };
 
 /** An intentionally empty rule set, used when .lens.json sets "base": false. */
 const EMPTY_CONFIG: LensConfig = {
@@ -77,8 +76,7 @@ function merge(base: LensConfig, over: Partial<LensConfig>): LensConfig {
 }
 
 function loadDefaults(): LensConfig {
-  const raw = JSON.parse(readFileSync(defaultsPath, "utf8"));
-  return merge(EMPTY_CONFIG, sanitize(raw, defaultsPath));
+  return merge(EMPTY_CONFIG, sanitize(defaults, "lens.defaults.json"));
 }
 
 export const DEFAULT_CONFIG: LensConfig = loadDefaults();

@@ -13,6 +13,7 @@
   },
   "scripts": {
     "lens": "bun src/cli-app/cli.ts",
+    "compile": "bun scripts/compile.ts",
     "install-cli": "bun scripts/cli.ts install",
     "uninstall-cli": "bun scripts/cli.ts uninstall",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.viewer.json && tsc -p tsconfig.desktop.json",

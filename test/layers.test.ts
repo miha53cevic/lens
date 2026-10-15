@@ -32,6 +32,8 @@ function crossings(folder: string): string[] {
     const source = readFileSync(file, "utf8");
     for (const [, specifier] of source.matchAll(/(?:from|import)\s*\(?\s*['"](\.{1,2}\/[^'"]+)['"]/g)) {
       const target = relPath(SRC, resolve(dirname(file), specifier)).split("/")[0];
+      // a file outside src/ (lens.defaults.json, package.json) is no folder's code
+      if (target === "..") continue;
       if (target !== folder && !MAY_IMPORT[folder].includes(target)) found.add(`${relPath(SRC, file)} → ${target}`);
     }
   }
