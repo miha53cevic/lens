@@ -1,5 +1,5 @@
 // Settings → Agent: the `lens` command and the agent skills, installed and removed by the app.
-// What `npm run install-cli` and `npm run install-skill` do for a checkout, for people who only
+// What `bun run install-cli` and `bun run install-skill` do for a checkout, for people who only
 // have the app. It only ever removes what it installed itself: its command file carries a marker
 // line, a skill folder it copied carries a marker file. No Electron here.
 
@@ -27,9 +27,9 @@ const SHIM_MARKER = 'lens-app-shim';
 const SKILL_MARKER = '.lens-app';
 
 export interface SetupEnv {
-  /** The app's executable, which runs the CLI in Node mode */
-  execPath: string;
-  /** The folder that holds src/cli-app/cli.ts and skills/ */
+  /** What runs lens: the compiled lens, or bun and the checkout's cli.ts (the app's LensCli) */
+  command: string[];
+  /** The folder that holds skills/ */
   lensRoot: string;
   home: string;
   platform: NodeJS.Platform;
@@ -43,13 +43,12 @@ export interface SetupEnv {
 // ---- the lens command ----
 
 function shimText(env: SetupEnv): string {
-  const cli = join(env.lensRoot, 'src', 'cli-app', 'cli.ts');
   const note = `${SHIM_MARKER}: installed by the lens desktop app; its Settings remove it.`;
   if (env.platform === 'win32') {
-    return `@echo off\r\nrem ${note}\r\nsetlocal\r\nset ELECTRON_RUN_AS_NODE=1\r\n"${env.execPath}" "${cli}" %*\r\n`;
+    return `@echo off\r\nrem ${note}\r\n${env.command.map((part) => `"${part}"`).join(' ')} %*\r\n`;
   }
   const quote = (text: string) => "'" + text.replace(/'/g, "'\\''") + "'";
-  return `#!/bin/sh\n# ${note}\nELECTRON_RUN_AS_NODE=1 exec ${quote(env.execPath)} ${quote(cli)} "$@"\n`;
+  return `#!/bin/sh\n# ${note}\nexec ${env.command.map(quote).join(' ')} "$@"\n`;
 }
 
 const shimName = (env: SetupEnv) => (env.platform === 'win32' ? 'lens.cmd' : 'lens');
@@ -158,7 +157,7 @@ function skillNames(env: SetupEnv): string[] {
 
 type SkillState = 'missing' | 'ours' | 'external';
 
-/** A link (npm run install-skill makes those) or a folder without the marker is someone else's. */
+/** A link (bun run install-skill makes those) or a folder without the marker is someone else's. */
 function skillState(target: string): SkillState {
   try {
     if (lstatSync(target).isSymbolicLink()) return 'external';

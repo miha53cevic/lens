@@ -1,16 +1,16 @@
 import { test } from "bun:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { cliEnv, cliReason, lensCli, lensInfo } from "../src/desktop/main/cli.ts";
+import { cliEnv, cliReason, compiledCli, findBun, sourceCli, lensInfo } from "../src/desktop/main/cli.ts";
 import { freePort, isPortInUse, startReview } from "../src/desktop/main/session.ts";
 import { openStore } from "../src/desktop/main/store.ts";
 import { makeViewerRepo } from "./fixtures/viewerRepo.ts";
 
-// the CLI as the tests run it: this Node on the sources (the app uses its own executable instead)
-const cli = { ...lensCli(join(import.meta.dirname, ".."), process.execPath), env: process.env };
+// the CLI as the tests run it: this bun on the sources, as the app runs it from a checkout
+const cli = { ...sourceCli(join(import.meta.dirname, ".."), process.execPath), env: process.env };
 
 test("a review starts on the line the CLI prints, serves its viewer, and stops clean", async () => {
   const dir = makeViewerRepo();
@@ -83,8 +83,29 @@ test("cliReason and cliEnv: the CLI's last word, and an environment that runs it
   assert.equal(cliReason("warning: something\nlens: first\nlens: the reason\n"), "the reason");
   assert.equal(cliReason("a stack trace\n"), null);
   const env = cliEnv({ Path: "C:\\Windows" }, "win32");
-  assert.equal(env.ELECTRON_RUN_AS_NODE, "1");
-  assert.equal(env.Path, "C:\\Windows", "the PATH keeps its own spelling, and gets no folder that isn't there");
+  assert.deepEqual(env, { Path: "C:\\Windows" }, "the PATH keeps its own spelling, and gets no folder that isn't there");
+});
+
+test("what runs lens: the packed app's compiled lens, or bun on a checkout's sources, found where it is usually put", () => {
+  assert.equal(compiledCli("/app/lens", "darwin").command, join("/app/lens", "lens"));
+  assert.equal(compiledCli("C:\\Lens\\lens", "win32").command, join("C:\\Lens\\lens", "lens.exe"));
+  assert.deepEqual(sourceCli("/checkout", "/bin/bun").args, [join("/checkout", "src", "cli-app", "cli.ts")]);
+
+  const home = realpathSync.native(mkdtempSync(join(tmpdir(), "lens-bun-")));
+  try {
+    // as on Windows, which has no usual folders of its own: this machine's /opt/homebrew stays out of it
+    const own = join(home, ".bun", "bin");
+    assert.equal(findBun({ PATH: "" }, "win32", home), null, "none anywhere");
+    mkdirSync(own, { recursive: true });
+    writeFileSync(join(own, "bun.exe"), "");
+    assert.equal(findBun({ PATH: "" }, "win32", home), join(own, "bun.exe"), "its installer's home, off the PATH");
+    const onPath = join(home, "bin");
+    mkdirSync(onPath);
+    writeFileSync(join(onPath, "bun.exe"), "");
+    assert.equal(findBun({ Path: onPath }, "win32", home), join(onPath, "bun.exe"), "the PATH comes first, however it's spelled");
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
 });
 
 test("the store keeps recent repositories and each one's port, and drops folders that are gone", () => {

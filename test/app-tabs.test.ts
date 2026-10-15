@@ -4,7 +4,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { basename, join } from "node:path";
 import { tmpdir } from "node:os";
-import { lensCli } from "../src/desktop/main/cli.ts";
+import { sourceCli } from "../src/desktop/main/cli.ts";
 import { tildePath } from "../src/desktop/main/display.ts";
 import { openStore } from "../src/desktop/main/store.ts";
 import { Tab, type TabHost } from "../src/desktop/main/tab.ts";
@@ -12,8 +12,8 @@ import { TabList } from "../src/desktop/main/tabs.ts";
 import { toPosix } from "../src/cli-app/paths.ts";
 import { makeViewerRepo } from "./fixtures/viewerRepo.ts";
 
-// the CLI as the tests run it: this Node on the sources (the app uses its own executable instead)
-const cli = { ...lensCli(join(import.meta.dirname, ".."), process.execPath), env: process.env };
+// the CLI as the tests run it: this bun on the sources, as the app runs it from a checkout
+const cli = { ...sourceCli(join(import.meta.dirname, ".."), process.execPath), env: process.env };
 
 /** A host that records what a tab asks of the window, and lets a test wait for it. */
 function fakeHost() {

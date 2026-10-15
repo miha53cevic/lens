@@ -114,7 +114,7 @@ export function Settings() {
         </ul>
         <p className='hint'>
           Uninstall removes only what the app installed. A <code>lens</code> command or a skill folder that came from
-          somewhere else, such as a checkout's <code>npm run install-cli</code>, is never touched.
+          somewhere else, such as a checkout's <code>bun run install-cli</code>, is never touched.
         </p>
         <h2 className='section-title'>Design system</h2>
         <ul className='setup'>

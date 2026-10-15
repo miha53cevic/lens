@@ -1,6 +1,6 @@
 // What the picker chose to review, and the one place it becomes `lens` arguments. Nothing else in
 // the app writes CLI arguments: test/app-choice.test.ts runs every kind of choice through the real
-// CLI, so a change to the CLI's arguments that this file doesn't follow fails `npm test`.
+// CLI, so a change to the CLI's arguments that this file doesn't follow fails `bun run test`.
 
 export type ReviewChoice =
   | { kind: 'diff'; range: 'worktree' | 'staged' }

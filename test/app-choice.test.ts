@@ -4,11 +4,11 @@ import { execFileSync } from "node:child_process";
 import { rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { choiceArgs, choiceCommand, choiceLabel, choiceProblem, parseChoice, splitArgs, type ReviewChoice } from "../src/desktop/shared/choice.ts";
-import { lensCli, runLens } from "../src/desktop/main/cli.ts";
+import { sourceCli, runLens } from "../src/desktop/main/cli.ts";
 import { makeViewerRepo } from "./fixtures/viewerRepo.ts";
 
-// the CLI as the tests run it: this Node on the sources (the app uses its own executable instead)
-const cli = { ...lensCli(join(import.meta.dirname, ".."), process.execPath), env: process.env };
+// the CLI as the tests run it: this bun on the sources, as the app runs it from a checkout
+const cli = { ...sourceCli(join(import.meta.dirname, ".."), process.execPath), env: process.env };
 
 test("choiceArgs: each choice is the words you would type after `lens`", () => {
   assert.deepEqual(choiceArgs({ kind: "diff", range: "worktree" }), ["diff"]);

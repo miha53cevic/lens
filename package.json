@@ -22,8 +22,8 @@
     "test": "bun run typecheck && bun run format:check && bun test --isolate test/",
     "install-skill": "bun scripts/skills.ts install",
     "uninstall-skill": "bun scripts/skills.ts uninstall",
-    "app": "electron-forge start",
-    "app:dist": "electron-forge package",
+    "app": "bun --bun electron-forge start",
+    "app:dist": "bun --bun electron-forge package",
     "app:smoke": "bun scripts/smoke.ts",
     "app:icons": "bun scripts/icons.ts"
   },
@@ -46,7 +46,6 @@
   "dependencies": {
     "@vscode/tree-sitter-wasm": "^0.3.1",
     "clsx": "^2.1.1",
-    "esbuild": "^0.28.2",
     "lucide-react": "1.48.0",
     "markdown-it": "^15.0.2",
     "react": "^19.3.0",
