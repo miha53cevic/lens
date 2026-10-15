@@ -57,6 +57,13 @@ export function groupUnits(
   return { sections, others };
 }
 
+/** One line of the list: a unit in several flows has one under each */
+export interface ListEntry {
+  unitId: string;
+  /** The flow it's listed under; null: in no flow */
+  flow: string | null;
+}
+
 export interface ListModel {
   /** The units hide tests leaves */
   units: Unit[];
@@ -66,10 +73,14 @@ export interface ListModel {
   sections: Section[];
   others: Unit[];
   folded: Set<string>;
-  /** Unit ids as j/k walks them: what's visible, each unit once */
+  /** Unit ids in list order: what's visible, each unit once */
   order: string[];
+  /** The visible lines as j/k walks them: a unit in several flows once per flow */
+  entries: ListEntry[];
   /** The open unit: the reader's, or the first in the list */
   activeId: string | null;
+  /** Which of the open unit's listings is marked: the reader's flow while it lists the unit, else the first */
+  activeFlow: string | null;
   summarized: number;
   shownCount: number;
 }
@@ -83,6 +94,7 @@ const buildList = memo(
     sumSignal: SignalFilter,
     flowOpen: ReadonlyMap<string, boolean>,
     summaryUnit: string | null,
+    summaryFlow: string | null,
   ): ListModel => {
     const isShown = (unit: Unit) => !(hideTests && isTestFile(unit.displayFile));
     const units = summary.units.filter(isShown); // hide tests: the counts follow the list
@@ -121,12 +133,17 @@ const buildList = memo(
       return flowPriority(section.flow) === 3 && !holdsOpenUnit;
     };
     const folded = new Set(sections.filter(isFolded).map((section) => section.flow.title));
-    const visibleMembers = sections
-      .filter((section) => !folded.has(section.flow.title))
-      .flatMap((section) => section.members);
-    const order = [...new Set([...visibleMembers, ...others].map((unit) => unit.id))];
+    const entries: ListEntry[] = [
+      ...sections
+        .filter((section) => !folded.has(section.flow.title))
+        .flatMap((section) => section.members.map((unit) => ({ unitId: unit.id, flow: section.flow.title }))),
+      ...others.map((unit) => ({ unitId: unit.id, flow: null })),
+    ];
+    const order = [...new Set(entries.map((entry) => entry.unitId))];
     // a unit the filter hides stays open in the pane
     const activeId = summaryUnit && unitById(summary, summaryUnit) ? summaryUnit : order[0] || null;
+    const listings = entries.filter((entry) => entry.unitId === activeId);
+    const activeFlow = (listings.find((entry) => entry.flow === summaryFlow) ?? listings[0])?.flow ?? null;
     const listed = [...sections.flatMap((section) => section.members), ...others];
     return {
       units,
@@ -136,7 +153,9 @@ const buildList = memo(
       others,
       folded,
       order,
+      entries,
       activeId,
+      activeFlow,
       summarized: units.filter((unit) => unit.summary).length,
       shownCount: new Set(listed.map((unit) => unit.id)).size,
     };
@@ -154,6 +173,7 @@ export function listModel(state: LensState): ListModel | null {
     state.sumSignal,
     state.flowOpen,
     state.summaryUnit,
+    state.summaryFlow,
   );
 }
 

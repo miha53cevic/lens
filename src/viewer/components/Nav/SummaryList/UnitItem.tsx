@@ -8,6 +8,8 @@ import { ViewedBox } from '../../ViewedBox.tsx';
 
 interface UnitItemProps {
   unit: Unit;
+  /** The flow it's listed under; null: in no flow */
+  flow: string | null;
   /** What shows on the right: the file, for a change in no flow */
   side?: string;
   active: boolean;
@@ -19,7 +21,7 @@ function keepInSight(item: HTMLElement | null) {
 }
 
 /** One change in the summary list. */
-export function UnitItem({ unit, side, active }: UnitItemProps) {
+export function UnitItem({ unit, flow, side, active }: UnitItemProps) {
   const { marks, viewed } = useLens((state) => ({
     marks: state.concernMarks,
     viewed: state.viewedUnits.has(unitViewKey(unit)),
@@ -31,7 +33,7 @@ export function UnitItem({ unit, side, active }: UnitItemProps) {
       ref={active ? keepInSight : undefined}
       className={clsx('sum-item', active && 'active', !summary && 'pending', viewed && 'viewed', 'st-' + unit.status)}
       title={unit.id + ' — ' + unit.status + (summary ? '\n' + summary.gist : '')}
-      onClick={() => openSummaryUnit(unit.id)}
+      onClick={() => openSummaryUnit(unit.id, flow)}
     >
       <ViewedBox checked={viewed} onToggle={() => toggleUnitViewed(unit)} />
       <span className='name'>{unitLabel(unit)}</span>

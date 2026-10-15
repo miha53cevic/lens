@@ -849,6 +849,41 @@ test('a flow is its name: the priority only orders it, and a P3 flow starts fold
   }
 });
 
+test('a unit in several flows: only the listing the reader picked is marked, and j/k walk on from it', async () => {
+  const summary = payload.summary!;
+  const id = (name: string) => summary.units.find((unit) => unit.name === name)!.id;
+  summary.flows = [
+    { title: 'Reads', path: 'repo', priority: 1, units: { [id('findOrders')]: 'repo' } },
+    { title: 'Cleanup', path: 'repo', priority: 2, units: { [id('findOrders')]: 'repo', [id('legacyTotal')]: 'repo' } },
+  ];
+  await open();
+  try {
+    // each listing, as "flow:name", the marked one with ">"
+    const listed = () =>
+      $$('.sum-item').map(
+        (item) =>
+          (item.classList.contains('active') ? '>' : '') +
+          item.closest('.sum-section')!.querySelector('.sum-section-title .t')!.textContent +
+          ':' +
+          item.querySelector('.name')!.textContent,
+      );
+    await key('v');
+    const items = $$('.sum-item');
+    await click(items[0]);
+    assert.deepEqual(listed(), ['>Reads:findOrders', 'Cleanup:findOrders', 'Cleanup:legacyTotal']);
+    await click(items[1]);
+    assert.deepEqual(listed(), ['Reads:findOrders', '>Cleanup:findOrders', 'Cleanup:legacyTotal']);
+    await key('j');
+    assert.deepEqual(listed(), ['Reads:findOrders', 'Cleanup:findOrders', '>Cleanup:legacyTotal']);
+    await key('k');
+    await key('k');
+    assert.deepEqual(listed(), ['>Reads:findOrders', 'Cleanup:findOrders', 'Cleanup:legacyTotal']);
+  } finally {
+    summary.flows = [];
+    await close();
+  }
+});
+
 pageTest("a unit's code has the Code view's folds, hunks and toolbar keys", async () => {
   await key('v');
   await key('j');
