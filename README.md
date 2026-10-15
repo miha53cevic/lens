@@ -44,11 +44,12 @@ Requires [Bun](https://bun.com) >= 1.4 (`brew install bun`): lens runs its TypeS
 
 ```bash
 bun install
-bun run install-cli     # links a global `lens` command next to bun (it follows the source)
-bun run install-skill   # links /lens-review, /lens-build-review and /lens-ask into ~/.claude/skills
+bun run app             # the desktop app: Settings → Agent installs the `lens` command and the skills
 ```
 
-Then, in a repository with changes:
+The [desktop app](#desktop-app) picks the repository and the review for you. For your agent,
+and for you in a terminal, install the `lens` command and the skills from its Settings. Then,
+in a repository with changes:
 
 ```bash
 lens diff               # open your uncommitted changes in the viewer
@@ -60,10 +61,8 @@ And in your agent, to get the Summary tab written:
 /lens-review            # same arguments as `lens diff`
 ```
 
-To remove them again: `bun run uninstall-cli` and `bun run uninstall-skill`.
-
-Prefer a window to a terminal? The [desktop app](#desktop-app) picks the repository and
-the review for you, and installs the command and the skills from its Settings.
+Settings removes them again. Working on lens's skills themselves? `bun run install-skill`
+links them from this checkout instead (`bun run uninstall-skill` removes the links).
 
 ## Commands
 
@@ -242,7 +241,7 @@ ran the CLI with its own Node: the old command no longer starts, and Settings of
 install it again.
 
 Uninstall removes only what the app installed. A `lens` command or a skill folder that
-came from somewhere else, such as this checkout's `bun run install-cli`, is shown as
+came from somewhere else, such as this checkout's `bun run install-skill`, is shown as
 *Not the app's* and never touched.
 
 Settings → Design system opens the **Sandbox** in a tab of its own: every control lens is

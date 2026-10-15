@@ -60,7 +60,7 @@ test.skipIf(process.platform === "win32")("the lens command: installed where ter
 
 test.skipIf(process.platform === "win32")("the lens command: one that isn't the app's is left alone, and one off the PATH says so",
   withHome(async (env, home, bin) => {
-    writeFileSync(join(bin, "lens"), "#!/usr/bin/env bun\n// bun run install-cli put this here\n");
+    writeFileSync(join(bin, "lens"), "#!/bin/sh\n# someone else's lens\n");
     const state = setupState(env).cli;
     assert.equal(state.state, "external");
     assert.equal(state.where, "~/.local/bin/lens");

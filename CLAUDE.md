@@ -5,7 +5,7 @@
 
 ## Running and testing
 
-- Bun (>= 1.4) runs the `.ts` sources directly. There's no build step, and `bun run install-cli` (`scripts/cli.ts`) links `lens` to the live source, next to the bun that runs it. Bun is the runtime for the CLI, the tests and the scripts; the only Node left is Electron's own, inside the app.
+- Bun (>= 1.4) runs the `.ts` sources directly. There's no build step: `bun run lens …` runs the live source (the `lens` command itself is installed from the desktop app's Settings → Agent). Bun is the runtime for the CLI, the tests and the scripts; the only Node left is Electron's own, inside the app.
 - The design system's sandbox is a page of the desktop app: `bun run app`, then Settings → Sandbox. It shows every primitive of `src/ui/` and its states, in the app's code theme (the strip's theme button switches it). There is nothing to compile for it.
 - `bun run test` runs the three typechecks (`tsconfig.json` for `src/cli-app/` and the tests, `tsconfig.viewer.json` for the browser code in `src/viewer/` and `src/ui/` and their page tests, `tsconfig.desktop.json` for the desktop app in `src/desktop/` and its page tests) and then `bun test --isolate test/` (each file gets its own globals, which the page tests' DOM needs). Run it before calling a change done; plain `bun test` skips the typechecks. Tests import from `bun:test`.
 - To see a change, run `node src/cli-app/cli.ts diff` (or `<path>`, `pr N`) and open the viewer. Add `--no-open` to skip the browser and `--json` to dump the fold model.

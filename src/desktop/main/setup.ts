@@ -1,6 +1,5 @@
 // Settings → Agent: the `lens` command and the agent skills, installed and removed by the app.
-// What `bun run install-cli` and `bun run install-skill` do for a checkout, for people who only
-// have the app. It only ever removes what it installed itself: its command file carries a marker
+// It only ever removes what it installed itself: its command file carries a marker
 // line, a skill folder it copied carries a marker file. No Electron here.
 
 import { execFile } from 'node:child_process';
