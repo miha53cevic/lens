@@ -395,7 +395,7 @@ change looks like without running the app.
 - A skeleton: what the diff doesn't touch is plain grey blocks the size of what's there; only
   the changed parts are drawn for real, with realistic content.
 - Mark each changed element with \`data-lens-unit="<unit id>"\` and \`data-lens-change="added"\`
-  (or "changed", "removed"). The viewer outlines them and opens the unit on a click.
+  (or "changed", "removed"). The viewer outlines them.
 - One self-contained HTML file per state, in \`${folder}/\`: inline \`<style>\` only, ≤${PREVIEW_KB} KB.
   No scripts, \`<link>\`, forms or event handlers, and nothing from outside: system fonts, and an
   image is a grey box or a data: URL. Lay it out fluid for a frame about 800px wide.

@@ -78,7 +78,6 @@ export function writeAssets(root: string, key: string, stored: StoredSummary, as
 
 /** The marks' look, the same in every preview: lens's, not the agent's. */
 const MARKS_CSS = `
-[data-lens-unit]{cursor:pointer}
 [data-lens-change]{outline:2px dashed var(--lens-mark);outline-offset:3px;border-radius:4px}
 [data-lens-change=added]{--lens-mark:#16a34a}
 [data-lens-change=changed]{--lens-mark:#d97706}
@@ -87,8 +86,9 @@ const MARKS_CSS = `
 .lens-dim{opacity:.45}`;
 
 /**
- * lens's script in the frame: outlines the unit the page names (the frame URL's #fragment), tells
- * the page which unit a click is on and how tall the preview is. It runs in an opaque origin.
+ * lens's script in the frame: outlines the unit the page names (the frame URL's #fragment), and tells
+ * the page how tall the preview is. A click does nothing: the units' chips under it open them. It
+ * runs in an opaque origin.
  */
 const BRIDGE = `(() => {
   const post = (message) => parent.postMessage(Object.assign({ lens: true }, message), '*');
@@ -113,11 +113,7 @@ const BRIDGE = `(() => {
   addEventListener('hashchange', focus);
   addEventListener('load', size);
   if (typeof ResizeObserver === 'function') new ResizeObserver(size).observe(document.documentElement);
-  document.addEventListener('click', (event) => {
-    const el = event.target instanceof Element ? event.target.closest('[data-lens-unit]') : null;
-    event.preventDefault();
-    if (el) post({ type: 'open-unit', unit: el.getAttribute('data-lens-unit') });
-  }, true);
+  document.addEventListener('click', (event) => event.preventDefault(), true);
 })();`;
 
 export interface PreviewResponse {

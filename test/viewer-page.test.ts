@@ -844,7 +844,13 @@ test("the agent's previews and sequences: all on the overview, a unit's own on i
   const find = id('findOrders'),
     legacy = id('legacyTotal');
   summary.previews = [
-    { title: 'Orders page', units: [find], now: '/api/preview/0123456789abcdef.html', before: null, stale: false },
+    {
+      title: 'Orders page',
+      units: [find, legacy],
+      now: '/api/preview/0123456789abcdef.html',
+      before: null,
+      stale: false,
+    },
   ];
   summary.sequences = [
     {
@@ -876,6 +882,17 @@ test("the agent's previews and sequences: all on the overview, a unit's own on i
     assert.equal($$('#drawings .preview-card').length, 1);
     const frame = $('.preview-card iframe') as HTMLIFrameElement;
     assert.equal(frame.getAttribute('src'), '/api/preview/0123456789abcdef.html');
+    // a unit's chip outlines it in the preview, and the overview stays; again, and it's off
+    const chip = (unitId: string) =>
+      $$('.preview-card .drawing-unit').find((button) =>
+        button.textContent!.includes(unitId === find ? 'findOrders' : 'legacyTotal'),
+      )!;
+    await click(chip(legacy));
+    assert.equal($('#summary-pane').dataset.unit, undefined, 'still the overview');
+    assert.equal(frame.getAttribute('src'), '/api/preview/0123456789abcdef.html#' + encodeURIComponent(legacy));
+    assert.equal(chip(legacy).getAttribute('aria-pressed'), 'true');
+    await click(chip(legacy));
+    assert.equal(frame.getAttribute('src'), '/api/preview/0123456789abcdef.html');
     assert.equal(frame.getAttribute('sandbox'), 'allow-scripts', 'scripts, but never its own origin');
     assert.equal($$('.preview-card .seg').length, 0, 'a new screen: no Before');
     assert.deepEqual(steps(), ['findOrders(user)', 'skip deleted', 'orders'], 'now: every step but the removed one');
@@ -898,10 +915,11 @@ test("the agent's previews and sequences: all on the overview, a unit's own on i
     fireEvent.click($('.seq-step.removed'));
     await settle();
     assert.equal($('#summary-pane').dataset.unit, legacy);
-    assert.equal($$('#drawings .preview-card').length, 0, "the preview doesn't show legacyTotal");
+    assert.equal($$('#drawings .preview-card').length, 1);
     assert.equal($$('#drawings .sequence-card').length, 1);
 
-    await key('k');
+    // on a unit's page, a chip opens its unit
+    await click(chip(find));
     assert.equal($('#summary-pane').dataset.unit, find);
     const own = $('.preview-card iframe') as HTMLIFrameElement;
     assert.equal(
@@ -911,7 +929,7 @@ test("the agent's previews and sequences: all on the overview, a unit's own on i
     );
     assert.ok($('.preview-card .drawing-unit.on'), "the page's own unit, picked");
 
-    // the frame tells the page its height and a click on a unit it shows, and nothing else
+    // the frame tells the page its height, and nothing else
     // (its frame isn't loaded here: a stand-in window is the one it posts from)
     const frameWindow = new EventTarget() as unknown as Window;
     const post = async (data: unknown, source: Window = frameWindow) => {
@@ -924,11 +942,14 @@ test("the agent's previews and sequences: all on the overview, a unit's own on i
     await post({ lens: false, type: 'size', height: 200 });
     await post({ lens: true, type: 'size', height: 200 }, new EventTarget() as unknown as Window);
     assert.equal(own.style.height, '900px', 'another window, or not lens: not heard');
-    await key('g'); // the overview
     await post({ lens: true, type: 'open-unit', unit: legacy });
-    assert.equal($('#summary-pane').dataset.unit, undefined, 'not one of its units: nothing opens');
-    await post({ lens: true, type: 'open-unit', unit: find });
-    assert.equal($('#summary-pane').dataset.unit, find);
+    assert.equal($('#summary-pane').dataset.unit, find, 'a click in the frame opens nothing');
+    await click(chip(legacy));
+    assert.equal(
+      ($('.preview-card iframe') as HTMLIFrameElement).style.height,
+      '900px',
+      "the next unit's frame keeps the height, so the preview stays in place",
+    );
 
     // the switch: off hides them all, and the server keeps it for the next summary
     await click($('#build-previews'));
