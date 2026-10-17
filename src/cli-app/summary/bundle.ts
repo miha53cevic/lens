@@ -2,7 +2,10 @@ import { writeFileSync, readdirSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { relPath } from "../paths.ts";
 import { citeableLabels, removalAnchors, type Unit } from "./units.ts";
-import { bundleDir, readStored, summaryArgs, unitSetHash, type Bundle, type BundleUnit, type StoredSummary } from "./store.ts";
+import {
+  bundleDir, HOUSEKEEPING, isHousekeeping, readStored, summaryArgs, unitSetHash,
+  type Bundle, type BundleUnit, type StoredSummary,
+} from "./store.ts";
 
 // `lens summary prepare` output: a folder the user's agent reads (tasks,
 // instructions, schema) plus bundle.json, which `submit` validates against.
@@ -49,6 +52,7 @@ export function prepareBundle(input: PrepareInput): PrepareResult {
     labels: [...citeableLabels(u)],
     ranges: u.ranges,
     ...(u.formattingOnly ? { formattingOnly: true } : {}),
+    ...(u.importsOnly ? { importsOnly: true } : {}),
     done: stored?.units[u.id]?.hash === u.hash,
   }));
   const bundle: Bundle = {
@@ -86,7 +90,7 @@ export function prepareBundle(input: PrepareInput): PrepareResult {
   const finalPass = todo.length === 0 && stored !== null && !wholeDone;
   if (finalPass) {
     const name = join(dir, "tasks.md");
-    writeFileSync(name, `# lens summary tasks (final pass: flows and overview)\n\n${header}\n${renderHeadlines(input.units, stored)}`);
+    writeFileSync(name, `# lens summary tasks (final pass: flows and overview)\n\n${header}\n${renderHeadlines(input.units, stored, input.sources)}`);
     taskFiles.push(name);
   }
   if (todo.length > 0) {
@@ -109,15 +113,62 @@ export function prepareBundle(input: PrepareInput): PrepareResult {
   return { dir, taskFiles, todo: todo.length, done: doneCount, instructions };
 }
 
-/** One line per unit for the final pass: enough to group units into flows and rank them. */
-function renderHeadlines(units: Unit[], stored: StoredSummary): string {
-  return units.map((u) => {
-    const s = stored.units[u.id];
-    if (!s) return `- \`${u.id}\` (${u.status}): no summary`;
-    const marks = [u.status, ...(s.breaks.length > 0 ? ["may break callers"] : [])];
-    const concerns = (s.concerns ?? []).map((c) => `\n  - ${c.kind}: ${c.text}`).join("");
-    return `- \`${u.id}\` (${marks.join(", ")}): ${s.headline} — ${s.gist}${concerns}`;
-  }).join("\n") + "\n";
+/**
+ * The final pass's map of the diff: the units by file, each with its size, its headline and
+ * the other changed units its code names (a plain text match), so the agent sees what goes
+ * together. The units lens files under Housekeeping are named once, at the end.
+ */
+function renderHeadlines(units: Unit[], stored: StoredSummary, sources: Map<string, string>): string {
+  const mentions = mentionsOf(units, sources);
+  const byFile = new Map<string, Unit[]>();
+  for (const u of units.filter((u) => !isHousekeeping(u))) byFile.set(u.file, [...(byFile.get(u.file) ?? []), u]);
+  const out: string[] = [];
+  for (const [file, fileUnits] of byFile) {
+    out.push(`### ${file}`);
+    for (const u of fileUnits) {
+      const s = stored.units[u.id];
+      const removed = u.removals.reduce((n, b) => n + b.lines.length, 0);
+      const size = [u.changedLines.length > 0 ? `+${u.changedLines.length}` : "", removed > 0 ? `−${removed}` : ""].filter(Boolean).join(" ");
+      const marks = [u.kind, u.status, size, ...(s?.breaks.length ? ["may break callers"] : [])].filter(Boolean);
+      out.push(`- \`${u.id}\` (${marks.join(", ")}): ${s ? `${s.headline} — ${s.gist}` : "no summary"}`);
+      const names = mentions.get(u.id) ?? [];
+      if (names.length > 0) out.push(`  names: ${names.map((id) => `\`${id}\``).join(", ")}`);
+      for (const c of s?.concerns ?? []) out.push(`  - ${c.kind}: ${c.text}`);
+    }
+    out.push("");
+  }
+  const filed = units.filter(isHousekeeping);
+  if (filed.length > 0) {
+    out.push(`Lens files these under "${HOUSEKEEPING}" itself (import-only or formatting-only): leave them out of your flows.`);
+    out.push(...filed.map((u) => `- \`${u.id}\``), "");
+  }
+  return out.join("\n");
+}
+
+/** Most names listed per unit: past that, the list stops helping */
+const MAX_MENTIONS = 6;
+
+/** For each unit, the other changed units whose name appears in its shown or removed code. */
+function mentionsOf(units: Unit[], sources: Map<string, string>): Map<string, string[]> {
+  const named = units
+    .map((u) => ({ id: u.id, name: u.name.split(".").pop() ?? u.name }))
+    .filter((u) => /^[A-Za-z_$][\w$]{2,}$/.test(u.name))
+    .map((u) => ({ id: u.id, pattern: new RegExp(`(^|[^\\w$])${u.name.replace(/\$/g, "\\$")}([^\\w$]|$)`) }));
+  const fileLines = new Map<string, string[]>();
+  const out = new Map<string, string[]>();
+  for (const u of units) {
+    let lines = fileLines.get(u.file);
+    if (!lines) fileLines.set(u.file, (lines = sources.get(u.file)?.split("\n") ?? []));
+    const code = [
+      ...u.ranges.flatMap((r) => lines.slice(r.start - 1, r.end)),
+      ...u.removals.flatMap((b) => b.lines),
+    ].join("\n");
+    const found = named
+      .filter((other) => other.id !== u.id && other.pattern.test(code))
+      .map((other) => other.id);
+    if (found.length > 0) out.set(u.id, found.slice(0, MAX_MENTIONS));
+  }
+  return out;
 }
 
 function contextHeader(input: PrepareInput): string {
@@ -154,7 +205,8 @@ export function renderUnit(unit: Unit, source: string | undefined): string {
   });
 
   const meta: string[] = [unit.kind, unit.status];
-  if (unit.formattingOnly) meta.push("formatting only (whitespace)");
+  if (unit.formattingOnly) meta.push(`formatting only (whitespace): lens files it under "${HOUSEKEEPING}"`);
+  if (unit.importsOnly) meta.push(`imports only: lens files it under "${HOUSEKEEPING}"`);
   const where = unit.ranges.length > 0 ? ` · lines ${unit.ranges[0].start}–${unit.ranges[unit.ranges.length - 1].end}` : "";
   const code = out.join("\n");
   // a fence longer than any run of backticks in the code: a changed README's own fences don't end it
@@ -243,16 +295,25 @@ Keep everything terse: the viewer shows it in a small table next to the code.
 }
 
 const FLOWS_RULE = `Flows are how the reviewer reads the diff: they open a flow and walk its units in order.
-Put as much of the diff into flows as you can.
-- A flow is one story across 2+ units: a feature end to end, a fix and the places it
-  touches, one refactor applied in several spots. Not a file or folder — the viewer's map
-  already groups by those.
-- {title (≤${LIMITS.flowTitle}), path (≤${LIMITS.flowPath}) e.g. "repo → route → client",
-  units: {"<unit id>": "<layer ≤${LIMITS.layer}>"}, priority, why (≤${LIMITS.why})}.
+- A flow is one story: one thing the diff sets out to do, named the way you'd name it in a
+  commit or a PR description ("Agent writes a whole-diff overview"). Not how the code calls
+  itself ("validateResult → checkUnit"), and not a file or folder: the viewer's map already
+  groups by those. The commits are a strong hint; a commit that fixes an earlier one in the
+  same diff belongs to that one's story.
+- Most diffs tell 1–5 stories. Before splitting one in two, ask whether a reviewer would
+  read the halves apart; a flow of one file's functions is usually part of a bigger story.
+- Every unit goes in exactly one flow, including the types, schema, config, tests, styles
+  and docs a story needs: they are that story's later steps, not a flow of their own.
+- What no story needs (a move, a rename, a formatting pass) goes in one flow titled
+  "${HOUSEKEEPING}", priority 3. Lens files import-only and formatting-only units there
+  itself: leave those out.
+- {title (≤${LIMITS.flowTitle}), path (≤${LIMITS.flowPath}), units: {"<unit id>": "<step ≤${LIMITS.layer}>"}, priority, why (≤${LIMITS.why})}.
+- \`path\` names the story's reading steps, e.g. "contract → logic → page → tests", and each
+  unit's value is its step. List \`units\` in reading order: what the rest builds on first
+  (types, schema), then the logic, then its callers and UI, then tests and docs.
 - \`priority\`: 1 = review first (behavior changes, risks, possible bugs), 2 = normal,
   3 = mechanical (renames, moves, types, tests). The viewer sorts by it and folds the 3s.
-- \`why\`: why a reviewer should care, e.g. "default page size changes every caller".
-- Every unit with a concern or a break belongs in a flow; a unit may be in several.`;
+- \`why\`: why a reviewer should care, e.g. "default page size changes every caller".`;
 
 const OVERVIEW_RULE = `\`overview\`: {what (≤${LIMITS.overview} chars)} — what the whole diff does and why, for a
 reviewer seeing it for the first time. Size it to what the diff does, not to its
@@ -266,13 +327,13 @@ function renderFinalPassInstructions(input: PrepareInput, dir: string, tasks: st
 
 Every unit of this diff already has a summary. This is the final pass: the flows and
 the overview of the whole diff. Tasks: \`${rel(tasks)}\` lists each unit with its headline,
-gist, and any concerns.
+gist, and any concerns, by file.
 
 1. Read the task file. Look at the diff itself if the headlines aren't enough.
 2. Write \`${rel(join(dir, "result.json"))}\` as
    \`{"units": {}, "flows": [ … ], "overview": {"what": "…"}}\`, following \`${rel(join(dir, "schema.json"))}\`.
-3. Run \`lens summary submit ${rel(dir)}\`. It reports how many units your flows cover and
-   which units with a concern or break are in none: add flows for those and submit again.
+3. Run \`lens summary submit ${rel(dir)}\`. It names the units your flows leave out and the
+   flows that look split up: fix those and submit again.
 
 ## Flows
 ${FLOWS_RULE}
@@ -356,7 +417,11 @@ export const RESULT_SCHEMA = {
         properties: {
           title: { type: "string", maxLength: LIMITS.flowTitle },
           path: { type: "string", maxLength: LIMITS.flowPath },
-          units: { type: "object", additionalProperties: { type: "string", maxLength: LIMITS.layer } },
+          units: {
+            type: "object",
+            description: "unit id → its step in path, in reading order; a unit goes in one flow only",
+            additionalProperties: { type: "string", maxLength: LIMITS.layer },
+          },
           priority: { enum: [1, 2, 3] },
           why: { type: "string", maxLength: LIMITS.why },
         },

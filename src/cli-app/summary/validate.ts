@@ -2,7 +2,7 @@ import { normalize, sep } from "node:path";
 import { resolveLineRef } from "../paths.ts";
 import { LIMITS } from "./bundle.ts";
 import {
-  unitSetHash, type Break, type Bundle, type BundleUnit, type ChangeRow, type Concern, type ConcernKind, type Flow,
+  HOUSEKEEPING, isHousekeeping, unitSetHash, type Break, type Bundle, type BundleUnit, type ChangeRow, type Concern, type ConcernKind, type Flow,
   type StoredSummary, type UnitSummary,
 } from "./store.ts";
 
@@ -19,15 +19,22 @@ export interface SubmitOutcome {
   coverage: Coverage;
 }
 
-/** How much of the diff the stored flows cover — reported, never enforced. */
+/** How well the stored flows tell the diff — reported, never enforced. */
 export interface Coverage {
   /** units of this bundle with a current summary */
   summarized: number;
-  /** of those, how many sit in at least one flow */
+  /** of those, how many sit in a flow (the ones lens files under Housekeeping count) */
   inFlows: number;
-  /** flagged units (a concern or a break) in no flow: the ones a reviewer reading by flow would miss */
-  flaggedOutside: string[];
+  /** summarized units in no flow, the flagged ones (a concern or a break) first */
+  outside: string[];
+  /** flows that look like part of a bigger story, as advice the agent can act on */
+  advice: string[];
 }
+
+/** More stories than this, and some of them are probably one */
+const MAX_STORIES = 6;
+/** Fewer changes per story on average than this, and the stories are probably split up */
+const MIN_STORY_SIZE = 3;
 
 const CONCERN_KINDS: ConcernKind[] = ["bug", "risk", "question"];
 
@@ -80,7 +87,9 @@ export function validateResult(
   if (raw.flows !== undefined) {
     if (!Array.isArray(raw.flows)) dropped.push("flows: must be an array");
     else {
-      const valid = raw.flows.map((f, i) => checkFlow(f, i, byId, dropped)).filter((f): f is Flow => f !== null);
+      // a unit goes in one flow: the first that lists it keeps it
+      const claimed = new Map<string, string>();
+      const valid = raw.flows.map((f, i) => checkFlow(f, i, byId, claimed, dropped)).filter((f): f is Flow => f !== null);
       // written with every unit in view: the earlier flows (other code, other parts) go —
       // once per pass, so resubmitting a fix or an added flow keeps the rest, and only
       // for valid replacements, so a fully rejected submit can't leave none
@@ -88,10 +97,13 @@ export function validateResult(
         stored.flows = [];
         stored.flowsPass = bundle.createdAt;
       }
-      for (const flow of valid) {
-        stored.flows = stored.flows.filter((existing) => existing.title !== flow.title);
-        stored.flows.push(flow);
-      }
+      // the new flows take their units from the stored ones, which go once they hold too few
+      const replaced = new Set(valid.map((f) => f.title));
+      stored.flows = stored.flows
+        .filter((existing) => !replaced.has(existing.title))
+        .map((existing) => ({ ...existing, units: Object.fromEntries(Object.entries(existing.units).filter(([id]) => !claimed.has(id))) }))
+        .filter((existing) => Object.keys(existing.units).length >= minUnits(existing.title));
+      stored.flows.push(...new Map(valid.map((f) => [f.title, f])).values()); // a title twice: the last one
       acceptedFlows = new Set(valid.map((f) => f.title)).size;
     }
   }
@@ -111,11 +123,42 @@ export function validateResult(
 function coverageOf(bundle: Bundle, stored: StoredSummary): Coverage {
   const flowed = new Set(stored.flows.flatMap((f) => Object.keys(f.units)));
   const current = bundle.units.filter((u) => stored.units[u.id]?.hash === u.hash);
+  const covered = (u: BundleUnit) => flowed.has(u.id) || isHousekeeping(u);
+  const outside = current.filter((u) => !covered(u));
+  const flagged = (u: BundleUnit) => stored.units[u.id].needsLook;
   return {
     summarized: current.length,
-    inFlows: current.filter((u) => flowed.has(u.id)).length,
-    flaggedOutside: current.filter((u) => stored.units[u.id].needsLook && !flowed.has(u.id)).map((u) => u.id),
+    inFlows: current.length - outside.length,
+    outside: [...outside.filter(flagged), ...outside.filter((u) => !flagged(u))].map((u) => u.id),
+    advice: flowAdvice(bundle, stored.flows),
   };
+}
+
+/** Flows that look like parts of one story: a flow inside one file, or more and smaller stories than a diff tells. */
+function flowAdvice(bundle: Bundle, flows: Flow[]): string[] {
+  const fileOf = new Map(bundle.units.map((u) => [u.id, u.file]));
+  const stories = flows.filter((f) => f.title !== HOUSEKEEPING);
+  const advice: string[] = [];
+  if (new Set(bundle.units.map((u) => u.file)).size > 1) {
+    for (const flow of stories) {
+      const files = new Set(Object.keys(flow.units).map((id) => fileOf.get(id)));
+      if (files.size === 1) {
+        advice.push(`"${flow.title}" is all ${[...files][0]}: a flow of one file's functions is usually part of a bigger story — fold it into the one that needs it`);
+      }
+    }
+  }
+  const storyUnits = stories.reduce((n, f) => n + Object.keys(f.units).length, 0);
+  if (stories.length > MAX_STORIES) {
+    advice.push(`${stories.length} stories is a lot: most diffs tell 1–5 — merge the ones a reviewer would read together`);
+  } else if (stories.length > 2 && storyUnits < MIN_STORY_SIZE * stories.length) {
+    advice.push(`${stories.length} stories hold ${storyUnits} units between them: they're probably parts of fewer stories — merge them`);
+  }
+  return advice;
+}
+
+/** A story needs 2+ units; Housekeeping may hold one */
+function minUnits(title: string): number {
+  return title === HOUSEKEEPING ? 1 : 2;
 }
 
 /** Like text(), but keeps blank-line paragraph breaks. */
@@ -253,22 +296,38 @@ function checkCaller(c: unknown, unit: BundleUnit, root: string, fileCache: Map<
   return null;
 }
 
-function checkFlow(f: unknown, i: number, byId: Map<string, BundleUnit>, dropped: string[]): Flow | null {
+function checkFlow(
+  f: unknown,
+  i: number,
+  byId: Map<string, BundleUnit>,
+  claimed: Map<string, string>,
+  dropped: string[],
+): Flow | null {
   const where = `flows[${i}]`;
   const r = (f ?? {}) as Record<string, unknown>;
   const title = text(r.title, LIMITS.flowTitle);
-  const path = text(r.path, LIMITS.flowPath);
-  if (!title || !path) { dropped.push(`${where}: title (≤${LIMITS.flowTitle}) and path (≤${LIMITS.flowPath}) required`); return null; }
+  // Housekeeping has no steps to walk
+  const path = text(r.path, LIMITS.flowPath) ?? (title === HOUSEKEEPING && !r.path ? "" : null);
+  if (!title || path === null) { dropped.push(`${where}: title (≤${LIMITS.flowTitle}) and path (≤${LIMITS.flowPath}) required`); return null; }
   const units: Record<string, string> = {};
   for (const [id, layer] of Object.entries(typeof r.units === "object" && r.units !== null ? r.units : {})) {
     if (!byId.has(id)) { dropped.push(`${where}: unknown unit ${id}`); continue; }
+    const owner = claimed.get(id);
+    if (owner !== undefined && owner !== title) {
+      dropped.push(`${where} "${title}": ${id} is already in "${owner}" — a unit goes in one flow, left out here`);
+      continue;
+    }
     const label = text(layer, LIMITS.layer);
     if (label === null && typeof layer === "string" && layer.trim() !== "") {
       dropped.push(`${where}: layer for ${id} ${describe(layer, LIMITS.layer)} — left blank`);
     }
     units[id] = label ?? "";
   }
-  if (Object.keys(units).length < 2) { dropped.push(`${where} "${title}": a flow needs 2+ known units — dropped`); return null; }
+  if (Object.keys(units).length < minUnits(title)) {
+    dropped.push(`${where} "${title}": a flow needs 2+ known units — dropped`);
+    return null;
+  }
+  for (const id of Object.keys(units)) claimed.set(id, title);
   const flow: Flow = { title, path, units };
   if (r.priority !== undefined) {
     if (r.priority === 1 || r.priority === 2 || r.priority === 3) flow.priority = r.priority;

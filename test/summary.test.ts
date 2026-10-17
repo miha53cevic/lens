@@ -113,6 +113,22 @@ test("units: functions, methods, class members, top-level calls, deleted functio
   assert.equal(byId.get("src/repo.ts#Svc.run"), undefined, "an untouched method is no unit");
   assert.equal(byId.get('src/repo.ts#router.get("/orders")')?.kind, "call");
   assert.equal(byId.get("src/repo.ts#(module)")?.kind, "module"); // the new import
+  assert.equal(byId.get("src/repo.ts#(module)")?.importsOnly, true);
+});
+
+test("units: a module-level change is imports only while every changed and removed line is an import", async () => {
+  const only = await unitsFor(inputFor("src/f.ts",
+    'import { a } from "./a";\n\nexport const x = a;\n',
+    'import {\n  a,\n  b,\n} from "./a";\n\nexport const x = a;\n'));
+  assert.equal(only.find((u) => u.name === "(module)")?.importsOnly, true, "a multi-line import, old line removed");
+  const mixed = await unitsFor(inputFor("src/f.ts",
+    'import { a } from "./a";\n\nexport const x = a;\n',
+    'import { a } from "./a";\nif (a) start();\n\nexport const x = a;\n'));
+  assert.equal(mixed.find((u) => u.name === "(module)")?.importsOnly, undefined, "top-level code is no import");
+  const comment = await unitsFor(inputFor("src/f.ts",
+    'import { a } from "./a";\n',
+    '// the a we need\nimport { a } from "./a";\n'));
+  assert.equal(comment.find((u) => u.name === "(module)")?.importsOnly, undefined, "a comment above an import says something");
 });
 
 test("units: TSX components, memo/forwardRef wrappers and hooks", async () => {
@@ -228,6 +244,39 @@ test("the summary view leaves out deleted files, but keeps a function deleted fr
     assert.ok(!ids.some((id) => id.startsWith("src/gone.ts")), "the deleted file");
     assert.ok(ids.includes("src/left.ts#b"), "a deleted function is still a change to read");
     assert.ok(ids.includes("src/repo.ts#findOrders"));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("the summary view puts each unit in one flow, and files import-only units under Housekeeping", async () => {
+  const root = mkdtempSync(join(tmpdir(), "lens-view-"));
+  try {
+    const units = await unitsFor(inputFor("src/repo.ts", OLD_REPO, NEW_REPO));
+    const key = buildSummaryView({ root, cwd: root, command: "diff", args: [], units }).key;
+    const flows = (stored: { title: string; path: string; units: Record<string, string> }[]) => {
+      writeStored(root, key, { version: 1, updatedAt: "", units: {}, flows: stored });
+      return buildSummaryView({ root, cwd: root, command: "diff", args: [], units }).flows
+        .map((f) => [f.title, Object.keys(f.units).map((id) => id.split("#")[1])]);
+    };
+    // an older summary listing findOrders twice: the first flow keeps it
+    assert.deepEqual(flows([
+      { title: "Paging", path: "a", units: { "src/repo.ts#findOrders": "a", "src/repo.ts#toOrder": "b" } },
+      { title: "Svc", path: "a", units: { "src/repo.ts#findOrders": "a", "src/repo.ts#Svc.limit": "b", "src/repo.ts#Svc.stop": "b" } },
+    ]), [
+      ["Paging", ["findOrders", "toOrder"]],
+      ["Svc", ["Svc.limit", "Svc.stop"]],
+      ["Housekeeping", ["(module)"]],
+    ]);
+    // the agent's own Housekeeping takes them in
+    assert.deepEqual(flows([
+      { title: "Paging", path: "a", units: { "src/repo.ts#findOrders": "a", "src/repo.ts#toOrder": "b" } },
+      { title: "Housekeeping", path: "", units: { "src/repo.ts#gone": "" } },
+    ]), [
+      ["Paging", ["findOrders", "toOrder"]],
+      ["Housekeeping", ["gone", "(module)"]],
+    ]);
+    assert.deepEqual(flows([]), [], "no flows: no Housekeeping of its own");
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -351,6 +400,7 @@ test("validate: accepts grounded claims and drops the rest with reasons", () => 
     assert.match(reasons, /breaks\[1\]: no valid callers left/);
     assert.match(reasons, /toOrder: headline 81 chars, max 80 — unit dropped/);
     assert.match(reasons, /src\/other.ts#x: unknown unit id/);
+    assert.match(reasons, /flows\[1\] "Solo": src\/repo.ts#findOrders is already in "Paging" — a unit goes in one flow/);
     assert.match(reasons, /flows\[1\] "Solo": a flow needs 2\+ known units/);
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -409,14 +459,73 @@ test("validate: flows keep priority and why; bad ones are reported; coverage cou
     },
     flows: [
       { title: "Paging", path: "a", priority: 1, why: "  changes  every caller ", units: { "src/repo.ts#findOrders": "repo", "src/repo.ts#fetchAll": "repo" } },
-      { title: "Odd", path: "b", priority: 7, why: "w".repeat(101), units: { "src/repo.ts#fetchAll": "x", "src/repo.ts#getAll": "y" } },
+      { title: "Odd", path: "b", priority: 7, why: "w".repeat(101), units: { "src/repo.ts#toOrder": "x", "src/repo.ts#getAll": "y" } },
     ],
   }, "/nonexistent", null);
   assert.deepEqual(out.stored.flows.map((f) => [f.title, f.priority, f.why]), [["Paging", 1, "changes every caller"], ["Odd", undefined, undefined]]);
   const reasons = out.dropped.join("\n");
   assert.match(reasons, /"Odd": priority must be 1, 2 or 3/);
   assert.match(reasons, /"Odd": why 101 chars, max 100/);
-  assert.deepEqual(out.coverage, { summarized: 3, inFlows: 2, flaggedOutside: ["src/repo.ts#toOrder"] });
+  assert.deepEqual(out.coverage, { summarized: 3, inFlows: 3, outside: [], advice: [] });
+  const fewer = validateResult(BUNDLE, { units: {}, flows: [] }, "/nonexistent", out.stored);
+  assert.equal(fewer.stored.flows.length, 2, "an empty flows list changes nothing");
+  const loose = validateResult(BUNDLE, { units: {
+    "src/repo.ts#findOrders": ok(),
+    "src/repo.ts#toOrder": ok({ concerns: [{ kind: "question", text: "q", line: "N11" }] }),
+    "src/repo.ts#fetchAll": ok(),
+  } }, "/nonexistent", null);
+  assert.deepEqual(loose.coverage.outside, ["src/repo.ts#toOrder", "src/repo.ts#findOrders", "src/repo.ts#fetchAll"], "the flagged one first");
+});
+
+test("validate: a unit goes in one flow — a later submit's flow takes it from the stored ones", () => {
+  const first = validateResult(BUNDLE, { units: {}, flows: [
+    { title: "Paging", path: "a", units: { "src/repo.ts#findOrders": "a", "src/repo.ts#toOrder": "b" } },
+    { title: "Fetch", path: "a", units: { "src/repo.ts#fetchAll": "a", "src/repo.ts#getAll": "b" } },
+  ] }, "/nonexistent", null);
+  const second = validateResult(BUNDLE, { units: {}, flows: [
+    { title: "Rows", path: "a", units: { "src/repo.ts#toOrder": "a", "src/repo.ts#fetchAll": "b" } },
+  ] }, "/nonexistent", first.stored);
+  // Paging and Fetch are left with one unit each: too few for a story
+  assert.deepEqual(second.stored.flows.map((f) => [f.title, Object.keys(f.units)]), [
+    ["Rows", ["src/repo.ts#toOrder", "src/repo.ts#fetchAll"]],
+  ]);
+});
+
+test("validate: Housekeeping may hold one unit; lens's own housekeeping units count as covered", () => {
+  const bundle: Bundle = { ...BUNDLE, units: [...BUNDLE.units, {
+    id: "src/repo.ts#(module)", file: "src/repo.ts", name: "(module)", kind: "module", status: "modified",
+    hash: "h5", labels: ["N1"], importsOnly: true, done: false,
+  }] };
+  const out = validateResult(bundle, {
+    units: Object.fromEntries(bundle.units.map((u) => [u.id, ok()])),
+    flows: [
+      { title: "Paging", path: "a", units: { "src/repo.ts#findOrders": "a", "src/repo.ts#toOrder": "b", "src/repo.ts#fetchAll": "c" } },
+      { title: "Housekeeping", path: "", priority: 3, units: { "src/repo.ts#getAll": "" } },
+    ],
+  }, "/nonexistent", null);
+  assert.deepEqual(out.dropped, []);
+  assert.deepEqual(out.stored.flows.map((f) => f.title), ["Paging", "Housekeeping"]);
+  assert.deepEqual(out.coverage, { summarized: 5, inFlows: 5, outside: [], advice: [] });
+});
+
+test("validate: advice for flows that look split up — inside one file, or too small", () => {
+  const unit = (file: string, name: string) => ({
+    id: `${file}#${name}`, file, name, kind: "function" as const, status: "modified" as const, hash: name, labels: ["N1"], done: false,
+  });
+  const bundle: Bundle = { ...BUNDLE, units: ["a", "b", "c"].flatMap((file) => [unit(`${file}.ts`, "one"), unit(`${file}.ts`, "two")]) };
+  const out = validateResult(bundle, { units: {}, flows: [
+    { title: "Store", path: "a", units: { "a.ts#one": "a", "a.ts#two": "a" } },
+    { title: "Page", path: "a", units: { "b.ts#one": "a", "c.ts#one": "b" } },
+    { title: "Keys", path: "a", units: { "b.ts#two": "a", "c.ts#two": "b" } },
+  ] }, "/nonexistent", null);
+  assert.equal(out.coverage.advice.length, 2);
+  assert.match(out.coverage.advice[0], /"Store" is all a.ts: .* fold it into the one that needs it/);
+  assert.match(out.coverage.advice[1], /3 stories hold 6 units between them/);
+  const two = validateResult(bundle, { units: {}, flows: [
+    { title: "Page", path: "a", units: { "a.ts#one": "a", "b.ts#one": "b" } },
+    { title: "Keys", path: "a", units: { "a.ts#two": "a", "c.ts#two": "b" } },
+  ] }, "/nonexistent", null);
+  assert.deepEqual(two.coverage.advice, [], "two small stories on a small diff are fine");
 });
 
 test("validate: rejects a non-object result and bad renamedFrom", () => {
@@ -444,10 +553,17 @@ test("validate: submits merge with earlier ones and flows merge by title", () =>
 });
 
 test("validate: a whole-diff pass replaces the stored flows; other passes merge by title", () => {
-  const flow = (title: string) => ({ title, path: "a", units: { "src/repo.ts#findOrders": "a", "src/repo.ts#toOrder": "b" } });
+  // each flow over units of its own: a unit goes in one flow
+  const pairs = [["findOrders", "toOrder"], ["fetchAll", "getAll"]];
+  let next = 0;
+  const flow = (title: string) => {
+    const [a, b] = pairs[next++ % 2];
+    return { title, path: "a", units: { [`src/repo.ts#${a}`]: "a", [`src/repo.ts#${b}`]: "b" } };
+  };
   const first = validateResult(BUNDLE, { units: {}, flows: [flow("Old"), flow("Kept")] }, "/nonexistent", null);
+  next = 0;
   const merged = validateResult(BUNDLE, { units: {}, flows: [flow("New")] }, "/nonexistent", first.stored);
-  assert.deepEqual(merged.stored.flows.map((f) => f.title), ["Old", "Kept", "New"]);
+  assert.deepEqual(merged.stored.flows.map((f) => f.title), ["Kept", "New"], "New takes Old's units");
   const pass = { ...BUNDLE, wholeDiff: true, createdAt: "t1" };
   const replaced = validateResult(pass, { units: {}, flows: [flow("New")] }, "/nonexistent", first.stored);
   assert.deepEqual(replaced.stored.flows.map((f) => f.title), ["New"]);
@@ -572,7 +688,14 @@ test("prepare → submit → view round trip, with re-prepare skipping done unit
     assert.equal(onlyOverview.todo, 0);
     assert.equal((JSON.parse(readFileSync(join(onlyOverview.dir, "bundle.json"), "utf8")) as Bundle).wholeDiff, true);
     assert.match(onlyOverview.instructions, /final pass: the flows and\s+the overview/);
-    assert.match(readFileSync(join(onlyOverview.dir, "tasks.md"), "utf8"), /Does a thing/);
+    const finalTasks = readFileSync(join(onlyOverview.dir, "tasks.md"), "utf8");
+    assert.match(finalTasks, /Does a thing/);
+    // the map: units by file with their size, what each names, and lens's own Housekeeping apart
+    assert.match(finalTasks, /^### src\/repo.ts$/m);
+    assert.match(finalTasks, /`src\/repo.ts#findOrders` \(function, modified, \+\d+ −\d+\)/);
+    assert.match(finalTasks, /`src\/repo.ts#router.get\("\/orders"\)`.*\n  names: `src\/repo.ts#findOrders`/);
+    assert.match(finalTasks, /Lens files these under "Housekeeping" itself[^\n]*\n- `src\/repo.ts#\(module\)`/);
+    assert.doesNotMatch(finalTasks, /^- `src\/repo.ts#\(module\)` \(/m, "not listed with the rest");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

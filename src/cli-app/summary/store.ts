@@ -60,6 +60,14 @@ export interface Flow {
 
 export type FlowPriority = 1 | 2 | 3;
 
+/** The P3 flow for what no story needs: the agent's moves and renames, and the units lens files there itself */
+export const HOUSEKEEPING = "Housekeeping";
+
+/** Units lens files under Housekeeping without the agent: import-only and formatting-only changes. */
+export function isHousekeeping(unit: { formattingOnly?: boolean; importsOnly?: boolean }): boolean {
+  return !!unit.formattingOnly || !!unit.importsOnly;
+}
+
 export interface Overview {
   /** What the whole diff does, sized to it; paragraphs split by blank lines */
   what: string;
@@ -97,6 +105,7 @@ export interface BundleUnit {
   /** New-side lines shown for the unit; a concern may cite any of them. Absent in older bundles */
   ranges?: LineRange[];
   formattingOnly?: boolean;
+  importsOnly?: boolean;
   /** Already summarized for this exact hash by an earlier submit */
   done: boolean;
 }

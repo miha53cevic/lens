@@ -821,7 +821,7 @@ pageTest('on the Summary tab the pill starts the review, and marks each change r
   assert.equal($('.sum-item:not(.active) .viewed-box').getAttribute('aria-checked'), 'true');
 });
 
-test('a flow is its name: the priority only orders it, and a P3 flow starts folded', async () => {
+test('a flow is its name and why: the priority only orders it, and a P3 flow starts folded', async () => {
   const summary = payload.summary!;
   const id = (name: string) => summary.units.find((unit) => unit.name === name)!.id;
   summary.flows = [
@@ -829,6 +829,7 @@ test('a flow is its name: the priority only orders it, and a P3 flow starts fold
       title: 'Order cleanup',
       path: 'repo',
       priority: 3,
+      why: 'drops the old totals',
       units: { [id('findOrders')]: 'repo', [id('legacyTotal')]: 'repo' },
     },
   ];
@@ -839,45 +840,54 @@ test('a flow is its name: the priority only orders it, and a P3 flow starts fold
     const count = () => $$('.sum-section-title.flow .sub')[0]?.textContent?.trim() ?? null;
     assert.deepEqual([title(), count()], ['Order cleanup', '2 changes'], 'folded: the name and its count');
     assert.equal($$('.sum-section-title .prio').length, 0, 'no P3 tag');
+    assert.equal($$('.sum-section-why').length, 0, 'folded: the why only as a tooltip');
+    assert.equal($('.sum-section-title.flow').getAttribute('title'), 'drops the old totals');
     await click($('.sum-section-title.flow'));
     assert.deepEqual([title(), count()], ['Order cleanup', null]);
+    assert.equal($('.sum-section-why').textContent, 'drops the old totals');
     assert.equal($$('.sum-section:not(.folded) .sum-item').length, 2);
-    assert.equal($$('.sum-section:not(.folded) .sum-item .side').length, 0, 'no layer labels');
+    assert.equal($$('.sum-section:not(.folded) .sum-item .side').length, 0, 'no file labels');
+    assert.equal($$('.sum-step').length, 0, 'one step over every change: no heading');
   } finally {
     summary.flows = [];
     await close();
   }
 });
 
-test('a unit in several flows: only the listing the reader picked is marked, and j/k walk on from it', async () => {
+test("a flow's steps are headings where each starts; a unit in two flows is listed under the first", async () => {
   const summary = payload.summary!;
   const id = (name: string) => summary.units.find((unit) => unit.name === name)!.id;
   summary.flows = [
-    { title: 'Reads', path: 'repo', priority: 1, units: { [id('findOrders')]: 'repo' } },
-    { title: 'Cleanup', path: 'repo', priority: 2, units: { [id('findOrders')]: 'repo', [id('legacyTotal')]: 'repo' } },
+    {
+      title: 'Reads',
+      path: 'repo → cleanup',
+      priority: 1,
+      units: { [id('findOrders')]: 'repo', [id('legacyTotal')]: 'cleanup' },
+    },
+    { title: 'Twice', path: 'repo', priority: 2, units: { [id('findOrders')]: 'repo', [id('legacyTotal')]: 'repo' } },
   ];
   await open();
   try {
-    // each listing, as "flow:name", the marked one with ">"
+    // the list as the reader sees it: steps as "#step", changes as "flow:name", the open one with ">"
     const listed = () =>
-      $$('.sum-item').map(
-        (item) =>
-          (item.classList.contains('active') ? '>' : '') +
-          item.closest('.sum-section')!.querySelector('.sum-section-title .t')!.textContent +
-          ':' +
-          item.querySelector('.name')!.textContent,
+      $$('.sum-step, .sum-item').map((row) =>
+        row.classList.contains('sum-step')
+          ? '#' + row.textContent
+          : (row.classList.contains('active') ? '>' : '') +
+            row.closest('.sum-section')!.querySelector('.sum-section-title .t')!.textContent +
+            ':' +
+            row.querySelector('.name')!.textContent,
       );
     await key('v');
-    const items = $$('.sum-item');
-    await click(items[0]);
-    assert.deepEqual(listed(), ['>Reads:findOrders', 'Cleanup:findOrders', 'Cleanup:legacyTotal']);
-    await click(items[1]);
-    assert.deepEqual(listed(), ['Reads:findOrders', '>Cleanup:findOrders', 'Cleanup:legacyTotal']);
+    await click($$('.sum-item')[0]);
+    // Twice lists nothing the first flow hasn't: it isn't shown
+    assert.deepEqual(listed(), ['#repo', '>Reads:findOrders', '#cleanup', 'Reads:legacyTotal']);
     await key('j');
-    assert.deepEqual(listed(), ['Reads:findOrders', 'Cleanup:findOrders', '>Cleanup:legacyTotal']);
+    assert.deepEqual(listed(), ['#repo', 'Reads:findOrders', '#cleanup', '>Reads:legacyTotal']);
+    await key('j');
+    assert.deepEqual(listed(), ['#repo', 'Reads:findOrders', '#cleanup', '>Reads:legacyTotal'], 'no wrapping around');
     await key('k');
-    await key('k');
-    assert.deepEqual(listed(), ['>Reads:findOrders', 'Cleanup:findOrders', 'Cleanup:legacyTotal']);
+    assert.deepEqual(listed(), ['#repo', '>Reads:findOrders', '#cleanup', 'Reads:legacyTotal']);
   } finally {
     summary.flows = [];
     await close();

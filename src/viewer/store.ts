@@ -84,8 +84,6 @@ export interface LensState {
   // Summary tab
   /** The open unit's id; null: the overview (the tab opens there) */
   summaryUnit: string | null;
-  /** The flow whose listing of the open unit the reader picked (a unit can sit in several); null: its first */
-  summaryFlow: string | null;
   /** A newer summary waits on the server */
   summaryDot: boolean;
   /** The change on disk isn't the one this page shows anymore, as the last stamp poll found it (a refresh takes it) */
@@ -172,7 +170,6 @@ const initialState: LensState = {
   viewedUnits: loadSet(VIEWED_PREF.units),
   search: { query: '', word: false, matchCase: false, pinOrigin: false, selected: 0 },
   summaryUnit: null,
-  summaryFlow: null,
   summaryDot: false,
   changedOnDisk: false,
   summaryChecking: false,

@@ -36,6 +36,8 @@ export interface Unit {
   removals: RemovedBlock[];
   /** Old and new declaration differ only in whitespace */
   formattingOnly?: boolean;
+  /** A module-level unit whose changed and removed lines are all import statements */
+  importsOnly?: boolean;
   /** Content + position hash; a summary written for another hash is stale */
   hash: string;
 }
@@ -82,10 +84,12 @@ export async function extractUnits(input: UnitFileInput): Promise<Unit[]> {
   const lang = languageForFile(file);
   if (!lang || input.isTest) return wholeFile();
 
-  const newIndex = await indexSource(newSource, lang);
-  const oldIndex = oldSource === null ? new Map<string, Decl>() : await indexSource(oldSource, lang);
+  const newSide = await indexSource(newSource, lang);
+  const oldSide = oldSource === null ? { decls: new Map<string, Decl>(), imports: [] } : await indexSource(oldSource, lang);
   // A side that doesn't parse cleanly can't be split reliably.
-  if (newIndex === null || oldIndex === null) return wholeFile();
+  if (newSide === null || oldSide === null) return wholeFile();
+  const newIndex = newSide.decls;
+  const oldIndex = oldSide.decls;
 
   const oldLines = oldSource === null ? [] : oldSource.split("\n");
   // Owners for one hunk's consecutive lines. A blank line between declarations
@@ -162,6 +166,7 @@ export async function extractUnits(input: UnitFileInput): Promise<Unit[]> {
       hash: "",
     };
     if (newDecl && oldDecl && squash(newDecl.text) === squash(oldDecl.text)) unit.formattingOnly = true;
+    if (name === MODULE_NAME && onlyImports(t, newSide.imports, oldSide.imports, newLines, oldLines)) unit.importsOnly = true;
     units.push(finish(unit, newLines));
   }
   return units.sort((a, b) => firstLine(a) - firstLine(b));
@@ -197,6 +202,23 @@ function firstLine(u: Unit): number {
 
 function squash(text: string): string {
   return text.replace(/\s+/g, "");
+}
+
+/** Every changed and removed line that isn't blank sits in an import statement of its side. */
+function onlyImports(
+  t: { changed: number[]; removals: RemovedBlock[] },
+  newImports: LineRange[],
+  oldImports: LineRange[],
+  newLines: string[],
+  oldLines: string[],
+): boolean {
+  const inside = (ranges: LineRange[], line: number) => ranges.some((r) => line >= r.start && line <= r.end);
+  const blank = (lines: string[], line: number) => (lines[line - 1] ?? "").trim() === "";
+  const removed = t.removals.flatMap((b) => b.lines.map((_, i) => b.oldStart + i));
+  const lines = [...t.changed.filter((l) => !blank(newLines, l)), ...removed.filter((l) => !blank(oldLines, l))];
+  return lines.length > 0 &&
+    t.changed.every((l) => blank(newLines, l) || inside(newImports, l)) &&
+    removed.every((l) => blank(oldLines, l) || inside(oldImports, l));
 }
 
 function span(ranges: LineRange[]): number {
@@ -241,8 +263,14 @@ function ownerLookup(index: Map<string, Decl>): (line: number) => string | null 
 
 // ---------- declaration index ----------
 
+interface SourceIndex {
+  decls: Map<string, Decl>;
+  /** The lines of the top-level import statements */
+  imports: LineRange[];
+}
+
 /** null when the source has syntax errors. */
-async function indexSource(source: string, lang: LanguageId): Promise<Map<string, Decl> | null> {
+async function indexSource(source: string, lang: LanguageId): Promise<SourceIndex | null> {
   const tree = await parseSource(source, lang);
   try {
     if (tree.rootNode.hasError) return null;
@@ -261,8 +289,12 @@ async function indexSource(source: string, lang: LanguageId): Promise<Map<string
         index.set(name, { name, kind, ranges: [range], container, text });
       }
     };
-    forEachWithComments(tree.rootNode, (stmt, start) => indexTopLevel(stmt, start, lang, add));
-    return index;
+    const imports: LineRange[] = [];
+    forEachWithComments(tree.rootNode, (stmt, start) => {
+      if (stmt.type === "import_statement") imports.push({ start: stmt.startPosition.row + 1, end: stmt.endPosition.row + 1 });
+      indexTopLevel(stmt, start, lang, add);
+    });
+    return { decls: index, imports };
   } finally {
     tree.delete();
   }

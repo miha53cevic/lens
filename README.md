@@ -103,8 +103,9 @@ The Summary tab walks the diff one unit (function, component, hook, method, type
 time: a headline, **concerns** (possible bugs, risks and questions, each on its line, with
 what triggers it and the smallest fix), what behaves differently, and callers it may
 break. You mark each concern *real* or *dismiss* it, and copy the real ones back to your
-agent. Units are grouped into **flows** (one story each), ranked P1 to P3, under an
-overview of the whole diff.
+agent. Units are grouped into **flows**: one story each, read step by step, ranked P1 to
+P3, with each unit in one flow and import-only or formatting-only changes under
+Housekeeping. An overview of the whole diff sits on top.
 
 ```bash
 /lens-review --staged           # in your agent; or: pr 87

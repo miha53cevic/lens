@@ -4,7 +4,7 @@ import { loadConfig } from "../config.ts";
 import { loadDiff, collectUnits, commitLog } from "./collect.ts";
 import { prepareBundle, prepareCommand } from "./bundle.ts";
 import { hasUnits, validateResult } from "./validate.ts";
-import { reviewKey, readStored, writeStored, unitSetHash, type Bundle } from "./store.ts";
+import { HOUSEKEEPING, reviewKey, readStored, writeStored, unitSetHash, type Bundle } from "./store.ts";
 import { relPath } from "../paths.ts";
 
 /** `lens summary prepare|submit` — the agent's side of summary mode. */
@@ -75,11 +75,16 @@ export async function runSummary(rest: string[], cwd: string): Promise<void> {
     // coverage only once there are flows to cover with: before the final pass it's all zeros
     if (missing.length === 0 && outcome.stored.flows.length > 0) {
       console.log(`\nflows cover ${coverage.inFlows} of ${coverage.summarized} units`);
-      const outside = coverage.flaggedOutside;
+      const outside = coverage.outside;
       if (outside.length > 0) {
-        console.log(`${outside.length} unit${outside.length === 1 ? "" : "s"} with a concern or break ${outside.length === 1 ? "is" : "are"} in no flow — put ${outside.length === 1 ? "it" : "them"} in one:`);
-        for (const id of outside.slice(0, 20)) console.log(`  - ${id}`);
+        console.log(`${outside.length} unit${outside.length === 1 ? " is" : "s are"} in no flow — add each to the story it serves (or to "${HOUSEKEEPING}"):`);
+        const flagged = (id: string) => (outcome.stored.units[id].needsLook ? " (has a concern or break)" : "");
+        for (const id of outside.slice(0, 20)) console.log(`  - ${id}${flagged(id)}`);
         if (outside.length > 20) console.log(`  - … and ${outside.length - 20} more`);
+      }
+      if (coverage.advice.length > 0) {
+        console.log(`\nthe flows look split up — worth a look:`);
+        for (const line of coverage.advice) console.log(`  - ${line}`);
       }
     }
     const flowsMissing = outcome.stored.flows.length === 0 && bundle.units.length >= 2;

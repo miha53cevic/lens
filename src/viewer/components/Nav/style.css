@@ -202,6 +202,22 @@ nav .file.binary:disabled {
   font-size: var(--text-xs);
   white-space: nowrap;
 }
+/* why the flow matters, under its name */
+.sum-section-why {
+  padding: 0 var(--space-2) var(--space-1);
+  color: var(--muted);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+}
+/* where a flow's next step starts: "contract", "page", "tests" */
+.sum-step {
+  padding: var(--space-2) var(--space-2) 0;
+  color: var(--faint);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
 
 .sum-item {
   display: grid;
