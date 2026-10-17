@@ -14,7 +14,6 @@
   "scripts": {
     "lens": "bun src/cli-app/cli.ts",
     "compile": "bun scripts/compile.ts",
-    "version:bump": "bun scripts/version.ts",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.viewer.json && tsc -p tsconfig.desktop.json",
     "format": "prettier --write src/ui src/viewer src/desktop test/viewer-page.test.ts test/launcher-page.test.ts test/viewer.test.ts test/poll.test.ts test/fixtures/viewerRepo.ts",
     "format:check": "prettier --check src/ui src/viewer src/desktop test/viewer-page.test.ts test/launcher-page.test.ts test/viewer.test.ts test/poll.test.ts test/fixtures/viewerRepo.ts",

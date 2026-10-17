@@ -196,8 +196,8 @@ bun run compile     # lens as one executable, in dist/lens (what the packed app 
 ```
 
 Sources are `src/cli-app/` (the command and the viewer's server), `src/ui/` (the design
-system), `src/viewer/` (the viewer page) and `src/desktop/` (the Electron app). Every
-merge to `main` releases the macOS app through GitHub Actions.
+system), `src/viewer/` (the viewer page) and `src/desktop/` (the Electron app). Releases go
+through release-please: merging its release PR publishes the macOS app.
 
 ## Non-goals
 
