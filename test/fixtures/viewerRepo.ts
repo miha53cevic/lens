@@ -65,7 +65,7 @@ export function makeViewerRepo(): string {
   // the real path: Windows' temp dir can come as a short 8.3 name, which git resolves differently
   const dir = realpathSync.native(mkdtempSync(join(tmpdir(), 'lens-viewer-')));
   const git = (...args: string[]) => execFileSync('git', args, { cwd: dir, stdio: 'pipe' });
-  git('init', '-q');
+  git('init', '-q', '-b', 'main');
   mkdirSync(join(dir, 'src'));
   writeFileSync(join(dir, 'src/orders.ts'), OLD_ORDERS);
   writeFileSync(join(dir, 'src/orders.test.ts'), OLD_TEST);

@@ -254,16 +254,16 @@ test("submit finds a bundle whose key ends in .json", async () => {
   const log = console.log;
   console.log = () => {};
   try {
-    git("init", "-q");
+    git("init", "-q", "-b", "notes.json"); // the key ends in its branch
     writeFileSync(join(dir, "package.json"), "{}\n");
     git("add", "-A");
-    await runSummary(["prepare", "--staged", "--", "package.json"], dir);
-    const bundle = join(dir, ".lens/summary/diff-staged-package.json");
+    await runSummary(["prepare", "--staged"], dir);
+    const bundle = join(dir, ".lens/summary/diff-staged@notes.json");
     writeFileSync(join(bundle, "result.json"), JSON.stringify({ units: {
       "package.json#(file)": { headline: "Adds an empty package.json", gist: "new file", needsLook: false, changes: [], breaks: [] },
     } }));
-    await runSummary(["submit", ".lens/summary/diff-staged-package.json"], dir);
-    assert.ok(readStored(dir, "diff-staged-package.json")?.units["package.json#(file)"]);
+    await runSummary(["submit", ".lens/summary/diff-staged@notes.json"], dir);
+    assert.ok(readStored(dir, "diff-staged@notes.json")?.units["package.json#(file)"]);
   } finally {
     console.log = log;
     rmSync(dir, { recursive: true, force: true });
@@ -277,6 +277,10 @@ test("summaryKey is readable and filesystem-safe", () => {
   assert.equal(summaryKey("pr", ["https://github.com/o/r/pull/87/files"]), "pr-87", "URL and number share a key");
   assert.equal(summaryKey("diff", ["main...feature/x"]), "diff-main...feature-x");
   assert.ok(summaryKey("diff", ["a".repeat(100)]).length <= 60);
+  assert.equal(summaryKey("diff", ["main"], "features/x"), "diff-main@features-x", "a diff names its branch");
+  assert.equal(summaryKey("diff", [], "main"), "diff@main");
+  assert.equal(summaryKey("pr", ["87"], "main"), "pr-87", "a PR is the same on any branch");
+  assert.notEqual(summaryKey("diff", ["a".repeat(100)], "x"), summaryKey("diff", ["a".repeat(100)], "y"));
 });
 
 function fixtureRoot(): string {
@@ -472,7 +476,7 @@ test("prepare → submit → view round trip, with re-prepare skipping done unit
   const dir = mkdtempSync(join(tmpdir(), "lens-summary-"));
   const git = (...args: string[]) => execFileSync("git", args, { cwd: dir, encoding: "utf8" });
   try {
-    git("init", "-q");
+    git("init", "-q", "-b", "main");
     git("config", "user.email", "t@t");
     git("config", "user.name", "t");
     mkdirSync(join(dir, "src"));
@@ -488,7 +492,7 @@ test("prepare → submit → view round trip, with re-prepare skipping done unit
     const diff = await loadDiff("diff", ["--staged"], dir, DEFAULT_CONFIG);
     const units = await collectUnits(diff, DEFAULT_CONFIG, dir);
     const sources = new Map([["src/repo.ts", NEW_REPO]]);
-    const prep = { root: diff.root, cwd: dir, key: "diff-staged", command: "diff" as const, args: ["--staged"], label: null, commits: "", units, sources };
+    const prep = { root: diff.root, cwd: dir, key: "diff-staged@main", command: "diff" as const, args: ["--staged"], label: null, commits: "", units, sources };
     const first = prepareBundle(prep);
     assert.equal(first.todo, units.length);
     assert.equal(readFileSync(join(diff.root, ".lens/.gitignore"), "utf8").trim().split("\n").pop(), "*");
@@ -509,7 +513,7 @@ test("prepare → submit → view round trip, with re-prepare skipping done unit
       }),
     }, overview: { what: "Pages orders by default." } }, diff.root, null);
     assert.deepEqual(outcome.dropped, []);
-    writeStored(diff.root, "diff-staged", outcome.stored);
+    writeStored(diff.root, "diff-staged@main", outcome.stored);
 
     const again = prepareBundle(prep);
     assert.equal(again.done, 1);
@@ -518,11 +522,11 @@ test("prepare → submit → view round trip, with re-prepare skipping done unit
     // the overview fits this diff but no flows exist yet: the leftover units leave them to the final pass
     assert.match(again.instructions, /the final pass \(step 5\) asks for them/);
     // with flows stored too, the whole-diff work is done: leftover units come without flows and no final pass
-    writeStored(diff.root, "diff-staged", { ...outcome.stored, flows: [{ title: "F", path: "a", units: {} }] });
+    writeStored(diff.root, "diff-staged@main", { ...outcome.stored, flows: [{ title: "F", path: "a", units: {} }] });
     const leftover = prepareBundle(prep);
     assert.match(leftover.instructions, /Already written for this diff/);
     assert.doesNotMatch(leftover.instructions, /final pass/);
-    writeStored(diff.root, "diff-staged", outcome.stored);
+    writeStored(diff.root, "diff-staged@main", outcome.stored);
 
     const view = buildSummaryView({ root: diff.root, cwd: dir, command: "diff", args: ["--staged"], units });
     const v = view.units.find((u) => u.id === "src/repo.ts#findOrders")!;
@@ -547,15 +551,23 @@ test("prepare → submit → view round trip, with re-prepare skipping done unit
     assert.equal(s.stale, true);
     assert.equal(s.summary, null);
     assert.equal(staleView.overview?.stale, true);
-    assert.ok(readStored(diff.root, "diff-staged"));
+    assert.ok(readStored(diff.root, "diff-staged@main"));
+
+    // on another branch the same arguments are another review: nothing of main's is stale there
+    git("checkout", "-q", "-b", "other");
+    const elsewhere = buildSummaryView({ root: diff.root, cwd: dir, command: "diff", args: ["--staged"], units: later });
+    assert.equal(elsewhere.key, "diff-staged@other");
+    assert.deepEqual(elsewhere.units.filter((u) => u.stale || u.summary), []);
+    assert.equal(elsewhere.overview, null);
+    git("checkout", "-q", "main");
 
     // every unit summarized, only the overview out of date: prepare asks for it alone
     const laterPrep = { ...prep, units: later, sources: new Map([["src/repo.ts", NEW_REPO.replace("50", "25")]]) };
     const laterBundle = JSON.parse(readFileSync(join(prepareBundle(laterPrep).dir, "bundle.json"), "utf8")) as Bundle;
     const all = validateResult(laterBundle, { units: Object.fromEntries(later.map((u) => [u.id, ok()])) },
-      diff.root, readStored(diff.root, "diff-staged"));
+      diff.root, readStored(diff.root, "diff-staged@main"));
     assert.deepEqual(all.dropped, []);
-    writeStored(diff.root, "diff-staged", all.stored);
+    writeStored(diff.root, "diff-staged@main", all.stored);
     const onlyOverview = prepareBundle(laterPrep);
     assert.equal(onlyOverview.todo, 0);
     assert.equal((JSON.parse(readFileSync(join(onlyOverview.dir, "bundle.json"), "utf8")) as Bundle).wholeDiff, true);

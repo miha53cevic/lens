@@ -251,6 +251,15 @@ export function readBlobs(shas: Iterable<string>, cwd: string): Map<string, stri
   return contents;
 }
 
+/** The branch HEAD is on; null when it's detached. */
+export function currentBranch(cwd: string): string | null {
+  try {
+    return runGit(["symbolic-ref", "--short", "-q", "HEAD"], cwd).trim() || null;
+  } catch {
+    return null;
+  }
+}
+
 export function gitRoot(cwd: string): string {
   return runGit(["rev-parse", "--show-toplevel"], cwd).trim();
 }

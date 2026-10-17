@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { currentBranch } from "../git.ts";
 import { parsePrRef } from "../pr.ts";
 import type { LineRange, UnitKind, UnitStatus } from "./units.ts";
 
@@ -120,17 +121,26 @@ export function lensDir(root: string): string {
 }
 
 /**
- * Readable, filesystem-safe key for a diff: "diff-staged", "pr-87", "diff"
- * (worktree). PR keys use the number, so a URL and a bare number share one.
+ * Readable, filesystem-safe key for a diff: "diff-staged@main", "pr-87", "diff@feature-x"
+ * (worktree). A diff's key names the branch it was made on, so another branch's summary
+ * of the same arguments isn't read as this one gone stale; new commits on the branch keep
+ * the key, and mark only what they changed. PR keys use the number, so a URL and a bare
+ * number share one.
  */
-export function summaryKey(command: "diff" | "pr", args: string[]): string {
+export function summaryKey(command: "diff" | "pr", args: string[], branch: string | null = null): string {
   const ref = command === "pr" ? parsePrRef(args[0] ?? "") : null;
-  const raw = [command, ...(ref ? [String(ref.number)] : args)].join(" ").toLowerCase();
-  let slug = raw.replace(/[^a-z0-9._]+/g, "-").replace(/^-+|-+$/g, "");
+  const on = command === "diff" && branch ? "@" + branch : "";
+  const raw = ([command, ...(ref ? [String(ref.number)] : args)].join(" ") + on).toLowerCase();
+  let slug = raw.replace(/[^a-z0-9._@]+/g, "-").replace(/^-+|-+$/g, "");
   if (slug.length > 60) {
     slug = slug.slice(0, 48).replace(/-+$/, "") + "-" + createHash("sha256").update(raw).digest("hex").slice(0, 8);
   }
   return slug;
+}
+
+/** The key of a review in the repository at `root`, on the branch it's on now. */
+export function reviewKey(root: string, command: "diff" | "pr", args: string[]): string {
+  return summaryKey(command, args, command === "diff" ? currentBranch(root) : null);
 }
 
 /**

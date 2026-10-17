@@ -4,7 +4,7 @@ import { loadConfig } from "../config.ts";
 import { loadDiff, collectUnits, commitLog } from "./collect.ts";
 import { prepareBundle, prepareCommand } from "./bundle.ts";
 import { hasUnits, validateResult } from "./validate.ts";
-import { summaryKey, readStored, writeStored, unitSetHash, type Bundle } from "./store.ts";
+import { reviewKey, readStored, writeStored, unitSetHash, type Bundle } from "./store.ts";
 import { relPath } from "../paths.ts";
 
 /** `lens summary prepare|submit` — the agent's side of summary mode. */
@@ -25,7 +25,7 @@ export async function runSummary(rest: string[], cwd: string): Promise<void> {
     const result = prepareBundle({
       root: diff.root,
       cwd,
-      key: summaryKey(command, args),
+      key: reviewKey(diff.root, command, args),
       command,
       args,
       label: diff.label,

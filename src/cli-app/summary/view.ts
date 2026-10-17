@@ -2,7 +2,7 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { relPath } from "../paths.ts";
 import { prepareCommand } from "./bundle.ts";
-import { readStored, summaryArgs, summaryKey, summaryStamp, unitSetHash, type ChangeRow, type Concern, type Flow } from "./store.ts";
+import { readStored, reviewKey, summaryArgs, summaryStamp, unitSetHash, type ChangeRow, type Concern, type Flow } from "./store.ts";
 import { removalAnchors, type Unit } from "./units.ts";
 import type { RemovedBlock } from "../model.ts";
 
@@ -61,7 +61,7 @@ export function buildSummaryView(opts: {
   args: string[];
   units: Unit[];
 }): SummaryView {
-  const key = summaryKey(opts.command, opts.args);
+  const key = reviewKey(opts.root, opts.command, opts.args);
   // the arguments as the user passes them to /lens-review or `lens summary prepare`
   const hint = summaryArgs(opts.command, opts.args);
   const stored = readStored(opts.root, key);
