@@ -131,7 +131,9 @@ export function onKeyDown(event: KeyboardEvent): void {
       if (state.data.canRefresh && !isBusy(state, 'refresh')) refresh();
       break;
     case 'a':
-      askOpenAndFocus();
+      // keys never reach here from the Ask input, so an open rail closes
+      if (state.ask.open) askSetOpen(false);
+      else askOpenAndFocus();
       event.preventDefault(); // the "a" mustn't land in the textarea
       break;
     case '\\':

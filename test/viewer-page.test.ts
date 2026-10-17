@@ -992,6 +992,15 @@ pageTest('a deleted unit is its removed lines; o opens a unit in the code view',
 
 // ---- the Ask rail ----
 
+pageTest('a opens the Ask rail with its input focused, and closes it again', async () => {
+  await key('a');
+  assert.equal($('#ask-rail').style.display, '');
+  assert.equal(document.activeElement, $('#ask-input'));
+  ($('#ask-input') as HTMLTextAreaElement).blur();
+  await key('a');
+  assert.equal($('#ask-rail').style.display, 'none');
+});
+
 pageTest('Ask without an agent copies the question as a prompt', async (page) => {
   await key('\\');
   assert.equal($('#ask-rail').style.display, '');

@@ -23,7 +23,7 @@ export function askSetOpen(open: boolean): void {
   if (open) void check(askWatcher.id);
 }
 
-/** `a`: the rail opens and its input takes the keys. */
+/** `a` on a closed rail: it opens and its input takes the keys. */
 export function askOpenAndFocus(): void {
   if (!getState().ask.open) {
     writePref('lens.askOpen', '1');
