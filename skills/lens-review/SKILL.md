@@ -13,8 +13,9 @@ here needs an API key — you are the model.
    (no arguments = unstaged working-tree changes, same as `lens diff`).
 2. Follow the instructions it prints. They are the source of truth for the result format,
    the rules and the length limits — they come from the installed lens, so they're current.
-   If you can, hand the analysis to a subagent with a fresh context instead of doing it in
+   If you can, hand the analysis to one subagent with a fresh context instead of doing it in
    the session that wrote the code: a fresh reviewer doesn't share the author's blind spots.
+   One subagent does the whole run, every part in turn; don't spawn one per part.
 3. Run the `lens summary submit …` command from the instructions. If it rejects entries,
    fix exactly those and submit once more.
 4. Tell the user the summary is ready: refresh the lens viewer (↻) and open the
