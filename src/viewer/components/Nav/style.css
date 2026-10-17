@@ -211,7 +211,7 @@ nav .file.binary:disabled {
 }
 /* where a flow's next step starts: "contract", "page", "tests" */
 .sum-step {
-  padding: var(--space-2) var(--space-2) 0;
+  padding: var(--space-2) var(--space-2) var(--space-1);
   color: var(--faint);
   font-size: var(--text-2xs);
   font-weight: 600;
