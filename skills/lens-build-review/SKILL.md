@@ -27,7 +27,8 @@ reviewer doesn't share your blind spots) with this task:
 > Run `lens summary prepare <diff>` in `<repo root>` and follow the instructions it
 > prints exactly: read the tasks, research callers in the repo, write result.json, run
 > `lens summary submit`, fix anything it rejects and submit once more. If the tasks come
-> in parts, finish with the final pass (flows and the overview) the instructions describe.
+> in parts, do them one after another yourself, then finish with the final pass (flows and
+> the overview) the instructions describe. Don't spawn subagents of your own.
 > Every bug or risk you notice goes into the unit's `concerns` — the user reads the
 > viewer, not your reply.
 > [If there is a plan file: "The build implemented `<plan file>`. When a unit does

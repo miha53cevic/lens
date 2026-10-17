@@ -255,7 +255,9 @@ diff into ${todo} units (functions, components, hooks, methods, types, …)${don
 Tasks: ${files}
 
 If you can, do this in a fresh context or a subagent, not in the session that wrote
-the code — reviewing your own work hides its blind spots.
+the code — reviewing your own work hides its blind spots. Use one subagent at most, for
+the whole run: it reads every task file in turn and searches for callers itself. Don't
+spawn a subagent per part, per unit or per search.
 
 ## Steps
 1. Read the task file(s). Each unit shows its code: \`N14 + …\` is a changed new line,
