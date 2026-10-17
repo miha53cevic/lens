@@ -9,6 +9,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { createStore } from 'zustand/vanilla';
 import type { ViewerPayload } from '../cli-app/render/web/server.ts';
 import type { AskSelection, AskState } from '../cli-app/ask/session.ts';
+import type { BuildProgress } from '../cli-app/summary/progress.ts';
 import { INITIAL_DATA, readPref } from './shared.ts';
 import { CODE_SIZE_DEFAULT, savedCodeSize } from './codeSize.ts';
 
@@ -88,6 +89,8 @@ export interface LensState {
   summaryDot: boolean;
   /** The change on disk isn't the one this page shows anymore, as the last stamp poll found it (a refresh takes it) */
   changedOnDisk: boolean;
+  /** The agent's summary run, as the last stamp poll found it; null: none is going */
+  summaryBuild: BuildProgress | null;
   /** Asking the server for a newer summary: the overview holds off on "not written yet" until it knows */
   summaryChecking: boolean;
   /** The list filter's text (transient) */
@@ -172,6 +175,7 @@ const initialState: LensState = {
   summaryUnit: null,
   summaryDot: false,
   changedOnDisk: false,
+  summaryBuild: null,
   summaryChecking: false,
   sumQuery: '',
   sumSignal: null,

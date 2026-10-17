@@ -8,6 +8,7 @@ import { createAskRoutes } from "../../ask/routes.ts";
 import { isLocalRequest, readBody, readCookie, sendJson } from "./http.ts";
 import { previewResponse } from "../../summary/previews.ts";
 import { writeSettings } from "../../summary/settings.ts";
+import { buildProgressReader, type BuildProgress } from "../../summary/progress.ts";
 import { escapeHtml } from "../../text.ts";
 import { isLightColor, THEME_COOKIE } from "../../theme.ts";
 import { bundleViewer } from "./bundle.ts";
@@ -98,11 +99,13 @@ export interface ThemeTokens {
 
 /**
  * What /api/stamp answers, everything the page watches for in one request: the stored summary's
- * stamp, and the change's fingerprint as it is on disk now (null when this review has none).
+ * stamp, the change's fingerprint as it is on disk now (null when this review has none), and the
+ * agent's summary run while one is going.
  */
 export interface StampResponse {
   summary: number | null;
   change: string | null;
+  building: BuildProgress | null;
 }
 
 /** What /api/tokens answers: a theme's tokens, and the analysis whose files they are. */
@@ -245,6 +248,16 @@ export async function serveViewer(
   const template = await loadTemplate();
 
   /** A submit since the summary was read: take the new one (the units stay those of the last analysis). */
+  // the reader keeps its last read, so it's made again only for another review's summary
+  let progress: { at: string; read: ReturnType<typeof buildProgressReader> } | null = null;
+  function buildingNow(): BuildProgress | null {
+    const key = current.summary?.key;
+    if (!key) return null;
+    const at = current.root + "\n" + key;
+    if (progress?.at !== at) progress = { at, read: buildProgressReader(current.root, key) };
+    return progress.read();
+  }
+
   function syncSummary(): void {
     const summary = current.latestSummary?.() ?? null;
     if (summary !== current.summary) current = { ...current, summary };
@@ -311,7 +324,11 @@ export async function serveViewer(
         sendJson(res, 200, current.summary);
       } else if (url.pathname === "/api/stamp") {
         syncSummary();
-        const stamp: StampResponse = { summary: current.summary?.stamp ?? null, change: await changeNow() };
+        const stamp: StampResponse = {
+          summary: current.summary?.stamp ?? null,
+          change: await changeNow(),
+          building: buildingNow(),
+        };
         sendJson(res, 200, stamp);
       } else if (url.pathname.startsWith("/api/preview/")) {
         // a preview the agent drew, alone in its sandboxed frame (summary/previews.ts)

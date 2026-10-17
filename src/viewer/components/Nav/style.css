@@ -6,6 +6,8 @@ nav {
   overflow-x: hidden;
   overflow-y: auto;
   padding: var(--space-4) var(--space-3) var(--space-6);
+  /* a row scrolled into sight from below the top stops under the sticky filter, not behind it */
+  scroll-padding-top: calc(var(--control-h) + var(--space-2));
   background: var(--bg);
   font-size: var(--text-sm);
 }
@@ -211,7 +213,7 @@ nav .file.binary:disabled {
 }
 /* where a flow's next step starts: "contract", "page", "tests" */
 .sum-step {
-  padding: var(--space-2) var(--space-2) 0;
+  padding: var(--space-2) var(--space-2) var(--space-1);
   color: var(--faint);
   font-size: var(--text-2xs);
   font-weight: 600;

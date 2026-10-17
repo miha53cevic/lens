@@ -69,8 +69,14 @@ function addRows(node: TreeDir, path: string, depth: number, context: TreeContex
     );
 }
 
+/** The open file stays in sight as the reader steps through the tree (j / k, the review pill, a tab). */
+function keepInSight(row: HTMLElement | null) {
+  row?.scrollIntoView({ block: 'nearest' });
+}
+
 function FileRow({ entry, indent, context }: { entry: TreeFile; indent: number; context: TreeContext }) {
   const fileIndex = entry.index;
+  const active = fileIndex !== null && fileIndex === context.active;
   const viewed = fileIndex !== null && context.viewedFiles.has(fileViewKey(context.files[fileIndex]));
   const title =
     entry.status === 'renamed'
@@ -80,13 +86,8 @@ function FileRow({ entry, indent, context }: { entry: TreeFile; indent: number; 
         (entry.binary ? ', ' + BINARY_TITLE : '');
   return (
     <button
-      className={clsx(
-        'file',
-        entry.status,
-        entry.binary && 'binary',
-        fileIndex !== null && fileIndex === context.active && 'active',
-        viewed && 'viewed',
-      )}
+      ref={active ? keepInSight : undefined}
+      className={clsx('file', entry.status, entry.binary && 'binary', active && 'active', viewed && 'viewed')}
       style={{ paddingLeft: indent + 'px' }}
       title={title}
       disabled={fileIndex === null}

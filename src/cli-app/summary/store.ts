@@ -165,6 +165,14 @@ export interface Bundle {
   drawings?: boolean;
 }
 
+/** Every unit of the bundle is in, but its whole-diff work isn't: the overview, the flows, or the drawings it asked for. */
+export function wholeDiffLeft(bundle: Bundle, stored: StoredSummary): boolean {
+  const hash = unitSetHash(bundle.units);
+  const flowsMissing = stored.flows.length === 0 && bundle.units.length >= 2;
+  const undrawn = !!bundle.drawings && stored.drawn !== hash;
+  return stored.overview?.hash !== hash || flowsMissing || undrawn;
+}
+
 export function lensDir(root: string): string {
   const dir = join(root, ".lens");
   mkdirSync(dir, { recursive: true });

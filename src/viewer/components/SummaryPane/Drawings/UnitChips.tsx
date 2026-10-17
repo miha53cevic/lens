@@ -1,10 +1,17 @@
 import clsx from 'clsx';
 import { useLens } from '../../../store.ts';
 import { unitLabel } from '../../../model/signals.ts';
-import { openSummaryUnit } from '../../../actions/summary.ts';
 
-/** The units a drawing shows, each opening its page; the page's own unit is picked. */
-export function UnitChips({ units, unitId }: { units: string[]; unitId: string | null }) {
+/** The units a drawing shows, the picked one pressed; what a click does is the card's. */
+export function UnitChips({
+  units,
+  picked,
+  onPick,
+}: {
+  units: string[];
+  picked: string | null;
+  onPick: (unitId: string) => void;
+}) {
   const all = useLens((state) => state.data.summary?.units);
   return (
     <div className='drawing-units'>
@@ -14,9 +21,9 @@ export function UnitChips({ units, unitId }: { units: string[]; unitId: string |
         return (
           <button
             key={id}
-            className={clsx('drawing-unit', 'st-' + unit.status, id === unitId && 'on')}
-            aria-pressed={id === unitId}
-            onClick={() => openSummaryUnit(id)}
+            className={clsx('drawing-unit', 'st-' + unit.status, id === picked && 'on')}
+            aria-pressed={id === picked}
+            onClick={() => onPick(id)}
           >
             <i className='dot' />
             {unitLabel(unit)}

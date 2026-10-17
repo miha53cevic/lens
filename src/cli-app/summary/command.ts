@@ -4,7 +4,7 @@ import { loadConfig } from "../config.ts";
 import { loadDiff, collectUnits, commitLog } from "./collect.ts";
 import { prepareBundle, prepareCommand } from "./bundle.ts";
 import { hasUnits, validateResult } from "./validate.ts";
-import { HOUSEKEEPING, reviewKey, readStored, writeStored, unitSetHash, type Bundle } from "./store.ts";
+import { HOUSEKEEPING, reviewKey, readStored, writeStored, unitSetHash, wholeDiffLeft, type Bundle } from "./store.ts";
 import { relPath } from "../paths.ts";
 import { buildPreviewsOn } from "./settings.ts";
 import { writeAssets } from "./previews.ts";
@@ -97,9 +97,8 @@ export async function runSummary(rest: string[], cwd: string): Promise<void> {
       console.log(`\nthe previews look like one screen drawn in pieces — worth a look:`);
       for (const line of outcome.previewAdvice) console.log(`  - ${line}`);
     }
-    const flowsMissing = outcome.stored.flows.length === 0 && bundle.units.length >= 2;
     const undrawn = !!bundle.drawings && outcome.stored.drawn !== unitSetHash(bundle.units);
-    if (missing.length === 0 && (outcome.stored.overview?.hash !== unitSetHash(bundle.units) || flowsMissing || undrawn)) {
+    if (missing.length === 0 && wholeDiffLeft(bundle, outcome.stored)) {
       const what = undrawn ? "flows, the overview and the drawings" : "flows and the overview";
       console.log(`\nevery unit is summarized — run \`${prepareCommand(bundle)}\` for the final pass (${what})`);
     }

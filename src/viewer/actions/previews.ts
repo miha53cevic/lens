@@ -1,7 +1,6 @@
 // Build previews: the reader's switch, and what the preview frames tell the page.
 
-import { getState, update } from '../store.ts';
-import { openSummaryUnit } from './summary.ts';
+import { commit, update } from '../store.ts';
 import { noteDone, request, tracked } from './status.ts';
 
 /** How tall a preview's frame may grow to fit its screen */
@@ -28,11 +27,11 @@ export function setBuildPreviews(on: boolean): Promise<boolean> {
 }
 
 /**
- * A message from a preview's frame (its script is lens's, summary/previews.ts): its height, or a
- * click on a unit's element. Only a preview frame of this page is heard, and only for its own units.
+ * A message from a preview's frame (its script is lens's, summary/previews.ts): its height. Only a
+ * preview frame of this page is heard.
  */
 export function onPreviewMessage(event: MessageEvent): void {
-  const message = event.data as { lens?: unknown; type?: unknown; height?: unknown; unit?: unknown } | null;
+  const message = event.data as { lens?: unknown; type?: unknown; height?: unknown } | null;
   if (!message || message.lens !== true) return;
   const frame = [...document.querySelectorAll<HTMLIFrameElement>('iframe.preview-frame')].find(
     (candidate) => candidate.contentWindow === event.source,
@@ -40,9 +39,30 @@ export function onPreviewMessage(event: MessageEvent): void {
   if (!frame) return;
   if (message.type === 'size' && typeof message.height === 'number') {
     frame.style.height = Math.round(Math.min(FRAME_MAX, Math.max(FRAME_MIN, message.height))) + 'px';
-  } else if (message.type === 'open-unit' && typeof message.unit === 'string') {
-    const units = (frame.dataset.units ?? '').split('\n');
-    const known = getState().data.summary?.units.some((unit) => unit.id === message.unit);
-    if (units.includes(message.unit) && known) openSummaryUnit(message.unit);
   }
+}
+
+const previewCards = () => [...document.querySelectorAll<HTMLElement>('#summary-pane .preview-card')];
+const cardFrame = (card: HTMLElement) => card.querySelector<HTMLIFrameElement>('iframe.preview-frame');
+
+/**
+ * A preview's unit chip on a unit's page: opens that unit with the preview where it was on screen.
+ * The new page starts at the top, so it scrolls back to put the card in its place, and its frames
+ * take the heights the old ones had, since a fresh frame is short until its screen says how tall.
+ */
+export function openUnitFromPreview(unitId: string, title: string): void {
+  const card = previewCards().find((candidate) => candidate.dataset.preview === title);
+  const offset = card ? card.getBoundingClientRect().top : null;
+  const heights = new Map(
+    previewCards().map((candidate) => [candidate.dataset.preview, cardFrame(candidate)?.style.height]),
+  );
+  commit({ summaryUnit: unitId });
+  for (const candidate of previewCards()) {
+    const frame = cardFrame(candidate);
+    const height = heights.get(candidate.dataset.preview);
+    if (frame && height) frame.style.height = height;
+  }
+  const pane = document.getElementById('summary-pane');
+  const moved = previewCards().find((candidate) => candidate.dataset.preview === title);
+  if (pane && moved && offset !== null) pane.scrollTop += moved.getBoundingClientRect().top - offset;
 }

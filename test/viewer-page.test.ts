@@ -224,6 +224,15 @@ pageTest('the page opens on the first file of the tree, folded, hunks only', asy
   assert.equal($('#nav .progress-count').textContent, '0 of 1');
 });
 
+pageTest('a shortcut drops the focus a click left, so no ring stays on it; other keys keep it', async () => {
+  const file = $('#tree .file');
+  file.focus();
+  await key('Enter');
+  assert.equal(document.activeElement, file, 'Enter still presses what has the focus');
+  await key('e');
+  assert.equal(document.activeElement, document.body);
+});
+
 pageTest('a fold opens on a click; expand all, collapse all and a fold chip act on all of them', async () => {
   const fold = (category: string) => $(`#code .region[data-cat="${category}"]`);
   const chip = (category: string) =>
@@ -588,6 +597,28 @@ pageTest('a standing notice shows only while it has something to say, and leads 
   assert.deepEqual(status(), { kind: 'done', label: 'New summary loaded', detail: '' });
 });
 
+pageTest("the agent's summary run shows as a notice while it goes: units in, then the final pass", async () => {
+  const notices = () => $$('#status-bar .status-notices > *').map((notice) => notice.textContent);
+  let building: unknown = { done: 12, total: 30, finalPass: false };
+  const undo = answering((path) =>
+    path === '/api/stamp'
+      ? new Response(JSON.stringify({ summary: payload.summary!.stamp, change: payload.changeStamp, building }))
+      : undefined,
+  );
+  window.dispatchEvent(new Event('focus'));
+  await settle();
+  assert.deepEqual(notices(), ['Agent writing summary · 12 of 30 units']);
+  building = { done: 30, total: 30, finalPass: true };
+  window.dispatchEvent(new Event('focus'));
+  await settle();
+  assert.deepEqual(notices(), ['Agent writing summary · final pass']);
+  building = null;
+  window.dispatchEvent(new Event('focus'));
+  await settle();
+  undo();
+  assert.deepEqual(notices(), [], 'the run is done');
+});
+
 pageTest(
   'code that changed on disk shows as a notice: undoing the change takes it back, a click refreshes',
   async () => {
@@ -835,7 +866,13 @@ test("the agent's previews and sequences: all on the overview, a unit's own on i
   const find = id('findOrders'),
     legacy = id('legacyTotal');
   summary.previews = [
-    { title: 'Orders page', units: [find], now: '/api/preview/0123456789abcdef.html', before: null, stale: false },
+    {
+      title: 'Orders page',
+      units: [find, legacy],
+      now: '/api/preview/0123456789abcdef.html',
+      before: null,
+      stale: false,
+    },
   ];
   summary.sequences = [
     {
@@ -867,6 +904,17 @@ test("the agent's previews and sequences: all on the overview, a unit's own on i
     assert.equal($$('#drawings .preview-card').length, 1);
     const frame = $('.preview-card iframe') as HTMLIFrameElement;
     assert.equal(frame.getAttribute('src'), '/api/preview/0123456789abcdef.html');
+    // a unit's chip outlines it in the preview, and the overview stays; again, and it's off
+    const chip = (unitId: string) =>
+      $$('.preview-card .drawing-unit').find((button) =>
+        button.textContent!.includes(unitId === find ? 'findOrders' : 'legacyTotal'),
+      )!;
+    await click(chip(legacy));
+    assert.equal($('#summary-pane').dataset.unit, undefined, 'still the overview');
+    assert.equal(frame.getAttribute('src'), '/api/preview/0123456789abcdef.html#' + encodeURIComponent(legacy));
+    assert.equal(chip(legacy).getAttribute('aria-pressed'), 'true');
+    await click(chip(legacy));
+    assert.equal(frame.getAttribute('src'), '/api/preview/0123456789abcdef.html');
     assert.equal(frame.getAttribute('sandbox'), 'allow-scripts', 'scripts, but never its own origin');
     assert.equal($$('.preview-card .seg').length, 0, 'a new screen: no Before');
     assert.deepEqual(steps(), ['findOrders(user)', 'skip deleted', 'orders'], 'now: every step but the removed one');
@@ -889,10 +937,11 @@ test("the agent's previews and sequences: all on the overview, a unit's own on i
     fireEvent.click($('.seq-step.removed'));
     await settle();
     assert.equal($('#summary-pane').dataset.unit, legacy);
-    assert.equal($$('#drawings .preview-card').length, 0, "the preview doesn't show legacyTotal");
+    assert.equal($$('#drawings .preview-card').length, 1);
     assert.equal($$('#drawings .sequence-card').length, 1);
 
-    await key('k');
+    // on a unit's page, a chip opens its unit
+    await click(chip(find));
     assert.equal($('#summary-pane').dataset.unit, find);
     const own = $('.preview-card iframe') as HTMLIFrameElement;
     assert.equal(
@@ -902,7 +951,7 @@ test("the agent's previews and sequences: all on the overview, a unit's own on i
     );
     assert.ok($('.preview-card .drawing-unit.on'), "the page's own unit, picked");
 
-    // the frame tells the page its height and a click on a unit it shows, and nothing else
+    // the frame tells the page its height, and nothing else
     // (its frame isn't loaded here: a stand-in window is the one it posts from)
     const frameWindow = new EventTarget() as unknown as Window;
     const post = async (data: unknown, source: Window = frameWindow) => {
@@ -915,11 +964,14 @@ test("the agent's previews and sequences: all on the overview, a unit's own on i
     await post({ lens: false, type: 'size', height: 200 });
     await post({ lens: true, type: 'size', height: 200 }, new EventTarget() as unknown as Window);
     assert.equal(own.style.height, '900px', 'another window, or not lens: not heard');
-    await key('g'); // the overview
     await post({ lens: true, type: 'open-unit', unit: legacy });
-    assert.equal($('#summary-pane').dataset.unit, undefined, 'not one of its units: nothing opens');
-    await post({ lens: true, type: 'open-unit', unit: find });
-    assert.equal($('#summary-pane').dataset.unit, find);
+    assert.equal($('#summary-pane').dataset.unit, find, 'a click in the frame opens nothing');
+    await click(chip(legacy));
+    assert.equal(
+      ($('.preview-card iframe') as HTMLIFrameElement).style.height,
+      '900px',
+      "the next unit's frame keeps the height, so the preview stays in place",
+    );
 
     // the switch: off hides them all, and the server keeps it for the next summary
     await click($('#build-previews'));
@@ -1511,6 +1563,24 @@ test('a changed binary file is a row of the tree: its status, dimmed, and nothin
   } finally {
     payload = whole;
     await close();
+  }
+});
+
+pageTest('j / k keep the open file in sight in the tree', async () => {
+  await key('t');
+  assert.deepEqual(treeFiles(), ['orders.test.ts', 'orders.ts']);
+  const scrolled: string[] = [];
+  const original = HTMLElement.prototype.scrollIntoView;
+  HTMLElement.prototype.scrollIntoView = function (this: HTMLElement) {
+    if (this.matches('#tree .file')) scrolled.push(this.querySelector('.fname')!.textContent!);
+  };
+  try {
+    await key('k');
+    assert.deepEqual(scrolled, ['orders.test.ts']);
+    await key('j');
+    assert.deepEqual(scrolled, ['orders.test.ts', 'orders.ts']);
+  } finally {
+    HTMLElement.prototype.scrollIntoView = original;
   }
 });
 
