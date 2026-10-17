@@ -1232,7 +1232,7 @@ pageTest('a question with no agent to answer it says so, instead of counting the
 pageTest("an answer's markdown is drawn, its cites link, and nothing in it runs or leaves", async (page) => {
   const markdown = [
     'Two things happen in `src/orders.ts:10`:',
-    '- it *reads* the row (src/orders.ts:11)',
+    '- it *reads* the row (src/orders.ts:11), see `src/orders.ts:11 on`',
     '  - nested',
     '',
     '### Check',
@@ -1266,24 +1266,99 @@ pageTest("an answer's markdown is drawn, its cites link, and nothing in it runs 
   await key('\\');
   const answer = $('.ask-a');
   // a list right under its intro line is a list, and keeps its nesting
-  assert.equal(answer.querySelector('p')!.textContent, 'Two things happen in src/orders.ts:10:');
+  assert.equal(answer.querySelector('p')!.textContent, 'Two things happen in 1:');
   assert.equal(answer.querySelectorAll(':scope > ul > li').length, 1);
   assert.equal(answer.querySelector('ul ul li')!.textContent, 'nested');
   assert.equal(answer.querySelector('em')!.textContent, 'reads');
   assert.equal(answer.querySelector('h3')!.textContent, 'Check');
   assert.equal(answer.querySelectorAll('td').length, 2);
-  // cites link in text and inside `code`
+  // cites are numbered markers, in text and inside `code`; one that is the whole `code` is the marker alone
   assert.deepEqual(
-    [...answer.querySelectorAll<HTMLElement>('.ask-cite')].map((button) => button.dataset.line),
-    ['10', '11'],
+    [...answer.querySelectorAll<HTMLElement>('.ask-mark')].map((mark) => [
+      mark.textContent,
+      mark.dataset.line,
+      mark.title,
+    ]),
+    [
+      ['1', '10', 'src/orders.ts:10'],
+      ['2', '11', 'src/orders.ts:11'],
+      ['2', '11', 'src/orders.ts:11'],
+    ],
   );
-  assert.ok(answer.querySelector('code .ask-cite'));
+  assert.equal(answer.querySelector('code .ask-mark')!.textContent, '2');
+  // and listed, folded, under the answer
+  const sources = answer.querySelector<HTMLDetailsElement>('details.ask-sources')!;
+  assert.equal(sources.open, false);
+  assert.equal(sources.querySelector('summary')!.textContent, '2 sources');
+  assert.deepEqual(
+    [...sources.querySelectorAll('.ask-cite')].map((button) => button.textContent),
+    ['src/orders.ts:10', 'src/orders.ts:11'],
+  );
   // html is shown, not run; no image is fetched; a link is its text and its address
   assert.equal(answer.querySelector('img'), null);
   assert.equal(answer.querySelector('a'), null);
   assert.match(answer.textContent!, /<img src=x onerror="alert\(1\)">/);
   assert.match(answer.textContent!, /docs \(https:\/\/example\.com\/a\)/);
   assert.match(answer.textContent!, /\[x\]\(javascript:alert\(1\)\)/);
+});
+
+pageTest("an answer's flow block is a lane of steps under their layers, and its Read line comes last", async (page) => {
+  const markdown = [
+    '**It goes through two layers.**',
+    '',
+    '```flow',
+    'API: checks the body  src/orders.ts:10',
+    'API: then the user',
+    'db: inserts the row  src/orders.ts:11',
+    '```',
+    '',
+    '```flow',
+    'not a step at all',
+    '```',
+    '',
+    'Read: orders.ts',
+  ].join('\n');
+  const cite = (line: number) => ({ ref: 'src/orders.ts:' + line, file: 'src/orders.ts', line });
+  page.ask = {
+    listening: true,
+    questions: [
+      {
+        id: 'q1',
+        text: 'how does it flow?',
+        file: 'src/orders.ts',
+        unitId: null,
+        label: 'orders.ts',
+        hash: 'h1',
+        selection: null,
+        concerns: [],
+        askedAt: Date.now() - 9000,
+        handedAt: null,
+        answer: { markdown, cites: [cite(10), cite(11)], at: Date.now() },
+        stale: false,
+      },
+    ],
+  };
+  await key('\\');
+  const answer = $('.ask-a');
+  const lane = answer.querySelector('.ask-flow')!;
+  // a layer is named once over its run of steps
+  assert.deepEqual(
+    [...lane.children].map((item) => item.className + ' ' + item.textContent),
+    [
+      'ask-flow-layer API',
+      'ask-flow-step checks the body  1',
+      'ask-flow-step then the user',
+      'ask-flow-layer db',
+      'ask-flow-step inserts the row  2',
+    ],
+  );
+  // a block that isn't steps stays code
+  assert.equal(answer.querySelector('pre code')!.textContent, 'not a step at all\n');
+  // the sources, then what the agent read, quieter
+  const tail = [...answer.children].slice(-2);
+  assert.equal(tail[0].className, 'ask-sources');
+  assert.equal(tail[1].className, 'ask-read');
+  assert.equal(tail[1].textContent, 'Read: orders.ts');
 });
 
 pageTest('⏻ end stops the server and leaves a note', async (page) => {

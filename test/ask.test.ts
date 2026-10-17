@@ -10,7 +10,8 @@ import { analyze } from "../src/cli-app/analyze.ts";
 import { DEFAULT_CONFIG } from "../src/cli-app/config.ts";
 import { createAskSession, REHAND_AFTER_MS, LISTEN_GRACE_MS, type NewQuestion } from "../src/cli-app/ask/session.ts";
 import { findCites } from "../src/cli-app/ask/cites.ts";
-import { changeContext, questionText, selectionLabel, RULES } from "../src/cli-app/ask/context.ts";
+import { replyNotes } from "../src/cli-app/ask/command.ts";
+import { changeContext, questionText, selectionLabel, HOW_TO_ANSWER, RULES } from "../src/cli-app/ask/context.ts";
 import { createAskRoutes } from "../src/cli-app/ask/routes.ts";
 import { isLocalRequest, readCookie } from "../src/cli-app/render/web/http.ts";
 import type { ViewerInput } from "../src/cli-app/render/web/server.ts";
@@ -155,6 +156,13 @@ test("findCites keeps path:line refs that point at real lines, in the viewer's p
   }
 });
 
+test("replyNotes: an answer that cites nothing, or runs long, gets a note", () => {
+  assert.deepEqual(replyNotes("**Yes.** It is (a.ts:3).", 1), []);
+  assert.deepEqual(replyNotes("**Yes.**", 0), ["it cites no code: back its claims with path:line cites"]);
+  assert.deepEqual(replyNotes("word ".repeat(401), 2), ["it runs 401 words: about 120 is the aim, 300 for a walkthrough"]);
+  assert.deepEqual(replyNotes("word ".repeat(400), 2), [], "400 is still fine");
+});
+
 test("selectionLabel names the new-side lines, or the removed ones", () => {
   assert.equal(selectionLabel({ file: "a.ts", lines: [{ n: 4, side: "new", text: "" }, { n: 2, side: "old", text: "" }, { n: 5, side: "new", text: "" }] }), "a.ts:4–5");
   assert.equal(selectionLabel({ file: "a.ts", lines: [{ n: 7, side: "new", text: "" }] }), "a.ts:7");
@@ -194,6 +202,11 @@ test("questionText: rules, the question, the selection and the unit's code, then
     assert.ok(text.includes("  2+   return items.reduce((a, b) => a + b, 0);"), "changed lines are marked +");
     assert.ok(text.includes("−   for (const i of items) sum += i;"), "removed lines are in the change");
     assert.match(text, /lens ask reply q1 ".*\/\.lens\/answer\.md" --port 5326/, "the answer goes in .lens/, which exists while the viewer runs");
+    // how to answer: the verdict first, cites as evidence, a shape per kind of question, what was read
+    assert.ok(text.includes(HOW_TO_ANSWER + "\n\nREPLY\n"), "the brief comes right before how to reply");
+    for (const rule of ["one bold sentence", "path:line cite", "Don't restate the selected lines", "Can't be sure", "```flow", "Read: ", "about 120 words"]) {
+      assert.ok(HOW_TO_ANSWER.includes(rule), rule);
+    }
 
     const wholeFileUnit = { ...q, label: "calc.ts" };
     assert.ok(questionText(wholeFileUnit, { ...changeContext(input, q), label: "calc.ts" }, { root: dir, cwd: dir, port: 5326 })
@@ -202,6 +215,7 @@ test("questionText: rules, the question, the selection and the unit's code, then
     const copy = questionText(q, changeContext(input, q), { forCopy: true, root: dir, cwd: dir, port: 5326 });
     assert.ok(!copy.includes("RULES"), "a chat paste carries no agent rules");
     assert.ok(!copy.includes("lens ask reply"));
+    assert.ok(!copy.includes("HOW TO ANSWER"), "nor the agent's brief");
     assert.ok(copy.includes("is reduce safe on an empty list?"));
 
     const whole = { ...q, unitId: null, label: "calc.ts", selection: null };
@@ -353,6 +367,12 @@ test("lens ask: listen gets the viewer's question, reply answers it, server.json
       const replied = await lens(dir, "ask", "reply", "q1", "answer.md");
       assert.equal(replied.code, 0, replied.stderr);
       assert.equal(replied.stdout.trim(), "lens: answered q1 (1 cite linked)");
+      writeFileSync(join(dir, "bare.md"), "Because it's shorter.\n");
+      const bare = await lens(dir, "ask", "reply", "q1", "bare.md");
+      assert.equal(bare.code, 0, "a note, not a failure: the answer is in");
+      assert.match(bare.stdout, /reply to q1 again if these matter:\n  - it cites no code/);
+      writeFileSync(join(dir, "answer.md"), "It replaces the loop at calc.ts:2.\n");
+      await lens(dir, "ask", "reply", "q1", "answer.md");
       const state = await (await fetch(base + "/api/ask")).json();
       assert.equal(state.questions[0].answer.markdown, "It replaces the loop at calc.ts:2.");
 

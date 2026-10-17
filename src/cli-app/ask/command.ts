@@ -52,6 +52,23 @@ async function reply(base: string, id: string, markdown: string): Promise<void> 
     console.log(`\nthese don't point at a real line, so they show as plain text — fix them and reply to ${id} again if they matter:`);
     for (const u of unresolved) console.log(`  - ${u}`);
   }
+  const notes = replyNotes(markdown, cites + unresolved.length);
+  if (notes.length > 0) {
+    console.log(`\nthe answer is in the rail; reply to ${id} again if these matter:`);
+    for (const note of notes) console.log(`  - ${note}`);
+  }
+}
+
+/** Past this many words an answer is more than the rail's reader wants (HOW_TO_ANSWER asks for 120 to 300). */
+const LONG_ANSWER_WORDS = 400;
+
+/** Where an answer skips the brief: soft notes, the answer is in the rail either way. refs: its path:line refs, valid or not. */
+export function replyNotes(markdown: string, refs: number): string[] {
+  const notes: string[] = [];
+  if (refs === 0) notes.push("it cites no code: back its claims with path:line cites");
+  const words = markdown.split(/\s+/).filter(Boolean).length;
+  if (words > LONG_ANSWER_WORDS) notes.push(`it runs ${words} words: about 120 is the aim, 300 for a walkthrough`);
+  return notes;
 }
 
 async function call(url: string, init?: RequestInit): Promise<Response> {

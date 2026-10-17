@@ -153,6 +153,84 @@
 .ask-a .cite {
   vertical-align: 1px;
 }
+/* a cite in the text: a small numbered marker, its path on hover and in the sources below */
+.ask-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  margin: 0 var(--space-1) 0 0;
+  padding: 0 var(--space-1);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-full);
+  color: var(--muted);
+  font: 600 var(--text-2xs) / 1 var(--font-mono);
+  vertical-align: 2px;
+}
+.ask-mark:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+.ask-sources {
+  margin: 0 0 var(--space-2);
+}
+.ask-sources summary {
+  width: fit-content;
+  color: var(--faint);
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+.ask-sources summary:hover {
+  color: var(--muted);
+}
+.ask-a .ask-sources ol {
+  display: grid;
+  gap: var(--space-1);
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-xs);
+}
+.ask-read {
+  color: var(--faint);
+  font-size: var(--text-xs);
+}
+/* a ```flow block: steps on a line, each layer named once over its run of steps */
+.ask-a .ask-flow {
+  margin: 0 0 var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+.ask-flow-layer {
+  margin-top: var(--space-2);
+  color: var(--muted);
+  font: 600 var(--text-2xs) / 1.6 var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.ask-flow-layer:first-child {
+  margin-top: 0;
+}
+.ask-flow-step {
+  position: relative;
+  margin-left: var(--space-1);
+  padding: var(--space-1) 0 var(--space-1) var(--space-4);
+  border-left: 2px solid var(--line-strong);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+.ask-flow-step::before {
+  position: absolute;
+  top: 11px;
+  left: -5px;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  content: '';
+}
 .ask-who {
   display: flex;
   align-items: center;
