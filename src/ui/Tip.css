@@ -17,7 +17,11 @@
   white-space: nowrap;
   pointer-events: none;
   opacity: 0;
-  transition: opacity var(--motion);
+  /* it settles in from its control */
+  translate: 0 -3px;
+  transition:
+    opacity var(--motion),
+    translate var(--motion);
 }
 .tip-start {
   right: auto;
@@ -26,5 +30,6 @@
 :hover > .tip,
 :focus-visible > .tip {
   opacity: 1;
+  translate: 0 0;
   transition-delay: var(--tip-delay);
 }

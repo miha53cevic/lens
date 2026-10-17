@@ -12,6 +12,7 @@ import { stepSummary } from '../actions/summary.ts';
 import { toggleFileViewed, toggleUnitViewed } from '../actions/prefs.ts';
 import { isTestFile } from '../shared.ts';
 import { Button } from '../../ui/Button.tsx';
+import { riseIn } from '../../ui/motion.ts';
 import './ReviewPill.css';
 
 /** What the pill offers, for the open file or change. */
@@ -61,12 +62,12 @@ export function ReviewPill() {
         <ArrowLeft size={13} /> Prev
       </Button>
       {pill.stage === 'all' && (
-        <span className='rp-all' id='review-next'>
+        <span ref={riseIn} className='rp-all' id='review-next'>
           <Check size={13} /> All {pill.total} {noun + 's'} {markedWord.toLowerCase()}
         </span>
       )}
       {pill.stage === 'done' && (
-        <span className='rp-done' id='review-next'>
+        <span ref={riseIn} className='rp-done' id='review-next'>
           <Check size={13} /> {markedWord}
         </span>
       )}

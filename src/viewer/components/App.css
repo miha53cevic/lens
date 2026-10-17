@@ -3,6 +3,8 @@
   display: flex;
   flex: 1;
   min-height: 0;
+  /* a panel slides in from beyond the page's edge (slideIn) */
+  overflow: clip;
 }
 
 /* the Code view or the Summary tab, with the review pill floating at its bottom */

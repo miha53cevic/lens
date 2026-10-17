@@ -36,3 +36,28 @@
   color: var(--accent-fg);
   font-weight: 600;
 }
+
+/* the picked option's highlight, which slides from one option to the next (placeHighlight) */
+/* positioned, the options paint over the highlight before them: it needs no layer of its own */
+.seg,
+.seg button {
+  position: relative;
+}
+.seg-highlight {
+  position: absolute;
+  top: var(--space-1);
+  bottom: var(--space-1);
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  visibility: hidden;
+}
+.seg-placed .seg-highlight {
+  visibility: visible;
+  transition:
+    left var(--motion-move),
+    width var(--motion-move);
+}
+.seg-placed button[aria-checked='true'],
+.seg-placed button[aria-selected='true'] {
+  background: transparent;
+}

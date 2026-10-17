@@ -45,6 +45,7 @@ export function Tabs() {
         return (
           <div
             key={tab.index}
+            data-file={tab.index}
             ref={tab.index === active ? keepInSight : undefined}
             className={clsx('tab', tab.index === active && 'active', !tab.pinned && 'preview')}
             title={path}

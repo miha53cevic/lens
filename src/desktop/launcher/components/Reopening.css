@@ -14,6 +14,10 @@
   z-index: var(--z-float);
   animation: reopening-wait 150ms;
 }
+/* and then fades in, rather than popping over the picker */
+.motion .reopening-over {
+  transition-delay: 150ms;
+}
 @keyframes reopening-wait {
   from,
   to {

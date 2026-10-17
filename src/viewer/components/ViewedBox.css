@@ -22,14 +22,19 @@
   border-color: var(--add);
   background: var(--add);
 }
-.viewed-box[aria-checked='true']::after {
+/* the tick is always there, at nothing until ticked: ticking grows it, unticking is at once */
+.viewed-box::after {
   content: '';
   width: 6px;
   height: 3px;
   border: 2px solid var(--surface);
   border-top: 0;
   border-right: 0;
-  transform: translateY(-1px) rotate(-45deg);
+  transform: translateY(-1px) rotate(-45deg) scale(0);
+}
+.viewed-box[aria-checked='true']::after {
+  transform: translateY(-1px) rotate(-45deg) scale(1);
+  transition: transform var(--motion-enter);
 }
 
 /* in the summary list: a dot, filled once reviewed, ringed for the open change */
@@ -39,7 +44,7 @@
   justify-self: center;
   border-radius: var(--radius-full);
 }
-.sum-item .viewed-box[aria-checked='true']::after {
+.sum-item .viewed-box::after {
   content: none;
 }
 .sum-item.active .viewed-box:not([aria-checked='true']) {

@@ -53,7 +53,15 @@ function addRows(node: TreeDir, path: string, depth: number, context: TreeContex
         {dir.name}
       </div>,
     );
-    if (!closed) addRows(dir, dirPath, depth + 1, context, rows);
+    if (closed) continue;
+    // its files in one box, which grows open when the reader opens the folder (toggleDir)
+    const dirRows: ReactNode[] = [];
+    addRows(dir, dirPath, depth + 1, context, dirRows);
+    rows.push(
+      <div key={'files:' + dirPath} data-dir-files={dirPath}>
+        {dirRows}
+      </div>,
+    );
   }
   for (const entry of node.files)
     rows.push(

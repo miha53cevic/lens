@@ -5,6 +5,7 @@ import { createRoot } from 'react-dom/client';
 import '../../ui/styles/tokens.css';
 import '../../ui/styles/base.css';
 import { applyTheme } from '../shared/page.ts';
+import { motionReady } from '../../ui/motion.ts';
 import type { StripState } from '../shared/api.ts';
 import { Strip } from './Strip.tsx';
 import { useStrip } from './store.ts';
@@ -34,6 +35,8 @@ function show(strip: StripState | null): void {
     if (color && symbolColor) window.lensApp.strip.chrome(color, symbolColor);
   }
   useStrip.setState({ strip });
+  // the tabs the window opens with are drawn still; a tab opened after widens in
+  motionReady();
 }
 
 window.lensApp.strip.onState(show);

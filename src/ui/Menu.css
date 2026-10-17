@@ -12,6 +12,35 @@
   box-shadow: var(--elev-2);
   color: var(--text);
   font-size: var(--text-md);
+  /* it grows from its button's corner, and goes quicker than it came */
+  transform-origin: top right;
+  opacity: 0;
+  scale: 0.96;
+  translate: 0 -4px;
+  transition:
+    opacity var(--motion-exit),
+    scale var(--motion-exit),
+    translate var(--motion-exit),
+    display var(--motion-exit) allow-discrete,
+    overlay var(--motion-exit) allow-discrete;
+}
+.menu:popover-open {
+  opacity: 1;
+  scale: 1;
+  translate: 0 0;
+  transition:
+    opacity var(--motion-enter),
+    scale var(--motion-enter),
+    translate var(--motion-enter),
+    display var(--motion-enter) allow-discrete,
+    overlay var(--motion-enter) allow-discrete;
+}
+@starting-style {
+  .menu:popover-open {
+    opacity: 0;
+    scale: 0.96;
+    translate: 0 -4px;
+  }
 }
 .menu-title {
   padding: var(--space-2) var(--space-2) var(--space-1);

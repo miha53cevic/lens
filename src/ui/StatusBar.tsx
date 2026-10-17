@@ -5,6 +5,7 @@
 import { Check, CircleAlert, LoaderCircle, MessageSquare, Unplug } from 'lucide-react';
 import clsx from 'clsx';
 import { Button } from './Button.tsx';
+import { riseIn } from './motion.ts';
 import './StatusBar.css';
 
 export type StatusKind = 'gone' | 'failed' | 'working' | 'waiting' | 'done' | 'idle';
@@ -58,7 +59,10 @@ export function StatusBar({ status, notices }: { status: BarStatus; notices: Bar
       {/* polite: a screen reader hears what the bar says, without being interrupted */}
       <div className={clsx('status', 'status-' + status.kind)} id='status' role='status' aria-live='polite'>
         <StatusIcon kind={status.kind} />
-        <span className='status-label'>{status.label}</span>
+        {/* a new status rises into place, so it's noticed from the corner of the eye */}
+        <span key={status.kind + ' ' + status.label} ref={riseIn} className='status-label'>
+          {status.label}
+        </span>
         {/* a long reason is cut: the whole of it is in the title */}
         {status.detail && (
           <span className='status-detail' title={status.detail}>

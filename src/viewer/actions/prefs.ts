@@ -5,7 +5,10 @@ import { commit, getState, toggled, update, VIEWED_CAP, VIEWED_PREF } from '../s
 import { fileViewKey, type ViewFile, writePref } from '../shared.ts';
 import { CODE_SIZE_COOKIE, CODE_SIZE_DEFAULT, steppedSize } from '../codeSize.ts';
 import { type Unit, unitViewKey } from '../model/signals.ts';
+import { fileProgress, type Progress, unitProgress } from '../model/progress.ts';
+import { currentUnit } from '../model/summaryList.ts';
 import { visibleActive } from './tabs.ts';
+import { growOpen, pop, slideIn } from '../../ui/motion.ts';
 
 // The sidebar: collapsed or not, its width, the tree's closed folders.
 
@@ -15,6 +18,7 @@ export function toggleNav(): void {
     writePref('lens.navCollapsed', !state.navCollapsed ? '1' : '0');
     return { navCollapsed: !state.navCollapsed };
   });
+  if (!getState().navCollapsed) slideIn(document.getElementById('nav'), 'left');
 }
 
 export function setNavWidth(width: number): void {
@@ -23,7 +27,9 @@ export function setNavWidth(width: number): void {
 }
 
 export function toggleDir(path: string): void {
-  update((state) => ({ closedDirs: toggled(state.closedDirs, path) }));
+  commit((state) => ({ closedDirs: toggled(state.closedDirs, path) }));
+  // a folder the reader opens grows open; one opened by a filter, or shown again, just shows
+  if (!getState().closedDirs.has(path)) growOpen(document.querySelector(`[data-dir-files="${CSS.escape(path)}"]`));
 }
 
 // The view settings: hunks only, removed lines, word diff, hide tests, the fold level.
@@ -84,12 +90,28 @@ export function toggleFileViewed(fileIndex: number): void {
   if (!file) return;
   const viewedFiles = toggled(state.viewedFiles, fileViewKey(file));
   saveViewed(VIEWED_PREF.files, viewedFiles);
-  update({ viewedFiles });
+  const before = fileProgress(state);
+  commit({ viewedFiles });
+  confirmMark(before, fileProgress(getState()), fileIndex === state.active);
 }
 
 export function toggleUnitViewed(unit: Unit | null): void {
   if (!unit) return;
-  const viewedUnits = toggled(getState().viewedUnits, unitViewKey(unit));
+  const state = getState();
+  const viewedUnits = toggled(state.viewedUnits, unitViewKey(unit));
   saveViewed(VIEWED_PREF.units, viewedUnits);
-  update({ viewedUnits });
+  const before = unitProgress(state);
+  commit({ viewedUnits });
+  const open = currentUnit(state);
+  confirmMark(before, unitProgress(getState()), !!open && unitViewKey(open) === unitViewKey(unit));
+}
+
+/**
+ * A mark the reader just made: the review pill swells when it's the open file's or change's, and
+ * the ring when it was the last one. Unmarking says nothing.
+ */
+function confirmMark(before: Progress | null, after: Progress | null, open: boolean) {
+  if (!before || !after || after.done <= before.done) return;
+  if (open) pop(document.getElementById('review-pill'));
+  if (after.done === after.total) pop(document.querySelector('#nav .progress svg'));
 }
