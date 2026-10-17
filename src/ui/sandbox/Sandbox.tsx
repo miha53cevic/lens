@@ -4,6 +4,7 @@ import { Brand } from '../Brand.tsx';
 import { Button } from '../Button.tsx';
 import { Chip } from '../Chip.tsx';
 import { CopyCommand } from '../CopyCommand.tsx';
+import { CrashPanel } from '../ErrorBoundary.tsx';
 import { Field } from '../Field.tsx';
 import { StatusBadge, StatusLetter, type FileStatus } from '../FileStatus.tsx';
 import { IconButton } from '../IconButton.tsx';
@@ -232,6 +233,16 @@ export function Sandbox() {
         <h2>ReviewSkeleton</h2>
         <div className='sandbox-review-skeleton'>
           <ReviewSkeleton />
+        </div>
+      </section>
+
+      <section className='sandbox-section' id='g-error-boundary'>
+        <h2>ErrorBoundary</h2>
+        <div className='sandbox-crash'>
+          <CrashPanel
+            what='the review'
+            error={new TypeError("Cannot read properties of undefined (reading 'hunks')")}
+          />
         </div>
       </section>
 

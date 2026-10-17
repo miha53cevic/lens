@@ -1,5 +1,5 @@
 // The application menu. It adds no shortcut the viewer uses: the viewer's plain keys and ⌘P reach
-// the page. What it has is the system's own: copy and paste, close (the tab in front), quit.
+// the page. What it has is the system's own: copy and paste, close (the tab in front), quit, About.
 
 import { Menu, app, type MenuItemConstructorOptions } from 'electron';
 import type { AppWindow } from './window.ts';
@@ -27,6 +27,8 @@ export function setAppMenu(window: AppWindow): void {
     },
     { role: 'editMenu' },
     { role: 'windowMenu' },
+    // macOS has About in the app menu; elsewhere it goes under Help
+    ...(isMac ? [] : [{ role: 'help' as const, submenu: [{ role: 'about' as const, label: 'About lens' }] }]),
   ];
   if (!app.isPackaged) {
     template.push({

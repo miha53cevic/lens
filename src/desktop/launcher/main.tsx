@@ -10,6 +10,7 @@ import type { LauncherState } from '../shared/api.ts';
 import { applyTheme } from '../shared/page.ts';
 import { motionReady } from '../../ui/motion.ts';
 import { Launcher } from './components/Launcher.tsx';
+import { ErrorBoundary } from '../../ui/ErrorBoundary.tsx';
 import { useLauncher } from './store.ts';
 
 function show(state: LauncherState | null): void {
@@ -33,4 +34,8 @@ watch({
   run: () => window.lensApp.launcher.refresh(),
 });
 void window.lensApp.launcher.state().then(show);
-createRoot(document.getElementById('root')!).render(<Launcher />);
+createRoot(document.getElementById('root')!).render(
+  <ErrorBoundary what='this screen'>
+    <Launcher />
+  </ErrorBoundary>,
+);

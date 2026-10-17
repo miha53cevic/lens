@@ -548,6 +548,8 @@ pageTest(
     assert.equal(count('#g-skeleton .skeleton[aria-hidden="true"]'), 8, 'a placeholder says nothing to a reader');
     assert.equal(count('#g-review-skeleton .review-skeleton .header .brand'), 1, 'the name is real');
     assert.equal(count('#g-review-skeleton .review-skeleton-row'), 48);
+    assert.equal(count('#g-error-boundary .crash[role="alert"] .copy-cmd'), 1, 'a crash says what broke');
+    assert.equal(count('#g-error-boundary .crash .btn-primary'), 1, 'and offers a reload');
     assert.equal(count('#g-bars .header .brand'), 1);
     assert.equal(count('#g-bars .header .swatch'), 2);
     assert.equal(count('#g-bars .status-bar .status-failed #status-action'), 0, 'the action sits beside the status');

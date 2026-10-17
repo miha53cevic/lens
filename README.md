@@ -74,6 +74,7 @@ Or open the desktop app, pick the repository and what to review.
 | `--threshold <n>` | fold regions with a score up to `n` |
 | `--theme <name>` | any [Shiki theme](https://shiki.style/themes) |
 | `--json` | print the fold model as JSON, for debugging |
+| `--version` | print lens's version |
 
 Loose files and these flags are CLI-only; the desktop app's picker covers the diff and PR
 modes.

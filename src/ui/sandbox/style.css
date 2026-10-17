@@ -53,6 +53,10 @@
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
 }
+.sandbox-crash {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+}
 .sandbox-skeleton-lines {
   display: grid;
   gap: var(--space-2);

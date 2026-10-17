@@ -8,6 +8,7 @@ import '../ui/styles/tokens.css';
 import '../ui/styles/base.css';
 import './styles/signals.css';
 import { App } from './components/App.tsx';
+import { ErrorBoundary } from '../ui/ErrorBoundary.tsx';
 import { getState, subscribe, type LensState } from './store.ts';
 import { isLightColor } from '../cli-app/theme.ts';
 import { CODE_SIZE_DEFAULT } from './codeSize.ts';
@@ -60,7 +61,11 @@ const { data } = getState();
 watch(askWatcher);
 watch(stampWatcher);
 if (getState().ask.open) void check(askWatcher.id);
-createRoot(document.getElementById('root')!).render(<App />);
+createRoot(document.getElementById('root')!).render(
+  <ErrorBoundary what='the review'>
+    <App />
+  </ErrorBoundary>,
+);
 // what the page arrives with is drawn still; what appears after may move
 motionReady();
 if (location.hash === '#summary' && data.summary) setView('summary');

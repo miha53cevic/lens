@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { lensInfo } from "../src/cli-app/info.ts";
 import { toPosix } from "../src/cli-app/paths.ts";
+import manifest from "../package.json" with { type: "json" };
 
 /** Runs `fn` in a fresh temp git repo (branch "main", one commit), cleaned up afterwards. */
 async function withRepo(fn: (dir: string, git: (...args: string[]) => string) => Promise<void>): Promise<void> {
@@ -132,4 +133,10 @@ test("lens info --themes: the theme menu's themes with their colors, the config'
     assert.equal(asked.themes?.length, plain.themes?.length, "one of the menu's own isn't listed twice");
     await assert.rejects(lensInfo(dir, { theme: "nope" }), /unknown theme "nope"/);
   });
+});
+
+test("lens --version prints package.json's version", () => {
+  const cli = join(import.meta.dirname, "..", "src", "cli-app", "cli.ts");
+  const out = execFileSync(process.execPath, [cli, "--version"], { encoding: "utf8" });
+  assert.equal(out.trim(), "lens " + manifest.version);
 });

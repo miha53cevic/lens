@@ -8,6 +8,7 @@ import { runAsk } from "./ask/command.ts";
 import { runInfo } from "./info.ts";
 import { pickPort } from "./port.ts";
 import type { LensConfig } from "./model.ts";
+import manifest from "../../package.json" with { type: "json" };
 
 const HELP = `lens — a reading lens for AI-generated code (static analysis, no AI)
 
@@ -38,6 +39,7 @@ output (default: local web viewer):
   --summary         open the browser on the Summary tab (diff/PR mode)
   --threshold <n>   fold regions with score <= n (default 1; from .lens.json)
   --theme <name>    any Shiki theme for the viewer (default vesper; from .lens.json)
+  --version         print lens's version
 `;
 
 interface CliOptions {
@@ -68,6 +70,7 @@ function parseCli(argv: string[]): { command: Command; rest: string[]; opts: Cli
     else if (arg === "--threshold") opts.threshold = Number(args.shift());
     else if (arg === "--theme") opts.theme = args.shift() ?? null;
     else if (arg === "--help" || arg === "-h") { console.log(HELP); process.exit(0); }
+    else if (arg === "--version" || arg === "-v") { console.log(`lens ${manifest.version}`); process.exit(0); }
     // the command is the first word that isn't a lens flag (`lens --no-open diff` works too)
     else if (command === "paths" && rest.length === 0 && COMMANDS.includes(arg)) command = arg as Command;
     else rest.push(arg); // in diff mode these pass through to git diff

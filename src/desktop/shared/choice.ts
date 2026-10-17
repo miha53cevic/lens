@@ -11,7 +11,18 @@ export type ReviewChoice =
   | { kind: 'pr'; ref: string };
 
 /** lens's own flags: in a custom diff they would change how lens runs, not what git diffs. */
-const LENS_FLAGS = ['--json', '--no-open', '--summary', '--port', '--threshold', '--theme', '--help', '-h'];
+const LENS_FLAGS = [
+  '--json',
+  '--no-open',
+  '--summary',
+  '--port',
+  '--threshold',
+  '--theme',
+  '--help',
+  '-h',
+  '--version',
+  '-v',
+];
 
 /** Splits what was typed as a shell would: on spaces, keeping quoted stretches whole. */
 export function splitArgs(text: string): string[] {
