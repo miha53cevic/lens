@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/miha53cevic/lens/compare/v0.2.0...v0.2.1) (2026-10-17)
+
+
+### Bug Fixes
+
+* appwide fixes ([#22](https://github.com/miha53cevic/lens/issues/22)) ([2f68d47](https://github.com/miha53cevic/lens/commit/2f68d47226f48ed2a51222ad06199f19d00a064b))
+
 ## [0.2.0](https://github.com/miha53cevic/lens/compare/v0.1.4...v0.2.0) (2026-10-17)
 
 
