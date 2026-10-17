@@ -26,6 +26,8 @@ import { isDiffMode } from './shared.ts';
 
 /** The keys that also work on the Summary tab: the view settings' keys act on the open unit's code. */
 const SUMMARY_KEYS = ['?', 'x', 'd', 's', 'r', 'e', 'c', '[', ']', 'h', 't', 'a', '\\'];
+/** Every key a shortcut takes, on either tab. */
+const SHORTCUT_KEYS = [...SUMMARY_KEYS, 'v', 'j', 'k', 'w', 'm', 'o', 'g', '/'];
 
 /** Shows the nav (if it's collapsed, and remembers that) and focuses one of its filters. */
 function focusFilter(selector: string) {
@@ -46,6 +48,9 @@ export function onKeyDown(event: KeyboardEvent): void {
   if (target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return;
   if (target instanceof HTMLInputElement && target.type !== 'checkbox') return;
   if (document.querySelector('dialog[open]')) return; // Esc closes natively
+  if (!SHORTCUT_KEYS.includes(event.key)) return;
+  // a shortcut acts on the page, not on what was clicked last: drop that focus, or the browser rings it now that keys are in use
+  if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
 
   const state = getState();
   if (event.key === 'v' && state.data.summary) {

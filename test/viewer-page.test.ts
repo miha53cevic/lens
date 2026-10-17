@@ -224,6 +224,15 @@ pageTest('the page opens on the first file of the tree, folded, hunks only', asy
   assert.equal($('#nav .progress-count').textContent, '0 of 1');
 });
 
+pageTest('a shortcut drops the focus a click left, so no ring stays on it; other keys keep it', async () => {
+  const file = $('#tree .file');
+  file.focus();
+  await key('Enter');
+  assert.equal(document.activeElement, file, 'Enter still presses what has the focus');
+  await key('e');
+  assert.equal(document.activeElement, document.body);
+});
+
 pageTest('a fold opens on a click; expand all, collapse all and a fold chip act on all of them', async () => {
   const fold = (category: string) => $(`#code .region[data-cat="${category}"]`);
   const chip = (category: string) =>
