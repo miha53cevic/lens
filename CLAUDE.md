@@ -1,7 +1,7 @@
 # lens — notes for Claude
 
 - Don't use Claude's memory feature for this project. Durable guidance goes in this file.
-- [README.md](README.md) is the user docs (CLI, viewer, summary mode, config). Update it in the same change as any user-visible behavior, flag, key or config field.
+- [README.md](README.md) is the at-a-glance user docs: the intent, install, the commands and flags, the major features, the fold categories and the config fields. Keep it that short: no walkthroughs of screens, keys (the viewer's `?` lists them) or internals. Update it in the same change as a command, flag, major feature, fold category or config field.
 
 ## Running and testing
 

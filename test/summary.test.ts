@@ -9,7 +9,7 @@ import { extractUnits, checkCoverage, citeableLabels, removalAnchors, type UnitF
 import { summaryKey, summaryPath, readStored, writeStored, unitSetHash, type Bundle } from "../src/cli-app/summary/store.ts";
 import { runSummary } from "../src/cli-app/summary/command.ts";
 import { validateResult } from "../src/cli-app/summary/validate.ts";
-import { prepareBundle, renderUnit } from "../src/cli-app/summary/bundle.ts";
+import { LIMITS, prepareBundle, renderUnit } from "../src/cli-app/summary/bundle.ts";
 import { loadDiff, collectUnits, commitLog } from "../src/cli-app/summary/collect.ts";
 import { buildSummaryView } from "../src/cli-app/summary/view.ts";
 import { DEFAULT_CONFIG } from "../src/cli-app/config.ts";
@@ -376,7 +376,7 @@ test("validate: concerns may cite any shown line; needsLook comes from concerns 
         { kind: "question", text: "intended?", line: "O4" },
         { kind: "bug", text: "out of range", line: "N12" },
         { kind: "nit", text: "style", line: "N5" },
-        { kind: "risk", text: "x".repeat(201), line: "N5" },
+        { kind: "risk", text: "x".repeat(LIMITS.concern + 1), line: "N5" },
       ],
     }),
     "src/repo.ts#toOrder": ok({ concerns: [{ kind: "question", text: "why?", line: "N11" }] }),
@@ -393,7 +393,7 @@ test("validate: concerns may cite any shown line; needsLook comes from concerns 
   const reasons = out.dropped.join("\n");
   assert.match(reasons, /concerns\[2\]: line "N12" is not a line of this unit/);
   assert.match(reasons, /concerns\[3\]: kind must be one of bug, risk, question/);
-  assert.match(reasons, /concerns\[4\]: text 201 chars, max 200/);
+  assert.match(reasons, /concerns\[4\]: text 301 chars, max 300/);
 });
 
 test("validate: flows keep priority and why; bad ones are reported; coverage counts flowed units", () => {

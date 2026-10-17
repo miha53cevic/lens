@@ -8,7 +8,7 @@ import { bundleDir, readStored, summaryArgs, unitSetHash, type Bundle, type Bund
 // instructions, schema) plus bundle.json, which `submit` validates against.
 
 export const LIMITS = {
-  headline: 80, gist: 40, cell: 60, breakSummary: 80, concern: 200,
+  headline: 80, gist: 40, cell: 60, breakSummary: 80, concern: 300,
   flowTitle: 40, flowPath: 60, layer: 12, why: 100, overview: 2000,
 };
 
@@ -205,13 +205,20 @@ ${deferred ? `5. Once every unit is submitted, run \`${prepareCommand(input)}\` 
   observably happens in it. \`line\` must be one of the unit's changed (N…) or removed (O…)
   labels — the line that causes the difference. \`before\` is null for new behavior. An
   empty list is fine: don't invent differences.
-- \`concerns\`: what you suspect is wrong, as {kind, text (≤${LIMITS.concern}), line}. \`kind\` is "bug"
-  (likely wrong behavior), "risk" (works, but fragile or surprising: an edge case, data
-  loss, security, performance) or "question" (the intent is unclear). \`line\` may be any
-  line shown for the unit — N… (changed or not) or O…. Every problem you notice goes here:
-  the reviewer reads the viewer, not your chat reply, and decides what is real, so flag it
-  even when unsure. Concerns and breaks are the only way to mark a unit for a close look:
-  if one deserves it, say why. Routine changes (renames, types, formatting) get neither.
+- \`concerns\`: bugs that matter, as {kind, text (≤${LIMITS.concern}), line}. \`kind\` is "bug"
+  (wrong behavior likely in normal use), "risk" (data loss, a security hole or silent
+  corruption, even if rarer) or "question" (the intent is unclear and decides whether it's
+  a bug). \`line\` may be any line shown for the unit — N… (changed or not) or O….
+  The rules:
+  - Internal callers and the project's own services are trusted. Flag missing validation
+    only at a system boundary (user input, the network, files, external APIs).
+  - \`text\` names a concrete input or sequence that triggers it and how it's reachable
+    here, then the smallest fix — prefer removing code or tightening a type over adding
+    a branch. E.g. "Empty \`ids\` from the search box → \`ids[0].trim()\` throws. Fix: type
+    \`ids\` as a non-empty tuple at the route." If you can't name the trigger, drop it.
+  - End your chat reply with the findings you dropped as unlikely, one line each.
+  Concerns and breaks are the only way to mark a unit for a close look. Routine changes
+  (renames, types, formatting) get neither.
 - \`breaks\`: callers outside the diff that the change may break: {summary (≤${LIMITS.breakSummary}),
   callers: ["path/from/repo/root.ts:31", …]}. Each caller line must exist and contain
   the unit's name. Only list callers you actually found.
