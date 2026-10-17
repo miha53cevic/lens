@@ -7,6 +7,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { relPath } from "../src/cli-app/paths.ts";
 import { CODE_SIZE_DEFAULT } from "../src/viewer/codeSize.ts";
+import { MOTION } from "../src/ui/motion.ts";
 
 const ROOT = join(import.meta.dirname, "..");
 const TOKENS = "src/ui/styles/tokens.css";
@@ -110,6 +111,22 @@ test("layers and lifts come from the tokens", () => {
 
 test("the viewer's default code size is the token's", () => {
   assert.match(readFileSync(join(ROOT, TOKENS), "utf8"), new RegExp(`--text-code: ${CODE_SIZE_DEFAULT}px;`));
+});
+
+test("transitions take their timing from the motion tokens", () => {
+  // a delay is a wait, not a motion (the 150 ms before a loading screen shows): it may be its own
+  assert.deepEqual(
+    broken(({ property, value }) => /^transition(-duration|-timing-function)?$/.test(property) && /\d(m?s)\b|cubic-bezier|\bease\b|ease-(in|out)\b|linear/.test(value)),
+    [],
+  );
+});
+
+test("what script animates moves as the motion tokens do", () => {
+  const tokens = readFileSync(join(ROOT, TOKENS), "utf8");
+  assert.match(tokens, new RegExp(`--motion-enter: ${MOTION.enter}ms var\\(--ease-out\\);`));
+  assert.match(tokens, new RegExp(`--motion-exit: ${MOTION.exit}ms var\\(--ease-in\\);`));
+  assert.match(tokens, new RegExp(`--motion-move: ${MOTION.move}ms var\\(--ease-out\\);`));
+  assert.ok(tokens.includes(`--ease-out: ${MOTION.easeOut};`));
 });
 
 test("the retired tokens stay retired", () => {

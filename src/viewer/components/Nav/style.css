@@ -202,10 +202,26 @@ nav .file.binary:disabled {
   font-size: var(--text-xs);
   white-space: nowrap;
 }
+/* why the flow matters, under its name */
+.sum-section-why {
+  padding: 0 var(--space-2) var(--space-1);
+  color: var(--muted);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+}
+/* where a flow's next step starts: "contract", "page", "tests" */
+.sum-step {
+  padding: var(--space-2) var(--space-2) 0;
+  color: var(--faint);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
 
 .sum-item {
   display: grid;
-  grid-template-columns: 16px minmax(0, 1fr) auto auto;
+  grid-template-columns: 16px minmax(0, 1fr) auto auto auto;
   align-items: center;
   column-gap: var(--space-2);
   width: 100%;
@@ -221,6 +237,11 @@ nav .file.binary:disabled {
   font-size: var(--text-xs);
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+/* a unit some preview or sequence shows */
+.sum-item .drawn {
+  display: inline-flex;
+  color: var(--faint);
 }
 .sum-item .gist.stale {
   grid-column: 2 / -1;

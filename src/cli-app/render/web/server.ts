@@ -5,7 +5,9 @@ import type { FileFoldModel, LensConfig } from "../../model.ts";
 import type { SummaryView } from "../../summary/view.ts";
 import { removeServerInfo, writeServerInfo } from "../../ask/discovery.ts";
 import { createAskRoutes } from "../../ask/routes.ts";
-import { isLocalRequest, readCookie, sendJson } from "./http.ts";
+import { isLocalRequest, readBody, readCookie, sendJson } from "./http.ts";
+import { previewResponse } from "../../summary/previews.ts";
+import { writeSettings } from "../../summary/settings.ts";
 import { escapeHtml } from "../../text.ts";
 import { isLightColor, THEME_COOKIE } from "../../theme.ts";
 import { bundleViewer } from "./bundle.ts";
@@ -45,6 +47,8 @@ export interface ViewerInput {
   /** The effective merged config, shown in the viewer's settings modal */
   config: LensConfig;
   configSource: string | null;
+  /** Build previews, as summary mode follows it: the reader's switch (.lens/settings.json), else the config's */
+  buildPreviews: boolean;
   /** PR mode: "owner/repo#N — title", shown in the viewer header */
   label: string | null;
   /** Diff/PR mode: data for the Summary tab */
@@ -309,6 +313,20 @@ export async function serveViewer(
         syncSummary();
         const stamp: StampResponse = { summary: current.summary?.stamp ?? null, change: await changeNow() };
         sendJson(res, 200, stamp);
+      } else if (url.pathname.startsWith("/api/preview/")) {
+        // a preview the agent drew, alone in its sandboxed frame (summary/previews.ts)
+        const preview = previewResponse(current.root, current.summary?.key ?? null, url.pathname.slice("/api/preview/".length));
+        res.writeHead(preview.status, preview.headers);
+        res.end(preview.body);
+      } else if (url.pathname === "/api/settings" && req.method === "POST") {
+        const body = JSON.parse(await readBody(req)) as { buildPreviews?: unknown };
+        if (typeof body?.buildPreviews !== "boolean") {
+          sendJson(res, 400, { error: "buildPreviews must be true or false" });
+          return;
+        }
+        writeSettings(current.root, { buildPreviews: body.buildPreviews });
+        current = { ...current, buildPreviews: body.buildPreviews };
+        sendJson(res, 200, { buildPreviews: body.buildPreviews });
       } else if (url.pathname === "/api/shutdown" && req.method === "POST") {
         res.writeHead(200, { "content-type": "application/json" });
         res.end(JSON.stringify({ ok: true }), () => {

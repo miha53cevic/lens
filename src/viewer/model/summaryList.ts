@@ -27,7 +27,7 @@ const AGENT_FLAGS: Marks = new Map();
 // List order: flows by priority (then by how many of their units the agent flagged),
 // then the units in no flow: flagged, routine, not yet summarized / stale. The reader's
 // verdicts don't reorder it: a dismiss mustn't move the list under the reader.
-// A unit in several flows is listed under each.
+// A unit is in one flow (the server sees to it); should one list it twice, the first keeps it.
 export function groupUnits(
   summary: SummaryView,
   shown: (unit: Unit) => boolean,
@@ -38,6 +38,7 @@ export function groupUnits(
   const sections = summary.flows
     .map((flow, order) => {
       const all = Object.keys(flow.units)
+        .filter((unitId) => !inFlow.has(unitId))
         .map((unitId) => unitById(summary, unitId))
         .filter((unit): unit is Unit => unit !== null);
       for (const unit of all) inFlow.add(unit.id);
@@ -57,13 +58,6 @@ export function groupUnits(
   return { sections, others };
 }
 
-/** One line of the list: a unit in several flows has one under each */
-export interface ListEntry {
-  unitId: string;
-  /** The flow it's listed under; null: in no flow */
-  flow: string | null;
-}
-
 export interface ListModel {
   /** The units hide tests leaves */
   units: Unit[];
@@ -73,14 +67,10 @@ export interface ListModel {
   sections: Section[];
   others: Unit[];
   folded: Set<string>;
-  /** Unit ids in list order: what's visible, each unit once */
+  /** Unit ids in list order, as j/k walks them: what's visible */
   order: string[];
-  /** The visible lines as j/k walks them: a unit in several flows once per flow */
-  entries: ListEntry[];
   /** The open unit: the reader's, or the first in the list */
   activeId: string | null;
-  /** Which of the open unit's listings is marked: the reader's flow while it lists the unit, else the first */
-  activeFlow: string | null;
   summarized: number;
   shownCount: number;
 }
@@ -94,7 +84,6 @@ const buildList = memo(
     sumSignal: SignalFilter,
     flowOpen: ReadonlyMap<string, boolean>,
     summaryUnit: string | null,
-    summaryFlow: string | null,
   ): ListModel => {
     const isShown = (unit: Unit) => !(hideTests && isTestFile(unit.displayFile));
     const units = summary.units.filter(isShown); // hide tests: the counts follow the list
@@ -133,17 +122,12 @@ const buildList = memo(
       return flowPriority(section.flow) === 3 && !holdsOpenUnit;
     };
     const folded = new Set(sections.filter(isFolded).map((section) => section.flow.title));
-    const entries: ListEntry[] = [
-      ...sections
-        .filter((section) => !folded.has(section.flow.title))
-        .flatMap((section) => section.members.map((unit) => ({ unitId: unit.id, flow: section.flow.title }))),
-      ...others.map((unit) => ({ unitId: unit.id, flow: null })),
-    ];
-    const order = [...new Set(entries.map((entry) => entry.unitId))];
+    const order = [
+      ...sections.filter((section) => !folded.has(section.flow.title)).flatMap((section) => section.members),
+      ...others,
+    ].map((unit) => unit.id);
     // a unit the filter hides stays open in the pane
     const activeId = summaryUnit && unitById(summary, summaryUnit) ? summaryUnit : order[0] || null;
-    const listings = entries.filter((entry) => entry.unitId === activeId);
-    const activeFlow = (listings.find((entry) => entry.flow === summaryFlow) ?? listings[0])?.flow ?? null;
     const listed = [...sections.flatMap((section) => section.members), ...others];
     return {
       units,
@@ -153,11 +137,9 @@ const buildList = memo(
       others,
       folded,
       order,
-      entries,
       activeId,
-      activeFlow,
       summarized: units.filter((unit) => unit.summary).length,
-      shownCount: new Set(listed.map((unit) => unit.id)).size,
+      shownCount: listed.length,
     };
   },
 );
@@ -173,7 +155,6 @@ export function listModel(state: LensState): ListModel | null {
     state.sumSignal,
     state.flowOpen,
     state.summaryUnit,
-    state.summaryFlow,
   );
 }
 

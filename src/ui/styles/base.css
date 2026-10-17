@@ -108,6 +108,13 @@ svg.lucide {
 .spin {
   animation: spin 0.9s linear infinite;
 }
+
+/* a theme switch cross-fades the whole page (crossFade in ui/motion.ts) */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 260ms;
+  animation-timing-function: ease-out;
+}
 @keyframes spin {
   to {
     transform: rotate(360deg);

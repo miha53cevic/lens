@@ -7,6 +7,11 @@ import { StatusLetter } from '../../ui/FileStatus.tsx';
 import { IconButton } from '../../ui/IconButton.tsx';
 import './Tabs.css';
 
+/** The tab in front stays in sight when there are more tabs than the bar has room for. */
+function keepInSight(tab: HTMLElement | null) {
+  tab?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+}
+
 /** The Code view's editor tabs. */
 export function Tabs() {
   const { tabs, active, files, hidden } = useLens((state) => ({
@@ -23,7 +28,15 @@ export function Tabs() {
   }
 
   return (
-    <div className='tabbar' id='tabbar' style={hiddenStyle(hidden)}>
+    <div
+      className='tabbar'
+      id='tabbar'
+      style={hiddenStyle(hidden)}
+      // a mouse's wheel turns only up and down: here it moves the tabs sideways
+      onWheel={(event) => {
+        if (event.deltaX === 0) event.currentTarget.scrollLeft += event.deltaY;
+      }}
+    >
       {tabs.map((tab) => {
         const file = files[tab.index];
         const path = file.file;
@@ -32,6 +45,8 @@ export function Tabs() {
         return (
           <div
             key={tab.index}
+            data-file={tab.index}
+            ref={tab.index === active ? keepInSight : undefined}
             className={clsx('tab', tab.index === active && 'active', !tab.pinned && 'preview')}
             title={path}
             onClick={() => openFile(tab.index)}

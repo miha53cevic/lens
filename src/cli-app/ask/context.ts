@@ -16,6 +16,37 @@ export const RULES = `RULES — read-only. Answer the question; do not change an
 - Asked for a fix? Describe it in the answer; don't apply it.
 - If you can, answer from a read-only subagent (e.g. Claude Code's Explore agent).`;
 
+// How an answer should read. The rail draws a cite as a small numbered marker and a ```flow
+// block as a lane of steps (src/viewer/ask/markdown.ts), so both are asked for here.
+export const HOW_TO_ANSWER = `HOW TO ANSWER
+The reader is reviewing this change and has the code open. They want your judgement on
+it, not a retelling.
+- Open with the answer in one bold sentence: yes, no, the reason, the name. No preamble.
+- Back every claim about the code with a path:line cite (repo-relative). Put it at the
+  end of the claim, not as a word in the sentence: the rail shows it as a numbered marker
+  that jumps to the line. Read past the change when the question needs it: callers,
+  tests, git log -p, git blame.
+- Don't restate the selected lines. Point at them.
+- Can't be sure (runtime, config, code you can't see)? Say so in one line, and what would
+  settle it. Never state a guess as fact.
+- Fit the question:
+    is it right / safe?  verdict, then the concrete case that breaks it (input → what
+                         happens), or why none does
+    why …?               the reason and where it shows (commit, caller, test); if
+                         nothing says, say so
+    what / how does …?   the steps, a cite each
+    who uses …?          the callers, cited; which ones the change affects
+    how do I / a fix?    a short \`\`\`diff block. Never apply it.
+    a flow across code?  a \`\`\`flow block, one step per line, "Layer: what happens"
+                         and its cite; the layer is a short name (CLI, API, FE, db):
+                           \`\`\`flow
+                           API: POST /orders checks the body  src/api/orders.ts:42
+                           db: inserts the row  src/db/orders.ts:17
+                           \`\`\`
+- End with one line: "Read: " and the files you opened.
+- As short as the answer allows: about 120 words, up to 300 for a walkthrough. No
+  closing summary, no offers to help. Markdown.`;
+
 /** Past this many lines the change is cut short — the agent can read the file. */
 const MAX_CHANGE_LINES = 400;
 
@@ -155,10 +186,9 @@ export function questionText(
   if (!opts.forCopy) {
     // straight in .lens/, which the server already made (it holds server.json)
     const answerFile = toPosix(join(opts.root, ".lens", "answer.md"));
-    out.push(`ANSWER
-Lead with the answer; about 120 words unless more is needed. Markdown. Cite code as
-path:line (repo-relative) — lens turns valid ones into links.
-Write it to ${answerFile}, then run:
+    out.push(HOW_TO_ANSWER);
+    out.push(`REPLY
+Write the answer to ${answerFile}, then run:
   lens ask reply ${q.id} "${answerFile}" --port ${opts.port}
 Then run \`lens ask listen --port ${opts.port}\` again for the next question.`);
   }

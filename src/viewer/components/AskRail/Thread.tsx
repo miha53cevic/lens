@@ -2,10 +2,12 @@ import { RefreshCw } from 'lucide-react';
 import clsx from 'clsx';
 import type { AskQuestion } from '../../../cli-app/ask/session.ts';
 import { useLens } from '../../store.ts';
-import { askGoto, askMarkdown, askOpenCite } from '../../ask/answers.ts';
+import { askGoto, askOpenCite } from '../../ask/answers.ts';
+import { askMarkdown } from '../../ask/markdown.ts';
 import { askSelLabel } from '../../ask/selection.ts';
 import { CopyCommand } from '../../../ui/CopyCommand.tsx';
 import { Skeleton } from '../../../ui/Skeleton.tsx';
+import { fadeIn, riseIn } from '../../../ui/motion.ts';
 
 /** The questions and the agent's answers. A thread scrolled to its end follows new ones (askPoll). */
 export function Thread() {
@@ -58,7 +60,7 @@ function QuestionAndAnswer({ question, listening, files }: QuestionAndAnswerProp
   const answer = question.answer;
   return (
     <>
-      <div className={clsx('ask-q', question.stale && 'stale')}>
+      <div ref={riseIn} className={clsx('ask-q', question.stale && 'stale')}>
         <div className='ask-chips'>
           <button className='ask-chip unit' onClick={() => askGoto(question)}>
             {question.label}
@@ -67,8 +69,11 @@ function QuestionAndAnswer({ question, listening, files }: QuestionAndAnswerProp
         </div>
         <div className='ask-text'>{question.text}</div>
       </div>
+      {/* keyed, so the answer is a new element: it fades in over where its placeholder was */}
       {answer ? (
         <div
+          key='answer'
+          ref={fadeIn}
           className={clsx('ask-a', question.stale && 'stale')}
           dangerouslySetInnerHTML={{
             __html:
@@ -80,11 +85,11 @@ function QuestionAndAnswer({ question, listening, files }: QuestionAndAnswerProp
         />
       ) : !listening ? (
         // nobody will answer it: no spinner and no wait time, only what to run
-        <div className='ask-a ask-noagent'>
+        <div key='no-agent' className='ask-a ask-noagent'>
           No agent is listening. Run <CopyCommand command='/lens-ask' /> in your agent to get this answered.
         </div>
       ) : (
-        <div className='ask-a'>
+        <div key='waiting' ref={riseIn} className='ask-a'>
           <div className='ask-who ask-wait'>
             <span className='ask-spin spin' />
             {'waiting for agent · ' + Math.round((Date.now() - question.askedAt) / 1000) + 's'}

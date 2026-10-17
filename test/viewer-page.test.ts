@@ -54,7 +54,7 @@ beforeAll(async () => {
       },
     },
   };
-  writeStored(repo, 'diff', stored);
+  writeStored(repo, 'diff@main', stored);
   input.summary = input.latestSummary!();
   const themes = await Promise.all(['github-dark', 'github-light'].map(themeSwatch));
   payload = viewerPayload(input, await highlightFiles(input.files, 'github-dark'), themes, {
@@ -80,7 +80,13 @@ interface Page {
 
 /** Opens the viewer on the payload, with these localStorage entries (and this cookie) already there. */
 async function open(prefs: Record<string, string> = {}, hash = '', cookie = ''): Promise<Page> {
-  GlobalRegistrator.register({ url: 'http://127.0.0.1:5326/' + hash, width: 1400, height: 900 });
+  // a preview's frame isn't loaded: there is no server, and what it shows is the agent's, not the page's
+  GlobalRegistrator.register({
+    url: 'http://127.0.0.1:5326/' + hash,
+    width: 1400,
+    height: 900,
+    settings: { disableIframePageLoading: true },
+  });
   const page: Page = { requests: [], ask: { listening: false, questions: [] }, tokensAnalysis: null };
   globalThis.fetch = (async (input: string | URL, init?: RequestInit) => {
     const url = new URL(String(input), 'http://127.0.0.1:5326');
@@ -106,6 +112,8 @@ async function open(prefs: Record<string, string> = {}, hash = '', cookie = ''):
         return reply({ ...(lightTokens as object), analysis: page.tokensAnalysis ?? payload.analysis });
       case 'POST /api/shutdown':
         return reply({ ok: true });
+      case 'POST /api/settings':
+        return reply(body);
     }
     return new Response('{}', { status: 404 });
   }) as typeof fetch;
@@ -821,7 +829,115 @@ pageTest('on the Summary tab the pill starts the review, and marks each change r
   assert.equal($('.sum-item:not(.active) .viewed-box').getAttribute('aria-checked'), 'true');
 });
 
-test('a flow is its name: the priority only orders it, and a P3 flow starts folded', async () => {
+test("the agent's previews and sequences: all on the overview, a unit's own on its page, each step opening its unit", async () => {
+  const summary = payload.summary!;
+  const id = (name: string) => summary.units.find((unit) => unit.name === name)!.id;
+  const find = id('findOrders'),
+    legacy = id('legacyTotal');
+  summary.previews = [
+    { title: 'Orders page', units: [find], now: '/api/preview/0123456789abcdef.html', before: null, stale: false },
+  ];
+  summary.sequences = [
+    {
+      title: 'List orders',
+      lanes: ['route', 'repo'],
+      units: [find, legacy],
+      stale: true,
+      steps: [
+        {
+          from: 'route',
+          to: 'repo',
+          label: 'findOrders(user)',
+          was: 'findOrders(all)',
+          change: 'changed',
+          unit: find,
+          line: 'N10',
+        },
+        { from: 'repo', to: 'route', label: 'legacyTotal()', change: 'removed', unit: legacy, line: 'O17' },
+        { from: 'repo', to: 'repo', label: 'skip deleted', change: 'added', unit: find, line: 'N10' },
+        { from: 'repo', to: 'route', label: 'orders' },
+      ],
+    },
+  ];
+  const steps = () => $$('.sequence-card .seq-step text').map((label) => label.textContent);
+  try {
+    const page = await open();
+    await key('v');
+    // the overview: every drawing, and the list marks the units they show
+    assert.equal($$('#drawings .preview-card').length, 1);
+    const frame = $('.preview-card iframe') as HTMLIFrameElement;
+    assert.equal(frame.getAttribute('src'), '/api/preview/0123456789abcdef.html');
+    assert.equal(frame.getAttribute('sandbox'), 'allow-scripts', 'scripts, but never its own origin');
+    assert.equal($$('.preview-card .seg').length, 0, 'a new screen: no Before');
+    assert.deepEqual(steps(), ['findOrders(user)', 'skip deleted', 'orders'], 'now: every step but the removed one');
+    assert.equal($('.sequence-card .drawing-stale').textContent, 'code changed since');
+    assert.deepEqual(
+      $$('.sequence-card .step-kind').map((kind) => kind.textContent),
+      ['added', 'changed', 'removed'],
+    );
+    assert.equal($$('.sum-item .drawn').length, 2);
+
+    await click($('.sequence-card [data-value="before"]'));
+    assert.deepEqual(
+      steps(),
+      ['findOrders(all)', 'legacyTotal()', 'orders'],
+      'before: as it was, without the added one',
+    );
+    assert.equal($$('.seq-step.opens').length, 2, 'the plain step names no unit: it opens nothing');
+
+    // a step opens its unit; that unit's page shows the drawings that show it
+    fireEvent.click($('.seq-step.removed'));
+    await settle();
+    assert.equal($('#summary-pane').dataset.unit, legacy);
+    assert.equal($$('#drawings .preview-card').length, 0, "the preview doesn't show legacyTotal");
+    assert.equal($$('#drawings .sequence-card').length, 1);
+
+    await key('k');
+    assert.equal($('#summary-pane').dataset.unit, find);
+    const own = $('.preview-card iframe') as HTMLIFrameElement;
+    assert.equal(
+      own.getAttribute('src'),
+      '/api/preview/0123456789abcdef.html#' + encodeURIComponent(find),
+      'its elements outlined',
+    );
+    assert.ok($('.preview-card .drawing-unit.on'), "the page's own unit, picked");
+
+    // the frame tells the page its height and a click on a unit it shows, and nothing else
+    // (its frame isn't loaded here: a stand-in window is the one it posts from)
+    const frameWindow = new EventTarget() as unknown as Window;
+    const post = async (data: unknown, source: Window = frameWindow) => {
+      Object.defineProperty($('iframe.preview-frame'), 'contentWindow', { value: frameWindow, configurable: true });
+      window.dispatchEvent(new MessageEvent('message', { data, source }));
+      await settle();
+    };
+    await post({ lens: true, type: 'size', height: 5000 });
+    assert.equal(own.style.height, '900px', 'as tall as its screen, up to a limit');
+    await post({ lens: false, type: 'size', height: 200 });
+    await post({ lens: true, type: 'size', height: 200 }, new EventTarget() as unknown as Window);
+    assert.equal(own.style.height, '900px', 'another window, or not lens: not heard');
+    await key('g'); // the overview
+    await post({ lens: true, type: 'open-unit', unit: legacy });
+    assert.equal($('#summary-pane').dataset.unit, undefined, 'not one of its units: nothing opens');
+    await post({ lens: true, type: 'open-unit', unit: find });
+    assert.equal($('#summary-pane').dataset.unit, find);
+
+    // the switch: off hides them all, and the server keeps it for the next summary
+    await click($('#build-previews'));
+    assert.deepEqual(
+      page.requests.filter((request) => request.path === '/api/settings'),
+      [{ method: 'POST', path: '/api/settings', body: { buildPreviews: false } }],
+    );
+    assert.equal(document.querySelector('#drawings'), null);
+    assert.equal($$('.sum-item .drawn').length, 0);
+    assert.equal($('#build-previews').getAttribute('aria-checked'), 'false');
+  } finally {
+    summary.previews = [];
+    summary.sequences = [];
+    await close();
+  }
+});
+
+test('a flow is its name and why: the priority only orders it, and a P3 flow starts folded', async () => {
   const summary = payload.summary!;
   const id = (name: string) => summary.units.find((unit) => unit.name === name)!.id;
   summary.flows = [
@@ -829,6 +945,7 @@ test('a flow is its name: the priority only orders it, and a P3 flow starts fold
       title: 'Order cleanup',
       path: 'repo',
       priority: 3,
+      why: 'drops the old totals',
       units: { [id('findOrders')]: 'repo', [id('legacyTotal')]: 'repo' },
     },
   ];
@@ -839,45 +956,54 @@ test('a flow is its name: the priority only orders it, and a P3 flow starts fold
     const count = () => $$('.sum-section-title.flow .sub')[0]?.textContent?.trim() ?? null;
     assert.deepEqual([title(), count()], ['Order cleanup', '2 changes'], 'folded: the name and its count');
     assert.equal($$('.sum-section-title .prio').length, 0, 'no P3 tag');
+    assert.equal($$('.sum-section-why').length, 0, 'folded: the why only as a tooltip');
+    assert.equal($('.sum-section-title.flow').getAttribute('title'), 'drops the old totals');
     await click($('.sum-section-title.flow'));
     assert.deepEqual([title(), count()], ['Order cleanup', null]);
+    assert.equal($('.sum-section-why').textContent, 'drops the old totals');
     assert.equal($$('.sum-section:not(.folded) .sum-item').length, 2);
-    assert.equal($$('.sum-section:not(.folded) .sum-item .side').length, 0, 'no layer labels');
+    assert.equal($$('.sum-section:not(.folded) .sum-item .side').length, 0, 'no file labels');
+    assert.equal($$('.sum-step').length, 0, 'one step over every change: no heading');
   } finally {
     summary.flows = [];
     await close();
   }
 });
 
-test('a unit in several flows: only the listing the reader picked is marked, and j/k walk on from it', async () => {
+test("a flow's steps are headings where each starts; a unit in two flows is listed under the first", async () => {
   const summary = payload.summary!;
   const id = (name: string) => summary.units.find((unit) => unit.name === name)!.id;
   summary.flows = [
-    { title: 'Reads', path: 'repo', priority: 1, units: { [id('findOrders')]: 'repo' } },
-    { title: 'Cleanup', path: 'repo', priority: 2, units: { [id('findOrders')]: 'repo', [id('legacyTotal')]: 'repo' } },
+    {
+      title: 'Reads',
+      path: 'repo → cleanup',
+      priority: 1,
+      units: { [id('findOrders')]: 'repo', [id('legacyTotal')]: 'cleanup' },
+    },
+    { title: 'Twice', path: 'repo', priority: 2, units: { [id('findOrders')]: 'repo', [id('legacyTotal')]: 'repo' } },
   ];
   await open();
   try {
-    // each listing, as "flow:name", the marked one with ">"
+    // the list as the reader sees it: steps as "#step", changes as "flow:name", the open one with ">"
     const listed = () =>
-      $$('.sum-item').map(
-        (item) =>
-          (item.classList.contains('active') ? '>' : '') +
-          item.closest('.sum-section')!.querySelector('.sum-section-title .t')!.textContent +
-          ':' +
-          item.querySelector('.name')!.textContent,
+      $$('.sum-step, .sum-item').map((row) =>
+        row.classList.contains('sum-step')
+          ? '#' + row.textContent
+          : (row.classList.contains('active') ? '>' : '') +
+            row.closest('.sum-section')!.querySelector('.sum-section-title .t')!.textContent +
+            ':' +
+            row.querySelector('.name')!.textContent,
       );
     await key('v');
-    const items = $$('.sum-item');
-    await click(items[0]);
-    assert.deepEqual(listed(), ['>Reads:findOrders', 'Cleanup:findOrders', 'Cleanup:legacyTotal']);
-    await click(items[1]);
-    assert.deepEqual(listed(), ['Reads:findOrders', '>Cleanup:findOrders', 'Cleanup:legacyTotal']);
+    await click($$('.sum-item')[0]);
+    // Twice lists nothing the first flow hasn't: it isn't shown
+    assert.deepEqual(listed(), ['#repo', '>Reads:findOrders', '#cleanup', 'Reads:legacyTotal']);
     await key('j');
-    assert.deepEqual(listed(), ['Reads:findOrders', 'Cleanup:findOrders', '>Cleanup:legacyTotal']);
+    assert.deepEqual(listed(), ['#repo', 'Reads:findOrders', '#cleanup', '>Reads:legacyTotal']);
+    await key('j');
+    assert.deepEqual(listed(), ['#repo', 'Reads:findOrders', '#cleanup', '>Reads:legacyTotal'], 'no wrapping around');
     await key('k');
-    await key('k');
-    assert.deepEqual(listed(), ['>Reads:findOrders', 'Cleanup:findOrders', 'Cleanup:legacyTotal']);
+    assert.deepEqual(listed(), ['#repo', '>Reads:findOrders', '#cleanup', 'Reads:legacyTotal']);
   } finally {
     summary.flows = [];
     await close();
@@ -991,6 +1117,15 @@ pageTest('a deleted unit is its removed lines; o opens a unit in the code view',
 });
 
 // ---- the Ask rail ----
+
+pageTest('a opens the Ask rail with its input focused, and closes it again', async () => {
+  await key('a');
+  assert.equal($('#ask-rail').style.display, '');
+  assert.equal(document.activeElement, $('#ask-input'));
+  ($('#ask-input') as HTMLTextAreaElement).blur();
+  await key('a');
+  assert.equal($('#ask-rail').style.display, 'none');
+});
 
 pageTest('Ask without an agent copies the question as a prompt', async (page) => {
   await key('\\');
@@ -1213,7 +1348,7 @@ pageTest('a question with no agent to answer it says so, instead of counting the
 pageTest("an answer's markdown is drawn, its cites link, and nothing in it runs or leaves", async (page) => {
   const markdown = [
     'Two things happen in `src/orders.ts:10`:',
-    '- it *reads* the row (src/orders.ts:11)',
+    '- it *reads* the row (src/orders.ts:11), see `src/orders.ts:11 on`',
     '  - nested',
     '',
     '### Check',
@@ -1247,24 +1382,99 @@ pageTest("an answer's markdown is drawn, its cites link, and nothing in it runs 
   await key('\\');
   const answer = $('.ask-a');
   // a list right under its intro line is a list, and keeps its nesting
-  assert.equal(answer.querySelector('p')!.textContent, 'Two things happen in src/orders.ts:10:');
+  assert.equal(answer.querySelector('p')!.textContent, 'Two things happen in 1:');
   assert.equal(answer.querySelectorAll(':scope > ul > li').length, 1);
   assert.equal(answer.querySelector('ul ul li')!.textContent, 'nested');
   assert.equal(answer.querySelector('em')!.textContent, 'reads');
   assert.equal(answer.querySelector('h3')!.textContent, 'Check');
   assert.equal(answer.querySelectorAll('td').length, 2);
-  // cites link in text and inside `code`
+  // cites are numbered markers, in text and inside `code`; one that is the whole `code` is the marker alone
   assert.deepEqual(
-    [...answer.querySelectorAll<HTMLElement>('.ask-cite')].map((button) => button.dataset.line),
-    ['10', '11'],
+    [...answer.querySelectorAll<HTMLElement>('.ask-mark')].map((mark) => [
+      mark.textContent,
+      mark.dataset.line,
+      mark.title,
+    ]),
+    [
+      ['1', '10', 'src/orders.ts:10'],
+      ['2', '11', 'src/orders.ts:11'],
+      ['2', '11', 'src/orders.ts:11'],
+    ],
   );
-  assert.ok(answer.querySelector('code .ask-cite'));
+  assert.equal(answer.querySelector('code .ask-mark')!.textContent, '2');
+  // and listed, folded, under the answer
+  const sources = answer.querySelector<HTMLDetailsElement>('details.ask-sources')!;
+  assert.equal(sources.open, false);
+  assert.equal(sources.querySelector('summary')!.textContent, '2 sources');
+  assert.deepEqual(
+    [...sources.querySelectorAll('.ask-cite')].map((button) => button.textContent),
+    ['src/orders.ts:10', 'src/orders.ts:11'],
+  );
   // html is shown, not run; no image is fetched; a link is its text and its address
   assert.equal(answer.querySelector('img'), null);
   assert.equal(answer.querySelector('a'), null);
   assert.match(answer.textContent!, /<img src=x onerror="alert\(1\)">/);
   assert.match(answer.textContent!, /docs \(https:\/\/example\.com\/a\)/);
   assert.match(answer.textContent!, /\[x\]\(javascript:alert\(1\)\)/);
+});
+
+pageTest("an answer's flow block is a lane of steps under their layers, and its Read line comes last", async (page) => {
+  const markdown = [
+    '**It goes through two layers.**',
+    '',
+    '```flow',
+    'API: checks the body  src/orders.ts:10',
+    'API: then the user',
+    'db: inserts the row  src/orders.ts:11',
+    '```',
+    '',
+    '```flow',
+    'not a step at all',
+    '```',
+    '',
+    'Read: orders.ts',
+  ].join('\n');
+  const cite = (line: number) => ({ ref: 'src/orders.ts:' + line, file: 'src/orders.ts', line });
+  page.ask = {
+    listening: true,
+    questions: [
+      {
+        id: 'q1',
+        text: 'how does it flow?',
+        file: 'src/orders.ts',
+        unitId: null,
+        label: 'orders.ts',
+        hash: 'h1',
+        selection: null,
+        concerns: [],
+        askedAt: Date.now() - 9000,
+        handedAt: null,
+        answer: { markdown, cites: [cite(10), cite(11)], at: Date.now() },
+        stale: false,
+      },
+    ],
+  };
+  await key('\\');
+  const answer = $('.ask-a');
+  const lane = answer.querySelector('.ask-flow')!;
+  // a layer is named once over its run of steps
+  assert.deepEqual(
+    [...lane.children].map((item) => item.className + ' ' + item.textContent),
+    [
+      'ask-flow-layer API',
+      'ask-flow-step checks the body  1',
+      'ask-flow-step then the user',
+      'ask-flow-layer db',
+      'ask-flow-step inserts the row  2',
+    ],
+  );
+  // a block that isn't steps stays code
+  assert.equal(answer.querySelector('pre code')!.textContent, 'not a step at all\n');
+  // the sources, then what the agent read, quieter
+  const tail = [...answer.children].slice(-2);
+  assert.equal(tail[0].className, 'ask-sources');
+  assert.equal(tail[1].className, 'ask-read');
+  assert.equal(tail[1].textContent, 'Read: orders.ts');
 });
 
 pageTest('⏻ end stops the server and leaves a note', async (page) => {

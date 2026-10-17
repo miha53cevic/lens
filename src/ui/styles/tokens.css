@@ -58,6 +58,14 @@
 
   --motion: 120ms ease-out;
   --motion-slow: 300ms ease-out;
+  /* what appears or opens (a menu, a dialog, a message), what leaves (quicker), and what moves
+     from one place to another (a panel, the segmented control's highlight). ui/motion.ts has the
+     same numbers for what script animates. */
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --motion-enter: 180ms var(--ease-out);
+  --motion-exit: 110ms var(--ease-in);
+  --motion-move: 220ms var(--ease-out);
   /* how long the pointer rests on a button before its tooltip shows */
   --tip-delay: 350ms;
 

@@ -17,6 +17,7 @@ const EMPTY_CONFIG: LensConfig = {
   keepDirective: "lens:keep",
   testFilePatterns: [],
   exclude: [],
+  buildPreviews: true,
 };
 
 const strings = (v: unknown[]) => v.filter((x): x is string => typeof x === "string");
@@ -47,6 +48,7 @@ function sanitize(raw: unknown, from: string): Partial<LensConfig> & { base?: bo
   if (Array.isArray(r.keepCommentMarkers)) out.keepCommentMarkers = strings(r.keepCommentMarkers);
   if (Array.isArray(r.testFilePatterns)) out.testFilePatterns = strings(r.testFilePatterns);
   if (Array.isArray(r.exclude)) out.exclude = strings(r.exclude);
+  if (typeof r.buildPreviews === "boolean") out.buildPreviews = r.buildPreviews;
   if (Array.isArray(r.callPatterns)) {
     out.callPatterns = r.callPatterns.filter((p): p is CallPattern => {
       const ok = typeof p === "object" && p !== null &&
@@ -72,6 +74,7 @@ function merge(base: LensConfig, over: Partial<LensConfig>): LensConfig {
     keepDirective: over.keepDirective ?? base.keepDirective,
     testFilePatterns: [...base.testFilePatterns, ...(over.testFilePatterns ?? [])],
     exclude: [...base.exclude, ...(over.exclude ?? [])],
+    buildPreviews: over.buildPreviews ?? base.buildPreviews,
   };
 }
 

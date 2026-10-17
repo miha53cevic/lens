@@ -1,9 +1,10 @@
 // Opening files: the editor tabs, and stepping through the tree.
 
-import { getState, type LensState, type Tab, update } from '../store.ts';
+import { commit, getState, type LensState, type Tab, update } from '../store.ts';
 import { isTestFile } from '../shared.ts';
 import { activeFile } from '../model/plans.ts';
 import { firstTreeFile, treeModel, visibleFile } from '../model/tree.ts';
+import { widenIn } from '../../ui/motion.ts';
 
 // The file gets a tab. A new file takes over the preview tab when one exists; otherwise it
 // opens next to the active tab.
@@ -34,11 +35,13 @@ export function visibleActive(state: LensState): Partial<LensState> {
 }
 
 export function openFile(fileIndex: number, pin?: boolean): void {
-  update((state) => ({
-    ...revealIfTest(state, fileIndex),
-    tabs: withTab(state.tabs, state.active, fileIndex, pin),
-    active: fileIndex,
-  }));
+  const state = getState();
+  const tabs = withTab(state.tabs, state.active, fileIndex, pin);
+  const patch = { ...revealIfTest(state, fileIndex), tabs, active: fileIndex };
+  // a tab that joins the bar widens into its place; one that replaces the preview just shows
+  if (tabs.length <= state.tabs.length) return update(patch);
+  commit(patch);
+  widenIn(document.querySelector(`#tabbar .tab[data-file="${fileIndex}"]`));
 }
 
 export function closeTab(fileIndex: number): void {

@@ -4,8 +4,10 @@ import { loadConfig } from "../config.ts";
 import { loadDiff, collectUnits, commitLog } from "./collect.ts";
 import { prepareBundle, prepareCommand } from "./bundle.ts";
 import { hasUnits, validateResult } from "./validate.ts";
-import { summaryKey, readStored, writeStored, unitSetHash, type Bundle } from "./store.ts";
+import { HOUSEKEEPING, reviewKey, readStored, writeStored, unitSetHash, type Bundle } from "./store.ts";
 import { relPath } from "../paths.ts";
+import { buildPreviewsOn } from "./settings.ts";
+import { writeAssets } from "./previews.ts";
 
 /** `lens summary prepare|submit` — the agent's side of summary mode. */
 export async function runSummary(rest: string[], cwd: string): Promise<void> {
@@ -25,13 +27,14 @@ export async function runSummary(rest: string[], cwd: string): Promise<void> {
     const result = prepareBundle({
       root: diff.root,
       cwd,
-      key: summaryKey(command, args),
+      key: reviewKey(diff.root, command, args),
       command,
       args,
       label: diff.label,
       commits: commitLog(diff.diffArgs, cwd),
       units,
       sources: new Map([...diff.sources].map(([abs, src]) => [relPath(diff.root, abs), src])),
+      drawings: buildPreviewsOn(diff.root, config),
     });
     console.log(result.instructions);
     return;
@@ -58,10 +61,13 @@ export async function runSummary(rest: string[], cwd: string): Promise<void> {
     const root = resolve(dir, "..", "..", "..");
     const outcome = validateResult(bundle, result, root, readStored(root, bundle.key));
     writeStored(root, bundle.key, outcome.stored);
+    writeAssets(root, bundle.key, outcome.stored, outcome.assets);
     const missing = bundle.units.filter((u) => !outcome.stored.units[u.id] || outcome.stored.units[u.id].hash !== u.hash);
     console.log(`lens: accepted ${outcome.accepted.length} unit${outcome.accepted.length === 1 ? "" : "s"}` +
       (outcome.acceptedFlows ? `, ${outcome.acceptedFlows} flow${outcome.acceptedFlows === 1 ? "" : "s"}` : "") +
-      (outcome.acceptedOverview ? ", the overview" : ""));
+      (outcome.acceptedOverview ? ", the overview" : "") +
+      (outcome.acceptedPreviews ? `, ${outcome.acceptedPreviews} preview${outcome.acceptedPreviews === 1 ? "" : "s"}` : "") +
+      (outcome.acceptedSequences ? `, ${outcome.acceptedSequences} sequence${outcome.acceptedSequences === 1 ? "" : "s"}` : ""));
     if (outcome.dropped.length > 0) {
       console.log(`\nrejected ${outcome.dropped.length} — fix these entries in ${basename(resultFile)} and submit again:`);
       for (const d of outcome.dropped) console.log(`  - ${d}`);
@@ -75,20 +81,33 @@ export async function runSummary(rest: string[], cwd: string): Promise<void> {
     // coverage only once there are flows to cover with: before the final pass it's all zeros
     if (missing.length === 0 && outcome.stored.flows.length > 0) {
       console.log(`\nflows cover ${coverage.inFlows} of ${coverage.summarized} units`);
-      const outside = coverage.flaggedOutside;
+      const outside = coverage.outside;
       if (outside.length > 0) {
-        console.log(`${outside.length} unit${outside.length === 1 ? "" : "s"} with a concern or break ${outside.length === 1 ? "is" : "are"} in no flow — put ${outside.length === 1 ? "it" : "them"} in one:`);
-        for (const id of outside.slice(0, 20)) console.log(`  - ${id}`);
+        console.log(`${outside.length} unit${outside.length === 1 ? " is" : "s are"} in no flow — add each to the story it serves (or to "${HOUSEKEEPING}"):`);
+        const flagged = (id: string) => (outcome.stored.units[id].needsLook ? " (has a concern or break)" : "");
+        for (const id of outside.slice(0, 20)) console.log(`  - ${id}${flagged(id)}`);
         if (outside.length > 20) console.log(`  - … and ${outside.length - 20} more`);
       }
+      if (coverage.advice.length > 0) {
+        console.log(`\nthe flows look split up — worth a look:`);
+        for (const line of coverage.advice) console.log(`  - ${line}`);
+      }
+    }
+    if (outcome.previewAdvice.length > 0) {
+      console.log(`\nthe previews look like one screen drawn in pieces — worth a look:`);
+      for (const line of outcome.previewAdvice) console.log(`  - ${line}`);
     }
     const flowsMissing = outcome.stored.flows.length === 0 && bundle.units.length >= 2;
-    if (missing.length === 0 && (outcome.stored.overview?.hash !== unitSetHash(bundle.units) || flowsMissing)) {
-      console.log(`\nevery unit is summarized — run \`${prepareCommand(bundle)}\` for the final pass (flows and the overview)`);
+    const undrawn = !!bundle.drawings && outcome.stored.drawn !== unitSetHash(bundle.units);
+    if (missing.length === 0 && (outcome.stored.overview?.hash !== unitSetHash(bundle.units) || flowsMissing || undrawn)) {
+      const what = undrawn ? "flows, the overview and the drawings" : "flows and the overview";
+      console.log(`\nevery unit is summarized — run \`${prepareCommand(bundle)}\` for the final pass (${what})`);
     }
     console.log(`\nsummary saved — refresh the lens viewer (↻) and open the Summary tab`);
     const submitted = hasUnits(result) ? Object.keys(result.units).length : 0;
-    if (outcome.accepted.length === 0 && !outcome.acceptedOverview && (submitted > 0 || outcome.dropped.length > 0)) process.exitCode = 1;
+    const acceptedAny = outcome.accepted.length > 0 || outcome.acceptedOverview ||
+      outcome.acceptedPreviews > 0 || outcome.acceptedSequences > 0;
+    if (!acceptedAny && (submitted > 0 || outcome.dropped.length > 0)) process.exitCode = 1;
     return;
   }
   throw new Error(`unknown summary subcommand "${sub ?? ""}" — use prepare or submit`);

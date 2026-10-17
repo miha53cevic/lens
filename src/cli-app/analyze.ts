@@ -9,8 +9,9 @@ import { compilePatterns, matchesAny } from "./glob.ts";
 import { relPath } from "./paths.ts";
 import type { FileFoldModel, LensConfig } from "./model.ts";
 import { loadDiff, collectUnits, type LoadedDiff } from "./summary/collect.ts";
-import { summaryKey, summaryStamp } from "./summary/store.ts";
+import { summaryStamp } from "./summary/store.ts";
 import { buildSummaryView, type SummaryView } from "./summary/view.ts";
+import { buildPreviewsOn } from "./summary/settings.ts";
 
 const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "build", "out", "coverage"]);
 
@@ -71,11 +72,10 @@ export async function analyze(
     try {
       const units = await collectUnits(diff, config, cwd);
       const { root } = diff;
-      const key = summaryKey(command, args);
       const build = () => buildSummaryView({ root, cwd, command, args, units });
       let view = build();
       // summary.json's mtime is cheap to check; rebuild only after a submit
-      latestSummary = () => (summaryStamp(root, key) === view.stamp ? view : (view = build()));
+      latestSummary = () => (summaryStamp(root, view.key) === view.stamp ? view : (view = build()));
       summary = view;
     } catch (err) {
       console.error(`lens: summary mode unavailable: ${(err as Error).message}`);
@@ -93,6 +93,7 @@ export async function analyze(
     binary: diff ? diff.binary.map((b) => ({ file: shown(b.file), status: b.status })) : [],
     config,
     configSource: findConfigPath(cwd),
+    buildPreviews: buildPreviewsOn(diff ? diff.root : cwd, config),
     label: diff ? diff.label : null,
     summary,
     latestSummary,

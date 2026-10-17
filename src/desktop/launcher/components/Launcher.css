@@ -12,6 +12,15 @@
   min-height: 0;
   overflow-y: auto;
 }
+/* a screen that takes over the tab fades in; the one the tab opened on is just there */
+.motion .screen {
+  transition: opacity var(--motion-move);
+}
+@starting-style {
+  .motion .screen {
+    opacity: 0;
+  }
+}
 .column {
   width: 100%;
   max-width: 660px;

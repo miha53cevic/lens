@@ -2,7 +2,8 @@
 
 import type { TokensResponse, ViewerPayload } from '../../cli-app/render/web/server.ts';
 import { THEME_COOKIE } from '../../cli-app/theme.ts';
-import { getState, update } from '../store.ts';
+import { commit, getState, update } from '../store.ts';
+import { crossFade } from '../../ui/motion.ts';
 import { fileViewKey } from '../shared.ts';
 import { changeNote } from '../model/status.ts';
 import { firstTreeFile } from '../model/tree.ts';
@@ -21,20 +22,23 @@ export async function switchTheme(theme: string): Promise<boolean> {
       switched = getState().data.canRefresh && (await refresh(theme));
       return;
     }
-    update((state) => ({
-      data: {
-        ...state.data,
-        theme: entry.theme,
-        fg: entry.fg,
-        bg: entry.bg,
-        accent: entry.accent,
-        // a theme from the saved choice that isn't in the menu yet joins it
-        themes: state.data.themes.some((swatch) => swatch.name === entry.theme)
-          ? state.data.themes
-          : [...state.data.themes, { name: entry.theme, bg: entry.bg, fg: entry.fg, accent: entry.accent }],
-        files: state.data.files.map((file, fileIndex) => ({ ...file, tokens: entry.tokens[fileIndex] })),
-      },
-    }));
+    // committed inside the cross-fade: the new colors and code are drawn before it starts
+    crossFade(() =>
+      commit((state) => ({
+        data: {
+          ...state.data,
+          theme: entry.theme,
+          fg: entry.fg,
+          bg: entry.bg,
+          accent: entry.accent,
+          // a theme from the saved choice that isn't in the menu yet joins it
+          themes: state.data.themes.some((swatch) => swatch.name === entry.theme)
+            ? state.data.themes
+            : [...state.data.themes, { name: entry.theme, bg: entry.bg, fg: entry.fg, accent: entry.accent }],
+          files: state.data.files.map((file, fileIndex) => ({ ...file, tokens: entry.tokens[fileIndex] })),
+        },
+      })),
+    );
     switched = true;
   });
   return switched;

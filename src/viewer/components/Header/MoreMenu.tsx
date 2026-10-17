@@ -18,6 +18,7 @@ import { Menu, MenuItem, MenuSection, MenuSeparator, MenuSwitch } from '../../..
 import { Segmented } from '../../../ui/Segmented.tsx';
 import { Stepper } from '../../../ui/Stepper.tsx';
 import { foldLevelHint } from './util.ts';
+import { setBuildPreviews } from '../../actions/previews.ts';
 
 const LEVELS = [
   { value: -1, label: 'off', title: 'nothing folds' },
@@ -29,7 +30,7 @@ const LEVELS = [
 
 /**
  * ⋯: the code's size and the view settings first (they act on the Code tab's file and the
- * Summary tab's change alike), then the shortcuts and the settings, then end session.
+ * Summary tab's change alike), then the summary's own switch, the shortcuts and the settings, then end session.
  */
 export function MoreMenu() {
   const more = useLens((state) => ({
@@ -42,6 +43,8 @@ export function MoreMenu() {
     wordDiff: state.wordDiff,
     hideTests: state.hideTests,
     codeSize: state.codeSize,
+    hasSummary: state.data.summary !== null,
+    buildPreviews: state.data.buildPreviews,
   }));
 
   return (
@@ -130,6 +133,16 @@ export function MoreMenu() {
                 Hide tests
               </MenuSwitch>
             )}
+          </MenuSection>
+        </>
+      )}
+      {more.hasSummary && (
+        <>
+          <MenuSeparator />
+          <MenuSection title='Summary'>
+            <MenuSwitch id='build-previews' checked={more.buildPreviews} onChange={setBuildPreviews}>
+              Build previews
+            </MenuSwitch>
           </MenuSection>
         </>
       )}

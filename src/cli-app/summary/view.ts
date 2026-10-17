@@ -2,7 +2,10 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { relPath } from "../paths.ts";
 import { prepareCommand } from "./bundle.ts";
-import { readStored, summaryArgs, summaryKey, summaryStamp, unitSetHash, type ChangeRow, type Concern, type Flow } from "./store.ts";
+import {
+  HOUSEKEEPING, isHousekeeping, readStored, reviewKey, summaryArgs, summaryStamp, unitSetHash,
+  type ChangeRow, type Concern, type Flow, type SequenceStep, type StoredSummary,
+} from "./store.ts";
 import { removalAnchors, type Unit } from "./units.ts";
 import type { RemovedBlock } from "../model.ts";
 
@@ -40,6 +43,27 @@ export interface ViewUnit extends Omit<Unit, "removals"> {
   renamedFrom: { id: string; removals: RemovedBlock[] } | null;
 }
 
+/** A screen the change affects, as the agent drew it: served by /api/preview, shown in a sandboxed frame */
+export interface PreviewView {
+  title: string;
+  /** The units it shows changed, that are in the diff now */
+  units: string[];
+  /** The frame's URL for the screen now, and before the change (null: a new screen) */
+  now: string;
+  before: string | null;
+  /** Some of its units changed since it was drawn */
+  stale: boolean;
+}
+
+/** A sequence diagram: what happens at run time, before and now */
+export interface SequenceView {
+  title: string;
+  lanes: string[];
+  steps: SequenceStep[];
+  units: string[];
+  stale: boolean;
+}
+
 export interface SummaryView {
   key: string;
   /** What to run in the agent, e.g. "/lens-review --staged" */
@@ -52,6 +76,8 @@ export interface SummaryView {
   flows: Flow[];
   /** stale: written for other code — the diff changed since */
   overview: { what: string; stale: boolean } | null;
+  previews: PreviewView[];
+  sequences: SequenceView[];
 }
 
 export function buildSummaryView(opts: {
@@ -61,7 +87,7 @@ export function buildSummaryView(opts: {
   args: string[];
   units: Unit[];
 }): SummaryView {
-  const key = summaryKey(opts.command, opts.args);
+  const key = reviewKey(opts.root, opts.command, opts.args);
   // the arguments as the user passes them to /lens-review or `lens summary prepare`
   const hint = summaryArgs(opts.command, opts.args);
   const stored = readStored(opts.root, key);
@@ -94,10 +120,7 @@ export function buildSummaryView(opts: {
   });
   // a deleted file adds nothing to read: the Summary leaves it out (the Code view's tree still lists it)
   const visible = units.filter((u) => !hiddenDeleted.has(u.id) && !(u.kind === "file" && u.status === "deleted"));
-  const ids = new Set(visible.map((u) => u.id));
-  const flows = (stored?.flows ?? [])
-    .map((f) => ({ ...f, units: Object.fromEntries(Object.entries(f.units).filter(([id]) => ids.has(id))) }))
-    .filter((f) => Object.keys(f.units).length >= 2);
+  const flows = shownFlows(stored?.flows ?? [], visible);
   return {
     key,
     command: `/lens-review${hint ? " " + hint : ""}`,
@@ -108,7 +131,61 @@ export function buildSummaryView(opts: {
     overview: stored?.overview
       ? { what: stored.overview.what, stale: stored.overview.hash !== unitSetHash(opts.units) }
       : null,
+    ...drawings(stored, opts.units),
   };
+}
+
+/** The URL a preview's file is served at (server.ts) */
+export function previewUrl(asset: string): string {
+  return "/api/preview/" + asset;
+}
+
+/**
+ * The stored previews and sequences over the diff as it is now: one whose units have all changed
+ * since it was drawn is gone, one with some changed is stale.
+ */
+function drawings(stored: StoredSummary | null, units: Unit[]): Pick<SummaryView, "previews" | "sequences"> {
+  const hashes = new Map(units.map((u) => [u.id, u.hash]));
+  const fit = (drawn: Record<string, string>) => {
+    const ids = Object.keys(drawn);
+    const current = ids.filter((id) => hashes.get(id) === drawn[id]);
+    return current.length === 0 ? null : { units: ids.filter((id) => hashes.has(id)), stale: current.length < ids.length };
+  };
+  const previews: PreviewView[] = [];
+  for (const preview of stored?.previews ?? []) {
+    const shown = fit(preview.units);
+    if (!shown) continue;
+    previews.push({ title: preview.title, ...shown, now: previewUrl(preview.now), before: preview.before ? previewUrl(preview.before) : null });
+  }
+  const sequences: SequenceView[] = [];
+  for (const sequence of stored?.sequences ?? []) {
+    const shown = fit(sequence.units);
+    if (shown) sequences.push({ title: sequence.title, lanes: sequence.lanes, steps: sequence.steps, ...shown });
+  }
+  return { previews, sequences };
+}
+
+/**
+ * The stored flows over the units shown, each unit in one flow (an older summary may list
+ * one in several: the first keeps it), and the units lens files itself added to Housekeeping.
+ */
+function shownFlows(stored: Flow[], visible: ViewUnit[]): Flow[] {
+  const ids = new Set(visible.map((u) => u.id));
+  const placed = new Set<string>();
+  const flows = stored
+    .map((f) => {
+      const units = Object.fromEntries(Object.entries(f.units).filter(([id]) => ids.has(id) && !placed.has(id)));
+      for (const id of Object.keys(units)) placed.add(id);
+      return { ...f, units };
+    })
+    .filter((f) => Object.keys(f.units).length >= (f.title === HOUSEKEEPING ? 1 : 2));
+  // only next to the agent's flows: a diff without them lists every change as it is
+  const filed = visible.filter((u) => isHousekeeping(u) && !placed.has(u.id));
+  if (flows.length === 0 || filed.length === 0) return flows;
+  const units = Object.fromEntries(filed.map((u) => [u.id, ""]));
+  const own = flows.find((f) => f.title === HOUSEKEEPING);
+  if (own) return flows.map((f) => (f === own ? { ...f, units: { ...f.units, ...units } } : f));
+  return [...flows, { title: HOUSEKEEPING, path: "", units, priority: 3, why: "Imports and formatting only" }];
 }
 
 function peek(root: string, caller: string): CallerPeek {

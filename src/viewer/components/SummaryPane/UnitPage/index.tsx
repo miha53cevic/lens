@@ -15,6 +15,7 @@ import { Changes } from './Changes.tsx';
 import { Breaks } from './Breaks.tsx';
 import { UnitCode } from './UnitCode.tsx';
 import { UnitRuler } from './UnitRuler.tsx';
+import { Drawings } from '../Drawings/index.tsx';
 
 // Mounted per unit (SummaryPane's key): another unit starts afresh.
 export function UnitPage({ unit }: { unit: Unit }) {
@@ -46,6 +47,7 @@ export function UnitPage({ unit }: { unit: Unit }) {
       )}
       {summary && summary.concerns.length > 0 && <Concerns unit={unit} concerns={summary.concerns} />}
       {summary && summary.changes.length > 0 && <Changes changes={summary.changes} onHover={setHoveredCite} />}
+      <Drawings unitId={unit.id} />
       {summary && summary.breaks.length > 0 && <Breaks breaks={summary.breaks} />}
       <CodeCard
         status={fileStatus(unit.status)}
