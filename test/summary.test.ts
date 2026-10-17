@@ -4,6 +4,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, rmSync, mkdirSync, readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { Window } from "happy-dom";
 import { parseDiff } from "../src/cli-app/git.ts";
 import { extractUnits, checkCoverage, citeableLabels, removalAnchors, type UnitFileInput } from "../src/cli-app/summary/units.ts";
 import { summaryKey, summaryPath, readStored, writeStored, unitSetHash, type Bundle } from "../src/cli-app/summary/store.ts";
@@ -850,6 +851,30 @@ test("validate: a whole-diff pass replaces the drawings once; it records that it
   assert.deepEqual(again.stored.sequences!.map((q) => q.title), ["New", "Added"], "the same pass's later submits merge");
   const none = validateResult({ ...pass, createdAt: "t2" }, { units: {} }, "/nonexistent", null);
   assert.equal(none.stored.drawn, unitSetHash(BUNDLE.units), "drawing nothing is an answer too");
+});
+
+test("a preview's bridge dims the units around the named one, not what holds it, and dims nested ones once", () => {
+  const root = mkdtempSync(join(tmpdir(), "lens-bridge-"));
+  try {
+    const nested = `<div id="page" data-lens-unit="a#Page"><div id="card" data-lens-unit="a#Card"><div id="mine" data-lens-unit="a#Mine"><b id="inner" data-lens-unit="a#Inner">x</b></div></div>
+<div id="other" data-lens-unit="a#Other"><i id="deep" data-lens-unit="a#Deep">y</i></div></div>`;
+    writeAssets(root, "diff-x", { version: 1, updatedAt: "", units: {}, flows: [], previews: [{ title: "A", units: {}, now: "0123456789abcdef.html" }] },
+      new Map([["0123456789abcdef.html", nested]]));
+    const served = previewResponse(root, "diff-x", "0123456789abcdef.html");
+    const window = new Window({ url: "http://127.0.0.1/#" + encodeURIComponent("a#Mine"), settings: { enableJavaScriptEvaluation: true, suppressInsecureJavaScriptEnvironmentWarning: true } });
+    window.document.write(served.body.replace(/<script nonce="[^"]+">/, "<script>"));
+    const classes = (id: string) => [...window.document.getElementById(id)!.classList].sort().join(" ");
+    assert.equal(classes("mine"), "lens-on");
+    assert.equal(classes("page"), "", "what holds the named unit isn't dimmed: its fade would carry into it");
+    assert.equal(classes("card"), "");
+    assert.equal(classes("inner"), "", "what the named unit holds isn't dimmed");
+    assert.equal(classes("other"), "lens-dim");
+    assert.equal(classes("deep"), "", "a unit inside a dimmed one isn't dimmed again");
+    assert.ok(window.document.documentElement.classList.contains("lens-focus"));
+    window.close();
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("writeAssets keeps the previews' files and drops the ones no preview names; the route serves them boxed in", () => {

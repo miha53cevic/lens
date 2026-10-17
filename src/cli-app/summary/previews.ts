@@ -84,7 +84,7 @@ const MARKS_CSS = `
 [data-lens-change=changed]{--lens-mark:#d97706}
 [data-lens-change=removed]{--lens-mark:#dc2626;opacity:.6}
 .lens-focus [data-lens-change]:not(.lens-on){outline-color:transparent}
-.lens-focus [data-lens-unit]:not(.lens-on){opacity:.45}`;
+.lens-dim{opacity:.45}`;
 
 /**
  * lens's script in the frame: outlines the unit the page names (the frame URL's #fragment), tells
@@ -92,15 +92,21 @@ const MARKS_CSS = `
  */
 const BRIDGE = `(() => {
   const post = (message) => parent.postMessage(Object.assign({ lens: true }, message), '*');
+  // Dims the units around the named one, but not what holds it or what it holds, and only the
+  // outermost of them: opacity multiplies down nested units, and would fade the named one too.
   const focus = () => {
     const unit = decodeURIComponent(location.hash.slice(1));
-    let any = false;
-    for (const el of document.querySelectorAll('[data-lens-unit]')) {
-      const on = el.getAttribute('data-lens-unit') === unit;
-      el.classList.toggle('lens-on', on);
-      any = any || on;
+    const all = [...document.querySelectorAll('[data-lens-unit]')];
+    const on = all.filter((el) => el.getAttribute('data-lens-unit') === unit);
+    for (const el of all) {
+      el.classList.toggle('lens-on', on.includes(el));
+      const near = on.some((mine) => mine.contains(el) || el.contains(mine));
+      el.classList.toggle('lens-dim', on.length > 0 && !near);
     }
-    document.documentElement.classList.toggle('lens-focus', any);
+    for (const el of all) {
+      if (el.classList.contains('lens-dim') && el.parentElement?.closest('.lens-dim')) el.classList.remove('lens-dim');
+    }
+    document.documentElement.classList.toggle('lens-focus', on.length > 0);
   };
   const size = () => post({ type: 'size', height: document.documentElement.scrollHeight });
   focus();
