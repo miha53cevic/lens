@@ -122,6 +122,8 @@ export class AppWindow implements TabHost {
       this.layout();
       this.placeChanged();
     });
+    // back in the window, Electron gives the focus to its own page, the strip: the keys belong to the tab's
+    this.win.on('focus', () => this.focusFront());
     this.win.on('move', () => this.placeChanged());
     this.win.on('maximize', () => this.savePlace());
     this.win.on('unmaximize', () => this.savePlace());
@@ -270,11 +272,21 @@ export class AppWindow implements TabHost {
         view.setVisible(view === front);
         if (view === front) view.setBounds(bounds);
       }
-      // not from under the open theme menu: its keys are its own
-      if (front && !this.menuAt && !front.webContents.isFocused() && this.win.isFocused()) front.webContents.focus();
     }
+    this.focusFront();
     // the open theme menu stays above a view that came in under it
     if (this.menuAt) this.win.contentView.addChildView(this.menu);
+  }
+
+  /** The keys go to the active tab's page, while the window has the focus. */
+  private focusFront(): void {
+    // not from under the open theme menu: its keys are its own
+    if (this.menuAt || !this.win.isFocused()) return;
+    const active = this.tabs.active;
+    const views = active && this.views.get(active.id);
+    if (!active || !views) return;
+    const front = active.showing === 'review' && views.review ? views.review : views.launcher;
+    if (!front.webContents.isFocused()) front.webContents.focus();
   }
 
   /** After anything a tab shows changed: its page, the strip, which view is in front. */
