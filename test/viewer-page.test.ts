@@ -1566,6 +1566,24 @@ test('a changed binary file is a row of the tree: its status, dimmed, and nothin
   }
 });
 
+pageTest('j / k keep the open file in sight in the tree', async () => {
+  await key('t');
+  assert.deepEqual(treeFiles(), ['orders.test.ts', 'orders.ts']);
+  const scrolled: string[] = [];
+  const original = HTMLElement.prototype.scrollIntoView;
+  HTMLElement.prototype.scrollIntoView = function (this: HTMLElement) {
+    if (this.matches('#tree .file')) scrolled.push(this.querySelector('.fname')!.textContent!);
+  };
+  try {
+    await key('k');
+    assert.deepEqual(scrolled, ['orders.test.ts']);
+    await key('j');
+    assert.deepEqual(scrolled, ['orders.test.ts', 'orders.ts']);
+  } finally {
+    HTMLElement.prototype.scrollIntoView = original;
+  }
+});
+
 pageTest('a concern marked real can be copied for the agent from the overview; none real, no block', async () => {
   await key('v');
   assert.equal($$('.ov-real').length, 0, 'nothing is confirmed yet');

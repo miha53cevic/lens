@@ -26,7 +26,7 @@ export function Nav() {
     (nav: HTMLElement | null) => {
       if (!nav) return;
       nav.scrollTop = scrollStore.getState().nav[view];
-      nav.querySelector('.sum-item.active')?.scrollIntoView({ block: 'nearest' });
+      nav.querySelector('.sum-item.active, .file.active')?.scrollIntoView({ block: 'nearest' });
     },
     [view],
   );
