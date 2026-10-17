@@ -11,6 +11,7 @@ import type { FileFoldModel, LensConfig } from "./model.ts";
 import { loadDiff, collectUnits, type LoadedDiff } from "./summary/collect.ts";
 import { summaryStamp } from "./summary/store.ts";
 import { buildSummaryView, type SummaryView } from "./summary/view.ts";
+import { buildPreviewsOn } from "./summary/settings.ts";
 
 const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "build", "out", "coverage"]);
 
@@ -92,6 +93,7 @@ export async function analyze(
     binary: diff ? diff.binary.map((b) => ({ file: shown(b.file), status: b.status })) : [],
     config,
     configSource: findConfigPath(cwd),
+    buildPreviews: buildPreviewsOn(diff ? diff.root : cwd, config),
     label: diff ? diff.label : null,
     summary,
     latestSummary,

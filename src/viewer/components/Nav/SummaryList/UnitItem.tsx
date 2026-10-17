@@ -1,10 +1,12 @@
 import clsx from 'clsx';
+import { PanelsTopLeft } from 'lucide-react';
 import { useLens } from '../../../store.ts';
 import { type Unit, unitLabel, unitViewKey } from '../../../model/signals.ts';
 import { openSummaryUnit } from '../../../actions/summary.ts';
 import { toggleUnitViewed } from '../../../actions/prefs.ts';
 import { SignalMarker } from '../../SignalMarker.tsx';
 import { ViewedBox } from '../../ViewedBox.tsx';
+import { drawnUnits } from '../../../model/drawings.ts';
 
 interface UnitItemProps {
   unit: Unit;
@@ -20,9 +22,10 @@ function keepInSight(item: HTMLElement | null) {
 
 /** One change in the summary list. */
 export function UnitItem({ unit, side, active }: UnitItemProps) {
-  const { marks, viewed } = useLens((state) => ({
+  const { marks, viewed, drawn } = useLens((state) => ({
     marks: state.concernMarks,
     viewed: state.viewedUnits.has(unitViewKey(unit)),
+    drawn: drawnUnits(state.data.summary, state.data.buildPreviews).has(unit.id),
   }));
   const summary = unit.summary;
 
@@ -35,6 +38,11 @@ export function UnitItem({ unit, side, active }: UnitItemProps) {
     >
       <ViewedBox checked={viewed} onToggle={() => toggleUnitViewed(unit)} />
       <span className='name'>{unitLabel(unit)}</span>
+      {drawn && (
+        <span className='drawn' title='Has a preview or a sequence'>
+          <PanelsTopLeft size={12} />
+        </span>
+      )}
       <SignalMarker marks={marks} unit={unit} />
       {side && <span className='side'>{side}</span>}
       {unit.stale && <span className='gist stale'>code changed — re-run</span>}

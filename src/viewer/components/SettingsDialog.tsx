@@ -85,6 +85,15 @@ export function SettingsDialog() {
             ['Hunks only', onOff(hunksOnly)],
             ['Word diff', onOff(wordDiff)],
             ['Hide tests', onOff(hideTests)],
+            [
+              'Build previews',
+              <>
+                {onOff(data.buildPreviews)}
+                {data.buildPreviews !== config.buildPreviews && (
+                  <span className='set-aside'>config: {onOff(config.buildPreviews)}</span>
+                )}
+              </>,
+            ],
           ]}
         />
         <Section

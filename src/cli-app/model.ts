@@ -104,4 +104,6 @@ export interface LensConfig {
   testFilePatterns: string[];
   /** Glob-ish path patterns never read or tokenized in diff mode (lockfiles, minified) */
   exclude: string[];
+  /** Summary mode asks the agent for previews of changed screens and sequence diagrams */
+  buildPreviews: boolean;
 }

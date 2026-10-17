@@ -221,7 +221,7 @@ nav .file.binary:disabled {
 
 .sum-item {
   display: grid;
-  grid-template-columns: 16px minmax(0, 1fr) auto auto;
+  grid-template-columns: 16px minmax(0, 1fr) auto auto auto;
   align-items: center;
   column-gap: var(--space-2);
   width: 100%;
@@ -237,6 +237,11 @@ nav .file.binary:disabled {
   font-size: var(--text-xs);
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+/* a unit some preview or sequence shows */
+.sum-item .drawn {
+  display: inline-flex;
+  color: var(--faint);
 }
 .sum-item .gist.stale {
   grid-column: 2 / -1;

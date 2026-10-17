@@ -80,7 +80,13 @@ interface Page {
 
 /** Opens the viewer on the payload, with these localStorage entries (and this cookie) already there. */
 async function open(prefs: Record<string, string> = {}, hash = '', cookie = ''): Promise<Page> {
-  GlobalRegistrator.register({ url: 'http://127.0.0.1:5326/' + hash, width: 1400, height: 900 });
+  // a preview's frame isn't loaded: there is no server, and what it shows is the agent's, not the page's
+  GlobalRegistrator.register({
+    url: 'http://127.0.0.1:5326/' + hash,
+    width: 1400,
+    height: 900,
+    settings: { disableIframePageLoading: true },
+  });
   const page: Page = { requests: [], ask: { listening: false, questions: [] }, tokensAnalysis: null };
   globalThis.fetch = (async (input: string | URL, init?: RequestInit) => {
     const url = new URL(String(input), 'http://127.0.0.1:5326');
@@ -106,6 +112,8 @@ async function open(prefs: Record<string, string> = {}, hash = '', cookie = ''):
         return reply({ ...(lightTokens as object), analysis: page.tokensAnalysis ?? payload.analysis });
       case 'POST /api/shutdown':
         return reply({ ok: true });
+      case 'POST /api/settings':
+        return reply(body);
     }
     return new Response('{}', { status: 404 });
   }) as typeof fetch;
@@ -819,6 +827,114 @@ pageTest('on the Summary tab the pill starts the review, and marks each change r
   assert.equal($('.sum-item.active .name').textContent, 'legacyTotal');
   assert.equal($('#nav .progress-count').textContent, '1 of 2');
   assert.equal($('.sum-item:not(.active) .viewed-box').getAttribute('aria-checked'), 'true');
+});
+
+test("the agent's previews and sequences: all on the overview, a unit's own on its page, each step opening its unit", async () => {
+  const summary = payload.summary!;
+  const id = (name: string) => summary.units.find((unit) => unit.name === name)!.id;
+  const find = id('findOrders'),
+    legacy = id('legacyTotal');
+  summary.previews = [
+    { title: 'Orders page', units: [find], now: '/api/preview/0123456789abcdef.html', before: null, stale: false },
+  ];
+  summary.sequences = [
+    {
+      title: 'List orders',
+      lanes: ['route', 'repo'],
+      units: [find, legacy],
+      stale: true,
+      steps: [
+        {
+          from: 'route',
+          to: 'repo',
+          label: 'findOrders(user)',
+          was: 'findOrders(all)',
+          change: 'changed',
+          unit: find,
+          line: 'N10',
+        },
+        { from: 'repo', to: 'route', label: 'legacyTotal()', change: 'removed', unit: legacy, line: 'O17' },
+        { from: 'repo', to: 'repo', label: 'skip deleted', change: 'added', unit: find, line: 'N10' },
+        { from: 'repo', to: 'route', label: 'orders' },
+      ],
+    },
+  ];
+  const steps = () => $$('.sequence-card .seq-step text').map((label) => label.textContent);
+  try {
+    const page = await open();
+    await key('v');
+    // the overview: every drawing, and the list marks the units they show
+    assert.equal($$('#drawings .preview-card').length, 1);
+    const frame = $('.preview-card iframe') as HTMLIFrameElement;
+    assert.equal(frame.getAttribute('src'), '/api/preview/0123456789abcdef.html');
+    assert.equal(frame.getAttribute('sandbox'), 'allow-scripts', 'scripts, but never its own origin');
+    assert.equal($$('.preview-card .seg').length, 0, 'a new screen: no Before');
+    assert.deepEqual(steps(), ['findOrders(user)', 'skip deleted', 'orders'], 'now: every step but the removed one');
+    assert.equal($('.sequence-card .drawing-stale').textContent, 'code changed since');
+    assert.deepEqual(
+      $$('.sequence-card .step-kind').map((kind) => kind.textContent),
+      ['added', 'changed', 'removed'],
+    );
+    assert.equal($$('.sum-item .drawn').length, 2);
+
+    await click($('.sequence-card [data-value="before"]'));
+    assert.deepEqual(
+      steps(),
+      ['findOrders(all)', 'legacyTotal()', 'orders'],
+      'before: as it was, without the added one',
+    );
+    assert.equal($$('.seq-step.opens').length, 2, 'the plain step names no unit: it opens nothing');
+
+    // a step opens its unit; that unit's page shows the drawings that show it
+    fireEvent.click($('.seq-step.removed'));
+    await settle();
+    assert.equal($('#summary-pane').dataset.unit, legacy);
+    assert.equal($$('#drawings .preview-card').length, 0, "the preview doesn't show legacyTotal");
+    assert.equal($$('#drawings .sequence-card').length, 1);
+
+    await key('k');
+    assert.equal($('#summary-pane').dataset.unit, find);
+    const own = $('.preview-card iframe') as HTMLIFrameElement;
+    assert.equal(
+      own.getAttribute('src'),
+      '/api/preview/0123456789abcdef.html#' + encodeURIComponent(find),
+      'its elements outlined',
+    );
+    assert.ok($('.preview-card .drawing-unit.on'), "the page's own unit, picked");
+
+    // the frame tells the page its height and a click on a unit it shows, and nothing else
+    // (its frame isn't loaded here: a stand-in window is the one it posts from)
+    const frameWindow = new EventTarget() as unknown as Window;
+    const post = async (data: unknown, source: Window = frameWindow) => {
+      Object.defineProperty($('iframe.preview-frame'), 'contentWindow', { value: frameWindow, configurable: true });
+      window.dispatchEvent(new MessageEvent('message', { data, source }));
+      await settle();
+    };
+    await post({ lens: true, type: 'size', height: 5000 });
+    assert.equal(own.style.height, '900px', 'as tall as its screen, up to a limit');
+    await post({ lens: false, type: 'size', height: 200 });
+    await post({ lens: true, type: 'size', height: 200 }, new EventTarget() as unknown as Window);
+    assert.equal(own.style.height, '900px', 'another window, or not lens: not heard');
+    await key('g'); // the overview
+    await post({ lens: true, type: 'open-unit', unit: legacy });
+    assert.equal($('#summary-pane').dataset.unit, undefined, 'not one of its units: nothing opens');
+    await post({ lens: true, type: 'open-unit', unit: find });
+    assert.equal($('#summary-pane').dataset.unit, find);
+
+    // the switch: off hides them all, and the server keeps it for the next summary
+    await click($('#build-previews'));
+    assert.deepEqual(
+      page.requests.filter((request) => request.path === '/api/settings'),
+      [{ method: 'POST', path: '/api/settings', body: { buildPreviews: false } }],
+    );
+    assert.equal(document.querySelector('#drawings'), null);
+    assert.equal($$('.sum-item .drawn').length, 0);
+    assert.equal($('#build-previews').getAttribute('aria-checked'), 'false');
+  } finally {
+    summary.previews = [];
+    summary.sequences = [];
+    await close();
+  }
 });
 
 test('a flow is its name and why: the priority only orders it, and a P3 flow starts folded', async () => {

@@ -4,7 +4,7 @@ import { relPath } from "../paths.ts";
 import { prepareCommand } from "./bundle.ts";
 import {
   HOUSEKEEPING, isHousekeeping, readStored, reviewKey, summaryArgs, summaryStamp, unitSetHash,
-  type ChangeRow, type Concern, type Flow,
+  type ChangeRow, type Concern, type Flow, type SequenceStep, type StoredSummary,
 } from "./store.ts";
 import { removalAnchors, type Unit } from "./units.ts";
 import type { RemovedBlock } from "../model.ts";
@@ -43,6 +43,27 @@ export interface ViewUnit extends Omit<Unit, "removals"> {
   renamedFrom: { id: string; removals: RemovedBlock[] } | null;
 }
 
+/** A screen the change affects, as the agent drew it: served by /api/preview, shown in a sandboxed frame */
+export interface PreviewView {
+  title: string;
+  /** The units it shows changed, that are in the diff now */
+  units: string[];
+  /** The frame's URL for the screen now, and before the change (null: a new screen) */
+  now: string;
+  before: string | null;
+  /** Some of its units changed since it was drawn */
+  stale: boolean;
+}
+
+/** A sequence diagram: what happens at run time, before and now */
+export interface SequenceView {
+  title: string;
+  lanes: string[];
+  steps: SequenceStep[];
+  units: string[];
+  stale: boolean;
+}
+
 export interface SummaryView {
   key: string;
   /** What to run in the agent, e.g. "/lens-review --staged" */
@@ -55,6 +76,8 @@ export interface SummaryView {
   flows: Flow[];
   /** stale: written for other code — the diff changed since */
   overview: { what: string; stale: boolean } | null;
+  previews: PreviewView[];
+  sequences: SequenceView[];
 }
 
 export function buildSummaryView(opts: {
@@ -108,7 +131,38 @@ export function buildSummaryView(opts: {
     overview: stored?.overview
       ? { what: stored.overview.what, stale: stored.overview.hash !== unitSetHash(opts.units) }
       : null,
+    ...drawings(stored, opts.units),
   };
+}
+
+/** The URL a preview's file is served at (server.ts) */
+export function previewUrl(asset: string): string {
+  return "/api/preview/" + asset;
+}
+
+/**
+ * The stored previews and sequences over the diff as it is now: one whose units have all changed
+ * since it was drawn is gone, one with some changed is stale.
+ */
+function drawings(stored: StoredSummary | null, units: Unit[]): Pick<SummaryView, "previews" | "sequences"> {
+  const hashes = new Map(units.map((u) => [u.id, u.hash]));
+  const fit = (drawn: Record<string, string>) => {
+    const ids = Object.keys(drawn);
+    const current = ids.filter((id) => hashes.get(id) === drawn[id]);
+    return current.length === 0 ? null : { units: ids.filter((id) => hashes.has(id)), stale: current.length < ids.length };
+  };
+  const previews: PreviewView[] = [];
+  for (const preview of stored?.previews ?? []) {
+    const shown = fit(preview.units);
+    if (!shown) continue;
+    previews.push({ title: preview.title, ...shown, now: previewUrl(preview.now), before: preview.before ? previewUrl(preview.before) : null });
+  }
+  const sequences: SequenceView[] = [];
+  for (const sequence of stored?.sequences ?? []) {
+    const shown = fit(sequence.units);
+    if (shown) sequences.push({ title: sequence.title, lanes: sequence.lanes, steps: sequence.steps, ...shown });
+  }
+  return { previews, sequences };
 }
 
 /**

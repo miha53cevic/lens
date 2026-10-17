@@ -8,6 +8,7 @@ import { setSignalFilter } from '../../../actions/summary.ts';
 import { plural } from '../../../shared.ts';
 import { AgentOverview } from './AgentOverview.tsx';
 import { RealConcerns } from './RealConcerns.tsx';
+import { Drawings } from '../Drawings/index.tsx';
 
 const SHOWN_SIGNALS: SignalId[] = ['bug', 'risk', 'question', 'breaks'];
 
@@ -48,6 +49,7 @@ export function Overview() {
       )}
       <RealConcerns />
       <AgentOverview summary={summary} anySummarized={list.summarized > 0} checking={checking} />
+      <Drawings unitId={null} />
     </div>
   );
 }

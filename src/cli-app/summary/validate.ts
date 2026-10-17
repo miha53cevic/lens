@@ -1,9 +1,12 @@
-import { normalize, sep } from "node:path";
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { join, normalize, sep } from "node:path";
 import { resolveLineRef } from "../paths.ts";
 import { LIMITS } from "./bundle.ts";
+import { assetName, CHANGE_MARKS, PREVIEW_MAX_BYTES, previewProblems } from "./previews.ts";
 import {
-  HOUSEKEEPING, isHousekeeping, unitSetHash, type Break, type Bundle, type BundleUnit, type ChangeRow, type Concern, type ConcernKind, type Flow,
-  type StoredSummary, type UnitSummary,
+  HOUSEKEEPING, isHousekeeping, PREVIEWS_DIR, unitSetHash, type Break, type Bundle, type BundleUnit, type ChangeRow, type Concern,
+  type ConcernKind, type Flow, type SequenceStep, type StepChange, type StoredPreview, type StoredSequence, type StoredSummary,
+  type UnitSummary,
 } from "./store.ts";
 
 // `lens summary submit`: every claim in the agent's result must point at real
@@ -15,6 +18,12 @@ export interface SubmitOutcome {
   accepted: string[];
   acceptedFlows: number;
   acceptedOverview: boolean;
+  acceptedPreviews: number;
+  acceptedSequences: number;
+  /** Previews that look like parts of one screen, as advice the agent can act on (never enforced) */
+  previewAdvice: string[];
+  /** The accepted previews' files, by the asset name the stored previews give them: for writeAssets */
+  assets: Map<string, string>;
   dropped: string[];
   coverage: Coverage;
 }
@@ -38,6 +47,9 @@ const MIN_STORY_SIZE = 3;
 
 const CONCERN_KINDS: ConcernKind[] = ["bug", "risk", "question"];
 
+/** A preview file the result names: in the bundle's previews/ folder */
+const PREVIEW_FILE = new RegExp(`^${PREVIEWS_DIR}/[\\w.-]+\\.html$`);
+
 /** Names that can't be checked against a caller line (call statements, leftovers, default exports). */
 function callerName(unit: BundleUnit): string | null {
   if (["call", "statement", "module", "file"].includes(unit.kind) || unit.name === "default") return null;
@@ -46,7 +58,7 @@ function callerName(unit: BundleUnit): string | null {
 }
 
 /** The one shape check every submit needs: an object with a "units" object. */
-export function hasUnits(result: unknown): result is { units: Record<string, unknown>; flows?: unknown; overview?: unknown } {
+export function hasUnits(result: unknown): result is { units: Record<string, unknown>; flows?: unknown; overview?: unknown; previews?: unknown; sequences?: unknown } {
   if (typeof result !== "object" || result === null) return false;
   const units = (result as { units?: unknown }).units;
   return typeof units === "object" && units !== null && !Array.isArray(units);
@@ -68,7 +80,7 @@ export function validateResult(
 
   if (!hasUnits(result)) {
     return {
-      stored, accepted, acceptedFlows: 0, acceptedOverview: false,
+      stored, accepted, acceptedFlows: 0, acceptedOverview: false, acceptedPreviews: 0, acceptedSequences: 0, previewAdvice: [], assets: new Map(),
       dropped: ['result must be an object with a "units" object'], coverage: coverageOf(bundle, stored),
     };
   }
@@ -116,8 +128,175 @@ export function validateResult(
       acceptedOverview = true;
     }
   }
+  // previews and sequences: like flows, a whole-diff pass's first valid ones replace the stored ones,
+  // and later submits replace by title
+  const assets = new Map<string, string>();
+  const dir = join(root, ".lens", "summary", bundle.key);
+  const previews = listOf(raw.previews, "previews", dropped)
+    .map((p, i) => checkPreview(p, i, byId, dir, assets, dropped))
+    .filter((p): p is StoredPreview => p !== null);
+  const sequences = listOf(raw.sequences, "sequences", dropped)
+    .map((q, i) => checkSequence(q, i, byId, dropped))
+    .filter((q): q is StoredSequence => q !== null);
+  if (bundle.wholeDiff && stored.drawingsPass !== bundle.createdAt && previews.length + sequences.length > 0) {
+    stored.previews = [];
+    stored.sequences = [];
+    stored.drawingsPass = bundle.createdAt;
+  }
+  if (previews.length > 0) stored.previews = byTitle(stored.previews ?? [], previews);
+  // a pass that asked for drawings, answered: none is an answer too, so the final pass isn't asked again
+  if (bundle.wholeDiff && bundle.drawings) stored.drawn = unitSetHash(bundle.units);
+  if (sequences.length > 0) stored.sequences = byTitle(stored.sequences ?? [], sequences);
   stored.updatedAt = new Date().toISOString();
-  return { stored, accepted, acceptedFlows, acceptedOverview, dropped, coverage: coverageOf(bundle, stored) };
+  return {
+    stored, accepted, acceptedFlows, acceptedOverview,
+    acceptedPreviews: new Set(previews.map((p) => p.title)).size,
+    acceptedSequences: new Set(sequences.map((q) => q.title)).size,
+    previewAdvice: previewAdvice(stored),
+    assets, dropped, coverage: coverageOf(bundle, stored),
+  };
+}
+
+/**
+ * Previews of one component each, whose components tell the same story (flow): most likely one
+ * screen drawn piece by piece. Advice only: two components can sit on two screens.
+ */
+function previewAdvice(stored: StoredSummary): string[] {
+  const flowOf = new Map(stored.flows.flatMap((flow) => Object.keys(flow.units).map((id) => [id, flow.title] as const)));
+  const byFlow = new Map<string, string[]>();
+  for (const preview of stored.previews ?? []) {
+    const ids = Object.keys(preview.units);
+    const flow = ids.length === 1 ? flowOf.get(ids[0]) : undefined;
+    if (flow !== undefined) byFlow.set(flow, [...(byFlow.get(flow) ?? []), preview.title]);
+  }
+  return [...byFlow]
+    .filter(([, titles]) => titles.length > 1)
+    .map(([flow, titles]) => `${titles.map((t) => `"${t}"`).join(", ")} each show one unit of "${flow}": if they're on one screen, ` +
+      `draw it once with all their units and drop the others`);
+}
+
+/** The stored entries with these in their place: one of the same title is replaced, a title twice is the last one. */
+function byTitle<T extends { title: string }>(stored: T[], added: T[]): T[] {
+  const titles = new Set(added.map((entry) => entry.title));
+  return [...stored.filter((entry) => !titles.has(entry.title)), ...new Map(added.map((entry) => [entry.title, entry])).values()];
+}
+
+/** An optional list field of the result: absent is none, anything but an array is reported. */
+function listOf(value: unknown, field: string, dropped: string[]): unknown[] {
+  if (value === undefined || value === null) return [];
+  if (Array.isArray(value)) return value;
+  dropped.push(`${field}: must be an array`);
+  return [];
+}
+
+/** unit ids → the hashes they had when this was drawn; null (reported) when one isn't a unit of the diff */
+function hashesOf(ids: unknown, byId: Map<string, BundleUnit>, where: string, dropped: string[]): Record<string, string> | null {
+  if (!Array.isArray(ids) || ids.length === 0) { dropped.push(`${where}: units must list the unit ids it shows`); return null; }
+  const out: Record<string, string> = {};
+  for (const id of ids) {
+    const unit = typeof id === "string" ? byId.get(id) : undefined;
+    if (!unit) { dropped.push(`${where}: unknown unit ${JSON.stringify(id)} (copy ids from the tasks file)`); return null; }
+    out[unit.id] = unit.hash;
+  }
+  return out;
+}
+
+function checkPreview(
+  p: unknown, i: number, byId: Map<string, BundleUnit>, dir: string, assets: Map<string, string>, dropped: string[],
+): StoredPreview | null {
+  const r = (p ?? {}) as Record<string, unknown>;
+  const title = text(r.title, LIMITS.previewTitle);
+  const where = `previews[${i}]${title ? ` "${title}"` : ""}`;
+  if (!title) { dropped.push(`${where}: title ${describe(r.title, LIMITS.previewTitle)}`); return null; }
+  const units = hashesOf(r.units, byId, where, dropped);
+  if (!units) return null;
+  const file = (field: "now" | "before"): string | null | undefined => {
+    const value = r[field];
+    if (field === "before" && (value === undefined || value === null)) return undefined;
+    if (typeof value !== "string" || !PREVIEW_FILE.test(value)) {
+      dropped.push(`${where}: ${field} must be a file in the bundle's ${PREVIEWS_DIR}/ folder, like "${PREVIEWS_DIR}/checkout.html"`);
+      return null;
+    }
+    const path = join(dir, value);
+    if (!existsSync(path) || !statSync(path).isFile()) { dropped.push(`${where}: ${field} "${value}" not found`); return null; }
+    if (statSync(path).size > PREVIEW_MAX_BYTES) {
+      dropped.push(`${where}: ${field} "${value}" is over ${PREVIEW_MAX_BYTES / 1000} KB — keep only the CSS it uses`);
+      return null;
+    }
+    const html = readFileSync(path, "utf8");
+    const problems = previewProblems(html, new Set(Object.keys(units)));
+    if (problems.length > 0) { dropped.push(`${where}: ${field} "${value}" ${problems.join("; ")}`); return null; }
+    const name = assetName(html);
+    assets.set(name, html);
+    return name;
+  };
+  const now = file("now");
+  const before = file("before");
+  if (!now || before === null) return null;
+  return { title, units, now, ...(before ? { before } : {}) };
+}
+
+function checkSequence(q: unknown, i: number, byId: Map<string, BundleUnit>, dropped: string[]): StoredSequence | null {
+  const r = (q ?? {}) as Record<string, unknown>;
+  const title = text(r.title, LIMITS.previewTitle);
+  const where = `sequences[${i}]${title ? ` "${title}"` : ""}`;
+  if (!title) { dropped.push(`${where}: title ${describe(r.title, LIMITS.previewTitle)}`); return null; }
+  const lanes = Array.isArray(r.lanes) ? r.lanes.map((lane) => text(lane, LIMITS.lane)) : [];
+  if (lanes.length < 2 || lanes.length > LIMITS.lanes || lanes.some((lane) => lane === null) || new Set(lanes).size !== lanes.length) {
+    dropped.push(`${where}: lanes must be 2–${LIMITS.lanes} different names of ≤${LIMITS.lane} chars`);
+    return null;
+  }
+  const laneSet = new Set(lanes as string[]);
+  const rawSteps = Array.isArray(r.steps) ? r.steps : [];
+  if (rawSteps.length === 0 || rawSteps.length > LIMITS.steps) {
+    dropped.push(`${where}: steps must hold 1–${LIMITS.steps} steps`);
+    return null;
+  }
+  const steps: SequenceStep[] = [];
+  const units: Record<string, string> = {};
+  for (const [stepIndex, rawStep] of rawSteps.entries()) {
+    const at = `${where} steps[${stepIndex}]`;
+    const s = (rawStep ?? {}) as Record<string, unknown>;
+    const from = typeof s.from === "string" ? s.from.trim() : "";
+    const to = typeof s.to === "string" ? s.to.trim() : "";
+    if (!laneSet.has(from) || !laneSet.has(to)) { dropped.push(`${at}: from and to must be lanes of the sequence — diagram dropped`); return null; }
+    const label = text(s.label, LIMITS.stepLabel);
+    if (!label) { dropped.push(`${at}: label ${describe(s.label, LIMITS.stepLabel)} — diagram dropped`); return null; }
+    const step: SequenceStep = { from, to, label };
+    if (s.change !== undefined && s.change !== null) {
+      if (!(CHANGE_MARKS as readonly unknown[]).includes(s.change)) {
+        dropped.push(`${at}: change must be one of ${CHANGE_MARKS.join(", ")} — diagram dropped`);
+        return null;
+      }
+      step.change = s.change as StepChange;
+    }
+    if (s.was !== undefined && s.was !== null) {
+      const was = text(s.was, LIMITS.stepLabel);
+      if (step.change !== "changed" || !was) { dropped.push(`${at}: was is what a changed step said before (≤${LIMITS.stepLabel}) — diagram dropped`); return null; }
+      step.was = was;
+    }
+    if (s.unit !== undefined && s.unit !== null) {
+      const unit = typeof s.unit === "string" ? byId.get(s.unit) : undefined;
+      if (!unit) { dropped.push(`${at}: unknown unit ${JSON.stringify(s.unit)} — diagram dropped`); return null; }
+      const line = typeof s.line === "string" ? s.line.trim().toUpperCase() : "";
+      if (!isShownLine(unit, line)) {
+        dropped.push(`${at}: line "${s.line}" is not a line of ${unit.id} (N… for a shown line, O… for a removed one) — diagram dropped`);
+        return null;
+      }
+      step.unit = unit.id;
+      step.line = line;
+      units[unit.id] = unit.hash;
+    } else if (step.change) {
+      dropped.push(`${at}: a ${step.change} step needs the unit and line that make it — diagram dropped`);
+      return null;
+    }
+    steps.push(step);
+  }
+  if (!steps.some((step) => step.change)) {
+    dropped.push(`${where}: no step is added, changed or removed — a sequence shows what the diff changes`);
+    return null;
+  }
+  return { title, lanes: lanes as string[], steps, units };
 }
 
 function coverageOf(bundle: Bundle, stored: StoredSummary): Coverage {

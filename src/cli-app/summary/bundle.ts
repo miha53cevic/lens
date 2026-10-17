@@ -1,9 +1,10 @@
-import { writeFileSync, readdirSync, unlinkSync } from "node:fs";
+import { writeFileSync, readdirSync, unlinkSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { relPath } from "../paths.ts";
 import { citeableLabels, removalAnchors, type Unit } from "./units.ts";
+import { PREVIEW_MAX_BYTES } from "./previews.ts";
 import {
-  bundleDir, HOUSEKEEPING, isHousekeeping, readStored, summaryArgs, unitSetHash,
+  bundleDir, HOUSEKEEPING, isHousekeeping, PREVIEWS_DIR, readStored, summaryArgs, unitSetHash,
   type Bundle, type BundleUnit, type StoredSummary,
 } from "./store.ts";
 
@@ -13,7 +14,11 @@ import {
 export const LIMITS = {
   headline: 80, gist: 40, cell: 60, breakSummary: 80, concern: 300,
   flowTitle: 40, flowPath: 60, layer: 12, why: 100, overview: 2000,
+  previewTitle: 40, lane: 20, lanes: 6, stepLabel: 40, steps: 16,
 };
+
+/** The biggest preview file, as the instructions say it */
+const PREVIEW_KB = PREVIEW_MAX_BYTES / 1000;
 
 /** Rendered lines per tasks file before splitting into tasks-2.md, … */
 const TASK_FILE_BUDGET = 1500;
@@ -29,6 +34,16 @@ export interface PrepareInput {
   units: Unit[];
   /** New-side sources by repo-relative path */
   sources: Map<string, string>;
+  /** Build previews is on: the whole-diff pass asks for previews of changed screens and sequences */
+  drawings?: boolean;
+}
+
+/** Files that draw UI without being a component or a hook lens can name */
+const UI_FILE = /\.(css|scss|sass|less|html|vue|svelte|astro)$/i;
+
+/** A unit that changes what a screen looks like: a component, a hook, or a style or markup file. */
+export function isUiUnit(unit: { kind: string; file: string }): boolean {
+  return unit.kind === "component" || unit.kind === "hook" || UI_FILE.test(unit.file);
 }
 
 export interface PrepareResult {
@@ -62,12 +77,15 @@ export function prepareBundle(input: PrepareInput): PrepareResult {
     args: input.args,
     createdAt: new Date().toISOString(),
     units: bundleUnits,
+    ...(input.drawings ? { drawings: true } : {}),
   };
 
-  // Stale task files from a bigger earlier diff must not linger.
+  // Stale task files from a bigger earlier diff must not linger, nor an earlier pass's preview files.
   for (const f of readdirSync(dir)) {
     if (/^tasks(-\d+)?\.md$/.test(f) || f === "result.json") unlinkSync(join(dir, f));
   }
+  rmSync(join(dir, PREVIEWS_DIR), { recursive: true, force: true });
+  if (input.drawings) mkdirSync(join(dir, PREVIEWS_DIR));
 
   const todo = input.units.filter((_, i) => !bundleUnits[i].done);
   const header = contextHeader(input);
@@ -85,8 +103,11 @@ export function prepareBundle(input: PrepareInput): PrepareResult {
   // the final pass — flows and the overview, from every unit's stored summary.
   // A diff split into parts gets its flows here, where one context sees all units.
   // the whole-diff work is done once the overview fits this diff and flows exist (a flow needs 2+ units)
-  const wholeDone = stored?.overview?.hash === unitSetHash(bundleUnits) &&
+  const storyDone = stored?.overview?.hash === unitSetHash(bundleUnits) &&
     (stored.flows.length > 0 || bundleUnits.length < 2);
+  // with Build previews on, the whole-diff pass also draws: done once a pass that asked was submitted for this diff
+  const drawingsDone = !input.drawings || stored?.drawn === unitSetHash(bundleUnits);
+  const wholeDone = storyDone && drawingsDone;
   const finalPass = todo.length === 0 && stored !== null && !wholeDone;
   if (finalPass) {
     const name = join(dir, "tasks.md");
@@ -107,7 +128,7 @@ export function prepareBundle(input: PrepareInput): PrepareResult {
   writeFileSync(join(dir, "schema.json"), JSON.stringify(RESULT_SCHEMA, null, 2) + "\n");
   const doneCount = bundleUnits.filter((u) => u.done).length;
   const instructions = finalPass
-    ? renderFinalPassInstructions(input, dir, taskFiles[0])
+    ? renderFinalPassInstructions(input, dir, taskFiles[0], storyDone)
     : renderInstructions(input, dir, taskFiles, todo.length, doneCount, wholeDone);
   writeFileSync(join(dir, "instructions.md"), instructions);
   return { dir, taskFiles, todo: todo.length, done: doneCount, instructions };
@@ -289,7 +310,7 @@ ${FLOWS_RULE}
 
 ## Overview
 ${OVERVIEW_RULE}
-`}
+${drawingRules(input, dir)}`}
 Keep everything terse: the viewer shows it in a small table next to the code.
 `;
 }
@@ -321,25 +342,80 @@ line count: a sentence or two for one focused change; a short paragraph per dist
 change when it does several things (blank line between paragraphs). Name behavior,
 not files; don't repeat unit headlines or walk through the diff file by file.`;
 
-function renderFinalPassInstructions(input: PrepareInput, dir: string, tasks: string): string {
+function renderFinalPassInstructions(input: PrepareInput, dir: string, tasks: string, storyDone: boolean): string {
   const rel = (p: string) => relPath(input.cwd, p);
+  const asked = [...(storyDone ? [] : ['"flows": [ … ]', '"overview": {"what": "…"}']), ...drawingFields(input)];
+  const what = storyDone ? "the drawings of the whole diff (its flows and overview are written)" : "the flows and\nthe overview of the whole diff";
   return `# lens summary — instructions for the agent
 
-Every unit of this diff already has a summary. This is the final pass: the flows and
-the overview of the whole diff. Tasks: \`${rel(tasks)}\` lists each unit with its headline,
+Every unit of this diff already has a summary. This is the final pass: ${what}. Tasks: \`${rel(tasks)}\` lists each unit with its headline,
 gist, and any concerns, by file.
 
 1. Read the task file. Look at the diff itself if the headlines aren't enough.
 2. Write \`${rel(join(dir, "result.json"))}\` as
-   \`{"units": {}, "flows": [ … ], "overview": {"what": "…"}}\`, following \`${rel(join(dir, "schema.json"))}\`.
+   \`{"units": {}, ${asked.join(", ")}}\`, following \`${rel(join(dir, "schema.json"))}\`.
 3. Run \`lens summary submit ${rel(dir)}\`. It names the units your flows leave out and the
    flows that look split up: fix those and submit again.
-
+${storyDone ? "" : `
 ## Flows
 ${FLOWS_RULE}
 
 ## Overview
 ${OVERVIEW_RULE}
+`}${drawingRules(input, dir)}`;
+}
+
+/** The result fields the drawings add, for the final pass's one-line shape */
+function drawingFields(input: PrepareInput): string[] {
+  if (!input.drawings) return [];
+  return [...(input.units.some(isUiUnit) ? ['"previews": [ … ]'] : []), '"sequences": [ … ]'];
+}
+
+/** Previews of changed screens (a diff with UI units) and sequence diagrams, while Build previews is on. */
+function drawingRules(input: PrepareInput, dir: string): string {
+  if (!input.drawings) return "";
+  const ui = input.units.filter(isUiUnit);
+  const folder = relPath(input.cwd, join(dir, PREVIEWS_DIR));
+  const names = ui.slice(0, 8).map((u) => `\`${u.id}\``).join(", ") + (ui.length > 8 ? ", …" : "");
+  const previews = ui.length === 0 ? "" : `
+## Previews
+This diff changes UI (${names}). Draw the screens it changes, so the reviewer sees what the
+change looks like without running the app.
+- One preview per screen the diff visibly changes (a page, a dialog, a panel): 1–4 for most
+  diffs, none when nothing visible changes. \`units\` lists every unit the screen shows changed.
+- A preview is a screen, never a component: components that render on the same screen share
+  its one preview, each marked where it sits. A diff that changes a checkout page's code
+  field, its summary line and its total is one preview, "Checkout", with all three units.
+  Only a component that shows on two screens the reviewer would look at apart gets two.
+- Find the project's design system first: its theme or Tailwind config, CSS variables and
+  design tokens, the component library, the global styles; then the components these units
+  render. Draw with those colors, type, spacing and radii, so it looks like the app.
+- A skeleton: what the diff doesn't touch is plain grey blocks the size of what's there; only
+  the changed parts are drawn for real, with realistic content.
+- Mark each changed element with \`data-lens-unit="<unit id>"\` and \`data-lens-change="added"\`
+  (or "changed", "removed"). The viewer outlines them and opens the unit on a click.
+- One self-contained HTML file per state, in \`${folder}/\`: inline \`<style>\` only, ≤${PREVIEW_KB} KB.
+  No scripts, \`<link>\`, forms or event handlers, and nothing from outside: system fonts, and an
+  image is a grey box or a data: URL. Lay it out fluid for a frame about 800px wide.
+- \`before\`: a second file for the screen before the change, only when something visible was
+  removed or moved; mark what goes with data-lens-change="removed". A new screen has none.
+- {title (≤${LIMITS.previewTitle}), units: ["<unit id>", …], now: "${PREVIEWS_DIR}/<name>.html", before: "${PREVIEWS_DIR}/<name>.before.html"}.
+`;
+  return `${previews}
+## Sequences
+Draw what now happens at run time where the diff changes it: a request, a command, a job or an
+event walking through the code.
+- One per story whose behavior changes across 2+ parts (a route and a service, a service and
+  the database, a queue, an outside API). None for a change inside one function, or one with
+  no run-time effect.
+- \`lanes\`: the parts, 2–${LIMITS.lanes}, left to right in the order they're first called (≤${LIMITS.lane} chars each:
+  "client", "orders route", "db").
+- \`steps\`: the calls, returns and messages in order, 1–${LIMITS.steps}: {from, to, label (≤${LIMITS.stepLabel}), change, was,
+  unit, line}. Leave \`change\` out for a step the diff keeps; "added", "removed", or "changed"
+  with \`was\`, what it said before. A step with a change names the \`unit\` that makes it and a
+  \`line\` of that unit (N… or O…, as in the tasks); any step may.
+- The reader switches Before (every step but the added ones) and Now (every step but the
+  removed ones), and opens a step's unit with a click.
 `;
 }
 
@@ -408,6 +484,50 @@ export const RESULT_SCHEMA = {
       type: "object",
       required: ["what"],
       properties: { what: { type: "string", maxLength: LIMITS.overview } },
+    },
+    previews: {
+      type: "array",
+      description: "only while the instructions ask for previews",
+      items: {
+        type: "object",
+        required: ["title", "units", "now"],
+        properties: {
+          title: { type: "string", maxLength: LIMITS.previewTitle },
+          units: { type: "array", items: { type: "string" }, minItems: 1 },
+          now: { type: "string", pattern: `^${PREVIEWS_DIR}/[\\w.-]+\\.html$` },
+          before: { type: "string", pattern: `^${PREVIEWS_DIR}/[\\w.-]+\\.html$` },
+        },
+      },
+    },
+    sequences: {
+      type: "array",
+      description: "only while the instructions ask for sequences",
+      items: {
+        type: "object",
+        required: ["title", "lanes", "steps"],
+        properties: {
+          title: { type: "string", maxLength: LIMITS.previewTitle },
+          lanes: { type: "array", items: { type: "string", maxLength: LIMITS.lane }, minItems: 2, maxItems: LIMITS.lanes },
+          steps: {
+            type: "array",
+            minItems: 1,
+            maxItems: LIMITS.steps,
+            items: {
+              type: "object",
+              required: ["from", "to", "label"],
+              properties: {
+                from: { type: "string" },
+                to: { type: "string" },
+                label: { type: "string", maxLength: LIMITS.stepLabel },
+                change: { enum: ["added", "changed", "removed"] },
+                was: { type: "string", maxLength: LIMITS.stepLabel },
+                unit: { type: "string" },
+                line: { type: "string", pattern: "^[NO][0-9]+$" },
+              },
+            },
+          },
+        },
+      },
     },
     flows: {
       type: "array",

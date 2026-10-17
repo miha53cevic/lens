@@ -12,6 +12,8 @@ import { validateResult } from "../src/cli-app/summary/validate.ts";
 import { LIMITS, prepareBundle, renderUnit } from "../src/cli-app/summary/bundle.ts";
 import { loadDiff, collectUnits, commitLog } from "../src/cli-app/summary/collect.ts";
 import { buildSummaryView } from "../src/cli-app/summary/view.ts";
+import { previewProblems, previewResponse, writeAssets } from "../src/cli-app/summary/previews.ts";
+import { buildPreviewsOn, readSettings, writeSettings } from "../src/cli-app/summary/settings.ts";
 import { DEFAULT_CONFIG } from "../src/cli-app/config.ts";
 
 /** Builds a unit input from two versions of a file, via a real unified=0 diff. */
@@ -696,6 +698,274 @@ test("prepare → submit → view round trip, with re-prepare skipping done unit
     assert.match(finalTasks, /`src\/repo.ts#router.get\("\/orders"\)`.*\n  names: `src\/repo.ts#findOrders`/);
     assert.match(finalTasks, /Lens files these under "Housekeeping" itself[^\n]*\n- `src\/repo.ts#\(module\)`/);
     assert.doesNotMatch(finalTasks, /^- `src\/repo.ts#\(module\)` \(/m, "not listed with the rest");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// ---- Build previews: the agent's previews of changed screens, and its sequence diagrams ----
+
+/** A validate fixture with the agent's preview files in the bundle's previews/ folder. */
+function previewRoot(files: Record<string, string>): string {
+  const root = fixtureRoot();
+  const dir = join(root, ".lens/summary/diff-staged/previews");
+  mkdirSync(dir, { recursive: true });
+  for (const [name, html] of Object.entries(files)) writeFileSync(join(dir, name), html);
+  return root;
+}
+
+const SCREEN = `<style>.panel{padding:12px;background:#fff}.lens-skel{background:#eee;height:40px}</style>
+<div class="lens-skel"></div>
+<div class="panel" data-lens-unit="src/repo.ts#findOrders" data-lens-change="changed">Orders, 50 a page</div>`;
+
+test("validate: a preview is checked and kept by its content's hash; a bad one says why", () => {
+  const root = previewRoot({
+    "orders.html": SCREEN,
+    "orders.before.html": SCREEN.replace("50 a page", "all of them"),
+    "script.html": SCREEN + "<script>alert(1)</script>",
+    "remote.html": SCREEN.replace("background:#fff", "background:url(https://example.com/x.png)"),
+    "stranger.html": SCREEN.replace("#findOrders", "#toOrder"),
+    "handler.html": SCREEN.replace('class="panel"', 'class="panel" onclick="go()"'),
+  });
+  try {
+    const entry = (extra: object) => ({ title: "Orders page", units: ["src/repo.ts#findOrders"], now: "previews/orders.html", ...extra });
+    const out = validateResult(BUNDLE, {
+      units: {},
+      previews: [
+        entry({ before: "previews/orders.before.html" }),
+        entry({ title: "Script", now: "previews/script.html" }),
+        entry({ title: "Remote", now: "previews/remote.html" }),
+        entry({ title: "Stranger", now: "previews/stranger.html" }),
+        entry({ title: "Handler", now: "previews/handler.html" }),
+        entry({ title: "Outside", now: "../summary.json" }),
+        entry({ title: "Missing", now: "previews/nope.html" }),
+        entry({ title: "Unknown", units: ["src/other.ts#x"] }),
+      ],
+    }, root, null);
+    assert.equal(out.acceptedPreviews, 1, out.dropped.join("\n"));
+    const [kept] = out.stored.previews!;
+    assert.deepEqual(kept.units, { "src/repo.ts#findOrders": "h1" }, "each unit with the hash it was drawn for");
+    assert.match(kept.now, /^[0-9a-f]{16}\.html$/);
+    assert.notEqual(kept.before, kept.now);
+    assert.equal(out.assets.get(kept.now), SCREEN, "the file, as the agent wrote it, under its hash");
+
+    const reasons = out.dropped.join("\n");
+    assert.match(reasons, /"Script": now "previews\/script.html" has a <script>/);
+    assert.match(reasons, /"Remote": now "previews\/remote.html" loads "https:\/\/example.com\/x.png"/);
+    assert.match(reasons, /"Stranger": now .* marks data-lens-unit="src\/repo.ts#toOrder", which isn't one of the entry's units/);
+    assert.match(reasons, /"Handler": now .* inline event handler/);
+    assert.match(reasons, /"Outside": now must be a file in the bundle's previews\/ folder/);
+    assert.match(reasons, /"Missing": now "previews\/nope.html" not found/);
+    assert.match(reasons, /"Unknown": unknown unit "src\/other.ts#x"/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("previewProblems lets data: URLs and #fragments through, and checks the change marks", () => {
+  const units = new Set(["a#b"]);
+  assert.deepEqual(previewProblems('<img src="data:image/png;base64,AAAA"><a href="#top">x</a><div style="background:url(data:x)">', units), []);
+  assert.deepEqual(previewProblems('<p>Only one = the other</p>', units), [], "text that reads like a handler isn't one");
+  assert.deepEqual(previewProblems('<div data-lens-unit="a#b" data-lens-change="moved">', units), [
+    'data-lens-change="moved" must be one of added, changed, removed',
+  ]);
+  assert.equal(previewProblems('<link rel="stylesheet" href="app.css">', units).length, 2, "a <link>, and what it loads");
+});
+
+test("validate: previews of one component each, from the same story, get advice to be one screen", () => {
+  const root = previewRoot({
+    "find.html": SCREEN,
+    "to.html": SCREEN.replace("#findOrders", "#toOrder"),
+    "fetch.html": SCREEN.replace("#findOrders", "#fetchAll"),
+  });
+  try {
+    const preview = (title: string, unit: string, file: string) => ({ title, units: [`src/repo.ts#${unit}`], now: `previews/${file}` });
+    const out = validateResult(BUNDLE, {
+      units: {},
+      flows: [
+        { title: "Orders", path: "a", units: { "src/repo.ts#findOrders": "a", "src/repo.ts#toOrder": "b" } },
+        { title: "Fetch", path: "a", units: { "src/repo.ts#fetchAll": "a", "src/repo.ts#getAll": "b" } },
+      ],
+      previews: [preview("Search box", "findOrders", "find.html"), preview("Order row", "toOrder", "to.html"), preview("Fetch", "fetchAll", "fetch.html")],
+    }, root, null);
+    assert.equal(out.acceptedPreviews, 3, "advice, not a rejection");
+    assert.deepEqual(out.previewAdvice, [
+      `"Search box", "Order row" each show one unit of "Orders": if they're on one screen, draw it once with all their units and drop the others`,
+    ]);
+    const merged = validateResult(BUNDLE, {
+      units: {},
+      previews: [{ title: "Orders page", units: ["src/repo.ts#findOrders", "src/repo.ts#toOrder"], now: "previews/find.html" }],
+    }, root, { ...out.stored, previews: [] });
+    assert.deepEqual(merged.previewAdvice, [], "one screen with both units");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("validate: a sequence keeps its steps; a changed step must name its unit and a line of it", () => {
+  const steps = [
+    { from: "route", to: "repo", label: "findOrders(user)" },
+    { from: "repo", to: "db", label: "SELECT … LIMIT 50", was: "SELECT *", change: "changed", unit: "src/repo.ts#findOrders", line: "n6" },
+    { from: "repo", to: "repo", label: "toOrder(row)", change: "added", unit: "src/repo.ts#toOrder", line: "N11" },
+  ];
+  const sequence = (extra: object) => ({ title: "List orders", lanes: ["route", "repo", "db"], steps, ...extra });
+  const out = validateResult(BUNDLE, {
+    units: {},
+    sequences: [
+      sequence({}),
+      sequence({ title: "Bad lane", steps: [{ ...steps[1], to: "cache" }] }),
+      sequence({ title: "No unit", steps: [{ ...steps[1], unit: undefined }] }),
+      sequence({ title: "Bad line", steps: [{ ...steps[1], line: "N99" }] }),
+      sequence({ title: "Nothing changes", steps: [steps[0]] }),
+      sequence({ title: "Was without change", steps: [{ ...steps[0], was: "x" }] }),
+      sequence({ title: "One lane", lanes: ["route"] }),
+    ],
+  }, "/nonexistent", null);
+  assert.equal(out.acceptedSequences, 1);
+  const [kept] = out.stored.sequences!;
+  assert.deepEqual(kept.steps[1], { ...steps[1], line: "N6" }, "the line normalized like a change row's");
+  assert.deepEqual(kept.units, { "src/repo.ts#findOrders": "h1", "src/repo.ts#toOrder": "h2" });
+  const reasons = out.dropped.join("\n");
+  assert.match(reasons, /"Bad lane" steps\[0\]: from and to must be lanes/);
+  assert.match(reasons, /"No unit" steps\[0\]: a changed step needs the unit and line/);
+  assert.match(reasons, /"Bad line" steps\[0\]: line "N99" is not a line of src\/repo.ts#findOrders/);
+  assert.match(reasons, /"Nothing changes": no step is added, changed or removed/);
+  assert.match(reasons, /"Was without change" steps\[0\]: was is what a changed step said before/);
+  assert.match(reasons, /"One lane": lanes must be 2–6 different names/);
+});
+
+test("validate: a whole-diff pass replaces the drawings once; it records that it was asked for them", () => {
+  const sequence = (title: string) => ({
+    title, lanes: ["a", "b"], steps: [{ from: "a", to: "b", label: "x", change: "added", unit: "src/repo.ts#findOrders", line: "N5" }],
+  });
+  const first = validateResult(BUNDLE, { units: {}, sequences: [sequence("Old"), sequence("Kept")] }, "/nonexistent", null);
+  assert.equal(first.stored.drawn, undefined, "a pass that didn't ask records nothing");
+  const merged = validateResult(BUNDLE, { units: {}, sequences: [sequence("Old")] }, "/nonexistent", first.stored);
+  assert.deepEqual(merged.stored.sequences!.map((q) => q.title), ["Kept", "Old"], "by title");
+  const pass = { ...BUNDLE, wholeDiff: true, drawings: true, createdAt: "t1" };
+  const replaced = validateResult(pass, { units: {}, sequences: [sequence("New")] }, "/nonexistent", merged.stored);
+  assert.deepEqual(replaced.stored.sequences!.map((q) => q.title), ["New"]);
+  assert.equal(replaced.stored.drawn, unitSetHash(BUNDLE.units));
+  const again = validateResult(pass, { units: {}, sequences: [sequence("Added")] }, "/nonexistent", replaced.stored);
+  assert.deepEqual(again.stored.sequences!.map((q) => q.title), ["New", "Added"], "the same pass's later submits merge");
+  const none = validateResult({ ...pass, createdAt: "t2" }, { units: {} }, "/nonexistent", null);
+  assert.equal(none.stored.drawn, unitSetHash(BUNDLE.units), "drawing nothing is an answer too");
+});
+
+test("writeAssets keeps the previews' files and drops the ones no preview names; the route serves them boxed in", () => {
+  const root = mkdtempSync(join(tmpdir(), "lens-assets-"));
+  try {
+    const stored = { version: 1 as const, updatedAt: "", units: {}, flows: [], previews: [{ title: "A", units: {}, now: "0123456789abcdef.html" }] };
+    writeAssets(root, "diff-x", stored, new Map([["0123456789abcdef.html", SCREEN], ["fedcba9876543210.html", "old"]]));
+    const assets = join(root, ".lens/summary/diff-x/assets");
+    assert.ok(existsSync(join(assets, "0123456789abcdef.html")));
+    assert.ok(!existsSync(join(assets, "fedcba9876543210.html")), "a file no stored preview names is dropped");
+
+    const served = previewResponse(root, "diff-x", "0123456789abcdef.html");
+    assert.equal(served.status, 200);
+    const nonce = /script-src 'nonce-([^']+)'/.exec(served.headers["content-security-policy"])?.[1];
+    assert.ok(nonce, "the only script allowed is lens's, by its nonce");
+    assert.match(served.headers["content-security-policy"], /^default-src 'none'; style-src 'unsafe-inline'; img-src data:/);
+    assert.ok(served.body.startsWith("<!doctype html>\n" + SCREEN));
+    assert.match(served.body, new RegExp(`<script nonce="${nonce.replace(/[+/=]/g, "\\$&")}">`));
+    assert.match(served.body, /parent\.postMessage/);
+    assert.equal(served.headers["x-content-type-options"], "nosniff");
+
+    for (const [key, asset] of [["diff-x", "../../../etc/passwd"], ["diff-x", "fedcba9876543210.html"], [null, "0123456789abcdef.html"]] as const) {
+      assert.equal(previewResponse(root, key, asset).status, 404, `${key} ${asset}`);
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("Build previews: the reader's switch in .lens/settings.json wins over the config's", () => {
+  const root = mkdtempSync(join(tmpdir(), "lens-settings-"));
+  try {
+    assert.equal(DEFAULT_CONFIG.buildPreviews, true, "on by default");
+    assert.deepEqual(readSettings(root), {});
+    assert.equal(buildPreviewsOn(root, { ...DEFAULT_CONFIG, buildPreviews: false }), false, "the config's, without a switch");
+    writeSettings(root, { buildPreviews: false });
+    assert.equal(buildPreviewsOn(root, DEFAULT_CONFIG), false);
+    assert.equal(readFileSync(join(root, ".lens/.gitignore"), "utf8").trim().split("\n").pop(), "*", "in lens's ignored folder");
+    writeSettings(root, { buildPreviews: true });
+    assert.equal(buildPreviewsOn(root, { ...DEFAULT_CONFIG, buildPreviews: false }), true);
+    writeFileSync(join(root, ".lens/settings.json"), "not json");
+    assert.deepEqual(readSettings(root), {}, "a broken file is no switch");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("prepare asks for previews of a UI diff and sequences while Build previews is on; the view shows them until their code changes", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "lens-drawings-"));
+  const git = (...args: string[]) => execFileSync("git", args, { cwd: dir, encoding: "utf8" });
+  const PAGE = "export function OrdersPage() {\n  return <ul className=\"orders\" />;\n}\n";
+  try {
+    git("init", "-q", "-b", "main");
+    git("config", "user.email", "t@t");
+    git("config", "user.name", "t");
+    mkdirSync(join(dir, "src"));
+    writeFileSync(join(dir, "src/repo.ts"), OLD_REPO);
+    writeFileSync(join(dir, "src/Orders.tsx"), PAGE);
+    git("add", "-A");
+    git("commit", "-qm", "init");
+    writeFileSync(join(dir, "src/repo.ts"), NEW_REPO);
+    writeFileSync(join(dir, "src/Orders.tsx"), PAGE.replace("<ul", "<ol"));
+    git("add", "-A");
+
+    const diff = await loadDiff("diff", ["--staged"], dir, DEFAULT_CONFIG);
+    const units = await collectUnits(diff, DEFAULT_CONFIG, dir);
+    const sources = new Map([["src/repo.ts", NEW_REPO], ["src/Orders.tsx", PAGE.replace("<ul", "<ol")]]);
+    const prep = { root: diff.root, cwd: dir, key: "diff-staged@main", command: "diff" as const, args: ["--staged"], label: null, commits: "", units, sources };
+
+    const off = prepareBundle(prep);
+    assert.doesNotMatch(off.instructions, /## Previews|## Sequences/, "Build previews off: not asked");
+    const backend = prepareBundle({ ...prep, drawings: true, units: units.filter((u) => u.file === "src/repo.ts") });
+    assert.doesNotMatch(backend.instructions, /## Previews/, "no UI in the diff: no previews");
+    assert.match(backend.instructions, /## Sequences/);
+    const on = prepareBundle({ ...prep, drawings: true });
+    assert.match(on.instructions, /^## Previews\nThis diff changes UI \(`src\/Orders.tsx#OrdersPage`\)/m);
+    assert.match(on.instructions, /^## Sequences$/m);
+    assert.match(on.instructions, /A preview is a screen, never a component/);
+    assert.ok(existsSync(join(on.dir, "previews")), "a folder for the agent's files");
+
+    // the agent summarizes every unit, writes the flows and the overview, and draws the page
+    const page = units.find((u) => u.name === "OrdersPage")!;
+    writeFileSync(join(on.dir, "previews/orders.html"), `<ol data-lens-unit="${page.id}" data-lens-change="changed"></ol>`);
+    const bundle = JSON.parse(readFileSync(join(on.dir, "bundle.json"), "utf8")) as Bundle;
+    assert.equal(bundle.drawings, true);
+    const outcome = validateResult(bundle, {
+      units: Object.fromEntries(units.map((u) => [u.id, ok()])),
+      flows: [{ title: "Orders", path: "repo → page", units: Object.fromEntries(units.map((u) => [u.id, "x"])) }],
+      overview: { what: "Numbers the orders." },
+      previews: [{ title: "Orders page", units: [page.id], now: "previews/orders.html" }],
+    }, diff.root, null);
+    assert.deepEqual(outcome.dropped, []);
+    writeStored(diff.root, "diff-staged@main", outcome.stored);
+    writeAssets(diff.root, "diff-staged@main", outcome.stored, outcome.assets);
+    assert.match(prepareBundle({ ...prep, drawings: true }).instructions, /Nothing to do/, "drawn: no final pass");
+
+    const view = buildSummaryView({ root: diff.root, cwd: dir, command: "diff", args: ["--staged"], units });
+    assert.deepEqual(view.previews, [{
+      title: "Orders page", units: [page.id], stale: false, before: null,
+      now: "/api/preview/" + outcome.stored.previews![0].now,
+    }]);
+    assert.equal(previewResponse(diff.root, view.key, outcome.stored.previews![0].now).status, 200);
+
+    // a summary written with Build previews off, then switched on: the final pass asks for the drawings alone
+    const undrawn = { ...outcome.stored, drawn: undefined };
+    writeStored(diff.root, "diff-staged@main", undrawn);
+    const drawOnly = prepareBundle({ ...prep, drawings: true });
+    assert.match(drawOnly.instructions, /final pass: the drawings of the whole diff/);
+    assert.match(drawOnly.instructions, /`\{"units": \{\}, "previews": \[ … \], "sequences": \[ … \]\}`/);
+    assert.doesNotMatch(drawOnly.instructions, /^## Flows$/m, "the flows and overview are written");
+
+    // the page changes again: its preview goes, since every unit it showed changed
+    writeFileSync(join(dir, "src/Orders.tsx"), PAGE.replace("<ul", "<menu"));
+    git("add", "-A");
+    const later = await collectUnits(await loadDiff("diff", ["--staged"], dir, DEFAULT_CONFIG), DEFAULT_CONFIG, dir);
+    assert.deepEqual(buildSummaryView({ root: diff.root, cwd: dir, command: "diff", args: ["--staged"], units: later }).previews, []);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

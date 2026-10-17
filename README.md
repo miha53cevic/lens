@@ -107,6 +107,14 @@ agent. Units are grouped into **flows**: one story each, read step by step, rank
 P3, with each unit in one flow and import-only or formatting-only changes under
 Housekeeping. An overview of the whole diff sits on top.
 
+With **Build previews** on (the ⋯ menu, on by default), the agent also draws what the
+change looks like: **previews** of the screens a UI diff changes, in your project's own
+design system, with the changed parts marked (Before / Now); and **sequences**, diagrams
+of what now happens at run time across routes, services, stores and queues. A preview is
+the agent's HTML, checked on submit and shown in a sandboxed frame that runs no script but
+lens's and loads nothing from outside. Both show on the overview and on each unit they
+cover, and go stale with their code.
+
 ```bash
 /lens-review --staged           # in your agent; or: pr 87
 ```
@@ -173,6 +181,7 @@ extend. `"base": false` makes your file the whole rule set.
 | `keepDirective` | a region containing it, or right below it, never folds (default `"lens:keep"`) |
 | `testFilePatterns` | what *hide tests* hides, and what summary mode treats as tests |
 | `exclude` | listed in a diff as `⊘` without being read; skipped in directory walks |
+| `buildPreviews` | summary mode asks for previews and sequences (default `true`); the ⋯ menu's switch overrides it for you, in `.lens/settings.json` |
 
 Patterns: `*` matches within a path segment, `**` across them, and a pattern matches
 anywhere in the path.

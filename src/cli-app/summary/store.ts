@@ -68,6 +68,42 @@ export function isHousekeeping(unit: { formattingOnly?: boolean; importsOnly?: b
   return !!unit.formattingOnly || !!unit.importsOnly;
 }
 
+/** What a step of a sequence did to the diagram: absent for a step the diff leaves alone */
+export type StepChange = "added" | "changed" | "removed";
+
+/** One call or message in a sequence: an arrow from one lane to another. */
+export interface SequenceStep {
+  from: string;
+  to: string;
+  /** What the arrow says now (for a removed step: what it said) */
+  label: string;
+  /** A changed step: what it said before */
+  was?: string;
+  change?: StepChange;
+  /** The unit that makes the step, and its line ("N41" / "O16"); required when the step changed */
+  unit?: string;
+  line?: string;
+}
+
+/** A sequence diagram: what happens at run time, drawn by lens. Before is the steps but the added ones. */
+export interface StoredSequence {
+  title: string;
+  lanes: string[];
+  steps: SequenceStep[];
+  /** unit id → the hash it was drawn for */
+  units: Record<string, string>;
+}
+
+/** A screen the change affects, as the agent drew it: HTML files kept in the summary's assets folder. */
+export interface StoredPreview {
+  title: string;
+  /** unit id → the hash it was drawn for */
+  units: Record<string, string>;
+  /** Asset file names ("<hash>.html") */
+  now: string;
+  before?: string;
+}
+
 export interface Overview {
   /** What the whole diff does, sized to it; paragraphs split by blank lines */
   what: string;
@@ -84,6 +120,12 @@ export interface StoredSummary {
   /** createdAt of the whole-diff bundle whose submit last replaced the flows; its later submits merge */
   flowsPass?: string;
   overview?: Overview;
+  previews?: StoredPreview[];
+  sequences?: StoredSequence[];
+  /** createdAt of the whole-diff bundle whose submit last replaced the previews and sequences */
+  drawingsPass?: string;
+  /** unitSetHash of the diff a whole-diff pass that asked for drawings was submitted for */
+  drawn?: string;
 }
 
 /** One hash for the whole diff: any unit added, dropped or changed moves it. */
@@ -119,6 +161,8 @@ export interface Bundle {
   units: BundleUnit[];
   /** This pass sees every unit (a fresh single-part run or the final pass): its flows replace the stored ones */
   wholeDiff?: boolean;
+  /** This pass asks for previews and sequences (Build previews is on) */
+  drawings?: boolean;
 }
 
 export function lensDir(root: string): string {
@@ -167,6 +211,11 @@ export function bundleDir(root: string, key: string): string {
   mkdirSync(dir, { recursive: true });
   return dir;
 }
+
+/** Where the agent writes its preview files for this bundle, before a submit checks them */
+export const PREVIEWS_DIR = "previews";
+/** Where accepted preview files are kept, by content hash */
+export const ASSETS_DIR = "assets";
 
 export function summaryPath(root: string, key: string): string {
   return join(root, ".lens", "summary", key, "summary.json");
