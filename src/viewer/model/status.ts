@@ -121,7 +121,15 @@ const agentListening: NoticeSource = (state) => {
     : null;
 };
 
-const NOTICE_SOURCES: NoticeSource[] = [changedOnDisk, staleSummaries, newSummary, agentListening];
+const summaryBuilding: NoticeSource = (state) => {
+  // known only from the stamp poll, which sets it and takes it back once the run is done (an agent that stopped leaves it shown)
+  const build = state.summaryBuild;
+  if (!build || state.serverGone) return null;
+  const progress = build.finalPass ? 'final pass' : build.done + ' of ' + plural(build.total, 'unit');
+  return { id: 'summary-build', text: 'Agent writing summary · ' + progress, tone: 'live', action: null };
+};
+
+const NOTICE_SOURCES: NoticeSource[] = [changedOnDisk, staleSummaries, newSummary, summaryBuilding, agentListening];
 
 // The last list: the same array comes back while what it says stays the same, so the bar's
 // selector doesn't re-render it on every change.

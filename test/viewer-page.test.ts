@@ -597,6 +597,28 @@ pageTest('a standing notice shows only while it has something to say, and leads 
   assert.deepEqual(status(), { kind: 'done', label: 'New summary loaded', detail: '' });
 });
 
+pageTest("the agent's summary run shows as a notice while it goes: units in, then the final pass", async () => {
+  const notices = () => $$('#status-bar .status-notices > *').map((notice) => notice.textContent);
+  let building: unknown = { done: 12, total: 30, finalPass: false };
+  const undo = answering((path) =>
+    path === '/api/stamp'
+      ? new Response(JSON.stringify({ summary: payload.summary!.stamp, change: payload.changeStamp, building }))
+      : undefined,
+  );
+  window.dispatchEvent(new Event('focus'));
+  await settle();
+  assert.deepEqual(notices(), ['Agent writing summary · 12 of 30 units']);
+  building = { done: 30, total: 30, finalPass: true };
+  window.dispatchEvent(new Event('focus'));
+  await settle();
+  assert.deepEqual(notices(), ['Agent writing summary · final pass']);
+  building = null;
+  window.dispatchEvent(new Event('focus'));
+  await settle();
+  undo();
+  assert.deepEqual(notices(), [], 'the run is done');
+});
+
 pageTest(
   'code that changed on disk shows as a notice: undoing the change takes it back, a click refreshes',
   async () => {

@@ -50,10 +50,12 @@ export async function checkStamp(): Promise<void> {
     const response = await reach('/api/stamp');
     if (!response.ok) return;
     const stamp: StampResponse = await response.json();
-    const { data, changedOnDisk, summaryDot, view } = getState();
+    const { data, changedOnDisk, summaryBuild, summaryDot, view } = getState();
     // only what both sides know: a review without a fingerprint (a PR) claims nothing
     const changed = stamp.change !== null && data.changeStamp !== null && stamp.change !== data.changeStamp;
     if (changed !== changedOnDisk) update({ changedOnDisk: changed });
+    const building = stamp.building ?? null;
+    if (JSON.stringify(building) !== JSON.stringify(summaryBuild)) update({ summaryBuild: building });
     if (data.summary && stamp.summary !== null && stamp.summary !== data.summary.stamp) {
       if (view === 'summary') await loadSummary();
       else if (!summaryDot) update({ summaryDot: true });

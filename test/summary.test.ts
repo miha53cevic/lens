@@ -15,6 +15,7 @@ import { loadDiff, collectUnits, commitLog } from "../src/cli-app/summary/collec
 import { buildSummaryView } from "../src/cli-app/summary/view.ts";
 import { previewProblems, previewResponse, writeAssets } from "../src/cli-app/summary/previews.ts";
 import { buildPreviewsOn, readSettings, writeSettings } from "../src/cli-app/summary/settings.ts";
+import { buildProgressReader } from "../src/cli-app/summary/progress.ts";
 import { DEFAULT_CONFIG } from "../src/cli-app/config.ts";
 
 /** Builds a unit input from two versions of a file, via a real unified=0 diff. */
@@ -1018,5 +1019,37 @@ test("an untracked file of a working-tree diff gets units like any added file", 
     assert.ok(units.every((u) => u.status === "new"));
   } finally {
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a summary run's progress: units in, then the final pass, then nothing; a stopped run stays shown", () => {
+  const root = mkdtempSync(join(tmpdir(), "lens-progress-"));
+  try {
+    const key = "diff";
+    const read = buildProgressReader(root, key);
+    assert.equal(read(), null, "no prepare: no run");
+    const unit = (id: string) => ({ id, file: "a.ts", name: id, kind: "function", status: "modified", hash: "h-" + id, labels: [], done: false });
+    const bundle = { version: 1, key, command: "diff", args: [], createdAt: "", units: [unit("a"), unit("b"), unit("c")] };
+    mkdirSync(join(root, ".lens", "summary", key), { recursive: true });
+    writeFileSync(join(root, ".lens", "summary", key, "bundle.json"), JSON.stringify(bundle));
+    assert.deepEqual(read(), { done: 0, total: 3, finalPass: false });
+
+    const summary = (headline: string, hash: string) => ({
+      headline, gist: "", changes: [], breaks: [], needsLook: false, hash,
+    });
+    const units = { a: summary("A", "h-a"), b: summary("B", "h-b"), c: summary("C", "stale") };
+    writeStored(root, key, { version: 1, updatedAt: "", units, flows: [] });
+    assert.deepEqual(read(), { done: 2, total: 3, finalPass: false }, "a summary for other code doesn't count");
+
+    units.c = summary("C", "h-c");
+    writeStored(root, key, { version: 1, updatedAt: "", units, flows: [] });
+    assert.deepEqual(read(), { done: 3, total: 3, finalPass: true }, "every unit in: flows and the overview left");
+
+    const flow = { title: "Orders", path: "a → b", units: { a: "repo", b: "route", c: "route" } };
+    const overview = { what: "x", hash: unitSetHash(bundle.units) };
+    writeStored(root, key, { version: 1, updatedAt: "1", units, flows: [flow], overview });
+    assert.equal(read(), null, "the final pass is in: done");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
   }
 });
