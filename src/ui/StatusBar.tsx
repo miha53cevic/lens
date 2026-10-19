@@ -82,7 +82,9 @@ export function StatusBar({ status, notices }: { status: BarStatus; notices: Bar
       )}
       <div className='status-notices'>
         {notices.map((notice) => {
-          const dot = notice.tone !== 'plain' && <span className='dot notice-dot' />;
+          const dot = notice.tone !== 'plain' && (
+            <span className={clsx('dot notice-dot', notice.tone === 'live' && 'pulse')} />
+          );
           return notice.run ? (
             <Button
               key={notice.id}

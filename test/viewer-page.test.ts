@@ -82,12 +82,12 @@ interface Page {
 
 /** Opens the viewer on the payload, with these localStorage entries (and this cookie) already there. */
 async function open(prefs: Record<string, string> = {}, hash = '', cookie = ''): Promise<Page> {
-  // a preview's frame isn't loaded: there is no server, and what it shows is the agent's, not the page's
+  // a preview's frame isn't loaded, and says nothing about it: there is no server, and what it shows is the agent's, not the page's
   GlobalRegistrator.register({
     url: 'http://127.0.0.1:5326/' + hash,
     width: 1400,
     height: 900,
-    settings: { disableIframePageLoading: true },
+    settings: { navigation: { disableChildFrameNavigation: true } },
   });
   const page: Page = { requests: [], ask: { listening: false, questions: [] }, tokensAnalysis: null };
   globalThis.fetch = (async (input: string | URL, init?: RequestInit) => {
@@ -272,6 +272,38 @@ pageTest('the fold level pins the regions scored above it', async () => {
   assert.equal($('#threshold [aria-checked="true"]').dataset.value, '1');
   assert.equal($('#threshold-hint').textContent, 'Level 1 folds import, guard, logging. [ ]');
 });
+
+pageTest(
+  "the fold level is remembered with the config's it was picked over, and the config's keeps nothing",
+  async () => {
+    assert.equal(payload.threshold, 1);
+    await click($('#threshold [data-value="0"]'));
+    assert.deepEqual(JSON.parse(localStorage.getItem('lens.threshold')!), { level: 0, base: 1 });
+    await key(']');
+    assert.equal(localStorage.getItem('lens.threshold'), '');
+  },
+);
+
+pageTest(
+  'a reopened viewer comes back at the fold level the reader picked',
+  async () => {
+    assert.equal($('#threshold [aria-checked="true"]').dataset.value, '0');
+    assert.deepEqual(
+      $$('#code .region.pinned').map((region) => region.dataset.cat),
+      ['guard', 'logging'],
+    );
+  },
+  { 'lens.threshold': JSON.stringify({ level: 0, base: 1 }) },
+);
+
+pageTest(
+  'a fold level picked over another config is dropped: the new config wins',
+  async () => {
+    assert.equal($('#threshold [aria-checked="true"]').dataset.value, '1');
+    assert.equal($$('#code .region.pinned').length, 0);
+  },
+  { 'lens.threshold': JSON.stringify({ level: 0, base: 2 }) },
+);
 
 pageTest('the code size: the stepper sets it, the cookie keeps it, and the default keeps none', async () => {
   const codeSize = () => document.documentElement.style.getPropertyValue('--text-code');
@@ -610,6 +642,7 @@ pageTest("the agent's summary run shows as a notice while it goes: units in, the
   window.dispatchEvent(new Event('focus'));
   await settle();
   assert.deepEqual(notices(), ['Agent writing summary · 12 of 30 units']);
+  assert.ok($('#status-bar .notice-dot').classList.contains('pulse'), 'a live notice pulses, as the Ask dot does');
   building = { done: 30, total: 30, finalPass: true };
   window.dispatchEvent(new Event('focus'));
   await settle();
@@ -1447,6 +1480,56 @@ pageTest('a question with no agent to answer it says so, instead of counting the
   assert.equal(document.querySelectorAll('.ask-lines .skeleton').length, 3, "the answer's place, while one is written");
   assert.equal(document.querySelector('.ask-noagent'), null);
   assert.equal(status().label, 'Waiting for your agent');
+});
+
+pageTest('a thread scrolled up goes down to a question the reader sends, but not to an answer', async (page) => {
+  const question = (id: string, text: string) => ({
+    id,
+    text,
+    file: 'src/orders.ts',
+    unitId: null,
+    label: 'orders.ts',
+    hash: 'h1',
+    selection: null,
+    concerns: [],
+    breaks: [],
+    askedAt: Date.now(),
+    handedAt: null,
+    answer: null,
+    stale: false,
+  });
+  const answered = { markdown: 'It totals the order.', cites: [], at: Date.now() };
+  page.ask = { listening: true, questions: [{ ...question('q1', 'what does it do?'), answer: answered }] };
+  await key('\\');
+  // happy-dom lays nothing out: the thread is given a size, scrolled up into its history
+  const thread = $('#ask-thread');
+  Object.defineProperty(thread, 'scrollHeight', { configurable: true, value: 1000 });
+  Object.defineProperty(thread, 'clientHeight', { configurable: true, value: 200 });
+  const scrolledUp = () => (thread.scrollTop = 100);
+  scrolledUp();
+
+  // the server holds the question once it's posted
+  const stub = globalThis.fetch;
+  globalThis.fetch = (async (input: string | URL, init?: RequestInit) => {
+    if (init?.method === 'POST' && String(input).endsWith('/api/ask'))
+      page.ask = { ...page.ask, questions: [...page.ask.questions, question('q2', 'and when it fails?')] };
+    return stub(input, init);
+  }) as typeof fetch;
+  await type($('#ask-input'), 'and when it fails?');
+  await click($('#ask-send'));
+  await settle();
+  assert.equal(thread.scrollTop, 1000, 'the thread shows the question just sent');
+
+  // the agent's answer comes while the reader reads back: the thread stays where they are
+  scrolledUp();
+  const [first, second] = page.ask.questions;
+  page.ask = {
+    ...page.ask,
+    questions: [first!, { ...second!, answer: { markdown: 'It throws.', cites: [], at: Date.now() } }],
+  };
+  await key('\\');
+  await key('\\');
+  assert.equal(thread.scrollTop, 100);
 });
 
 pageTest("an answer's markdown is drawn, its cites link, and nothing in it runs or leaves", async (page) => {

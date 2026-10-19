@@ -30,20 +30,8 @@
 .ask-dot {
   --dot: var(--faint);
 }
-/* an agent is listening: the ring pulses (with reduced motion too, like a spinner) */
 .ask-dot.on {
   --dot: var(--add);
-  box-shadow: 0 0 0 3px color-mix(in oklab, var(--add) var(--tint-strong), transparent);
-  animation: ask-pulse 1.8s ease-out infinite;
-}
-@keyframes ask-pulse {
-  0% {
-    box-shadow: 0 0 0 0 color-mix(in oklab, var(--add) 55%, transparent);
-  }
-  70%,
-  100% {
-    box-shadow: 0 0 0 6px color-mix(in oklab, var(--add) 0%, transparent);
-  }
 }
 
 .ask-thread {

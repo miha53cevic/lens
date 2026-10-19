@@ -66,11 +66,13 @@ async function askPoll(): Promise<void> {
     patch.data = { ...getState().ask.data, listening: false };
     patch.error = ASK_GONE;
   }
-  // a thread scrolled to its end follows new messages; one scrolled up stays put
+  // a thread scrolled to its end follows new messages; one scrolled up stays put, unless the
+  // reader just asked something (only the reader adds questions): then it goes to their question
   const thread = document.getElementById('ask-thread');
   const atEnd = !thread || thread.scrollHeight - thread.scrollTop - thread.clientHeight < 40;
+  const asked = !!patch.data && patch.data.questions.length > getState().ask.data.questions.length;
   commit((state) => ({ ask: { ...state.ask, ...patch, tick: state.ask.tick + 1 } })); // the wait times tick
-  if (patch.data && thread && atEnd) thread.scrollTop = thread.scrollHeight;
+  if (patch.data && thread && (atEnd || asked)) thread.scrollTop = thread.scrollHeight;
   const state = getState();
   // the answer came with the rail closed: the status bar says so
   const answered = waitedFor && state.ask.data.questions.find((question) => question.id === waitedFor.id)?.answer;

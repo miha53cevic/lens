@@ -1,8 +1,8 @@
 // What the reader sets and the browser remembers: the sidebar, the view settings (the
 // header's ⋯ menu), the code's size and the viewed marks.
 
-import { commit, getState, toggled, update, VIEWED_CAP, VIEWED_PREF } from '../store.ts';
-import { fileViewKey, type ViewFile, writePref } from '../shared.ts';
+import { commit, getState, THRESHOLD_PREF, toggled, update, VIEWED_CAP, VIEWED_PREF } from '../store.ts';
+import { fileViewKey, INITIAL_DATA, type ViewFile, writePref } from '../shared.ts';
 import { CODE_SIZE_COOKIE, CODE_SIZE_DEFAULT, steppedSize } from '../codeSize.ts';
 import { type Unit, unitViewKey } from '../model/signals.ts';
 import { fileProgress, type Progress, unitProgress } from '../model/progress.ts';
@@ -56,7 +56,13 @@ export function setWordDiff(on: boolean): void {
   update({ wordDiff: on });
 }
 
+/**
+ * Kept with the level it was picked over: a new one in .lens.json or --threshold wins over it.
+ * Back at that level, nothing is kept.
+ */
 export function setThreshold(threshold: number): void {
+  const base = INITIAL_DATA.threshold;
+  writePref(THRESHOLD_PREF, threshold === base ? '' : JSON.stringify({ level: threshold, base }));
   update({ threshold });
 }
 
