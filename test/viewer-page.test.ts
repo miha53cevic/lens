@@ -1449,6 +1449,56 @@ pageTest('a question with no agent to answer it says so, instead of counting the
   assert.equal(status().label, 'Waiting for your agent');
 });
 
+pageTest('a thread scrolled up goes down to a question the reader sends, but not to an answer', async (page) => {
+  const question = (id: string, text: string) => ({
+    id,
+    text,
+    file: 'src/orders.ts',
+    unitId: null,
+    label: 'orders.ts',
+    hash: 'h1',
+    selection: null,
+    concerns: [],
+    breaks: [],
+    askedAt: Date.now(),
+    handedAt: null,
+    answer: null,
+    stale: false,
+  });
+  const answered = { markdown: 'It totals the order.', cites: [], at: Date.now() };
+  page.ask = { listening: true, questions: [{ ...question('q1', 'what does it do?'), answer: answered }] };
+  await key('\\');
+  // happy-dom lays nothing out: the thread is given a size, scrolled up into its history
+  const thread = $('#ask-thread');
+  Object.defineProperty(thread, 'scrollHeight', { configurable: true, value: 1000 });
+  Object.defineProperty(thread, 'clientHeight', { configurable: true, value: 200 });
+  const scrolledUp = () => (thread.scrollTop = 100);
+  scrolledUp();
+
+  // the server holds the question once it's posted
+  const stub = globalThis.fetch;
+  globalThis.fetch = (async (input: string | URL, init?: RequestInit) => {
+    if (init?.method === 'POST' && String(input).endsWith('/api/ask'))
+      page.ask = { ...page.ask, questions: [...page.ask.questions, question('q2', 'and when it fails?')] };
+    return stub(input, init);
+  }) as typeof fetch;
+  await type($('#ask-input'), 'and when it fails?');
+  await click($('#ask-send'));
+  await settle();
+  assert.equal(thread.scrollTop, 1000, 'the thread shows the question just sent');
+
+  // the agent's answer comes while the reader reads back: the thread stays where they are
+  scrolledUp();
+  const [first, second] = page.ask.questions;
+  page.ask = {
+    ...page.ask,
+    questions: [first!, { ...second!, answer: { markdown: 'It throws.', cites: [], at: Date.now() } }],
+  };
+  await key('\\');
+  await key('\\');
+  assert.equal(thread.scrollTop, 100);
+});
+
 pageTest("an answer's markdown is drawn, its cites link, and nothing in it runs or leaves", async (page) => {
   const markdown = [
     'Two things happen in `src/orders.ts:10`:',
