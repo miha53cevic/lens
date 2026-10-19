@@ -67,7 +67,7 @@ ask/              ask mode: the viewer's Ask rail and `lens ask listen|reply` (s
 
 - The viewer is a React app in `src/viewer/`, written in strict TypeScript (`main.tsx` is the entry). `bundle.ts` (in `render/web/`, with `server.ts` and `viewer.html`) bundles it with `Bun.build` when the server starts, so there's still no build step: one script, plus one stylesheet collected from the `.css` files the code imports. `server.ts` inlines both into `viewer.html` (a `#root` element and nothing else), and puts the payload in the `lens-data` JSON script, which `src/viewer/shared.ts` reads as `INITIAL_DATA`.
 - Shared state lives in `src/viewer/store.ts`: one immutable `LensState`, replaced on every change. Components read it with `useLens(selector)`.
-  - `model/` derives what the components show, as pure functions: `tree.ts`, `plans.ts` (folds, row plans and the fold chips' categories), `signals.ts`, `realConcerns.ts` (the concerns marked real, as text for the agent), `summaryList.ts`, `progress.ts` (files viewed, changes reviewed, what's next) and `askContext.ts`.
+  - `model/` derives what the components show, as pure functions: `tree.ts`, `plans.ts` (folds, row plans and the fold chips' categories), `signals.ts` (a unit's findings: its concerns and the callers it may break, each with the reader's mark), `realConcerns.ts` (the findings marked real, as text for the agent), `summaryList.ts`, `progress.ts` (files viewed, changes reviewed, what's next) and `askContext.ts`.
   - `actions/` changes the state, one file per area: `tabs`, `folds`, `views` (including `jumpToLine`), `summary`, `dialogs` (including search), `session`, `prefs` (the sidebar, the view settings and the viewed marks), `review` (the review pill) and `status` (what the status bar reports).
   - `ask/` is the Ask rail's logic: `rail.ts`, `selection.ts`, `answers.ts` and `markdown.ts` (an answer as HTML: cites as numbered markers, `flow` blocks as lanes).
   - Use `commit()` instead of `update()` when the DOM must show the new state before you touch it, e.g. scrolling to a row.
@@ -170,7 +170,7 @@ The Ask rail (`src/viewer/ask/`, `components/AskRail/`) asks the user's agent ab
 
 - Flow: the viewer posts a question (`routes.ts`) → `session.ts` holds the chat in memory, one per server → `lens ask listen` (`command.ts`) long-polls `/api/ask/next` and prints the agent text → `lens ask reply` posts the answer → `cites.ts` keeps the `path:line` cites that resolve.
 - The agent text, including the read-only rules, is generated in `context.ts` and is the source of truth. `skills/lens-ask` only points at it.
-- Context is the open change (the Summary tab's unit, or the Code tab's file) plus the user's current selection, and for a unit its open concerns: the ones the reader hasn't dismissed. Dismissals live in the browser, so the viewer names the concerns (`askConcerns`) and `routes.ts` keeps those the unit really has. Nothing else from the summary goes along.
+- Context is the open change (the Summary tab's unit, or the Code tab's file) plus the user's current selection, and for a unit its open concerns and possible breaks: the ones the reader hasn't dismissed. Dismissals live in the browser, so the viewer names them (`askFindings`) and `routes.ts` keeps those the unit really has. Nothing else from the summary goes along.
 - A question stores its unit's hash (or the file's content hash). ↻ refresh marks it stale when that changes.
 - The server writes `.lens/server.json` (port, pid) so `lens ask` can find it, and removes it on exit.
 

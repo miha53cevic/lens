@@ -1,7 +1,8 @@
 import { Check } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useLens } from '../../store.ts';
-import { askConcerns, askContext, askSelection } from '../../model/askContext.ts';
+import { askContext, askFindings, askSelection } from '../../model/askContext.ts';
+import { isBreak } from '../../model/signals.ts';
 import { plural } from '../../shared.ts';
 import { askSelLabel } from '../../ask/selection.ts';
 import { waitingQuestion } from '../../model/status.ts';
@@ -19,10 +20,13 @@ export function Composer() {
   const composer = useLens((state) => {
     const context = askContext(state);
     const selection = askSelection(state);
+    const findings = askFindings(state);
+    const breakCount = findings.filter(isBreak).length;
     return {
       contextLabel: context?.label ?? null,
       selectionLabel: selection ? askSelLabel(selection) : null,
-      concernCount: askConcerns(state).length,
+      concernCount: findings.length - breakCount,
+      breakCount,
       listening: state.ask.data.listening,
       waiting: !!waitingQuestion(state),
       error: state.ask.error,
@@ -55,6 +59,9 @@ export function Composer() {
         {/* the unit's open concerns go along: the agent knows what "the risk here" is */}
         {composer.contextLabel && composer.concernCount > 0 && (
           <span className='ask-chip'>{plural(composer.concernCount, 'concern')}</span>
+        )}
+        {composer.contextLabel && composer.breakCount > 0 && (
+          <span className='ask-chip'>{plural(composer.breakCount, 'possible break')}</span>
         )}
       </div>
       <textarea

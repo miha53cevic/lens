@@ -55,10 +55,15 @@ export function createAskRoutes(current: () => ViewerInput, port: number): AskRo
     const named = new Set(Array.isArray(raw.concerns) ? raw.concerns.map(concernId) : []);
     const unit = unitId ? input.summary?.units.find((u) => u.id === unitId) : undefined;
     const concerns = (unit?.summary?.concerns ?? []).filter((c) => named.has(concernId(c)));
-    return { text, file: raw.file, unitId, label, hash, selection: parseSelection(raw.selection), concerns };
+    // its possible breaks likewise, named by what they say
+    const namedBreaks = new Set(Array.isArray(raw.breaks) ? raw.breaks.filter((b) => typeof b === "string") : []);
+    const breaks = (unit?.summary?.breaks ?? [])
+      .filter((b) => namedBreaks.has(b.summary))
+      .map((b) => ({ summary: b.summary, callers: b.callers.map((c) => `${c.file}:${c.line}`) }));
+    return { text, file: raw.file, unitId, label, hash, selection: parseSelection(raw.selection), concerns, breaks };
   };
 
-  const textFor = (q: Pick<AskQuestion, "id" | "text" | "selection" | "concerns" | "file" | "unitId" | "label">, forCopy: boolean) => {
+  const textFor = (q: Pick<AskQuestion, "id" | "text" | "selection" | "concerns" | "breaks" | "file" | "unitId" | "label">, forCopy: boolean) => {
     const input = current();
     return questionText(q, changeContext(input, q), { forCopy, root: input.root, cwd: input.cwd, port });
   };

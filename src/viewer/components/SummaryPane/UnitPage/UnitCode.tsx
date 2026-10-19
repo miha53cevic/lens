@@ -1,7 +1,7 @@
 import { useMemo, type ReactNode } from 'react';
 import clsx from 'clsx';
 import { useLens } from '../../../store.ts';
-import { concernLabel, concernMark, type Unit } from '../../../model/signals.ts';
+import { concernLabel, findingMark, findings, isConcern, type Unit } from '../../../model/signals.ts';
 import { unitPlan } from '../../../model/plans.ts';
 import { askSelLabels } from '../../../ask/selection.ts';
 import { askSelection } from '../../../model/askContext.ts';
@@ -31,23 +31,24 @@ export function UnitCode({ unit, hoveredCite }: { unit: Unit; hoveredCite: strin
   const addClass = (label: string, className: string) => classes.set(label, clsx(classes.get(label), className));
   for (const change of summary ? summary.changes : []) addClass(change.line, 'cited');
   const notes = new Map<string, ReactNode[]>();
-  (summary ? summary.concerns : []).forEach((concern, concernIndex) => {
-    const mark = concernMark(marks, unit, concern);
-    if (mark === 'dismissed') return;
+  for (const finding of findings(unit).filter(isConcern)) {
+    const { concern } = finding;
+    const mark = findingMark(marks, finding);
+    if (mark === 'dismissed') continue;
     addClass(concern.line, 'flagged k-' + concern.kind);
     const note = (
-      <div key={'note' + concernIndex} className={clsx('inline-note', 'k-' + concern.kind, mark)}>
+      <div key={finding.key} className={clsx('inline-note', 'k-' + concern.kind, mark)}>
         <div className='n-top'>
           <b>
             <SignalIcon signal={concern.kind} /> {concernLabel(concern, mark)}
           </b>
-          <Verdict unit={unit} concern={concern} concernIndex={concernIndex} mark={mark} />
+          <Verdict finding={finding} mark={mark} />
         </div>
         <div className='n-text'>{concern.text}</div>
       </div>
     );
     notes.set(concern.line, [...(notes.get(concern.line) ?? []), note]);
-  });
+  }
   for (const label of askSelLabels(selection)) addClass(label, 'ask-sel');
   if (hoveredCite) addClass(hoveredCite, 'hover-cite');
   if (landed && landed.path === unit.displayFile) addClass(landed.label, 'landed');

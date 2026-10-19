@@ -2,7 +2,7 @@
 // questions, `lens ask listen` takes them one at a time, `lens ask reply`
 // answers them. Lens never answers anything itself.
 
-import type { Concern } from "../summary/store.ts";
+import type { Break, Concern } from "../summary/store.ts";
 
 /** One selected row: new-side rows carry their line number, removed rows their old-side one when known. */
 export interface AskLine {
@@ -39,6 +39,8 @@ export interface AskQuestion {
   selection: AskSelection | null;
   /** The unit's concerns the reader hadn't dismissed when asking; none on the Code tab */
   concerns: Concern[];
+  /** The unit's possible breaks the reader hadn't dismissed when asking; none on the Code tab */
+  breaks: Break[];
   askedAt: number;
   /** When `listen` handed it to an agent */
   handedAt: number | null;
@@ -53,7 +55,7 @@ export interface AskState {
   questions: AskQuestion[];
 }
 
-export type NewQuestion = Pick<AskQuestion, "text" | "file" | "unitId" | "label" | "hash" | "selection" | "concerns">;
+export type NewQuestion = Pick<AskQuestion, "text" | "file" | "unitId" | "label" | "hash" | "selection" | "concerns" | "breaks">;
 
 /**
  * A question handed out this long ago without an answer goes to the next listener (its agent likely died).

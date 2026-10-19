@@ -2,7 +2,8 @@
 // reader's agent answers through `lens ask listen` / `lens ask reply`.
 
 import { commit, getState, type LensState, update } from '../store.ts';
-import { askConcerns, askContext, askSelection } from '../model/askContext.ts';
+import { askContext, askFindings, askSelection } from '../model/askContext.ts';
+import { isBreak, isConcern } from '../model/signals.ts';
 import { waitingQuestion } from '../model/status.ts';
 import { writePref } from '../shared.ts';
 import { endActivity, noteDone, noteFailure, reach, request, ServerGone, startActivity } from '../actions/status.ts';
@@ -93,13 +94,16 @@ export async function askSend(text: string): Promise<'sent' | 'copied' | null> {
   const context = askContext(state);
   if (!context) return null;
   const selection = askSelection(state);
+  const findings = askFindings(state);
   const body = JSON.stringify({
     text,
     file: context.file,
     unitId: context.unitId,
     label: context.label,
     selection: selection ? { file: selection.file, lines: selection.lines } : null,
-    concerns: askConcerns(state),
+    concerns: findings.filter(isConcern).map((finding) => finding.concern),
+    // named by what they say: the server sends the unit's own along
+    breaks: findings.filter(isBreak).map((finding) => finding.text),
   });
   let result: 'sent' | 'copied' | null = null;
   startActivity('ask-send', 'Sending your question…');

@@ -103,8 +103,8 @@ Press `?` in the viewer for every key.
 The Summary tab walks the diff one unit (function, component, hook, method, type) at a
 time: a headline, **concerns** (possible bugs, risks and questions, each on its line, with
 what triggers it and the smallest fix), what behaves differently, and callers it may
-break. You mark each concern *real* or *dismiss* it, and copy the real ones back to your
-agent. Units are grouped into **flows**: one story each, read step by step, ranked P1 to
+break. You mark each concern and possible break *real* or *dismiss* it, and copy the real
+ones back to your agent. Units are grouped into **flows**: one story each, read step by step, ranked P1 to
 P3, with each unit in one flow and import-only or formatting-only changes under
 Housekeeping. An overview of the whole diff sits on top.
 
@@ -129,7 +129,7 @@ that doesn't point at real code, and a summary goes stale when its code changes.
 ## Ask mode
 
 Press `a` to ask your agent about the change you have open, with your selection and the
-unit's open concerns along. Run `/lens-ask` in your agent to answer; it only reads, never
+unit's open concerns and possible breaks along. Run `/lens-ask` in your agent to answer; it only reads, never
 edits. Answers cite `path:line`, and lens checks each cite. With no agent listening, a
 question can be copied as a prompt for any chat.
 

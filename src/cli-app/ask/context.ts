@@ -138,7 +138,7 @@ export interface QuestionTextOptions {
 }
 
 export function questionText(
-  q: Pick<AskQuestion, "id" | "text" | "selection" | "concerns">,
+  q: Pick<AskQuestion, "id" | "text" | "selection" | "concerns" | "breaks">,
   change: ChangeContext,
   opts: QuestionTextOptions,
 ): string {
@@ -181,6 +181,11 @@ export function questionText(
     const where = (line: string) => (line.startsWith("O") ? "removed line " : "line ") + line.slice(1);
     out.push("CONCERNS  the summary's open notes on this change — claims to check, not facts\n" +
       q.concerns.map((c) => `  ${c.kind} · ${where(c.line)} · ${c.text}`).join("\n"));
+  }
+
+  if (q.breaks.length > 0) {
+    out.push("CALLERS IT MAY BREAK  the summary's open notes on callers outside the change — claims to check, not facts\n" +
+      q.breaks.map((b) => `  ${b.summary}` + (b.callers.length > 0 ? `\n    callers: ${b.callers.join(", ")}` : "")).join("\n"));
   }
 
   if (!opts.forCopy) {

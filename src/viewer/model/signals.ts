@@ -14,44 +14,79 @@ export const SIGNALS: Record<SignalId, { one: string; many: string }> = {
   question: { one: 'question', many: 'questions' },
   breaks: { one: 'may break callers', many: 'may break callers' },
 };
-const CONCERN_KINDS = ['bug', 'risk', 'question'] as const;
+/** The signals in order, most serious first */
+const SIGNAL_ORDER: readonly SignalId[] = ['bug', 'risk', 'question', 'breaks'];
 
 export type Marks = LensState['concernMarks'];
+export type PossibleBreak = NonNullable<Unit['summary']>['breaks'][number];
 
-// Keyed by the unit's hash and the concern itself, so a re-summarized unit starts fresh and a reordered list keeps its marks.
-export function concernKey(unit: Unit, concern: Concern): string {
-  return unit.id + '@' + unit.hash + '#' + concern.kind + ':' + concern.line + ':' + concern.text;
+/** Something the agent suspects, which the reader rules on: a concern on a line, or callers it may break. */
+export type Finding = { key: string; text: string } & (
+  { kind: Concern['kind']; concern: Concern } | { kind: 'breaks'; possibleBreak: PossibleBreak }
+);
+export type ConcernFinding = Extract<Finding, { concern: Concern }>;
+export type BreakFinding = Extract<Finding, { possibleBreak: PossibleBreak }>;
+
+export const isConcern = (finding: Finding): finding is ConcernFinding => finding.kind !== 'breaks';
+export const isBreak = (finding: Finding): finding is BreakFinding => finding.kind === 'breaks';
+
+const findingsByUnit = new WeakMap<Unit, Finding[]>();
+
+/**
+ * The unit's findings: its concerns, then the callers it may break. Each is keyed by the unit's
+ * hash and what it says, so a re-summarized unit starts fresh and a reordered list keeps its marks.
+ */
+export function findings(unit: Unit): Finding[] {
+  let list = findingsByUnit.get(unit);
+  if (!list) {
+    const prefix = unitViewKey(unit) + '#';
+    list = [
+      ...(unit.summary?.concerns ?? []).map((concern): Finding => ({
+        key: prefix + concern.kind + ':' + concern.line + ':' + concern.text,
+        text: concern.text,
+        kind: concern.kind,
+        concern,
+      })),
+      ...(unit.summary?.breaks ?? []).map((possibleBreak): Finding => ({
+        key: prefix + 'breaks::' + possibleBreak.summary,
+        text: possibleBreak.summary,
+        kind: 'breaks',
+        possibleBreak,
+      })),
+    ];
+    findingsByUnit.set(unit, list);
+  }
+  return list;
 }
 
-export function concernMark(marks: Marks, unit: Unit, concern: Concern): ConcernMark | null {
-  return marks.get(concernKey(unit, concern)) || null;
+export function findingMark(marks: Marks, finding: Finding): ConcernMark | null {
+  return marks.get(finding.key) || null;
 }
 
-/** The unit's concerns the reader hasn't dismissed. */
-export function openConcerns(marks: Marks, unit: Unit): Concern[] {
-  if (!unit.summary) return [];
-  return unit.summary.concerns.filter((concern) => concernMark(marks, unit, concern) !== 'dismissed');
+/** The unit's findings the reader hasn't dismissed. */
+export function openFindings(marks: Marks, unit: Unit): Finding[] {
+  return findings(unit).filter((finding) => findingMark(marks, finding) !== 'dismissed');
 }
 
 /** The open concerns' kinds, by the row each is on ("N12", "O5"): the overview ruler's concern ticks. */
 export const openConcernLines = memo(
   (marks: Marks, unit: Unit): ReadonlyMap<string, string> =>
-    new Map(openConcerns(marks, unit).map((concern) => [concern.line, concern.kind])),
+    new Map(
+      openFindings(marks, unit)
+        .filter(isConcern)
+        .map(({ concern }) => [concern.line, concern.kind]),
+    ),
 );
 
-/** Whether the reader dismissed any of the unit's concerns. */
+/** Whether the reader dismissed any of the unit's findings. */
 export function hasDismissed(marks: Marks, unit: Unit): boolean {
-  return !!unit.summary?.concerns.some((concern) => concernMark(marks, unit, concern) === 'dismissed');
+  return findings(unit).some((finding) => findingMark(marks, finding) === 'dismissed');
 }
 
 /** The unit's signal ids, most serious first. */
 export function unitSignals(marks: Marks, unit: Unit): SignalId[] {
-  const summary = unit.summary;
-  if (!summary) return [];
-  const kinds = new Set<string>(openConcerns(marks, unit).map((concern) => concern.kind));
-  const signals: SignalId[] = CONCERN_KINDS.filter((kind) => kinds.has(kind));
-  if (summary.breaks.length > 0) signals.push('breaks');
-  return signals;
+  const kinds = new Set(openFindings(marks, unit).map((finding) => finding.kind));
+  return SIGNAL_ORDER.filter((kind) => kinds.has(kind));
 }
 
 export function isFlagged(marks: Marks, unit: Unit): boolean {
@@ -64,8 +99,7 @@ export function concernLabel(concern: Concern, mark: ConcernMark | null): string
 }
 
 export function signalTip(marks: Marks, unit: Unit, signal: SignalId): string {
-  if (signal === 'breaks') return 'may break callers: ' + unit.summary!.breaks[0].summary;
-  return SIGNALS[signal].one + ': ' + openConcerns(marks, unit).find((concern) => concern.kind === signal)!.text;
+  return SIGNALS[signal].one + ': ' + openFindings(marks, unit).find((finding) => finding.kind === signal)!.text;
 }
 
 export function flowPriority(flow: Flow): number {

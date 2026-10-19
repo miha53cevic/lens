@@ -305,17 +305,53 @@
   padding-left: var(--space-4);
   border-left: 2px solid var(--breaks);
 }
+.brk {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+.brk.real {
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-md);
+  background: color-mix(in oklab, var(--breaks) var(--tint), transparent);
+}
 .brk-head {
   display: inline-flex;
   align-items: baseline;
   gap: var(--space-2);
+  min-width: 0;
   color: var(--text);
   font-size: var(--text-base);
   font-weight: 600;
   text-align: left;
 }
-.brk-head:hover {
+.brk-head:not(:disabled):hover {
   text-decoration: underline;
+}
+/* dismissed: one quiet line, still restorable, as a concern is */
+.brk.dismissed {
+  flex-wrap: nowrap;
+  opacity: 0.6;
+}
+.brk.dismissed:hover {
+  opacity: 1;
+}
+.brk.dismissed .brk-head {
+  flex: 1;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: 400;
+}
+.brk.dismissed .brk-head .lucide-arrow-up-right {
+  color: var(--muted);
+}
+.brk.dismissed .brk-text {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-decoration: line-through;
 }
 .brk-head .lucide-arrow-up-right {
   color: var(--breaks);

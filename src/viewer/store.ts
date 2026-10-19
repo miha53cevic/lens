@@ -10,12 +10,13 @@ import { createStore } from 'zustand/vanilla';
 import type { ViewerPayload } from '../cli-app/render/web/server.ts';
 import type { AskSelection, AskState } from '../cli-app/ask/session.ts';
 import type { BuildProgress } from '../cli-app/summary/progress.ts';
+import type { ConcernKind } from '../cli-app/summary/store.ts';
 import { INITIAL_DATA, readPref } from './shared.ts';
 import { CODE_SIZE_DEFAULT, savedCodeSize } from './codeSize.ts';
 
 export type View = 'code' | 'summary';
 export type ConcernMark = 'real' | 'dismissed';
-export type SignalId = 'bug' | 'risk' | 'question' | 'breaks';
+export type SignalId = ConcernKind | 'breaks';
 /** What the list's chips filter by: a signal, any of them, or the concerns the reader dismissed */
 export type SignalFilter = SignalId | 'any' | 'dismissed' | null;
 
