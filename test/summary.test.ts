@@ -484,6 +484,16 @@ test("validate: flows keep priority and why; bad ones are reported; coverage cou
   assert.match(reasons, /"Odd": priority must be 1, 2 or 3/);
   assert.match(reasons, /"Odd": why 101 chars, max 100/);
   assert.deepEqual(out.coverage, { summarized: 3, inFlows: 3, outside: [], advice: [] });
+  // a flow without a usable title or path: each bad field, by how much, and what it took with it
+  const long = "Prepare lists callers and files housekeeping";
+  const bad = validateResult(BUNDLE, { units: {}, flows: [
+    { title: long, path: "a", units: { "src/repo.ts#findOrders": "repo", "src/repo.ts#fetchAll": "repo" } },
+    { title: "T", units: { "src/repo.ts#toOrder": "x" } },
+  ] }, "/nonexistent", null);
+  assert.deepEqual(bad.dropped, [
+    `flows[0] "${long}": title ${long.length} chars, max 40 — dropped with its 2 units`,
+    `flows[1] "T": path missing — dropped with its 1 unit`,
+  ]);
   const fewer = validateResult(BUNDLE, { units: {}, flows: [] }, "/nonexistent", out.stored);
   assert.equal(fewer.stored.flows.length, 2, "an empty flows list changes nothing");
   const loose = validateResult(BUNDLE, { units: {

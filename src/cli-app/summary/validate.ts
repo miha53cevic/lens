@@ -460,7 +460,17 @@ function checkFlow(
   const title = text(r.title, LIMITS.flowTitle);
   // Housekeeping has no steps to walk
   const path = text(r.path, LIMITS.flowPath) ?? (title === HOUSEKEEPING && !r.path ? "" : null);
-  if (!title || path === null) { dropped.push(`${where}: title (≤${LIMITS.flowTitle}) and path (≤${LIMITS.flowPath}) required`); return null; }
+  if (!title || path === null) {
+    // name each bad field and by how much, and what went with it: its units now read as in no flow
+    const problems = [
+      ...(title ? [] : [`title ${describe(r.title, LIMITS.flowTitle)}`]),
+      ...(path === null ? [`path ${describe(r.path, LIMITS.flowPath)}`] : []),
+    ];
+    const named = typeof r.title === "string" && r.title.trim() !== "" ? ` ${JSON.stringify(r.title.trim())}` : "";
+    const held = typeof r.units === "object" && r.units !== null ? Object.keys(r.units).length : 0;
+    dropped.push(`${where}${named}: ${problems.join(", ")} — dropped with its ${held} unit${held === 1 ? "" : "s"}`);
+    return null;
+  }
   const units: Record<string, string> = {};
   for (const [id, layer] of Object.entries(typeof r.units === "object" && r.units !== null ? r.units : {})) {
     if (!byId.has(id)) { dropped.push(`${where}: unknown unit ${id}`); continue; }
