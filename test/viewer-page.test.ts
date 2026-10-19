@@ -82,12 +82,12 @@ interface Page {
 
 /** Opens the viewer on the payload, with these localStorage entries (and this cookie) already there. */
 async function open(prefs: Record<string, string> = {}, hash = '', cookie = ''): Promise<Page> {
-  // a preview's frame isn't loaded: there is no server, and what it shows is the agent's, not the page's
+  // a preview's frame isn't loaded, and says nothing about it: there is no server, and what it shows is the agent's, not the page's
   GlobalRegistrator.register({
     url: 'http://127.0.0.1:5326/' + hash,
     width: 1400,
     height: 900,
-    settings: { disableIframePageLoading: true },
+    settings: { navigation: { disableChildFrameNavigation: true } },
   });
   const page: Page = { requests: [], ask: { listening: false, questions: [] }, tokensAnalysis: null };
   globalThis.fetch = (async (input: string | URL, init?: RequestInit) => {
