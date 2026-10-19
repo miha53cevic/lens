@@ -109,6 +109,21 @@ svg.lucide {
   animation: spin 0.9s linear infinite;
 }
 
+/* a dot that says something is live (an agent listening, writing): its ring pulses */
+.dot.pulse {
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--dot) var(--tint-strong), transparent);
+  animation: dot-pulse 1.8s ease-out infinite;
+}
+@keyframes dot-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--dot) 55%, transparent);
+  }
+  70%,
+  100% {
+    box-shadow: 0 0 0 6px color-mix(in oklab, var(--dot) 0%, transparent);
+  }
+}
+
 /* a theme switch cross-fades the whole page (crossFade in ui/motion.ts) */
 ::view-transition-old(root),
 ::view-transition-new(root) {
@@ -153,14 +168,14 @@ svg.lucide {
   background: transparent;
 }
 
-/* less motion: no transitions or flourishes, but a spinner still turns and the Ask dot still pulses, since they say work is going on, and a jump still pops the line it lands on, so the eye finds it */
+/* less motion: no transitions or flourishes, but a spinner still turns and a live dot still pulses, since they say work is going on, and a jump still pops the line it lands on, so the eye finds it */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     transition: none !important;
   }
-  :not(.spin, .ask-spin, .ask-dot, .row.flash) {
+  :not(.spin, .ask-spin, .pulse, .row.flash) {
     animation: none !important;
   }
 }

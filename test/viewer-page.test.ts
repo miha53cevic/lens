@@ -610,6 +610,7 @@ pageTest("the agent's summary run shows as a notice while it goes: units in, the
   window.dispatchEvent(new Event('focus'));
   await settle();
   assert.deepEqual(notices(), ['Agent writing summary · 12 of 30 units']);
+  assert.ok($('#status-bar .notice-dot').classList.contains('pulse'), 'a live notice pulses, as the Ask dot does');
   building = { done: 30, total: 30, finalPass: true };
   window.dispatchEvent(new Event('focus'));
   await settle();

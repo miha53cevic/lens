@@ -21,7 +21,7 @@ export function AskRail() {
         <span className='ask-title'>Ask</span>
         <span className='spacer' />
         <span className='ask-status' id='ask-status'>
-          <span className={listening ? 'dot ask-dot on' : 'dot ask-dot'} />
+          <span className={listening ? 'dot ask-dot on pulse' : 'dot ask-dot'} />
           {listening ? 'agent listening' : 'no agent'}
         </span>
         <IconButton id='ask-close' label='Hide the Ask rail' onClick={() => askSetOpen(false)}>
