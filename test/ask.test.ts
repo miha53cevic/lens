@@ -271,7 +271,7 @@ test("ask routes: ask, listen, answer, and stale after the code changes", async 
       // the unit's summary has one concern; the viewer names it (not dismissed) and one the unit doesn't have
       const real = { kind: "risk" as const, text: "an empty list has no first item", line: "N2" };
       input.summary!.units.find((u) => u.id === "calc.ts#total")!.summary =
-        { headline: "", gist: "", unexplainedLook: false, changes: [], breaks: [], concerns: [real] };
+        { headline: "", gist: "", changes: [], breaks: [], concerns: [real] };
       const asked = await post("/api/ask", {
         text: "why reduce?", file: "calc.ts", unitId: "calc.ts#total", label: "total",
         concerns: [real, { kind: "bug", text: "made up", line: "N2" }],

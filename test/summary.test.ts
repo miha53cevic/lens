@@ -301,6 +301,21 @@ test("readStored tolerates a summary.json without flows, or with a malformed ove
   }
 });
 
+test("readStored gives a unit summarized before concerns existed none", () => {
+  const root = mkdtempSync(join(tmpdir(), "lens-store-"));
+  try {
+    const old = { headline: "Old", gist: "", needsLook: true, changes: [], breaks: [], hash: "h" };
+    const concern = { kind: "bug", text: "x", line: "N1" };
+    writeStored(root, "diff", { version: 1, updatedAt: "", units: {}, flows: [] });
+    writeFileSync(summaryPath(root, "diff"), JSON.stringify({ version: 1, units: { a: old, b: { ...old, concerns: [concern] } } }));
+    const units = readStored(root, "diff")!.units;
+    assert.deepEqual(units.a.concerns, []);
+    assert.deepEqual(units.b.concerns, [concern]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("submit finds a bundle whose key ends in .json", async () => {
   const dir = mkdtempSync(join(tmpdir(), "lens-submit-"));
   const git = (...args: string[]) => execFileSync("git", args, { cwd: dir, encoding: "utf8" });
@@ -351,9 +366,9 @@ const BUNDLE: Bundle = {
   createdAt: "",
   units: [
     { id: "src/repo.ts#findOrders", file: "src/repo.ts", name: "findOrders", kind: "function", status: "modified", hash: "h1", labels: ["N5", "N6", "O4"], ranges: [{ start: 3, end: 9 }], done: false },
-    { id: "src/repo.ts#toOrder", file: "src/repo.ts", name: "toOrder", kind: "function", status: "modified", hash: "h2", labels: ["N11"], done: false },
-    { id: "src/repo.ts#fetchAll", file: "src/repo.ts", name: "fetchAll", kind: "function", status: "new", hash: "h3", labels: ["N20"], done: false },
-    { id: "src/repo.ts#getAll", file: "src/repo.ts", name: "getAll", kind: "function", status: "deleted", hash: "h4", labels: ["O30"], done: false },
+    { id: "src/repo.ts#toOrder", file: "src/repo.ts", name: "toOrder", kind: "function", status: "modified", hash: "h2", labels: ["N11"], ranges: [], done: false },
+    { id: "src/repo.ts#fetchAll", file: "src/repo.ts", name: "fetchAll", kind: "function", status: "new", hash: "h3", labels: ["N20"], ranges: [], done: false },
+    { id: "src/repo.ts#getAll", file: "src/repo.ts", name: "getAll", kind: "function", status: "deleted", hash: "h4", labels: ["O30"], ranges: [], done: false },
   ],
 };
 
@@ -498,7 +513,7 @@ test("validate: a unit goes in one flow — a later submit's flow takes it from 
 test("validate: Housekeeping may hold one unit; lens's own housekeeping units count as covered", () => {
   const bundle: Bundle = { ...BUNDLE, units: [...BUNDLE.units, {
     id: "src/repo.ts#(module)", file: "src/repo.ts", name: "(module)", kind: "module", status: "modified",
-    hash: "h5", labels: ["N1"], importsOnly: true, done: false,
+    hash: "h5", labels: ["N1"], ranges: [], importsOnly: true, done: false,
   }] };
   const out = validateResult(bundle, {
     units: Object.fromEntries(bundle.units.map((u) => [u.id, ok()])),
@@ -514,7 +529,7 @@ test("validate: Housekeeping may hold one unit; lens's own housekeeping units co
 
 test("validate: advice for flows that look split up — inside one file, or too small", () => {
   const unit = (file: string, name: string) => ({
-    id: `${file}#${name}`, file, name, kind: "function" as const, status: "modified" as const, hash: name, labels: ["N1"], done: false,
+    id: `${file}#${name}`, file, name, kind: "function" as const, status: "modified" as const, hash: name, labels: ["N1"], ranges: [], done: false,
   });
   const bundle: Bundle = { ...BUNDLE, units: ["a", "b", "c"].flatMap((file) => [unit(`${file}.ts`, "one"), unit(`${file}.ts`, "two")]) };
   const out = validateResult(bundle, { units: {}, flows: [
@@ -1035,7 +1050,7 @@ test("a summary run's progress: units in, then the final pass, then nothing; a s
     assert.deepEqual(read(), { done: 0, total: 3, finalPass: false });
 
     const summary = (headline: string, hash: string) => ({
-      headline, gist: "", changes: [], breaks: [], needsLook: false, hash,
+      headline, gist: "", changes: [], breaks: [], concerns: [], needsLook: false, hash,
     });
     const units = { a: summary("A", "h-a"), b: summary("B", "h-b"), c: summary("C", "stale") };
     writeStored(root, key, { version: 1, updatedAt: "", units, flows: [] });

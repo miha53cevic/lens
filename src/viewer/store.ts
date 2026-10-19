@@ -15,7 +15,7 @@ import { CODE_SIZE_DEFAULT, savedCodeSize } from './codeSize.ts';
 
 export type View = 'code' | 'summary';
 export type ConcernMark = 'real' | 'dismissed';
-export type SignalId = 'bug' | 'risk' | 'question' | 'breaks' | 'look';
+export type SignalId = 'bug' | 'risk' | 'question' | 'breaks';
 /** What the list's chips filter by: a signal, any of them, or the concerns the reader dismissed */
 export type SignalFilter = SignalId | 'any' | 'dismissed' | null;
 

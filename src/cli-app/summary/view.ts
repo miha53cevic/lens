@@ -33,8 +33,6 @@ export interface ViewUnit extends Omit<Unit, "removals"> {
   summary: {
     headline: string;
     gist: string;
-    /** an older summary's needsLook with no concerns behind it: flagged, reason unknown */
-    unexplainedLook: boolean;
     changes: ChangeRow[];
     breaks: { summary: string; callers: CallerPeek[] }[];
     concerns: Concern[];
@@ -110,10 +108,9 @@ export function buildSummaryView(opts: {
       summary: s && !stale ? {
         headline: s.headline,
         gist: s.gist,
-        unexplainedLook: s.needsLook && s.concerns === undefined && s.breaks.length === 0,
         changes: s.changes,
         breaks: s.breaks.map((b) => ({ summary: b.summary, callers: b.callers.map((c) => peek(opts.root, c)) })),
-        concerns: s.concerns ?? [],
+        concerns: s.concerns,
       } : null,
       renamedFrom: renamed ? { id: renamed.id, removals: renamed.removals } : null,
     };
@@ -166,8 +163,9 @@ function drawings(stored: StoredSummary | null, units: Unit[]): Pick<SummaryView
 }
 
 /**
- * The stored flows over the units shown, each unit in one flow (an older summary may list
- * one in several: the first keeps it), and the units lens files itself added to Housekeeping.
+ * The stored flows over the units shown, each unit in one flow (submit keeps it so, but the
+ * file is on disk: if one lists it in several, the first keeps it), and the units lens files
+ * itself added to Housekeeping.
  */
 function shownFlows(stored: Flow[], visible: ViewUnit[]): Flow[] {
   const ids = new Set(visible.map((u) => u.id));

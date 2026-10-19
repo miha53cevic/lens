@@ -12,7 +12,6 @@
 .sig-breaks {
   --sig: var(--breaks);
 }
-.sig-look,
 .sig-dismissed {
   --sig: var(--muted);
 }

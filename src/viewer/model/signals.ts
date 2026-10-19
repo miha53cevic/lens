@@ -7,16 +7,12 @@ import { baseName, memo } from '../shared.ts';
 
 export type Unit = ViewUnit;
 
-/**
- * Only for a reason on record: an open concern (by kind) or callers it may break. Older
- * summaries can carry the agent's bare flag: "look".
- */
+/** Only for a reason on record: an open concern (by kind) or callers it may break. */
 export const SIGNALS: Record<SignalId, { one: string; many: string }> = {
   bug: { one: 'possible bug', many: 'possible bugs' },
   risk: { one: 'possible risk', many: 'risks' },
   question: { one: 'question', many: 'questions' },
   breaks: { one: 'may break callers', many: 'may break callers' },
-  look: { one: 'flagged, no reason given', many: 'no reason given' },
 };
 const CONCERN_KINDS = ['bug', 'risk', 'question'] as const;
 
@@ -55,7 +51,6 @@ export function unitSignals(marks: Marks, unit: Unit): SignalId[] {
   const kinds = new Set<string>(openConcerns(marks, unit).map((concern) => concern.kind));
   const signals: SignalId[] = CONCERN_KINDS.filter((kind) => kinds.has(kind));
   if (summary.breaks.length > 0) signals.push('breaks');
-  if (summary.unexplainedLook) signals.push('look');
   return signals;
 }
 
@@ -70,7 +65,6 @@ export function concernLabel(concern: Concern, mark: ConcernMark | null): string
 
 export function signalTip(marks: Marks, unit: Unit, signal: SignalId): string {
   if (signal === 'breaks') return 'may break callers: ' + unit.summary!.breaks[0].summary;
-  if (signal === 'look') return SIGNALS.look.one;
   return SIGNALS[signal].one + ': ' + openConcerns(marks, unit).find((concern) => concern.kind === signal)!.text;
 }
 

@@ -36,12 +36,11 @@ export interface Concern {
 export interface UnitSummary {
   headline: string;
   gist: string;
-  /** true when the unit has a concern or a break. Older summaries: the agent's own unexplained flag */
+  /** true when the unit has a concern or a break */
   needsLook: boolean;
   changes: ChangeRow[];
   breaks: Break[];
-  /** absent in summaries written before concerns existed */
-  concerns?: Concern[];
+  concerns: Concern[];
   /** id of a deleted unit this one replaces (rename / move) */
   renamedFrom?: string;
 }
@@ -144,8 +143,8 @@ export interface BundleUnit {
   hash: string;
   /** Lines a summary may cite: N<line> changed, O<line> removed */
   labels: string[];
-  /** New-side lines shown for the unit; a concern may cite any of them. Absent in older bundles */
-  ranges?: LineRange[];
+  /** New-side lines shown for the unit; a concern may cite any of them */
+  ranges: LineRange[];
   formattingOnly?: boolean;
   importsOnly?: boolean;
   /** Already summarized for this exact hash by an earlier submit */
@@ -236,8 +235,14 @@ export function readStored(root: string, key: string): StoredSummary | null {
     const parsed = JSON.parse(readFileSync(path, "utf8"));
     if (parsed?.version !== 1 || typeof parsed.units !== "object" || parsed.units === null) return null;
     const o = parsed.overview;
+    // a unit summarized before concerns existed has none on record
+    const units = Object.fromEntries(
+      Object.entries(parsed.units as Record<string, StoredSummary["units"][string]>)
+        .map(([id, unit]) => [id, Array.isArray(unit?.concerns) ? unit : { ...unit, concerns: [] }]),
+    );
     return {
       ...parsed,
+      units,
       flows: Array.isArray(parsed.flows) ? parsed.flows : [],
       overview: typeof o?.what === "string" && typeof o?.hash === "string" ? o : undefined,
     } as StoredSummary;

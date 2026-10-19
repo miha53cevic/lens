@@ -452,7 +452,7 @@ function checkUnit(
 function isShownLine(unit: BundleUnit, label: string): boolean {
   if (unit.labels.includes(label)) return true;
   const m = /^N(\d+)$/.exec(label);
-  if (!m || !unit.ranges) return false;
+  if (!m) return false;
   const n = Number(m[1]);
   return unit.ranges.some((r) => n >= r.start && n <= r.end);
 }
