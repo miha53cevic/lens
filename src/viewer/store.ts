@@ -48,7 +48,7 @@ export interface StatusNotice {
 
 export interface LensState {
   data: ViewerPayload;
-  /** The fold level: regions scored at or below it fold. The slider's choice survives a refresh. */
+  /** The fold level: regions scored at or below it fold. The reader's choice survives a refresh and a reopen. */
   threshold: number;
   /** The slow actions under way, newest last: the status bar's "working", and what their controls wait for (isBusy) */
   activities: readonly Activity[];
@@ -118,6 +118,8 @@ export interface LensState {
 export const VIEWED_CAP = 2000;
 export const VIEWED_PREF = { files: 'lens.viewedFiles', units: 'lens.viewedUnits' } as const;
 export const CONCERN_PREF = 'lens.concernMarks';
+/** The fold level the reader picked, with the one it was picked over: `{ level, base }` */
+export const THRESHOLD_PREF = 'lens.threshold';
 
 function loadSet(key: string): Set<string> {
   try {
@@ -132,6 +134,19 @@ function loadMarks(): Map<string, ConcernMark> {
     return new Map(Object.entries(JSON.parse(readPref(CONCERN_PREF) || '{}')));
   } catch {
     return new Map();
+  }
+}
+
+/** The reader's fold level, while the config's (or --threshold's) is still the one they picked it over. */
+function loadThreshold(): number {
+  const base = INITIAL_DATA.threshold;
+  try {
+    const saved = JSON.parse(readPref(THRESHOLD_PREF) || 'null');
+    return saved?.base === base && Number.isInteger(saved.level) && saved.level >= -1 && saved.level <= 3
+      ? saved.level
+      : base;
+  } catch {
+    return base;
   }
 }
 
@@ -150,7 +165,7 @@ function savedWidth(key: string, min: number, max: number, fallback: number) {
 
 const initialState: LensState = {
   data: INITIAL_DATA,
-  threshold: INITIAL_DATA.threshold,
+  threshold: loadThreshold(),
   activities: [],
   notice: null,
   serverGone: false,

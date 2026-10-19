@@ -273,6 +273,38 @@ pageTest('the fold level pins the regions scored above it', async () => {
   assert.equal($('#threshold-hint').textContent, 'Level 1 folds import, guard, logging. [ ]');
 });
 
+pageTest(
+  "the fold level is remembered with the config's it was picked over, and the config's keeps nothing",
+  async () => {
+    assert.equal(payload.threshold, 1);
+    await click($('#threshold [data-value="0"]'));
+    assert.deepEqual(JSON.parse(localStorage.getItem('lens.threshold')!), { level: 0, base: 1 });
+    await key(']');
+    assert.equal(localStorage.getItem('lens.threshold'), '');
+  },
+);
+
+pageTest(
+  'a reopened viewer comes back at the fold level the reader picked',
+  async () => {
+    assert.equal($('#threshold [aria-checked="true"]').dataset.value, '0');
+    assert.deepEqual(
+      $$('#code .region.pinned').map((region) => region.dataset.cat),
+      ['guard', 'logging'],
+    );
+  },
+  { 'lens.threshold': JSON.stringify({ level: 0, base: 1 }) },
+);
+
+pageTest(
+  'a fold level picked over another config is dropped: the new config wins',
+  async () => {
+    assert.equal($('#threshold [aria-checked="true"]').dataset.value, '1');
+    assert.equal($$('#code .region.pinned').length, 0);
+  },
+  { 'lens.threshold': JSON.stringify({ level: 0, base: 2 }) },
+);
+
 pageTest('the code size: the stepper sets it, the cookie keeps it, and the default keeps none', async () => {
   const codeSize = () => document.documentElement.style.getPropertyValue('--text-code');
   const [smaller, larger] = $$('#code-size .icon-btn');
