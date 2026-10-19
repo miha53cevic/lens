@@ -167,10 +167,15 @@ export interface Bundle {
   drawings?: boolean;
 }
 
+/** A diff needs flows once two of its units tell a story: lens's own Housekeeping units don't. */
+export function needsFlows(units: { formattingOnly?: boolean; importsOnly?: boolean }[]): boolean {
+  return units.filter((unit) => !isHousekeeping(unit)).length >= 2;
+}
+
 /** Every unit of the bundle is in, but its whole-diff work isn't: the overview, the flows, or the drawings it asked for. */
 export function wholeDiffLeft(bundle: Bundle, stored: StoredSummary): boolean {
   const hash = unitSetHash(bundle.units);
-  const flowsMissing = stored.flows.length === 0 && bundle.units.length >= 2;
+  const flowsMissing = stored.flows.length === 0 && needsFlows(bundle.units);
   const undrawn = !!bundle.drawings && stored.drawn !== hash;
   return stored.overview?.hash !== hash || flowsMissing || undrawn;
 }

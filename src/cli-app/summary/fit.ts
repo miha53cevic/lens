@@ -75,7 +75,7 @@ export function checkCaller(
 }
 
 /** The name a caller's line must mention; null for units without one (a call, a statement, a module) */
-function callerName(unit: Pick<FitUnit, "kind" | "name">): string | null {
+export function callerName(unit: Pick<FitUnit, "kind" | "name">): string | null {
   if (["call", "statement", "module", "file"].includes(unit.kind) || unit.name === "default") return null;
   const bare = unit.name.split(".").pop() ?? unit.name;
   return /^[\w$#]+$/.test(bare) ? bare.replace(/^#/, "") : null;

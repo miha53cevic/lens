@@ -4,9 +4,10 @@ import { relPath } from "../paths.ts";
 import { citeableLabels, removalAnchors, type Unit } from "./units.ts";
 import { PREVIEW_MAX_BYTES } from "./previews.ts";
 import { fitStored } from "./fit.ts";
+import { MAX_USAGES, usagesOutside, type Usages } from "./usages.ts";
 import {
-  bundleDir, HOUSEKEEPING, isHousekeeping, PREVIEWS_DIR, readStored, summaryArgs, unitSetHash, writeStored,
-  type Bundle, type BundleUnit, type StoredSummary,
+  bundleDir, HOUSEKEEPING, isHousekeeping, needsFlows, PREVIEWS_DIR, readStored, summaryArgs, unitSetHash, writeStored,
+  type Bundle, type BundleUnit, type StoredSummary, type UnitSummary,
 } from "./store.ts";
 
 // `lens summary prepare` output: a folder the user's agent reads (tasks,
@@ -82,6 +83,21 @@ export function prepareBundle(input: PrepareInput): PrepareResult {
     for (const u of unfit) delete stored.units[u.id];
     writeStored(input.root, input.key, stored);
   }
+  // import-only and formatting-only units say nothing an agent would add to: lens writes them itself
+  const filed = bundleUnits.filter((u) => !u.done && isHousekeeping(u));
+  // what the agent summarized before: lens's own units don't make this pass a partial one
+  const prior = bundleUnits.filter((u) => u.done && !isHousekeeping(u)).length;
+  const housekeeping = bundleUnits.filter(isHousekeeping).length;
+  let summaries = stored;
+  if (filed.length > 0) {
+    summaries = stored ?? { version: 1, updatedAt: "", units: {}, flows: [] };
+    for (const u of filed) {
+      summaries.units[u.id] = { ...housekeepingSummary(u), hash: u.hash, anchor: u.anchor };
+      u.done = true;
+    }
+    summaries.updatedAt = new Date().toISOString();
+    writeStored(input.root, input.key, summaries);
+  }
   const bundle: Bundle = {
     version: 1,
     key: input.key,
@@ -100,11 +116,12 @@ export function prepareBundle(input: PrepareInput): PrepareResult {
   if (input.drawings) mkdirSync(join(dir, PREVIEWS_DIR));
 
   const todo = input.units.filter((_, i) => !bundleUnits[i].done);
+  const usages = todo.length > 0 ? usagesOutside(input.root, input.units) : new Map<string, Usages>();
   const header = contextHeader(input);
   const chunks: string[][] = [[]];
   let used = 0;
   for (const unit of todo) {
-    const rendered = renderUnit(unit, input.sources.get(unit.file));
+    const rendered = renderUnit(unit, input.sources.get(unit.file), usages.get(unit.id));
     const size = rendered.split("\n").length;
     if (used > 0 && used + size > TASK_FILE_BUDGET) { chunks.push([]); used = 0; }
     chunks[chunks.length - 1].push(rendered);
@@ -115,15 +132,15 @@ export function prepareBundle(input: PrepareInput): PrepareResult {
   // the final pass — flows and the overview, from every unit's stored summary.
   // A diff split into parts gets its flows here, where one context sees all units.
   // the whole-diff work is done once the overview fits this diff and flows exist (a flow needs 2+ units)
-  const storyDone = stored?.overview?.hash === unitSetHash(bundleUnits) &&
-    (stored.flows.length > 0 || bundleUnits.length < 2);
+  const storyDone = summaries?.overview?.hash === unitSetHash(bundleUnits) &&
+    (summaries.flows.length > 0 || !needsFlows(bundleUnits));
   // with Build previews on, the whole-diff pass also draws: done once a pass that asked was submitted for this diff
-  const drawingsDone = !input.drawings || stored?.drawn === unitSetHash(bundleUnits);
+  const drawingsDone = !input.drawings || summaries?.drawn === unitSetHash(bundleUnits);
   const wholeDone = storyDone && drawingsDone;
-  const finalPass = todo.length === 0 && stored !== null && !wholeDone;
-  if (finalPass) {
+  const finalPass = todo.length === 0 && summaries !== null && !wholeDone;
+  if (finalPass && summaries) {
     const name = join(dir, "tasks.md");
-    writeFileSync(name, `# lens summary tasks (final pass: flows and overview)\n\n${header}\n${renderHeadlines(input.units, stored, input.sources)}`);
+    writeFileSync(name, `# lens summary tasks (final pass: flows and overview)\n\n${header}\n${renderHeadlines(input.units, summaries, input.sources)}`);
     taskFiles.push(name);
   }
   if (todo.length > 0) {
@@ -135,15 +152,24 @@ export function prepareBundle(input: PrepareInput): PrepareResult {
     });
   }
 
-  if (finalPass || (todo.length === input.units.length && taskFiles.length === 1)) bundle.wholeDiff = true;
+  // a fresh run in one part sees every unit: the ones lens filed itself don't need seeing
+  if (finalPass || (prior === 0 && taskFiles.length === 1)) bundle.wholeDiff = true;
   writeFileSync(join(dir, "bundle.json"), JSON.stringify(bundle, null, 2) + "\n");
   writeFileSync(join(dir, "schema.json"), JSON.stringify(RESULT_SCHEMA, null, 2) + "\n");
   const doneCount = bundleUnits.filter((u) => u.done).length;
   const instructions = finalPass
     ? renderFinalPassInstructions(input, dir, taskFiles[0], storyDone)
-    : renderInstructions(input, dir, taskFiles, todo.length, doneCount, wholeDone);
+    : renderInstructions(input, dir, taskFiles, todo.length, prior, housekeeping, wholeDone);
   writeFileSync(join(dir, "instructions.md"), instructions);
   return { dir, taskFiles, todo: todo.length, done: doneCount, instructions };
+}
+
+/** The summary lens writes for a unit it files under Housekeeping. */
+export function housekeepingSummary(unit: { importsOnly?: boolean }): UnitSummary {
+  const [headline, gist] = unit.importsOnly
+    ? ["Changes only its imports", "imports only"]
+    : ["Changes only whitespace", "formatting only"];
+  return { headline, gist, needsLook: false, changes: [], breaks: [], concerns: [] };
 }
 
 /**
@@ -214,7 +240,7 @@ function contextHeader(input: PrepareInput): string {
  * One unit as the agent sees it: `N14 + code` for changed new lines (citeable),
  * `O16 - code` for removed old lines (citeable), `  15   code` for context.
  */
-export function renderUnit(unit: Unit, source: string | undefined): string {
+export function renderUnit(unit: Unit, source: string | undefined, usages?: Usages): string {
   const lines = source?.split("\n") ?? [];
   const width = Math.max(4, ...unit.ranges.map((r) => String(r.end).length + 1),
     ...unit.removals.map((b) => String(b.oldStart + b.lines.length).length + 1));
@@ -244,17 +270,24 @@ export function renderUnit(unit: Unit, source: string | undefined): string {
   const code = out.join("\n");
   // a fence longer than any run of backticks in the code: a changed README's own fences don't end it
   const fence = "`".repeat(Math.max(3, ...[...code.matchAll(/`+/g)].map((run) => run[0].length + 1)));
-  return `## ${unit.id}\n${meta.join(" · ")}${where}\n\n${fence}\n${code}\n${fence}\n`;
+  return `## ${unit.id}\n${meta.join(" · ")}${where}\n\n${fence}\n${code}\n${fence}\n${usages ? renderUsages(usages) : ""}`;
+}
+
+/** The lines outside the diff that name the unit, under its code. */
+function renderUsages(usages: Usages): string {
+  if (usages.lines.length === 0) return `\nOutside the diff, no line names \`${usages.name}\`.\n`;
+  const more = usages.more > 0 ? [`- … and ${usages.more} more: \`git grep -nw ${usages.name}\``] : [];
+  return `\nOutside the diff, \`${usages.name}\` is named at:\n${[...usages.lines.map((line) => `- ${line}`), ...more].join("\n")}\n`;
 }
 
 function renderInstructions(
-  input: PrepareInput, dir: string, taskFiles: string[], todo: number, done: number, wholeDone: boolean,
+  input: PrepareInput, dir: string, taskFiles: string[], todo: number, done: number, filed: number, wholeDone: boolean,
 ): string {
   const rel = (p: string) => relPath(input.cwd, p);
   const resultPath = rel(join(dir, "result.json"));
   const files = taskFiles.map((f) => `\`${rel(f)}\``).join(", ");
   if (todo === 0) {
-    return `# lens summary\n\nNothing to do: all ${done} units already have a summary for their current code.\n` +
+    return `# lens summary\n\nNothing to do: all ${done + filed} units already have a summary for their current code.\n` +
       `Tell the user to open the Summary tab in the lens viewer (refresh with ↻).\n`;
   }
   // flows need every unit in view: split or partial runs leave them to the final pass —
@@ -263,19 +296,22 @@ function renderInstructions(
   return `# lens summary — instructions for the agent
 
 You are writing a review summary of a code diff for the lens viewer. Lens split the
-diff into ${todo} units (functions, components, hooks, methods, types, …)${done > 0 ? `; ${done} more are already summarized and skipped` : ""}.
+diff into ${todo} units (functions, components, hooks, methods, types, …)${done > 0 ? `; ${done} more are already summarized and skipped` : ""}${filed > 0 ? `; lens summarizes the ${filed} import-only or formatting-only ${filed === 1 ? "one" : "ones"} itself` : ""}.
 Tasks: ${files}
 
 If you can, do this in a fresh context or a subagent, not in the session that wrote
 the code — reviewing your own work hides its blind spots. Use one subagent at most, for
-the whole run: it reads every task file in turn and searches for callers itself. Don't
+the whole run: it reads every task file in turn and does its own searching. Don't
 spawn a subagent per part, per unit or per search.
 
 ## Steps
 1. Read the task file(s). Each unit shows its code: \`N14 + …\` is a changed new line,
    \`O16 - …\` a removed old line, \`  15   …\` unchanged context.
-2. For each unit, understand what changed in behavior. Use the repository freely: open
-   files, search for callers of changed functions (their usages are NOT in the tasks).
+2. For each unit, understand what changed in behavior. Use the repository freely.
+   Under a named unit's code, the tasks list the lines outside the diff that name it (a
+   plain text match over the working tree, up to ${MAX_USAGES}): those are its likely callers. Read
+   them rather than searching again. Search yourself only when the list is cut off, or the
+   unit is reached another way (an alias, a re-export under another name, a string key).
 3. Write \`${resultPath}\` following \`${rel(join(dir, "schema.json"))}\`.
 4. Run \`lens summary submit ${rel(dir)}\`. It prints what it rejected and why: fix those
    entries and submit once more. Submits merge, so for multi-part tasks you may submit

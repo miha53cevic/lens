@@ -156,6 +156,7 @@ The Summary tab shows the same code snippets as the Code view, with the agent's 
 lens never calls an AI. The user's agent writes `result.json`, and lens checks it.
 
 - Pipeline: `collect.ts` (load the diff) → `units.ts` (split it into units) → `bundle.ts` (`prepare` writes `.lens/summary/<key>/`) → agent → `validate.ts` (`submit`) → `store.ts` (`summary.json`) → `view.ts` (`SummaryView` for the viewer) → `src/viewer/model/` and `components/SummaryPane/`.
+- `prepare` spares the agent what lens can do itself: it writes the summaries of import-only and formatting-only units (`housekeepingSummary`, never in the tasks), and lists under each named unit the lines outside the diff that name it (`usages.ts`, one `git grep -w` over the working tree, the tree `submit` checks callers against), so the agent reads its likely callers instead of searching for them.
 - Invariant: every changed and removed line belongs to exactly one unit. `checkCoverage` enforces it, so keep it true when changing how units are found.
 - `validate.ts` drops claims that don't point at real code and gives the agent a reason it can act on. A new kind of claim gets the same treatment.
 - The agent instructions are generated in `bundle.ts` and are the source of truth. The skills in `skills/` are thin pointers to them, so put format and rule changes in `bundle.ts`, not in a skill.

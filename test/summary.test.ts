@@ -11,6 +11,7 @@ import { summaryKey, summaryPath, readStored, writeStored, unitSetHash, type Bun
 import { runSummary } from "../src/cli-app/summary/command.ts";
 import { validateResult } from "../src/cli-app/summary/validate.ts";
 import { LIMITS, prepareBundle, renderUnit } from "../src/cli-app/summary/bundle.ts";
+import { MAX_USAGES } from "../src/cli-app/summary/usages.ts";
 import { loadDiff, collectUnits, commitLog } from "../src/cli-app/summary/collect.ts";
 import { buildSummaryView } from "../src/cli-app/summary/view.ts";
 import { previewProblems, previewResponse, writeAssets } from "../src/cli-app/summary/previews.ts";
@@ -626,7 +627,9 @@ test("prepare → submit → view round trip, with re-prepare skipping done unit
     const sources = new Map([["src/repo.ts", NEW_REPO]]);
     const prep = { root: diff.root, cwd: dir, key: "diff-staged@main", command: "diff" as const, args: ["--staged"], label: null, commits: "", units, sources };
     const first = prepareBundle(prep);
-    assert.equal(first.todo, units.length);
+    // the import-only module unit is lens's to summarize, not the agent's
+    assert.equal(first.todo, units.length - 1);
+    assert.equal(first.done, 1);
     assert.equal(readFileSync(join(diff.root, ".lens/.gitignore"), "utf8").trim().split("\n").pop(), "*");
     assert.ok(existsSync(join(first.dir, "tasks.md")));
     assert.equal(git("status", "--porcelain", "--untracked-files=all").includes(".lens"), false, ".lens ignores itself");
@@ -648,8 +651,8 @@ test("prepare → submit → view round trip, with re-prepare skipping done unit
     writeStored(diff.root, "diff-staged@main", outcome.stored);
 
     const again = prepareBundle(prep);
-    assert.equal(again.done, 1);
-    assert.equal(again.todo, units.length - 1);
+    assert.equal(again.done, 2, "findOrders, and the module unit lens filed");
+    assert.equal(again.todo, units.length - 2);
     assert.doesNotMatch(readFileSync(join(again.dir, "tasks.md"), "utf8"), /## src\/repo.ts#findOrders/);
     // the overview fits this diff but no flows exist yet: the leftover units leave them to the final pass
     assert.match(again.instructions, /the final pass \(step 5\) asks for them/);
@@ -712,6 +715,68 @@ test("prepare → submit → view round trip, with re-prepare skipping done unit
     assert.match(finalTasks, /`src\/repo.ts#router.get\("\/orders"\)`.*\n  names: `src\/repo.ts#findOrders`/);
     assert.match(finalTasks, /Lens files these under "Housekeeping" itself[^\n]*\n- `src\/repo.ts#\(module\)`/);
     assert.doesNotMatch(finalTasks, /^- `src\/repo.ts#\(module\)` \(/m, "not listed with the rest");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("prepare summarizes import-only units itself, and lists the lines outside the diff that name each unit", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "lens-summary-"));
+  const git = (...args: string[]) => execFileSync("git", args, { cwd: dir, encoding: "utf8" });
+  try {
+    git("init", "-q", "-b", "main");
+    git("config", "user.email", "t@t");
+    git("config", "user.name", "t");
+    mkdirSync(join(dir, "src"));
+    const calls = Array.from({ length: MAX_USAGES + 2 }, (_, i) => `export const x${i} = second(${i});`);
+    const files: Record<string, string> = {
+      "src/math.ts": MATH,
+      "src/jobs.ts": ["import { second } from './math';", ...calls].join("\n") + "\n",
+      "src/util.ts": 'import { a } from "./a";\nexport const u = 1;\n',
+      "README.md": "Call `second` to double a number.\n",
+    };
+    for (const [file, text] of Object.entries(files)) writeFileSync(join(dir, file), text);
+    git("add", "-A");
+    git("commit", "-qm", "init");
+    const changed = {
+      "src/math.ts": MATH_SECOND + "\nexport function third(n: number): number {\n  return n * 4;\n}\n",
+      "src/util.ts": 'import { b } from "./b";\nexport const u = 1;\n',
+    };
+    for (const [file, text] of Object.entries(changed)) writeFileSync(join(dir, file), text);
+    git("add", "-A");
+
+    const diff = await loadDiff("diff", ["--staged"], dir, DEFAULT_CONFIG);
+    const units = await collectUnits(diff, DEFAULT_CONFIG, dir);
+    const key = "diff-staged@main";
+    const prep = { root: diff.root, cwd: dir, key, command: "diff" as const, args: ["--staged"], label: null, commits: "", units, sources: new Map(Object.entries(changed)) };
+    const result = prepareBundle(prep);
+    const tasks = readFileSync(join(result.dir, "tasks.md"), "utf8");
+    const bundle = JSON.parse(readFileSync(join(result.dir, "bundle.json"), "utf8")) as Bundle;
+
+    // the import-only unit: summarized and done, out of the tasks, and the pass still sees the whole diff
+    assert.deepEqual(units.filter((unit) => unit.importsOnly).map((unit) => unit.id), ["src/util.ts#(module)"]);
+    assert.equal(result.todo, units.length - 1);
+    assert.doesNotMatch(tasks, /## src\/util.ts/);
+    assert.equal(bundle.units.find((unit) => unit.id === "src/util.ts#(module)")?.done, true);
+    const stored = readStored(diff.root, key)!.units["src/util.ts#(module)"];
+    assert.equal(stored.headline, "Changes only its imports");
+    assert.deepEqual([stored.changes, stored.breaks, stored.concerns], [[], [], []]);
+    assert.equal(bundle.wholeDiff, true);
+    assert.match(result.instructions, /lens summarizes the 1 import-only or formatting-only one itself/);
+    assert.match(result.instructions, /^## Flows$/m);
+
+    // second's callers, capped, without the README; third has none
+    const listed = calls.slice(0, MAX_USAGES - 1).map((call, i) => `- src/jobs.ts:${i + 2}  ${call}`);
+    assert.ok(tasks.includes(["Outside the diff, `second` is named at:", "- src/jobs.ts:1  import { second } from './math';", ...listed].join("\n")));
+    assert.match(tasks, /^- … and 3 more: `git grep -nw second`$/m);
+    assert.doesNotMatch(tasks, /README/);
+    assert.match(tasks, /^Outside the diff, no line names `third`\.$/m);
+
+    // prepared again, the filed unit stays done, and the pass still sees the whole diff
+    const again = prepareBundle(prep);
+    assert.equal(again.todo, units.length - 1);
+    assert.doesNotMatch(again.instructions, /already summarized/);
+    assert.match(again.instructions, /^## Flows$/m);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
