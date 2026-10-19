@@ -43,7 +43,7 @@ async function reply(base: string, id: string, markdown: string): Promise<void> 
   const res = await call(`${base}/api/ask/${encodeURIComponent(id)}/answer`, { method: "POST", body: markdown });
   const raw = await res.text();
   let body: { error?: string; cites?: number; unresolved?: string[] } | null = null;
-  try { body = JSON.parse(raw); } catch { /* not a lens viewer, or an older one */ }
+  try { body = JSON.parse(raw); } catch { /* not a lens viewer */ }
   if (!res.ok || !body) throw new Error(body?.error ?? `the viewer answered ${res.status}: ${raw}`);
   const cites = body.cites ?? 0;
   console.log(`lens: answered ${id} (${cites} cite${cites === 1 ? "" : "s"} linked)`);

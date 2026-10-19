@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { readBody, sendJson as send } from "../render/web/http.ts";
 import type { ViewerInput } from "../render/web/server.ts";
+import { placedHash } from "../summary/units.ts";
 import { findCites } from "./cites.ts";
 import { changeContext, questionText } from "./context.ts";
 import { createAskSession, type AskLine, type AskQuestion, type AskSelection, type NewQuestion } from "./session.ts";
@@ -34,8 +35,11 @@ export function createAskRoutes(current: () => ViewerInput, port: number): AskRo
     const f = input.files.find((x) => x.file === file);
     return f ? createHash("sha256").update(f.source).digest("hex").slice(0, 16) : null;
   };
-  const hashOf = (input: ViewerInput, q: Pick<AskQuestion, "file" | "unitId">): string | null =>
-    q.unitId ? input.summary?.units.find((u) => u.id === q.unitId)?.hash ?? null : fileHash(input, q.file);
+  const hashOf = (input: ViewerInput, q: Pick<AskQuestion, "file" | "unitId">): string | null => {
+    // by place: an answer cites lines, which a unit that moved has elsewhere
+    const unit = q.unitId ? input.summary?.units.find((u) => u.id === q.unitId) : undefined;
+    return q.unitId ? (unit ? placedHash(unit) : null) : fileHash(input, q.file);
+  };
 
   /** A question from the viewer's request body, or why it's not acceptable. */
   const parseQuestion = (body: string): NewQuestion | string => {
@@ -55,10 +59,15 @@ export function createAskRoutes(current: () => ViewerInput, port: number): AskRo
     const named = new Set(Array.isArray(raw.concerns) ? raw.concerns.map(concernId) : []);
     const unit = unitId ? input.summary?.units.find((u) => u.id === unitId) : undefined;
     const concerns = (unit?.summary?.concerns ?? []).filter((c) => named.has(concernId(c)));
-    return { text, file: raw.file, unitId, label, hash, selection: parseSelection(raw.selection), concerns };
+    // its possible breaks likewise, named by what they say
+    const namedBreaks = new Set(Array.isArray(raw.breaks) ? raw.breaks.filter((b) => typeof b === "string") : []);
+    const breaks = (unit?.summary?.breaks ?? [])
+      .filter((b) => namedBreaks.has(b.summary))
+      .map((b) => ({ summary: b.summary, callers: b.callers.map((c) => `${c.file}:${c.line}`) }));
+    return { text, file: raw.file, unitId, label, hash, selection: parseSelection(raw.selection), concerns, breaks };
   };
 
-  const textFor = (q: Pick<AskQuestion, "id" | "text" | "selection" | "concerns" | "file" | "unitId" | "label">, forCopy: boolean) => {
+  const textFor = (q: Pick<AskQuestion, "id" | "text" | "selection" | "concerns" | "breaks" | "file" | "unitId" | "label">, forCopy: boolean) => {
     const input = current();
     return questionText(q, changeContext(input, q), { forCopy, root: input.root, cwd: input.cwd, port });
   };

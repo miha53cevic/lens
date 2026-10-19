@@ -87,7 +87,7 @@ const buildList = memo(
   ): ListModel => {
     const isShown = (unit: Unit) => !(hideTests && isTestFile(unit.displayFile));
     const units = summary.units.filter(isShown); // hide tests: the counts follow the list
-    const counts = { any: 0, bug: 0, risk: 0, question: 0, breaks: 0, look: 0, dismissed: 0 };
+    const counts = { any: 0, bug: 0, risk: 0, question: 0, breaks: 0, dismissed: 0 };
     for (const unit of units) {
       const signals = unitSignals(marks, unit);
       if (signals.length > 0) counts.any++;

@@ -1,9 +1,8 @@
 // The Summary tab: the open unit, the list's filters, the reader's verdicts.
 
-import type { Concern } from '../../cli-app/summary/store.ts';
 import { CONCERN_PREF, type ConcernMark, getState, type SignalFilter, update, VIEWED_CAP } from '../store.ts';
 import { writePref } from '../shared.ts';
-import { concernKey, type Unit } from '../model/signals.ts';
+import type { Unit } from '../model/signals.ts';
 import { currentUnit, listModel } from '../model/summaryList.ts';
 import { jumpToLine, landOn } from './views.ts';
 
@@ -42,9 +41,9 @@ export function toggleFlow(title: string, open: boolean): void {
   update((state) => ({ flowOpen: new Map(state.flowOpen).set(title, open) }));
 }
 
-// The agent's concerns are suspicions; the reader decides: "real" or "dismissed", per browser.
-export function setConcernMark(unit: Unit, concern: Concern, mark: ConcernMark): void {
-  const key = concernKey(unit, concern);
+// The agent's findings are suspicions; the reader decides: "real" or "dismissed", per browser.
+// The same mark again takes it back. `key` is the finding's (`findings` in model/signals.ts).
+export function setMark(key: string, mark: ConcernMark): void {
   const marks = new Map(getState().concernMarks);
   if (marks.get(key) === mark) marks.delete(key);
   else {

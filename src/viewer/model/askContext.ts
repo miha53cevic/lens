@@ -1,10 +1,9 @@
 // What an Ask question is about: the open change, and the selection in it.
 
-import type { Concern } from '../../cli-app/summary/store.ts';
 import type { LensState } from '../store.ts';
 import { baseName, fileViewKey } from '../shared.ts';
 import { activeFile } from './plans.ts';
-import { openConcerns, unitLabel, unitViewKey } from './signals.ts';
+import { type Finding, openFindings, unitLabel, unitViewKey } from './signals.ts';
 import { currentUnit, summaryPage } from './summaryList.ts';
 
 export interface AskContext {
@@ -20,7 +19,13 @@ export function askContext(state: LensState): AskContext | null {
   if (state.view === 'summary') {
     const unit = summaryPage(state) === 'unit' ? currentUnit(state) : null;
     return unit
-      ? { key: 'u:' + unitViewKey(unit), file: unit.displayFile, unitId: unit.id, label: unitLabel(unit) }
+      ? {
+          // by place: a kept selection is lines, which a unit that moved has elsewhere
+          key: 'u:' + unitViewKey(unit) + '@' + unit.anchor.n + ',' + unit.anchor.o,
+          file: unit.displayFile,
+          unitId: unit.id,
+          label: unitLabel(unit),
+        }
       : null;
   }
   const file = activeFile(state);
@@ -29,10 +34,10 @@ export function askContext(state: LensState): AskContext | null {
 }
 
 /** The kept selection, when it belongs to the open change. */
-/** The open unit's concerns the reader hasn't dismissed: they go along with a question about it. */
-export function askConcerns(state: LensState): Concern[] {
+/** The open unit's findings the reader hasn't dismissed: they go along with a question about it. */
+export function askFindings(state: LensState): Finding[] {
   const unit = state.view === 'summary' && summaryPage(state) === 'unit' ? currentUnit(state) : null;
-  return unit ? openConcerns(state.concernMarks, unit) : [];
+  return unit ? openFindings(state.concernMarks, unit) : [];
 }
 
 export function askSelection(state: LensState) {

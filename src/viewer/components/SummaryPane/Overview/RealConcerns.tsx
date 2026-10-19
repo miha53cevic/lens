@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { Check, Copy } from 'lucide-react';
 import { useLens } from '../../../store.ts';
-import { realConcerns } from '../../../model/realConcerns.ts';
+import { confirmedLabel, realConcerns } from '../../../model/realConcerns.ts';
 import { noteDone } from '../../../actions/status.ts';
 import { plural } from '../../../shared.ts';
 import { Button } from '../../../../ui/Button.tsx';
 
 /**
- * The concerns the reader marked real, ready to hand to the agent: one click copies them, each
+ * The concerns and possible breaks the reader marked real, ready to hand to the agent: one click copies them, each
  * with its place in the code. Shown only while there is one. lens fixes nothing itself.
  */
 export function RealConcerns() {
@@ -22,7 +22,7 @@ export function RealConcerns() {
       await navigator.clipboard.writeText(real.text);
       setCopied(true);
       setTimeout(() => setCopied(false), 1200);
-      noteDone('Copied ' + plural(real.items.length, 'concern'), 'paste them to your agent');
+      noteDone('Copied ' + confirmedLabel(real), 'paste them to your agent');
     } catch {
       setShown(true);
     }
@@ -31,7 +31,7 @@ export function RealConcerns() {
     <div className='ov-real'>
       <div className='ov-real-row'>
         <span className='ov-real-count'>
-          <b>{plural(real.items.length, 'confirmed concern')}</b> in {plural(real.unitCount, 'change')}
+          <b>{confirmedLabel(real, 'confirmed ')}</b> in {plural(real.unitCount, 'change')}
           {real.stale > 0 && <span className='stale-count'>{' · ' + real.stale + ' more on stale code'}</span>}
         </span>
         <Button size='sm' className='ov-real-copy' onClick={copy}>

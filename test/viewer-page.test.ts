@@ -36,6 +36,7 @@ beforeAll(async () => {
     units: {
       [findOrders.id]: {
         hash: findOrders.hash,
+        anchor: findOrders.anchor,
         headline: 'findOrders skips deleted orders',
         gist: 'skips deleted orders',
         needsLook: true,
@@ -45,11 +46,12 @@ beforeAll(async () => {
       },
       [legacy.id]: {
         hash: legacy.hash,
+        anchor: legacy.anchor,
         headline: 'legacyTotal is gone',
         gist: 'removed',
         needsLook: false,
         changes: [],
-        breaks: [],
+        breaks: [{ summary: 'callers of legacyTotal no longer compile', callers: ['src/report.ts:3'] }],
         concerns: [{ kind: 'question', text: 'did anything still call it?', line: 'O17' }],
       },
     },
@@ -786,7 +788,7 @@ pageTest(
     assert.ok($('.sum-overview-item').classList.contains('active'));
     assert.deepEqual(
       $$('.ov-stat').map((stat) => stat.textContent),
-      ['1 possible bug', '1 question'],
+      ['1 possible bug', '1 question', '1 may break callers'],
     );
   },
   {},
@@ -1120,6 +1122,32 @@ pageTest("a verdict doesn't move the list: the order stays, and a signal filter 
   assert.deepEqual(listed(), ['>findOrders', 'legacyTotal'], 'the open unit stays listed under it');
 });
 
+pageTest('a caller it may break takes a verdict: dismissed drops the flag, real goes to the agent', async () => {
+  await key('v');
+  await key('j');
+  await key('j');
+  assert.equal($('.sig-chip[data-sig="breaks"] .n').textContent, '1');
+
+  await click($('.brk .vbtn.v-dismissed'));
+  assert.ok($('.brk').classList.contains('dismissed'));
+  assert.equal($$('.sig-chip[data-sig="breaks"]').length, 0);
+  assert.equal($('.sig-chip[data-sig="dismissed"] .n').textContent, '1');
+  assert.ok(($('.brk-head') as HTMLButtonElement).disabled, 'its callers stay shut');
+
+  await click($('.brk .vbtn.v-dismissed')); // restore
+  assert.equal($('.sig-chip[data-sig="breaks"] .n').textContent, '1');
+  await click($('.brk .vbtn.v-real'));
+  assert.ok($('.brk').classList.contains('real'));
+  await key('g');
+  assert.equal($('.ov-real-count').textContent, '1 confirmed possible break in 1 change');
+  await click($('.ov-real-copy'));
+  assert.equal($('#status .status-label').textContent, 'Copied 1 possible break');
+  assert.match(
+    await navigator.clipboard.readText(),
+    /1\. \[breaks callers\] src\/orders\.ts — legacyTotal\n {3}callers of legacyTotal no longer compile\n {3}Callers: src\/report\.ts:3\n/,
+  );
+});
+
 pageTest('a dismissed chip lists the changes whose concerns the reader dismissed', async () => {
   await key('v');
   await key('j');
@@ -1194,6 +1222,7 @@ pageTest('Ask without an agent copies the question as a prompt', async (page) =>
     label: 'orders.ts',
     selection: null,
     concerns: [],
+    breaks: [],
   });
   assert.equal($('#ask-send').textContent!.trim(), 'Copied');
   assert.equal(($('#ask-input') as HTMLTextAreaElement).value, 'why the deleted column?', 'the question stays');
@@ -1296,6 +1325,28 @@ pageTest('a question about a unit takes its open concerns along; a dismissed one
   assert.deepEqual(sentConcerns(), []);
 });
 
+pageTest('a question about a unit takes its open possible breaks along; a dismissed one stays behind', async (page) => {
+  page.ask = { listening: true, questions: [] };
+  await key('v');
+  await key('j');
+  await key('j');
+  await key('\\');
+  assert.equal($('#ask-chips').textContent, 'legacyTotal1 concern1 possible break');
+  const sent = () =>
+    page.requests.filter((request) => request.method === 'POST' && request.path === '/api/ask').at(-1)!.body as {
+      breaks: string[];
+    };
+  await type($('#ask-input'), 'who calls it?');
+  await click($('#ask-send'));
+  assert.deepEqual(sent().breaks, ['callers of legacyTotal no longer compile']);
+
+  await click($('.brk .vbtn.v-dismissed'));
+  assert.equal($('#ask-chips').textContent, 'legacyTotal1 concern');
+  await type($('#ask-input'), 'and now?');
+  await click($('#ask-send'));
+  assert.deepEqual(sent().breaks, []);
+});
+
 pageTest('Code | Summary is one switch: the picked view is checked, and a click or v moves it', async () => {
   const picked = () => $('#view-switch [aria-checked="true"]').id;
   assert.equal($('#view-switch').getAttribute('role'), 'radiogroup');
@@ -1368,6 +1419,7 @@ pageTest('a question with no agent to answer it says so, instead of counting the
     hash: 'h1',
     selection: null,
     concerns: [],
+    breaks: [],
     askedAt: Date.now() - 90_000,
     handedAt: null,
     answer: null,
@@ -1424,6 +1476,7 @@ pageTest("an answer's markdown is drawn, its cites link, and nothing in it runs 
         hash: 'h1',
         selection: null,
         concerns: [],
+        breaks: [],
         askedAt: Date.now() - 9000,
         handedAt: null,
         answer: { markdown, cites: [cite(10), cite(11)], at: Date.now() },
@@ -1499,6 +1552,7 @@ pageTest("an answer's flow block is a lane of steps under their layers, and its 
         hash: 'h1',
         selection: null,
         concerns: [],
+        breaks: [],
         askedAt: Date.now() - 9000,
         handedAt: null,
         answer: { markdown, cites: [cite(10), cite(11)], at: Date.now() },
@@ -1619,7 +1673,8 @@ test('the copied concerns name a removed line as one, in the order of the summar
       .summary!.units.filter((unit) => unit.summary)
       .flatMap((unit) =>
         unit.summary!.concerns.map((concern) => [
-          `${unit.id}@${unit.hash}#${concern.kind}:${concern.line}:${concern.text}`,
+          // the line counted from the unit's anchor (model/signals.ts)
+          `${unit.id}@${unit.hash}#${concern.kind}:${concern.line[0]}${Number(concern.line.slice(1)) - (concern.line[0] === 'O' ? unit.anchor.o : unit.anchor.n)}:${concern.text}`,
           'real',
         ]),
       ),

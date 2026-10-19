@@ -45,10 +45,10 @@ export function UnitPage({ unit }: { unit: Unit }) {
           </div>
         )
       )}
-      {summary && summary.concerns.length > 0 && <Concerns unit={unit} concerns={summary.concerns} />}
+      {summary && summary.concerns.length > 0 && <Concerns unit={unit} />}
       {summary && summary.changes.length > 0 && <Changes changes={summary.changes} onHover={setHoveredCite} />}
       <Drawings unitId={unit.id} />
-      {summary && summary.breaks.length > 0 && <Breaks breaks={summary.breaks} />}
+      {summary && summary.breaks.length > 0 && <Breaks unit={unit} />}
       <CodeCard
         status={fileStatus(unit.status)}
         path={unit.displayFile}

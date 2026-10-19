@@ -1,7 +1,8 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join, normalize, sep } from "node:path";
-import { resolveLineRef } from "../paths.ts";
 import { LIMITS } from "./bundle.ts";
+import { checkCaller, isShownLine } from "./fit.ts";
+import { placedHash } from "./units.ts";
 import { assetName, CHANGE_MARKS, PREVIEW_MAX_BYTES, previewProblems } from "./previews.ts";
 import {
   HOUSEKEEPING, isHousekeeping, PREVIEWS_DIR, unitSetHash, type Break, type Bundle, type BundleUnit, type ChangeRow, type Concern,
@@ -50,13 +51,6 @@ const CONCERN_KINDS: ConcernKind[] = ["bug", "risk", "question"];
 /** A preview file the result names: in the bundle's previews/ folder */
 const PREVIEW_FILE = new RegExp(`^${PREVIEWS_DIR}/[\\w.-]+\\.html$`);
 
-/** Names that can't be checked against a caller line (call statements, leftovers, default exports). */
-function callerName(unit: BundleUnit): string | null {
-  if (["call", "statement", "module", "file"].includes(unit.kind) || unit.name === "default") return null;
-  const bare = unit.name.split(".").pop() ?? unit.name;
-  return /^[\w$#]+$/.test(bare) ? bare.replace(/^#/, "") : null;
-}
-
 /** The one shape check every submit needs: an object with a "units" object. */
 export function hasUnits(result: unknown): result is { units: Record<string, unknown>; flows?: unknown; overview?: unknown; previews?: unknown; sequences?: unknown } {
   if (typeof result !== "object" || result === null) return false;
@@ -91,7 +85,7 @@ export function validateResult(
     if (!unit) { dropped.push(`${id}: unknown unit id (copy ids from the tasks file)`); continue; }
     const summary = checkUnit(id, unit, entry, byId, root, fileCache, dropped);
     if (!summary) continue;
-    stored.units[id] = { ...summary, hash: unit.hash };
+    stored.units[id] = { ...summary, hash: unit.hash, anchor: unit.anchor };
     accepted.push(id);
   }
 
@@ -189,14 +183,14 @@ function listOf(value: unknown, field: string, dropped: string[]): unknown[] {
   return [];
 }
 
-/** unit ids → the hashes they had when this was drawn; null (reported) when one isn't a unit of the diff */
+/** unit ids → their placed hashes when this was drawn (a moved unit's lines are elsewhere); null (reported) when one isn't a unit of the diff */
 function hashesOf(ids: unknown, byId: Map<string, BundleUnit>, where: string, dropped: string[]): Record<string, string> | null {
   if (!Array.isArray(ids) || ids.length === 0) { dropped.push(`${where}: units must list the unit ids it shows`); return null; }
   const out: Record<string, string> = {};
   for (const id of ids) {
     const unit = typeof id === "string" ? byId.get(id) : undefined;
     if (!unit) { dropped.push(`${where}: unknown unit ${JSON.stringify(id)} (copy ids from the tasks file)`); return null; }
-    out[unit.id] = unit.hash;
+    out[unit.id] = placedHash(unit);
   }
   return out;
 }
@@ -285,7 +279,7 @@ function checkSequence(q: unknown, i: number, byId: Map<string, BundleUnit>, dro
       }
       step.unit = unit.id;
       step.line = line;
-      units[unit.id] = unit.hash;
+      units[unit.id] = placedHash(unit);
     } else if (step.change) {
       dropped.push(`${at}: a ${step.change} step needs the unit and line that make it — diagram dropped`);
       return null;
@@ -448,31 +442,10 @@ function checkUnit(
   return out;
 }
 
-/** Any line the viewer shows for the unit — changed, removed, or unchanged context. */
-function isShownLine(unit: BundleUnit, label: string): boolean {
-  if (unit.labels.includes(label)) return true;
-  const m = /^N(\d+)$/.exec(label);
-  if (!m || !unit.ranges) return false;
-  const n = Number(m[1]);
-  return unit.ranges.some((r) => n >= r.start && n <= r.end);
-}
-
 function normalizeCaller(raw: string): string {
   const c = raw.trim();
   const at = c.lastIndexOf(":");
   return normalize(c.slice(0, at)).split(sep).join("/") + ":" + Number(c.slice(at + 1));
-}
-
-/** null when the caller reference is valid, else why not. */
-function checkCaller(c: unknown, unit: BundleUnit, root: string, fileCache: Map<string, string[] | null>): string | null {
-  if (typeof c !== "string") return "must be a \"path:line\" string";
-  const ref = resolveLineRef(root, c, fileCache);
-  if ("error" in ref) return ref.error;
-  const name = callerName(unit);
-  if (name && !new RegExp(`(^|[^\\w$])${name.replace(/[$]/g, "\\$")}([^\\w$]|$)`).test(ref.text)) {
-    return `— that line doesn't mention ${name}`;
-  }
-  return null;
 }
 
 function checkFlow(
@@ -487,7 +460,17 @@ function checkFlow(
   const title = text(r.title, LIMITS.flowTitle);
   // Housekeeping has no steps to walk
   const path = text(r.path, LIMITS.flowPath) ?? (title === HOUSEKEEPING && !r.path ? "" : null);
-  if (!title || path === null) { dropped.push(`${where}: title (≤${LIMITS.flowTitle}) and path (≤${LIMITS.flowPath}) required`); return null; }
+  if (!title || path === null) {
+    // name each bad field and by how much, and what went with it: its units now read as in no flow
+    const problems = [
+      ...(title ? [] : [`title ${describe(r.title, LIMITS.flowTitle)}`]),
+      ...(path === null ? [`path ${describe(r.path, LIMITS.flowPath)}`] : []),
+    ];
+    const named = typeof r.title === "string" && r.title.trim() !== "" ? ` ${JSON.stringify(r.title.trim())}` : "";
+    const held = typeof r.units === "object" && r.units !== null ? Object.keys(r.units).length : 0;
+    dropped.push(`${where}${named}: ${problems.join(", ")} — dropped with its ${held} unit${held === 1 ? "" : "s"}`);
+    return null;
+  }
   const units: Record<string, string> = {};
   for (const [id, layer] of Object.entries(typeof r.units === "object" && r.units !== null ? r.units : {})) {
     if (!byId.has(id)) { dropped.push(`${where}: unknown unit ${id}`); continue; }

@@ -38,8 +38,26 @@ export interface Unit {
   formattingOnly?: boolean;
   /** A module-level unit whose changed and removed lines are all import statements */
   importsOnly?: boolean;
-  /** Content + position hash; a summary written for another hash is stale */
+  /**
+   * Content hash, with every line number taken from the unit's anchor: a unit that only moved
+   * keeps it. A summary written for another hash is stale.
+   */
   hash: string;
+  /** Where the unit starts: its first shown new-side line, its first removed old-side line */
+  anchor: Anchor;
+}
+
+/** A unit's first lines, which its hash counts from: a stored summary's labels move by as much as these did */
+export interface Anchor {
+  /** The first shown new-side line (for a deleted unit, the line its removal sits after) */
+  n: number;
+  /** The first removed old-side line; 0 with no removals */
+  o: number;
+}
+
+/** The hash and the place: what changes when a unit's code changes or when it only moves. */
+export function placedHash(unit: { hash: string; anchor: Anchor }): string {
+  return `${unit.hash}@${unit.anchor.n},${unit.anchor.o}`;
 }
 
 export interface UnitFileInput {
@@ -164,6 +182,7 @@ export async function extractUnits(input: UnitFileInput): Promise<Unit[]> {
       changedLines: t.changed.sort((a, b) => a - b),
       removals: t.removals,
       hash: "",
+      anchor: { n: 0, o: 0 },
     };
     if (newDecl && oldDecl && squash(newDecl.text) === squash(oldDecl.text)) unit.formattingOnly = true;
     if (name === MODULE_NAME && onlyImports(t, newSide.imports, oldSide.imports, newLines, oldLines)) unit.importsOnly = true;
@@ -184,13 +203,20 @@ function fileUnit(input: UnitFileInput, status: UnitStatus, changed: number[], r
     changedLines: [...changed].sort((a, b) => a - b),
     removals,
     hash: "",
+    anchor: { n: 0, o: 0 },
   };
 }
 
 function finish(unit: Unit, newLines: string[]): Unit {
-  const shown = unit.ranges.map((r) => [r.start, newLines.slice(r.start - 1, r.end)]);
+  const n = unit.ranges[0]?.start ?? unit.removals[0]?.afterLine ?? 0;
+  const o = unit.removals[0]?.oldStart ?? 0;
+  unit.anchor = { n, o };
+  // positions from the anchor: lines added or removed above the unit leave the hash as it is
+  const shown = unit.ranges.map((r) => [r.start - n, newLines.slice(r.start - 1, r.end)]);
+  const changed = unit.changedLines.map((line) => line - n);
+  const removals = unit.removals.map((b) => [b.afterLine - n, b.oldStart - o, b.lines]);
   unit.hash = createHash("sha256")
-    .update(JSON.stringify([unit.kind, unit.status, shown, unit.changedLines, unit.removals]))
+    .update(JSON.stringify([unit.kind, unit.status, shown, changed, removals]))
     .digest("hex")
     .slice(0, 16);
   return unit;

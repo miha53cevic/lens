@@ -11,6 +11,7 @@ import { summaryKey, summaryPath, readStored, writeStored, unitSetHash, type Bun
 import { runSummary } from "../src/cli-app/summary/command.ts";
 import { validateResult } from "../src/cli-app/summary/validate.ts";
 import { LIMITS, prepareBundle, renderUnit } from "../src/cli-app/summary/bundle.ts";
+import { MAX_USAGES } from "../src/cli-app/summary/usages.ts";
 import { loadDiff, collectUnits, commitLog } from "../src/cli-app/summary/collect.ts";
 import { buildSummaryView } from "../src/cli-app/summary/view.ts";
 import { previewProblems, previewResponse, writeAssets } from "../src/cli-app/summary/previews.ts";
@@ -301,6 +302,18 @@ test("readStored tolerates a summary.json without flows, or with a malformed ove
   }
 });
 
+test("readStored leaves out a unit stored without its anchor: its labels can't be placed", () => {
+  const root = mkdtempSync(join(tmpdir(), "lens-store-"));
+  try {
+    const unit = { headline: "A", gist: "", needsLook: false, changes: [], breaks: [], concerns: [], hash: "h" };
+    writeStored(root, "diff", { version: 1, updatedAt: "", units: {}, flows: [] });
+    writeFileSync(summaryPath(root, "diff"), JSON.stringify({ version: 1, units: { a: unit, b: { ...unit, anchor: { n: 3, o: 0 } } } }));
+    assert.deepEqual(Object.keys(readStored(root, "diff")!.units), ["b"]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("submit finds a bundle whose key ends in .json", async () => {
   const dir = mkdtempSync(join(tmpdir(), "lens-submit-"));
   const git = (...args: string[]) => execFileSync("git", args, { cwd: dir, encoding: "utf8" });
@@ -350,10 +363,10 @@ const BUNDLE: Bundle = {
   args: ["--staged"],
   createdAt: "",
   units: [
-    { id: "src/repo.ts#findOrders", file: "src/repo.ts", name: "findOrders", kind: "function", status: "modified", hash: "h1", labels: ["N5", "N6", "O4"], ranges: [{ start: 3, end: 9 }], done: false },
-    { id: "src/repo.ts#toOrder", file: "src/repo.ts", name: "toOrder", kind: "function", status: "modified", hash: "h2", labels: ["N11"], done: false },
-    { id: "src/repo.ts#fetchAll", file: "src/repo.ts", name: "fetchAll", kind: "function", status: "new", hash: "h3", labels: ["N20"], done: false },
-    { id: "src/repo.ts#getAll", file: "src/repo.ts", name: "getAll", kind: "function", status: "deleted", hash: "h4", labels: ["O30"], done: false },
+    { id: "src/repo.ts#findOrders", file: "src/repo.ts", name: "findOrders", kind: "function", status: "modified", hash: "h1", anchor: { n: 1, o: 1 }, labels: ["N5", "N6", "O4"], ranges: [{ start: 3, end: 9 }], done: false },
+    { id: "src/repo.ts#toOrder", file: "src/repo.ts", name: "toOrder", kind: "function", status: "modified", hash: "h2", anchor: { n: 1, o: 1 }, labels: ["N11"], ranges: [], done: false },
+    { id: "src/repo.ts#fetchAll", file: "src/repo.ts", name: "fetchAll", kind: "function", status: "new", hash: "h3", anchor: { n: 1, o: 1 }, labels: ["N20"], ranges: [], done: false },
+    { id: "src/repo.ts#getAll", file: "src/repo.ts", name: "getAll", kind: "function", status: "deleted", hash: "h4", anchor: { n: 1, o: 1 }, labels: ["O30"], ranges: [], done: false },
   ],
 };
 
@@ -471,6 +484,16 @@ test("validate: flows keep priority and why; bad ones are reported; coverage cou
   assert.match(reasons, /"Odd": priority must be 1, 2 or 3/);
   assert.match(reasons, /"Odd": why 101 chars, max 100/);
   assert.deepEqual(out.coverage, { summarized: 3, inFlows: 3, outside: [], advice: [] });
+  // a flow without a usable title or path: each bad field, by how much, and what it took with it
+  const long = "Prepare lists callers and files housekeeping";
+  const bad = validateResult(BUNDLE, { units: {}, flows: [
+    { title: long, path: "a", units: { "src/repo.ts#findOrders": "repo", "src/repo.ts#fetchAll": "repo" } },
+    { title: "T", units: { "src/repo.ts#toOrder": "x" } },
+  ] }, "/nonexistent", null);
+  assert.deepEqual(bad.dropped, [
+    `flows[0] "${long}": title ${long.length} chars, max 40 — dropped with its 2 units`,
+    `flows[1] "T": path missing — dropped with its 1 unit`,
+  ]);
   const fewer = validateResult(BUNDLE, { units: {}, flows: [] }, "/nonexistent", out.stored);
   assert.equal(fewer.stored.flows.length, 2, "an empty flows list changes nothing");
   const loose = validateResult(BUNDLE, { units: {
@@ -498,7 +521,7 @@ test("validate: a unit goes in one flow — a later submit's flow takes it from 
 test("validate: Housekeeping may hold one unit; lens's own housekeeping units count as covered", () => {
   const bundle: Bundle = { ...BUNDLE, units: [...BUNDLE.units, {
     id: "src/repo.ts#(module)", file: "src/repo.ts", name: "(module)", kind: "module", status: "modified",
-    hash: "h5", labels: ["N1"], importsOnly: true, done: false,
+    hash: "h5", anchor: { n: 1, o: 1 }, labels: ["N1"], ranges: [], importsOnly: true, done: false,
   }] };
   const out = validateResult(bundle, {
     units: Object.fromEntries(bundle.units.map((u) => [u.id, ok()])),
@@ -514,7 +537,7 @@ test("validate: Housekeeping may hold one unit; lens's own housekeeping units co
 
 test("validate: advice for flows that look split up — inside one file, or too small", () => {
   const unit = (file: string, name: string) => ({
-    id: `${file}#${name}`, file, name, kind: "function" as const, status: "modified" as const, hash: name, labels: ["N1"], done: false,
+    id: `${file}#${name}`, file, name, kind: "function" as const, status: "modified" as const, hash: name, anchor: { n: 1, o: 1 }, labels: ["N1"], ranges: [], done: false,
   });
   const bundle: Bundle = { ...BUNDLE, units: ["a", "b", "c"].flatMap((file) => [unit(`${file}.ts`, "one"), unit(`${file}.ts`, "two")]) };
   const out = validateResult(bundle, { units: {}, flows: [
@@ -614,7 +637,9 @@ test("prepare → submit → view round trip, with re-prepare skipping done unit
     const sources = new Map([["src/repo.ts", NEW_REPO]]);
     const prep = { root: diff.root, cwd: dir, key: "diff-staged@main", command: "diff" as const, args: ["--staged"], label: null, commits: "", units, sources };
     const first = prepareBundle(prep);
-    assert.equal(first.todo, units.length);
+    // the import-only module unit is lens's to summarize, not the agent's
+    assert.equal(first.todo, units.length - 1);
+    assert.equal(first.done, 1);
     assert.equal(readFileSync(join(diff.root, ".lens/.gitignore"), "utf8").trim().split("\n").pop(), "*");
     assert.ok(existsSync(join(first.dir, "tasks.md")));
     assert.equal(git("status", "--porcelain", "--untracked-files=all").includes(".lens"), false, ".lens ignores itself");
@@ -636,8 +661,8 @@ test("prepare → submit → view round trip, with re-prepare skipping done unit
     writeStored(diff.root, "diff-staged@main", outcome.stored);
 
     const again = prepareBundle(prep);
-    assert.equal(again.done, 1);
-    assert.equal(again.todo, units.length - 1);
+    assert.equal(again.done, 2, "findOrders, and the module unit lens filed");
+    assert.equal(again.todo, units.length - 2);
     assert.doesNotMatch(readFileSync(join(again.dir, "tasks.md"), "utf8"), /## src\/repo.ts#findOrders/);
     // the overview fits this diff but no flows exist yet: the leftover units leave them to the final pass
     assert.match(again.instructions, /the final pass \(step 5\) asks for them/);
@@ -705,6 +730,150 @@ test("prepare → submit → view round trip, with re-prepare skipping done unit
   }
 });
 
+test("prepare summarizes import-only units itself, and lists the lines outside the diff that name each unit", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "lens-summary-"));
+  const git = (...args: string[]) => execFileSync("git", args, { cwd: dir, encoding: "utf8" });
+  try {
+    git("init", "-q", "-b", "main");
+    git("config", "user.email", "t@t");
+    git("config", "user.name", "t");
+    mkdirSync(join(dir, "src"));
+    const calls = Array.from({ length: MAX_USAGES + 2 }, (_, i) => `export const x${i} = second(${i});`);
+    const files: Record<string, string> = {
+      "src/math.ts": MATH,
+      "src/jobs.ts": ["import { second } from './math';", ...calls].join("\n") + "\n",
+      "src/util.ts": 'import { a } from "./a";\nexport const u = 1;\n',
+      "README.md": "Call `second` to double a number.\n",
+    };
+    for (const [file, text] of Object.entries(files)) writeFileSync(join(dir, file), text);
+    git("add", "-A");
+    git("commit", "-qm", "init");
+    const changed = {
+      "src/math.ts": MATH_SECOND + "\nexport function third(n: number): number {\n  return n * 4;\n}\n",
+      "src/util.ts": 'import { b } from "./b";\nexport const u = 1;\n',
+    };
+    for (const [file, text] of Object.entries(changed)) writeFileSync(join(dir, file), text);
+    git("add", "-A");
+
+    const diff = await loadDiff("diff", ["--staged"], dir, DEFAULT_CONFIG);
+    const units = await collectUnits(diff, DEFAULT_CONFIG, dir);
+    const key = "diff-staged@main";
+    const prep = { root: diff.root, cwd: dir, key, command: "diff" as const, args: ["--staged"], label: null, commits: "", units, sources: new Map(Object.entries(changed)) };
+    const result = prepareBundle(prep);
+    const tasks = readFileSync(join(result.dir, "tasks.md"), "utf8");
+    const bundle = JSON.parse(readFileSync(join(result.dir, "bundle.json"), "utf8")) as Bundle;
+
+    // the import-only unit: summarized and done, out of the tasks, and the pass still sees the whole diff
+    assert.deepEqual(units.filter((unit) => unit.importsOnly).map((unit) => unit.id), ["src/util.ts#(module)"]);
+    assert.equal(result.todo, units.length - 1);
+    assert.doesNotMatch(tasks, /## src\/util.ts/);
+    assert.equal(bundle.units.find((unit) => unit.id === "src/util.ts#(module)")?.done, true);
+    const stored = readStored(diff.root, key)!.units["src/util.ts#(module)"];
+    assert.equal(stored.headline, "Changes only its imports");
+    assert.deepEqual([stored.changes, stored.breaks, stored.concerns], [[], [], []]);
+    assert.equal(bundle.wholeDiff, true);
+    assert.match(result.instructions, /lens summarizes the 1 import-only or formatting-only one itself/);
+    assert.match(result.instructions, /^## Flows$/m);
+
+    // second's callers, capped, without the README; third has none
+    const listed = calls.slice(0, MAX_USAGES - 1).map((call, i) => `- src/jobs.ts:${i + 2}  ${call}`);
+    assert.ok(tasks.includes(["Outside the diff, `second` is named at:", "- src/jobs.ts:1  import { second } from './math';", ...listed].join("\n")));
+    assert.match(tasks, /^- … and 3 more: `git grep -nw second`$/m);
+    assert.doesNotMatch(tasks, /README/);
+    assert.match(tasks, /^Outside the diff, no line names `third`\.$/m);
+
+    // prepared again, the filed unit stays done, and the pass still sees the whole diff
+    const again = prepareBundle(prep);
+    assert.equal(again.todo, units.length - 1);
+    assert.doesNotMatch(again.instructions, /already summarized/);
+    assert.match(again.instructions, /^## Flows$/m);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+const MATH = `export function first(n: number): number {
+  return n + 1;
+}
+
+export function second(n: number): number {
+  return n * 2;
+}
+`;
+/** second changed */
+const MATH_SECOND = MATH.replace("n * 2", "n * 3");
+/** second changed the same way, and first grew a line above it */
+const MATH_BOTH = MATH_SECOND.replace("  return n + 1;", "  n = Math.abs(n);\n  return n + 1;");
+
+test("units: a unit that only moved keeps its hash, and its anchor moves with it", async () => {
+  const [alone] = await unitsFor(inputFor("src/math.ts", MATH, MATH_SECOND));
+  const both = await unitsFor(inputFor("src/math.ts", MATH, MATH_BOTH));
+  const moved = both.find((unit) => unit.name === "second")!;
+  assert.equal(alone.name, "second");
+  assert.equal(moved.hash, alone.hash, "the same code and diff, one line lower");
+  assert.deepEqual(alone.anchor, { n: 5, o: 6 });
+  assert.deepEqual(moved.anchor, { n: 6, o: 6 });
+  const [changed] = await unitsFor(inputFor("src/math.ts", MATH, MATH.replace("n * 2", "n * 4")));
+  assert.notEqual(changed.hash, alone.hash, "other code: another hash");
+});
+
+test("a summary moves with its unit: another unit's edit above it keeps it, its labels shifted; a moved caller doesn't", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "lens-summary-"));
+  const git = (...args: string[]) => execFileSync("git", args, { cwd: dir, encoding: "utf8" });
+  const key = "diff-staged@main";
+  try {
+    git("init", "-q", "-b", "main");
+    git("config", "user.email", "t@t");
+    git("config", "user.name", "t");
+    mkdirSync(join(dir, "src"));
+    writeFileSync(join(dir, "src/math.ts"), MATH);
+    writeFileSync(join(dir, "src/jobs.ts"), "import { second } from './math';\nexport const x = second(1);\n");
+    git("add", "-A");
+    git("commit", "-qm", "init");
+    const stage = async (files: Record<string, string>) => {
+      for (const [file, text] of Object.entries(files)) writeFileSync(join(dir, file), text);
+      git("add", "-A");
+      const diff = await loadDiff("diff", ["--staged"], dir, DEFAULT_CONFIG);
+      const units = await collectUnits(diff, DEFAULT_CONFIG, dir);
+      const prep = { root: diff.root, cwd: dir, key, command: "diff" as const, args: ["--staged"], label: null, commits: "", units, sources: new Map(Object.entries(files)) };
+      const view = () => buildSummaryView({ root: diff.root, cwd: dir, command: "diff", args: ["--staged"], units }).units.find((unit) => unit.name === "second")!;
+      return { root: diff.root, units, prep, view };
+    };
+
+    const one = await stage({ "src/math.ts": MATH_SECOND });
+    const bundle = JSON.parse(readFileSync(join(prepareBundle(one.prep).dir, "bundle.json"), "utf8")) as Bundle;
+    const outcome = validateResult(bundle, { units: { "src/math.ts#second": ok({
+      changes: [{ when: "Any n", before: "doubles it", now: "triples it", line: "N6" }],
+      concerns: [{ kind: "question", text: "is tripling meant?", line: "N5" }],
+      breaks: [{ summary: "x is 3, not 2", callers: ["src/jobs.ts:2"] }],
+    }) } }, one.root, null);
+    assert.deepEqual(outcome.dropped, []);
+    writeStored(one.root, key, outcome.stored);
+
+    // first grows a line: second is one line lower, with the same code and diff
+    const two = await stage({ "src/math.ts": MATH_BOTH });
+    const moved = two.view();
+    assert.equal(moved.stale, false);
+    assert.deepEqual(moved.summary?.changes.map((change) => change.line), ["N7"]);
+    assert.deepEqual(moved.summary?.concerns.map((concern) => concern.line), ["N6"]);
+    assert.equal(readFileSync(join(dir, "src/math.ts"), "utf8").split("\n")[6], "  return n * 3;", "N7 is still the changed line");
+    const again = prepareBundle(two.prep);
+    assert.equal(again.done, 1, "second is skipped");
+    assert.equal(again.todo, 1, "first is asked for");
+    assert.equal(readStored(two.root, key)!.units["src/math.ts#second"].changes[0].line, "N6", "stored as written");
+
+    // lines above the caller: line 2 no longer mentions second, so the summary is written again
+    const three = await stage({ "src/math.ts": MATH_BOTH, "src/jobs.ts": "// jobs\n// run nightly\nimport { second } from './math';\nexport const x = second(1);\n" });
+    assert.equal(three.view().stale, true);
+    assert.equal(three.view().summary, null);
+    const redo = prepareBundle(three.prep);
+    assert.equal(redo.done, 0);
+    assert.equal(readStored(three.root, key)!.units["src/math.ts#second"], undefined, "no longer counted as summarized");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 // ---- Build previews: the agent's previews of changed screens, and its sequence diagrams ----
 
 /** A validate fixture with the agent's preview files in the bundle's previews/ folder. */
@@ -746,7 +915,7 @@ test("validate: a preview is checked and kept by its content's hash; a bad one s
     }, root, null);
     assert.equal(out.acceptedPreviews, 1, out.dropped.join("\n"));
     const [kept] = out.stored.previews!;
-    assert.deepEqual(kept.units, { "src/repo.ts#findOrders": "h1" }, "each unit with the hash it was drawn for");
+    assert.deepEqual(kept.units, { "src/repo.ts#findOrders": "h1@1,1" }, "each unit with the placed hash it was drawn for");
     assert.match(kept.now, /^[0-9a-f]{16}\.html$/);
     assert.notEqual(kept.before, kept.now);
     assert.equal(out.assets.get(kept.now), SCREEN, "the file, as the agent wrote it, under its hash");
@@ -826,7 +995,7 @@ test("validate: a sequence keeps its steps; a changed step must name its unit an
   assert.equal(out.acceptedSequences, 1);
   const [kept] = out.stored.sequences!;
   assert.deepEqual(kept.steps[1], { ...steps[1], line: "N6" }, "the line normalized like a change row's");
-  assert.deepEqual(kept.units, { "src/repo.ts#findOrders": "h1", "src/repo.ts#toOrder": "h2" });
+  assert.deepEqual(kept.units, { "src/repo.ts#findOrders": "h1@1,1", "src/repo.ts#toOrder": "h2@1,1" });
   const reasons = out.dropped.join("\n");
   assert.match(reasons, /"Bad lane" steps\[0\]: from and to must be lanes/);
   assert.match(reasons, /"No unit" steps\[0\]: a changed step needs the unit and line/);
@@ -1028,14 +1197,14 @@ test("a summary run's progress: units in, then the final pass, then nothing; a s
     const key = "diff";
     const read = buildProgressReader(root, key);
     assert.equal(read(), null, "no prepare: no run");
-    const unit = (id: string) => ({ id, file: "a.ts", name: id, kind: "function", status: "modified", hash: "h-" + id, labels: [], done: false });
+    const unit = (id: string) => ({ id, file: "a.ts", name: id, kind: "function", status: "modified", hash: "h-" + id, anchor: { n: 1, o: 0 }, labels: [], done: false });
     const bundle = { version: 1, key, command: "diff", args: [], createdAt: "", units: [unit("a"), unit("b"), unit("c")] };
     mkdirSync(join(root, ".lens", "summary", key), { recursive: true });
     writeFileSync(join(root, ".lens", "summary", key, "bundle.json"), JSON.stringify(bundle));
     assert.deepEqual(read(), { done: 0, total: 3, finalPass: false });
 
     const summary = (headline: string, hash: string) => ({
-      headline, gist: "", changes: [], breaks: [], needsLook: false, hash,
+      headline, gist: "", changes: [], breaks: [], concerns: [], needsLook: false, hash, anchor: { n: 1, o: 0 },
     });
     const units = { a: summary("A", "h-a"), b: summary("B", "h-b"), c: summary("C", "stale") };
     writeStored(root, key, { version: 1, updatedAt: "", units, flows: [] });
