@@ -12,7 +12,7 @@ import {
 // instructions, schema) plus bundle.json, which `submit` validates against.
 
 export const LIMITS = {
-  headline: 80, gist: 40, cell: 60, breakSummary: 80, concern: 300,
+  headline: 80, gist: 40, cell: 60, breakSummary: 160, concern: 300,
   flowTitle: 40, flowPath: 60, layer: 12, why: 100, overview: 2000,
   previewTitle: 40, lane: 20, lanes: 6, stepLabel: 40, steps: 16,
 };
@@ -294,9 +294,16 @@ ${deferred ? `5. Once every unit is submitted, run \`${prepareCommand(input)}\` 
   - End your chat reply with the findings you dropped as unlikely, one line each.
   Concerns and breaks are the only way to mark a unit for a close look. Routine changes
   (renames, types, formatting) get neither.
-- \`breaks\`: callers outside the diff that the change may break: {summary (≤${LIMITS.breakSummary}),
+- \`breaks\`: callers outside the diff that this change breaks: {summary (≤${LIMITS.breakSummary}),
   callers: ["path/from/repo/root.ts:31", …]}. Each caller line must exist and contain
-  the unit's name. Only list callers you actually found.
+  the unit's name. Hold a break to the same bar as a concern:
+  - Read each caller first. List it only if you can say what wrong thing happens there:
+    the change, then the call that goes wrong. E.g. "Returns \`null\` for a missing user
+    now; the call reads \`.name\` on it and throws." If you can't, drop it.
+  - Not a break: a caller that still works, one that only mentions the name (an import,
+    a re-export, a test of the old shape), one that's in the diff, or a mismatch the type
+    checker or compiler reports (changed parameters, a removed export).
+  - Don't mention the breaks you dropped.
 - \`renamedFrom\`: for a new unit that is a renamed/moved deleted unit, the deleted unit's id.
 
 ${wholeDone
