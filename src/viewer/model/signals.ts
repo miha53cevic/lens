@@ -32,9 +32,16 @@ export const isBreak = (finding: Finding): finding is BreakFinding => finding.ki
 
 const findingsByUnit = new WeakMap<Unit, Finding[]>();
 
+/** A label counted from the unit's anchor: the same for a unit that only moved, as its hash is. */
+function anchoredLabel(unit: Unit, label: string): string {
+  const line = Number(label.slice(1));
+  return label.startsWith('O') ? 'O' + (line - unit.anchor.o) : 'N' + (line - unit.anchor.n);
+}
+
 /**
  * The unit's findings: its concerns, then the callers it may break. Each is keyed by the unit's
- * hash and what it says, so a re-summarized unit starts fresh and a reordered list keeps its marks.
+ * hash and what it says, so a re-summarized unit starts fresh, and a reordered list or a unit that
+ * only moved keeps its marks.
  */
 export function findings(unit: Unit): Finding[] {
   let list = findingsByUnit.get(unit);
@@ -42,7 +49,7 @@ export function findings(unit: Unit): Finding[] {
     const prefix = unitViewKey(unit) + '#';
     list = [
       ...(unit.summary?.concerns ?? []).map((concern): Finding => ({
-        key: prefix + concern.kind + ':' + concern.line + ':' + concern.text,
+        key: prefix + concern.kind + ':' + anchoredLabel(unit, concern.line) + ':' + concern.text,
         text: concern.text,
         kind: concern.kind,
         concern,

@@ -6,7 +6,8 @@ import {
   HOUSEKEEPING, isHousekeeping, readStored, reviewKey, summaryArgs, summaryStamp, unitSetHash,
   type ChangeRow, type Concern, type Flow, type SequenceStep, type StoredSummary,
 } from "./store.ts";
-import { removalAnchors, type Unit } from "./units.ts";
+import { citeableLabels, placedHash, removalAnchors, type Unit } from "./units.ts";
+import { fitStored } from "./fit.ts";
 import type { RemovedBlock } from "../model.ts";
 
 // What the viewer's Summary tab renders: the diff's current units, each with
@@ -91,11 +92,13 @@ export function buildSummaryView(opts: {
   const stored = readStored(opts.root, key);
   const byId = new Map(opts.units.map((u) => [u.id, u]));
   const hiddenDeleted = new Set<string>();
+  const fileCache = new Map<string, string[] | null>();
   const units: ViewUnit[] = opts.units.map((u) => {
-    const s = stored?.units[u.id];
-    const stale = !!s && s.hash !== u.hash;
+    // the stored summary, its labels moved with the unit; stale when it was written for other code
+    const s = fitStored(stored?.units[u.id], { ...u, labels: [...citeableLabels(u)] }, opts.root, fileCache);
+    const stale = !s && !!stored?.units[u.id];
     // only while the old one is still a deletion: if it's back in the code, it's a unit of its own
-    const from = s && !stale && s.renamedFrom ? byId.get(s.renamedFrom) : undefined;
+    const from = s?.renamedFrom ? byId.get(s.renamedFrom) : undefined;
     const renamed = from?.status === "deleted" ? from : undefined;
     if (renamed) hiddenDeleted.add(renamed.id);
     const anchored: AnchoredRemoval[] = [];
@@ -105,7 +108,7 @@ export function buildSummaryView(opts: {
       removals: anchored,
       displayFile: relPath(opts.cwd, join(opts.root, u.file)),
       stale,
-      summary: s && !stale ? {
+      summary: s ? {
         headline: s.headline,
         gist: s.gist,
         changes: s.changes,
@@ -142,7 +145,8 @@ export function previewUrl(asset: string): string {
  * since it was drawn is gone, one with some changed is stale.
  */
 function drawings(stored: StoredSummary | null, units: Unit[]): Pick<SummaryView, "previews" | "sequences"> {
-  const hashes = new Map(units.map((u) => [u.id, u.hash]));
+  // by place too: a drawing cites lines, which a unit that moved has elsewhere
+  const hashes = new Map(units.map((u) => [u.id, placedHash(u)]));
   const fit = (drawn: Record<string, string>) => {
     const ids = Object.keys(drawn);
     const current = ids.filter((id) => hashes.get(id) === drawn[id]);

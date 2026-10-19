@@ -34,7 +34,7 @@ export interface AskQuestion {
   unitId: string | null;
   /** What the rail shows for the change: the unit's name, or the file */
   label: string;
-  /** The unit's hash, or the file's content hash — a different one later means stale */
+  /** The unit's placed hash (its code and where it is), or the file's content hash — a different one later means stale */
   hash: string;
   selection: AskSelection | null;
   /** The unit's concerns the reader hadn't dismissed when asking; none on the Code tab */

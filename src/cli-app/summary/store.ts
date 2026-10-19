@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, statSyn
 import { join } from "node:path";
 import { currentBranch } from "../git.ts";
 import { parsePrRef } from "../pr.ts";
-import type { LineRange, UnitKind, UnitStatus } from "./units.ts";
+import { placedHash, type Anchor, type LineRange, type UnitKind, type UnitStatus } from "./units.ts";
 
 // Everything summary mode writes lives in <repo root>/.lens/, which carries its
 // own `*` .gitignore: nothing to add to the repo's .gitignore, nothing in .git.
@@ -110,11 +110,13 @@ export interface Overview {
   hash: string;
 }
 
+export type StoredUnit = UnitSummary & { hash: string; anchor: Anchor };
+
 export interface StoredSummary {
   version: 1;
   updatedAt: string;
-  /** Each summary remembers the unit hash it was written for */
-  units: Record<string, UnitSummary & { hash: string }>;
+  /** Each summary remembers the unit hash it was written for, and where the unit was: its labels count from there */
+  units: Record<string, StoredUnit>;
   flows: Flow[];
   /** createdAt of the whole-diff bundle whose submit last replaced the flows; its later submits merge */
   flowsPass?: string;
@@ -127,10 +129,10 @@ export interface StoredSummary {
   drawn?: string;
 }
 
-/** One hash for the whole diff: any unit added, dropped or changed moves it. */
-export function unitSetHash(units: { id: string; hash: string }[]): string {
+/** One hash for the whole diff: any unit added, dropped, changed or moved moves it. */
+export function unitSetHash(units: { id: string; hash: string; anchor: Anchor }[]): string {
   return createHash("sha256")
-    .update(units.map((u) => u.id + ":" + u.hash).sort().join("\n"))
+    .update(units.map((u) => u.id + ":" + placedHash(u)).sort().join("\n"))
     .digest("hex").slice(0, 16);
 }
 
@@ -141,13 +143,14 @@ export interface BundleUnit {
   kind: UnitKind;
   status: UnitStatus;
   hash: string;
+  anchor: Anchor;
   /** Lines a summary may cite: N<line> changed, O<line> removed */
   labels: string[];
   /** New-side lines shown for the unit; a concern may cite any of them */
   ranges: LineRange[];
   formattingOnly?: boolean;
   importsOnly?: boolean;
-  /** Already summarized for this exact hash by an earlier submit */
+  /** Already summarized for this hash by an earlier submit, and that summary still fits (fit.ts) */
   done: boolean;
 }
 
@@ -235,10 +238,11 @@ export function readStored(root: string, key: string): StoredSummary | null {
     const parsed = JSON.parse(readFileSync(path, "utf8"));
     if (parsed?.version !== 1 || typeof parsed.units !== "object" || parsed.units === null) return null;
     const o = parsed.overview;
-    // a unit summarized before concerns existed has none on record
+    // a unit without its anchor can't place its labels
     const units = Object.fromEntries(
-      Object.entries(parsed.units as Record<string, StoredSummary["units"][string]>)
-        .map(([id, unit]) => [id, Array.isArray(unit?.concerns) ? unit : { ...unit, concerns: [] }]),
+      Object.entries(parsed.units as Record<string, StoredUnit>).filter(
+        ([, unit]) => typeof unit?.anchor?.n === "number" && typeof unit.anchor.o === "number",
+      ),
     );
     return {
       ...parsed,

@@ -3,8 +3,9 @@ import { join } from "node:path";
 import { relPath } from "../paths.ts";
 import { citeableLabels, removalAnchors, type Unit } from "./units.ts";
 import { PREVIEW_MAX_BYTES } from "./previews.ts";
+import { fitStored } from "./fit.ts";
 import {
-  bundleDir, HOUSEKEEPING, isHousekeeping, PREVIEWS_DIR, readStored, summaryArgs, unitSetHash,
+  bundleDir, HOUSEKEEPING, isHousekeeping, PREVIEWS_DIR, readStored, summaryArgs, unitSetHash, writeStored,
   type Bundle, type BundleUnit, type StoredSummary,
 } from "./store.ts";
 
@@ -57,19 +58,30 @@ export interface PrepareResult {
 export function prepareBundle(input: PrepareInput): PrepareResult {
   const dir = bundleDir(input.root, input.key);
   const stored = readStored(input.root, input.key);
-  const bundleUnits: BundleUnit[] = input.units.map((u) => ({
-    id: u.id,
-    file: u.file,
-    name: u.name,
-    kind: u.kind,
-    status: u.status,
-    hash: u.hash,
-    labels: [...citeableLabels(u)],
-    ranges: u.ranges,
-    ...(u.formattingOnly ? { formattingOnly: true } : {}),
-    ...(u.importsOnly ? { importsOnly: true } : {}),
-    done: stored?.units[u.id]?.hash === u.hash,
-  }));
+  const fileCache = new Map<string, string[] | null>();
+  const bundleUnits: BundleUnit[] = input.units.map((u) => {
+    const unit = {
+      id: u.id,
+      file: u.file,
+      name: u.name,
+      kind: u.kind,
+      status: u.status,
+      hash: u.hash,
+      anchor: u.anchor,
+      labels: [...citeableLabels(u)],
+      ranges: u.ranges,
+      ...(u.formattingOnly ? { formattingOnly: true } : {}),
+      ...(u.importsOnly ? { importsOnly: true } : {}),
+    };
+    return { ...unit, done: fitStored(stored?.units[u.id], unit, input.root, fileCache) !== null };
+  });
+  // a summary for this very code that no longer checks out (a caller moved) goes: then every
+  // "is it summarized" check agrees with this pass, which asks for it again
+  const unfit = bundleUnits.filter((u) => !u.done && stored?.units[u.id]?.hash === u.hash);
+  if (stored && unfit.length > 0) {
+    for (const u of unfit) delete stored.units[u.id];
+    writeStored(input.root, input.key, stored);
+  }
   const bundle: Bundle = {
     version: 1,
     key: input.key,

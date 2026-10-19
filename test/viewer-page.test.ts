@@ -36,6 +36,7 @@ beforeAll(async () => {
     units: {
       [findOrders.id]: {
         hash: findOrders.hash,
+        anchor: findOrders.anchor,
         headline: 'findOrders skips deleted orders',
         gist: 'skips deleted orders',
         needsLook: true,
@@ -45,11 +46,12 @@ beforeAll(async () => {
       },
       [legacy.id]: {
         hash: legacy.hash,
+        anchor: legacy.anchor,
         headline: 'legacyTotal is gone',
         gist: 'removed',
         needsLook: false,
         changes: [],
-        breaks: [{ summary: 'callers of legacyTotal no longer compile', callers: ['src/orders.test.ts:1'] }],
+        breaks: [{ summary: 'callers of legacyTotal no longer compile', callers: ['src/report.ts:3'] }],
         concerns: [{ kind: 'question', text: 'did anything still call it?', line: 'O17' }],
       },
     },
@@ -1142,7 +1144,7 @@ pageTest('a caller it may break takes a verdict: dismissed drops the flag, real 
   assert.equal($('#status .status-label').textContent, 'Copied 1 possible break');
   assert.match(
     await navigator.clipboard.readText(),
-    /1\. \[breaks callers\] src\/orders\.ts — legacyTotal\n {3}callers of legacyTotal no longer compile\n {3}Callers: src\/orders\.test\.ts:1\n/,
+    /1\. \[breaks callers\] src\/orders\.ts — legacyTotal\n {3}callers of legacyTotal no longer compile\n {3}Callers: src\/report\.ts:3\n/,
   );
 });
 
@@ -1671,7 +1673,8 @@ test('the copied concerns name a removed line as one, in the order of the summar
       .summary!.units.filter((unit) => unit.summary)
       .flatMap((unit) =>
         unit.summary!.concerns.map((concern) => [
-          `${unit.id}@${unit.hash}#${concern.kind}:${concern.line}:${concern.text}`,
+          // the line counted from the unit's anchor (model/signals.ts)
+          `${unit.id}@${unit.hash}#${concern.kind}:${concern.line[0]}${Number(concern.line.slice(1)) - (concern.line[0] === 'O' ? unit.anchor.o : unit.anchor.n)}:${concern.text}`,
           'real',
         ]),
       ),

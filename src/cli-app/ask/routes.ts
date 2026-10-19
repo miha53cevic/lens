@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { readBody, sendJson as send } from "../render/web/http.ts";
 import type { ViewerInput } from "../render/web/server.ts";
+import { placedHash } from "../summary/units.ts";
 import { findCites } from "./cites.ts";
 import { changeContext, questionText } from "./context.ts";
 import { createAskSession, type AskLine, type AskQuestion, type AskSelection, type NewQuestion } from "./session.ts";
@@ -34,8 +35,11 @@ export function createAskRoutes(current: () => ViewerInput, port: number): AskRo
     const f = input.files.find((x) => x.file === file);
     return f ? createHash("sha256").update(f.source).digest("hex").slice(0, 16) : null;
   };
-  const hashOf = (input: ViewerInput, q: Pick<AskQuestion, "file" | "unitId">): string | null =>
-    q.unitId ? input.summary?.units.find((u) => u.id === q.unitId)?.hash ?? null : fileHash(input, q.file);
+  const hashOf = (input: ViewerInput, q: Pick<AskQuestion, "file" | "unitId">): string | null => {
+    // by place: an answer cites lines, which a unit that moved has elsewhere
+    const unit = q.unitId ? input.summary?.units.find((u) => u.id === q.unitId) : undefined;
+    return q.unitId ? (unit ? placedHash(unit) : null) : fileHash(input, q.file);
+  };
 
   /** A question from the viewer's request body, or why it's not acceptable. */
   const parseQuestion = (body: string): NewQuestion | string => {

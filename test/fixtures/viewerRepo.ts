@@ -1,6 +1,7 @@
 // A small git repo with uncommitted changes, for the viewer page tests: a TS file with
 // imports, a guard and logging to fold, a changed function, a removed one and a long
-// unchanged tail (hunks only hides it), plus a changed test file.
+// unchanged tail (hunks only hides it), plus a changed test file, and an unchanged file that
+// still calls the removed function (a caller the change breaks).
 
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, realpathSync, writeFileSync } from 'node:fs';
@@ -60,6 +61,11 @@ test("negative", () => {
 });
 `;
 
+const REPORT = `import { legacyTotal } from "./orders";
+
+export const total = legacyTotal([]);
+`;
+
 /** The repo's root: the old files committed, the new ones in the working tree. */
 export function makeViewerRepo(): string {
   // the real path: Windows' temp dir can come as a short 8.3 name, which git resolves differently
@@ -69,6 +75,7 @@ export function makeViewerRepo(): string {
   mkdirSync(join(dir, 'src'));
   writeFileSync(join(dir, 'src/orders.ts'), OLD_ORDERS);
   writeFileSync(join(dir, 'src/orders.test.ts'), OLD_TEST);
+  writeFileSync(join(dir, 'src/report.ts'), REPORT);
   git('add', '-A');
   git('-c', 'user.email=lens@test', '-c', 'user.name=lens', 'commit', '-q', '-m', 'base');
   writeFileSync(join(dir, 'src/orders.ts'), NEW_ORDERS);

@@ -19,7 +19,13 @@ export function askContext(state: LensState): AskContext | null {
   if (state.view === 'summary') {
     const unit = summaryPage(state) === 'unit' ? currentUnit(state) : null;
     return unit
-      ? { key: 'u:' + unitViewKey(unit), file: unit.displayFile, unitId: unit.id, label: unitLabel(unit) }
+      ? {
+          // by place: a kept selection is lines, which a unit that moved has elsewhere
+          key: 'u:' + unitViewKey(unit) + '@' + unit.anchor.n + ',' + unit.anchor.o,
+          file: unit.displayFile,
+          unitId: unit.id,
+          label: unitLabel(unit),
+        }
       : null;
   }
   const file = activeFile(state);
