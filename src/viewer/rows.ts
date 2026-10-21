@@ -30,7 +30,22 @@ export type CodeItem =
   /** hidden unchanged lines, shown on click */
   | { kind: 'gap'; start: number; end: number; key: string }
   /** where the shown code jumps (a unit's ranges break) */
-  | { kind: 'break' };
+  | { kind: 'break' }
+  /**
+   * Full units: the rest of the unit's file above or below it, behind one bar until opened (key in
+   * expandedGaps). The bar says how many lines it holds, what they declare and what they changed.
+   */
+  | {
+      kind: 'context';
+      side: 'above' | 'below';
+      key: string;
+      open: boolean;
+      lineCount: number;
+      names: string[];
+      added: number;
+      removed: number;
+      body: CodeItem[];
+    };
 
 /**
  * The rows for `spans` (in line order). A region shows as a fold when it starts and ends
@@ -114,9 +129,16 @@ function inOrder(shown: CodeSpan[], hidden: CodeSpan[]): CodeSpan[] {
  */
 export function fileSpans(file: FileFoldModel, hunksOnly: boolean, expanded: ReadonlySet<string>): CodeSpan[] {
   const wholeFile: CodeSpan[] = file.lineCount > 0 ? [{ start: 1, end: file.lineCount }] : [];
-  const hasAnchors = (file.changedLines || []).length > 0 || (file.removals || []).length > 0;
-  if (!hunksOnly || !hasAnchors) return wholeFile;
+  if (!hunksOnly || !hasAnchors(file)) return wholeFile;
+  return withGaps(hunkWindows(file), wholeFile, (start) => file.file + ':' + start, expanded);
+}
 
+function hasAnchors(file: FileFoldModel): boolean {
+  return (file.changedLines || []).length > 0 || (file.removals || []).length > 0;
+}
+
+/** Hunks only: the stretches within HUNK_CONTEXT of a change or a removal anchor, merged, folds whole. */
+function hunkWindows(file: FileFoldModel): CodeSpan[] {
   const around = (file.changedLines || []).map((line) => ({ start: line - HUNK_CONTEXT, end: line + HUNK_CONTEXT }));
   // a removed block shows after its anchor line: HUNK_CONTEXT lines on each side, as in the Summary
   for (const block of file.removals || []) {
@@ -140,20 +162,83 @@ export function fileSpans(file: FileFoldModel, hunksOnly: boolean, expanded: Rea
     if (last && start <= last.end + 1) last.end = Math.max(last.end, end);
     else windows.push({ start, end });
   }
-  const shown = [...windows];
+  return windows;
+}
+
+/**
+ * The lines of `within` (in line order), with what `windows` leaves out of them hidden behind gaps,
+ * keyed by `keyOf(start)`, unless `expanded` has the key.
+ */
+function withGaps(
+  windows: CodeSpan[],
+  within: CodeSpan[],
+  keyOf: (start: number) => string,
+  expanded: ReadonlySet<string>,
+): CodeSpan[] {
+  const shown: CodeSpan[] = [];
   const hidden: CodeSpan[] = [];
   const between = (start: number, end: number) => {
-    const key = file.file + ':' + start;
+    const key = keyOf(start);
     if (expanded.has(key)) shown.push({ start, end });
     else hidden.push({ start, end, gap: key });
   };
-  let cursor = 1;
-  for (const window of windows) {
-    if (window.start > cursor) between(cursor, window.start - 1);
-    cursor = window.end + 1;
+  for (const range of within) {
+    let cursor = range.start;
+    for (const window of windows) {
+      const start = Math.max(window.start, range.start);
+      const end = Math.min(window.end, range.end);
+      if (start > end) continue;
+      if (start > cursor) between(cursor, start - 1);
+      shown.push({ start, end });
+      cursor = end + 1;
+    }
+    if (cursor <= range.end) between(cursor, range.end);
   }
-  if (cursor <= file.lineCount) between(cursor, file.lineCount);
   return inOrder(shown, hidden);
+}
+
+/**
+ * Full units: the rest of the unit's file, above its first line and below its last, each keyed
+ * ("unit:<id>:above" / ":below") for the bar that opens it. Inside, the lines follow hunks only as
+ * the Code view does (gaps keyed "unit:<id>:start"). Null when the unit has no lines in the file.
+ */
+export function contextSpans(
+  unit: ViewUnit,
+  file: FileFoldModel,
+  hunksOnly: boolean,
+  expanded: ReadonlySet<string>,
+): { above: UnitContext; below: UnitContext } | null {
+  if (unit.ranges.length === 0) return null;
+  const first = Math.min(...unit.ranges.map((range) => range.start));
+  const last = Math.max(...unit.ranges.map((range) => range.end));
+  const stretch = (side: 'above' | 'below', start: number, end: number): UnitContext => {
+    const key = 'unit:' + unit.id + ':' + side;
+    if (start > end) return { key, start, end, spans: [] };
+    const range = [{ start, end }];
+    const spans =
+      !hunksOnly || !hasAnchors(file)
+        ? range
+        : withGaps(hunkWindows(file), range, (gapStart) => 'unit:' + unit.id + ':' + gapStart, expanded);
+    return { key, start, end, spans };
+  };
+  return { above: stretch('above', 1, first - 1), below: stretch('below', last + 1, file.lineCount) };
+}
+
+/** A stretch of a unit's file outside the unit: its lines, and the spans that show them. */
+export interface UnitContext {
+  key: string;
+  start: number;
+  end: number;
+  spans: CodeSpan[];
+}
+
+/** The top-level names a file declares between two lines, in order (a class's members left out). */
+export function declaredIn(file: FileFoldModel, start: number, end: number): string[] {
+  const names = (file.declarations || [])
+    .filter((declaration) => declaration.kind !== 'method' && declaration.kind !== 'property')
+    .filter((declaration) => declaration.line >= start && declaration.line <= end)
+    .map((declaration) => declaration.name);
+  return [...new Set(names)];
 }
 
 /**

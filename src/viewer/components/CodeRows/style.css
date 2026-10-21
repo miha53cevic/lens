@@ -191,3 +191,57 @@
 .row.ask-sel .num {
   color: var(--question);
 }
+
+/* full units: the rest of the file above and below the unit, each behind one bar until opened */
+.row.context-bar {
+  align-items: center;
+  border-block: 1px solid var(--line);
+  background: color-mix(in oklab, var(--surface-2) 55%, transparent);
+  color: var(--muted);
+  font: var(--text-xs) / 2.4 var(--font-sans);
+  cursor: pointer;
+  user-select: none;
+}
+.row.context-bar:hover {
+  background: var(--hover-bg);
+  color: var(--text);
+}
+/* the card's own edge is the bar's outer line */
+.context.above:first-child > .context-bar {
+  margin-top: calc(-1 * var(--space-1));
+  border-top-color: transparent;
+}
+/* only while closed: open, the bar's body follows it and would slide up under it */
+.context.below:last-child:not(.open) > .context-bar {
+  margin-bottom: calc(-1 * var(--space-3));
+  border-bottom-color: transparent;
+}
+.context.above:not(.open) > .context-bar {
+  margin-bottom: var(--space-1);
+}
+.context.below:not(.open) > .context-bar {
+  margin-top: var(--space-1);
+}
+.row.context-bar .num {
+  font-family: var(--font-mono);
+}
+.context-bar .mark {
+  align-self: stretch;
+}
+.context-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.context-names {
+  color: var(--text);
+  font-family: var(--font-mono);
+}
+.context-count {
+  color: var(--faint);
+  font-family: var(--font-mono);
+}
+.context:not(.open) > .context-body {
+  display: none;
+}

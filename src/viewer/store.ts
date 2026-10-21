@@ -70,6 +70,8 @@ export interface LensState {
   showRemoved: boolean;
   hideTests: boolean;
   hunksOnly: boolean;
+  /** The Summary tab shows each unit inside its whole file */
+  fullUnits: boolean;
   /** Mark the words a replaced line changed (wordDiff.ts) */
   wordDiff: boolean;
   /** The code's size in px, one of CODE_SIZES (codeSize.ts) */
@@ -183,6 +185,7 @@ const initialState: LensState = {
   showRemoved: true,
   hideTests: readPref('lens.hideTests') !== '0', // on by default
   hunksOnly: readPref('lens.hunksOnly') !== '0', // on by default
+  fullUnits: readPref('lens.fullUnits') === '1', // off by default
   wordDiff: readPref('lens.wordDiff') === '1', // off by default
   codeSize: loadCodeSize(),
   navCollapsed: readPref('lens.navCollapsed') === '1',

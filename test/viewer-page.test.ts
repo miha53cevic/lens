@@ -1992,3 +1992,42 @@ test('a summary cleared from elsewhere (another viewer, `lens clear`) leaves thi
     await close();
   }
 });
+
+pageTest('full units: the rest of the file sits above and below the unit, each behind a bar', async () => {
+  await key('v');
+  await key('j');
+  const code = '.unit-code .code';
+  const bar = (side: string) => $(code + ' .context.' + side + ' > .context-bar');
+  const opened = (side: string) => rows(code + ' > .context.' + side + ' > .context-body');
+  const unitRows = ['⋯', 'R6', '−9', 'R9', '10', '11', '12'];
+  assert.equal($$(code + ' .context').length, 0, 'off by default: only the unit');
+  await click($('#full-units'));
+  assert.equal($('#full-units').getAttribute('aria-checked'), 'true');
+  assert.equal(localStorage.getItem('lens.fullUnits'), '1');
+  // both closed: the unit's rows are as they were, between the two bars
+  assert.deepEqual(rows(code), unitRows);
+  assert.equal(bar('above').textContent!.trim(), 'Above4 lines', 'nothing declared above it, nothing changed');
+  assert.equal(bar('below').querySelector('.context-names')!.textContent, 'toOrder, formatTotal');
+  assert.equal(bar('below').querySelector('.counts')!.textContent, '−4', "legacyTotal's removed lines are below");
+  assert.ok(bar('below').querySelector('.mark.changed'));
+  assert.equal(bar('below').querySelector('.context-count')!.textContent, '15 lines');
+  // a closed stretch's change ticks the ruler at its bar; a click on the tick opens it
+  assert.deepEqual(ticks('.unit-card'), ['del O9', 'add N9', 'del O17', 'bug N10']);
+  assert.ok(!$(code + ' .context.below').classList.contains('open'));
+  await click($('.unit-card .ruler .tick[data-label="O17"]'));
+  assert.ok($(code + ' .context.below').classList.contains('open'));
+  // open, it is the file's code, in hunks only as the Code view shows it (14 and 21–27 hidden)
+  assert.deepEqual(opened('below'), ['13', '⋯', '15', '16', '17', '−17', '−18', '−19', '−20', '18', '19', '20', '⋯']);
+  await key('h');
+  await click(bar('above'));
+  assert.deepEqual(opened('above'), ['R1', '4']);
+  assert.deepEqual(opened('below'), [
+    ...['13', '14', '15', '16', '17', '−17', '−18', '−19', '−20'],
+    ...['18', '19', '20', '21', '22', '23', '24', '25', '26', '27'],
+  ]);
+  await click(bar('above'));
+  assert.ok(!$(code + ' .context.above').classList.contains('open'), 'a second click closes it');
+  await click($('#full-units'));
+  assert.equal($$(code + ' .context').length, 0, 'off again: only the unit');
+  assert.deepEqual(rows(code), ['5', 'R6', '−9', 'R9', '10', '11', '12']);
+});

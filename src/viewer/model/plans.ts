@@ -1,10 +1,19 @@
 // What the code shows: the folds' open state, and the row plans for a file and a unit.
 
-import type { FoldRegion } from '../../cli-app/model.ts';
+import type { FoldRegion, RemovedBlock } from '../../cli-app/model.ts';
 import type { ViewUnit } from '../../cli-app/summary/view.ts';
 import type { LensState } from '../store.ts';
 import { memo, type ViewFile } from '../shared.ts';
-import { type CodeItem, fileSpans, planCode, type RemovedLine, unitSpans } from '../rows.ts';
+import {
+  type CodeItem,
+  contextSpans,
+  declaredIn,
+  fileSpans,
+  planCode,
+  type RemovedLine,
+  type UnitContext,
+  unitSpans,
+} from '../rows.ts';
 import { currentUnit, summaryPage } from './summaryList.ts';
 
 /** "category|path:startLine" — a fold chip resets its category's one-by-one folds by the prefix. */
@@ -22,7 +31,9 @@ export function isRegionOpen(
 
 /** The regions a plan shows as folds. */
 export function planRegions(items: CodeItem[]): FoldRegion[] {
-  return items.flatMap((item) => (item.kind === 'region' ? [item.region] : []));
+  return items.flatMap((item) =>
+    item.kind === 'region' ? [item.region] : item.kind === 'context' ? planRegions(item.body) : [],
+  );
 }
 
 export interface FilePlan {
@@ -32,14 +43,7 @@ export interface FilePlan {
 const buildFilePlan = memo(
   (file: ViewFile, hunksOnly: boolean, expanded: ReadonlySet<string>, showRemoved: boolean): FilePlan => {
     // Old-side lines the diff removed, keyed by the new-side line they follow.
-    const removedAfter = new Map<number, RemovedLine[]>();
-    if (showRemoved) {
-      for (const block of file.removals || []) {
-        const existing = removedAfter.get(block.afterLine) || [];
-        const lines = block.lines.map((text, offset) => ({ text, old: block.oldStart + offset }));
-        removedAfter.set(block.afterLine, existing.concat(lines));
-      }
-    }
+    const removedAfter = removedByLine(showRemoved ? file.removals || [] : []);
     const spans = fileSpans(file, hunksOnly, expanded);
     return { items: planCode(spans, file.regions, (afterLine) => removedAfter.get(afterLine) || []) };
   },
@@ -58,6 +62,19 @@ export interface UnitPlan {
   file: ViewFile | null;
   items: CodeItem[];
   gutter: number;
+  /** Full units: the rest of the file is in the plan, above and below the unit (context items) */
+  full: boolean;
+}
+
+/** The removed lines a file's blocks show after each line, keyed by the line they follow. */
+function removedByLine(blocks: RemovedBlock[]): Map<number, RemovedLine[]> {
+  const removedAfter = new Map<number, RemovedLine[]>();
+  for (const block of blocks) {
+    const existing = removedAfter.get(block.afterLine) || [];
+    const lines = block.lines.map((text, offset) => ({ text, old: block.oldStart + offset }));
+    removedAfter.set(block.afterLine, existing.concat(lines));
+  }
+  return removedAfter;
 }
 
 const buildUnitPlan = memo(
@@ -67,6 +84,7 @@ const buildUnitPlan = memo(
     hunksOnly: boolean,
     expanded: ReadonlySet<string>,
     showRemoved: boolean,
+    fullUnits: boolean,
   ): UnitPlan => {
     const lastOldLines = unit.removals.map((block) => block.oldStart + block.lines.length);
     const gutter = String(Math.max(file ? file.lineCount : 0, ...lastOldLines)).length;
@@ -81,7 +99,39 @@ const buildUnitPlan = memo(
             .flatMap((block) => block.lines.map((text, offset) => ({ text, old: block.oldStart + offset })));
     const regions = file ? file.regions : [];
     const spans = file ? unitSpans(unit, regions, hunksOnly, expanded) : [];
-    return { file, items: planCode(spans, regions, removedAt), gutter };
+    const items = planCode(spans, regions, removedAt);
+    const around = fullUnits && file ? contextSpans(unit, file, hunksOnly, expanded) : null;
+    if (!file || !around) return { file, items, gutter, full: false };
+    // around the unit, the file's other removed lines: the unit's own show with it
+    const own = new Set(unit.removals.map((block) => block.oldStart));
+    const others = showRemoved ? (file.removals || []).filter((block) => !own.has(block.oldStart)) : [];
+    const removedOutside = removedByLine(others);
+    const context = (side: 'above' | 'below', stretch: UnitContext): CodeItem[] => {
+      if (stretch.start > stretch.end) return [];
+      const inStretch = (line: number) => line >= stretch.start && line <= stretch.end;
+      return [
+        {
+          kind: 'context',
+          side,
+          key: stretch.key,
+          open: expanded.has(stretch.key),
+          lineCount: stretch.end - stretch.start + 1,
+          names: declaredIn(file, stretch.start, stretch.end),
+          added: (file.changedLines || []).filter(inStretch).length,
+          // a block shows after its line: the one after the line above the stretch is in it too
+          removed: others
+            .filter((block) => inStretch(block.afterLine) || block.afterLine === stretch.start - 1)
+            .reduce((count, block) => count + block.lines.length, 0),
+          body: planCode(stretch.spans, regions, (afterLine) => removedOutside.get(afterLine) || []),
+        },
+      ];
+    };
+    return {
+      file,
+      items: [...context('above', around.above), ...items, ...context('below', around.below)],
+      gutter,
+      full: true,
+    };
   },
 );
 
@@ -90,7 +140,8 @@ export function unitFile(state: LensState, unit: ViewUnit): ViewFile | null {
 }
 
 export function unitPlan(state: LensState, unit: ViewUnit): UnitPlan {
-  return buildUnitPlan(unit, unitFile(state, unit), state.hunksOnly, state.expandedGaps, state.showRemoved);
+  const file = unitFile(state, unit);
+  return buildUnitPlan(unit, file, state.hunksOnly, state.expandedGaps, state.showRemoved, state.fullUnits);
 }
 
 // memoized, one per source: a selector gets the same array back while the code stays the same

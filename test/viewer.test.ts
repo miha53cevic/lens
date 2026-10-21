@@ -1,7 +1,16 @@
 import { test } from 'bun:test';
 import assert from 'node:assert/strict';
 import { bundleViewer } from '../src/cli-app/render/web/bundle.ts';
-import { fileSpans, hiddenCount, planCode, unitSpans, type CodeItem, type RemovedLine } from '../src/viewer/rows.ts';
+import {
+  fileSpans,
+  contextSpans,
+  declaredIn,
+  hiddenCount,
+  planCode,
+  unitSpans,
+  type CodeItem,
+  type RemovedLine,
+} from '../src/viewer/rows.ts';
 import { lineHtml, pairWordDiffs, splitAt, wordDiff } from '../src/viewer/wordDiff.ts';
 import type { FileFoldModel, RemovedBlock } from '../src/cli-app/model.ts';
 import type { ViewUnit } from '../src/cli-app/summary/view.ts';
@@ -35,6 +44,8 @@ function show(items: CodeItem[]): string[] {
         return '⋯';
       case 'region':
         return 'R' + item.region.startLine + '-' + item.region.endLine + '[' + show(item.body).join(',') + ']';
+      case 'context':
+        return item.side + (item.open ? '[' + show(item.body).join(',') + ']' : '');
     }
   });
 }
@@ -109,6 +120,48 @@ test("unitSpans + planCode: a unit's ranges break with ⋯; removed lines anchor
     { start: 12, end: 15 },
   ]);
   assert.deepEqual(show(planCode(spans, file.regions, removedAt)), ['gap:1-5', '⋯', '-3', 'L12', 'L13', 'L14', 'L15']);
+});
+
+test("contextSpans: the file above the unit's first line and below its last, which follow hunks only", () => {
+  const unit = {
+    id: 'src/a.ts#f',
+    ranges: [
+      { start: 8, end: 9 },
+      { start: 11, end: 12 },
+    ],
+    changedLines: [10],
+    removals: [{ anchor: 10, afterLine: 10, oldStart: 12, lines: ['old b'] }],
+    summary: null,
+  } as unknown as ViewUnit;
+  assert.deepEqual(contextSpans(unit, file, false, new Set()), {
+    above: { key: 'unit:src/a.ts#f:above', start: 1, end: 7, spans: [{ start: 1, end: 7 }] },
+    below: { key: 'unit:src/a.ts#f:below', start: 13, end: 20, spans: [{ start: 13, end: 20 }] },
+  });
+  // hunks only: the file's windows (1–13, from its change and both removals) cut at the unit's edges
+  const gap = 'unit:src/a.ts#f:14';
+  assert.deepEqual(contextSpans(unit, file, true, new Set())!.below.spans, [
+    { start: 13, end: 13 },
+    { start: 14, end: 20, gap },
+  ]);
+  assert.deepEqual(contextSpans(unit, file, true, new Set([gap]))!.below.spans, [{ start: 13, end: 20 }]);
+  const atTop = contextSpans({ ...unit, ranges: [{ start: 1, end: 12 }] }, file, false, new Set())!;
+  assert.deepEqual(atTop.above.spans, [], 'a unit on the first line has nothing above it');
+  assert.equal(contextSpans({ ...unit, ranges: [] }, file, true, new Set()), null, 'a deleted unit has no place');
+});
+
+test("declaredIn: a stretch's top-level names, in order, without a class's members", () => {
+  const declared: FileFoldModel = {
+    ...file,
+    declarations: [
+      { name: 'a', line: 2, kind: 'function' },
+      { name: 'Box', line: 5, kind: 'class' },
+      { name: 'open', line: 6, kind: 'method' },
+      { name: 'b', line: 9, kind: 'variable' },
+      { name: 'a', line: 12, kind: 'function' },
+    ],
+  };
+  assert.deepEqual(declaredIn(declared, 1, 10), ['a', 'Box', 'b']);
+  assert.deepEqual(declaredIn(declared, 10, 20), ['a']);
 });
 
 // "[changed]" around each marked range

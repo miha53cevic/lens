@@ -33,11 +33,16 @@ export function toggleDir(path: string): void {
   if (!getState().closedDirs.has(path)) growOpen(document.querySelector(`[data-dir-files="${CSS.escape(path)}"]`));
 }
 
-// The view settings: hunks only, removed lines, word diff, hide tests, the fold level.
+// The view settings: hunks only, full units, removed lines, word diff, hide tests, the fold level.
 
 export function setHunksOnly(on: boolean): void {
   writePref('lens.hunksOnly', on ? '1' : '0');
   update({ hunksOnly: on, expandedGaps: new Set() }); // toggling starts fresh — no stale expansions
+}
+
+export function setFullUnits(on: boolean): void {
+  writePref('lens.fullUnits', on ? '1' : '0');
+  update({ fullUnits: on });
 }
 
 export function setHideTests(on: boolean): void {

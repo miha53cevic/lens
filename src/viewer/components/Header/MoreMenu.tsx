@@ -3,6 +3,7 @@ import { useLens } from '../../store.ts';
 import { treeModel } from '../../model/tree.ts';
 import { collapseAll, expandAll } from '../../actions/folds.ts';
 import {
+  setFullUnits,
   setHideTests,
   setHunksOnly,
   setShowRemoved,
@@ -47,6 +48,7 @@ export function MoreMenu() {
     codeSize: state.codeSize,
     hasSummary: state.data.summary !== null,
     buildPreviews: state.data.buildPreviews,
+    fullUnits: state.fullUnits,
   }));
 
   return (
@@ -144,6 +146,9 @@ export function MoreMenu() {
           <MenuSection title='Summary'>
             <MenuSwitch id='build-previews' checked={more.buildPreviews} onChange={setBuildPreviews}>
               Build previews
+            </MenuSwitch>
+            <MenuSwitch id='full-units' checked={more.fullUnits} onChange={setFullUnits}>
+              Full units
             </MenuSwitch>
           </MenuSection>
         </>

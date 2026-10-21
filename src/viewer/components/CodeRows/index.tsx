@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import type { CodeItem } from '../../rows.ts';
 import { BreakRow, GapRow, LineRow, RemovedLineRow } from './Rows.tsx';
 import { Region } from './Region.tsx';
+import { Context } from './Context.tsx';
 import type { RowContext } from './types.ts';
 import './style.css';
 
@@ -60,5 +61,7 @@ function itemRows(item: CodeItem, itemIndex: number, context: RowContext): React
       return [<BreakRow key={'break' + itemIndex} gutter={gutter} />];
     case 'region':
       return [<Region key={'R' + item.region.startLine} region={item.region} body={item.body} context={context} />];
+    case 'context':
+      return [<Context key={item.key} item={item} context={context} />];
   }
 }

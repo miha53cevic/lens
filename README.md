@@ -110,7 +110,8 @@ what triggers it and the smallest fix), what behaves differently, and callers it
 break. You mark each concern and possible break *real* or *dismiss* it, and copy the real
 ones back to your agent. Units are grouped into **flows**: one story each, read step by step, ranked P1 to
 P3, with each unit in one flow and import-only or formatting-only changes under
-Housekeeping. An overview of the whole diff sits on top.
+Housekeeping. An overview of the whole diff sits on top. With **Full units** on (the ⋯ menu),
+the rest of a unit's file sits above and below it, behind a bar that says what it holds.
 
 With **Build previews** on (the ⋯ menu, on by default), the agent also draws what the
 change looks like: **previews** of the screens a UI diff changes, in your project's own

@@ -49,6 +49,9 @@ export function collapseAll(): void {
 
 /** The fold around a row on screen opens (a jump or a cite lands inside it). */
 export function openFoldAround(row: HTMLElement, path: string) {
+  // full units: the closed stretch of the file it's in opens first
+  const context = row.closest<HTMLElement>('.context:not(.open)');
+  if (context?.dataset.key) toggleContext(context.dataset.key);
   const fold = row.closest<HTMLElement>('.region');
   const startLine = Number(fold?.querySelector<HTMLElement>('.row[data-line]')?.dataset.line);
   if (!fold || !startLine || fold.classList.contains('open')) return;
@@ -61,4 +64,9 @@ export function openFoldAround(row: HTMLElement, path: string) {
 
 export function expandGap(gapKey: string): void {
   update((state) => ({ expandedGaps: toggled(state.expandedGaps, gapKey, true) }));
+}
+
+/** Full units: the stretch of the file above or below the unit opens, or closes (model/plans.ts). */
+export function toggleContext(key: string): void {
+  commit((state) => ({ expandedGaps: toggled(state.expandedGaps, key) }));
 }

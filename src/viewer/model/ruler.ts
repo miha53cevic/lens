@@ -79,6 +79,18 @@ export function rulerTicks(
           }
           continue;
         }
+        case 'context': {
+          // its bar is a row; closed, what it holds ticks at the bar, as at a folded pill
+          if (pillRow !== null) walk(item.body, pillRow);
+          else if (!item.open) {
+            walk(item.body, row);
+            row++;
+          } else {
+            row++;
+            walk(item.body, null);
+          }
+          continue;
+        }
       }
       if (pillRow === null) row++;
     }

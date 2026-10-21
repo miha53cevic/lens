@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import clsx from 'clsx';
 import { useLens } from '../../../store.ts';
 import { concernLabel, findingMark, findings, isConcern, type Unit } from '../../../model/signals.ts';
@@ -9,6 +9,7 @@ import { codeLines } from '../../../shared.ts';
 import { CodeRows, RemovedRow } from '../../CodeRows/index.tsx';
 import { SignalIcon } from '../../SignalIcon.tsx';
 import { Verdict } from './Verdict.tsx';
+import { useShownChanges } from './hooks.ts';
 
 /**
  * The unit's code, as the Code view shows it, and what the summary adds to the rows: the
@@ -25,7 +26,7 @@ export function UnitCode({ unit, hoveredCite }: { unit: Unit; hoveredCite: strin
     landed: state.landed,
   }));
   const summary = unit.summary;
-  const changedLines = useMemo(() => new Set(unit.changedLines), [unit]);
+  const changedLines = useShownChanges(unit, plan);
 
   const classes = new Map<string, string>();
   const addClass = (label: string, className: string) => classes.set(label, clsx(classes.get(label), className));
