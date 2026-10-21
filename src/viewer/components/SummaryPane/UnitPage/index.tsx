@@ -60,7 +60,7 @@ export function UnitPage({ unit }: { unit: Unit }) {
         ruler={<UnitRuler unit={unit} />}
         action={
           inCodeView && (
-            <Button variant='ghost' size='sm' id='open-in-code' onClick={() => openUnitInCode(unit)}>
+            <Button variant='ghost' size='sm' id='open-in-code' shortcut='o' onClick={() => openUnitInCode(unit)}>
               Open in Code <ArrowUpRight size={12} />
             </Button>
           )

@@ -1263,6 +1263,7 @@ pageTest('a deleted unit is its removed lines; o opens a unit in the code view',
   assert.equal($('.sum-item.active .name').textContent, 'legacyTotal');
   assert.deepEqual(rows('.unit-code .code'), ['−17', '−18', '−19', '−20']);
   await key('k');
+  assert.equal($('#open-in-code .tip kbd').textContent, 'o', 'its button teaches the key');
   await key('o');
   assert.equal($('main').style.display, '', 'back on the code view');
   assert.ok($('#code .row[data-line="9"]').classList.contains('flash'), "at the unit's first changed line");
