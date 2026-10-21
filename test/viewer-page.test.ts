@@ -89,8 +89,8 @@ interface Page {
   clearInfo: ClearInfoResponse;
 }
 
-/** Opens the viewer on the payload, with these localStorage entries (and this cookie) already there. */
-async function open(prefs: Record<string, string> = {}, hash = '', cookie = ''): Promise<Page> {
+/** Opens the viewer on the payload (or `data`), with these localStorage entries (and this cookie) already there. */
+async function open(prefs: Record<string, string> = {}, hash = '', cookie = '', data = payload): Promise<Page> {
   // a preview's frame isn't loaded, and says nothing about it: there is no server, and what it shows is the agent's, not the page's
   GlobalRegistrator.register({
     url: 'http://127.0.0.1:5326/' + hash,
@@ -161,7 +161,7 @@ async function open(prefs: Record<string, string> = {}, hash = '', cookie = ''):
   for (const [key, value] of Object.entries(prefs)) localStorage.setItem(key, value);
   if (cookie) document.cookie = cookie;
   document.body.innerHTML = '<div id="root"></div><script id="lens-data" type="application/json"></script>';
-  document.getElementById('lens-data')!.textContent = JSON.stringify(payload);
+  document.getElementById('lens-data')!.textContent = JSON.stringify(data);
   new Function(bundle)();
   await settle();
   return page;
@@ -731,6 +731,67 @@ pageTest("the agent's summary run shows as a notice while it goes: units in, the
   await settle();
   undo();
   assert.deepEqual(notices(), [], 'the run is done');
+});
+
+test("a first run: the page opened before any summary, and shows the agent's run and then its summary", async () => {
+  const summary = payload.summary!;
+  const fresh: ViewerPayload = {
+    ...payload,
+    summary: { ...summary, stamp: null, units: summary.units.map((unit) => ({ ...unit, summary: null })) },
+  };
+  await open({}, '', '', fresh);
+  try {
+    const notices = () => $$('#status-bar .status-notices > *').map((notice) => notice.textContent);
+    let stamp: unknown = {
+      summary: null,
+      change: payload.changeStamp,
+      building: { done: 0, total: 2, finalPass: false },
+    };
+    const undo = answering((path) => (path === '/api/stamp' ? new Response(JSON.stringify(stamp)) : undefined));
+    window.dispatchEvent(new Event('focus'));
+    await settle();
+    assert.deepEqual(notices(), ['Agent writing summary · 0 of 2 units']);
+    // the first submit: summary.json is there now, where there was none
+    stamp = { summary: summary.stamp, change: payload.changeStamp, building: null };
+    window.dispatchEvent(new Event('focus'));
+    await settle();
+    undo();
+    assert.deepEqual(notices(), ['New summary waiting']);
+    await click($('#status-bar .status-notice'));
+    await settle();
+    assert.ok($('#summary-pane .sum-headline'), 'the Summary tab, with the summary loaded');
+  } finally {
+    await close();
+  }
+});
+
+pageTest('the stamp poll is what notices a stopped server is back', async () => {
+  const undo = answering(() => Promise.reject(new TypeError('fetch failed')));
+  window.dispatchEvent(new Event('focus'));
+  await settle();
+  assert.equal(status().label, 'Server stopped');
+  undo();
+  window.dispatchEvent(new Event('focus'));
+  await settle();
+  assert.deepEqual(status(), REST, 'the next poll got through, with no click');
+});
+
+pageTest('a summary the agent wrote for another review says so, until this review has a newer run', async () => {
+  const notices = () => $$('#status-bar .status-notices > *').map((notice) => notice.textContent);
+  let elsewhere: unknown = { command: '/lens-review --staged' };
+  const undo = answering((path) =>
+    path === '/api/stamp'
+      ? new Response(JSON.stringify({ summary: payload.summary!.stamp, change: payload.changeStamp, elsewhere }))
+      : undefined,
+  );
+  window.dispatchEvent(new Event('focus'));
+  await settle();
+  assert.deepEqual(notices(), ['Agent summarized another review · /lens-review --staged']);
+  elsewhere = null;
+  window.dispatchEvent(new Event('focus'));
+  await settle();
+  undo();
+  assert.deepEqual(notices(), []);
 });
 
 pageTest(

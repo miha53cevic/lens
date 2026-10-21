@@ -1,7 +1,7 @@
 import { test } from "bun:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, writeFileSync, rmSync, mkdirSync, readFileSync, existsSync } from "node:fs";
+import { mkdtempSync, writeFileSync, rmSync, mkdirSync, readFileSync, existsSync, utimesSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { Window } from "happy-dom";
@@ -16,7 +16,7 @@ import { loadDiff, collectUnits, commitLog } from "../src/cli-app/summary/collec
 import { buildSummaryView } from "../src/cli-app/summary/view.ts";
 import { previewProblems, previewResponse, writeAssets } from "../src/cli-app/summary/previews.ts";
 import { buildPreviewsOn, readSettings, writeSettings } from "../src/cli-app/summary/settings.ts";
-import { buildProgressReader } from "../src/cli-app/summary/progress.ts";
+import { buildProgressReader, elsewhereReader } from "../src/cli-app/summary/progress.ts";
 import { DEFAULT_CONFIG } from "../src/cli-app/config.ts";
 
 /** Builds a unit input from two versions of a file, via a real unified=0 diff. */
@@ -1218,6 +1218,36 @@ test("a summary run's progress: units in, then the final pass, then nothing; a s
     const overview = { what: "x", hash: unitSetHash(bundle.units) };
     writeStored(root, key, { version: 1, updatedAt: "1", units, flows: [flow], overview });
     assert.equal(read(), null, "the final pass is in: done");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("another review's run shows only while it is newer than the page's review and this review's own run", () => {
+  const root = mkdtempSync(join(tmpdir(), "lens-elsewhere-"));
+  try {
+    const since = Date.UTC(2026, 0, 1);
+    /** Writes a review's file, dated `at` (ms) */
+    const write = (key: string, name: string, text: string, at: number) => {
+      const path = join(root, ".lens", "summary", key, name);
+      mkdirSync(join(path, ".."), { recursive: true });
+      writeFileSync(path, text);
+      utimesSync(path, at / 1000, at / 1000);
+    };
+    const read = elsewhereReader(root, "diff@main", since);
+    assert.equal(read(), null, "no .lens yet");
+
+    write("diff-staged@main", "bundle.json", JSON.stringify({ version: 1, command: "diff", args: ["--staged"], units: [] }), since - 60_000);
+    assert.equal(read(), null, "a run from before the page's review isn't news");
+
+    write("diff-staged@main", "summary.json", "{}", since + 1000);
+    assert.deepEqual(read(), { command: "/lens-review --staged" }, "the agent submitted for other arguments");
+
+    write("diff@main", "bundle.json", "{}", since + 2000);
+    assert.equal(read(), null, "this review's own run is newer: it's the one going on");
+
+    write("pr-87", "summary.json", "{}", since + 3000);
+    assert.deepEqual(read(), { command: "pr-87" }, "no bundle to read: the folder's key");
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

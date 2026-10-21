@@ -50,12 +50,14 @@ export async function checkStamp(): Promise<void> {
     const response = await reach('/api/stamp');
     if (!response.ok) return;
     const stamp: StampResponse = await response.json();
-    const { data, changedOnDisk, summaryBuild, summaryDot, view } = getState();
+    const { data, changedOnDisk, summaryBuild, summaryElsewhere, summaryDot, view } = getState();
     // only what both sides know: a review without a fingerprint (a PR) claims nothing
     const changed = stamp.change !== null && data.changeStamp !== null && stamp.change !== data.changeStamp;
     if (changed !== changedOnDisk) update({ changedOnDisk: changed });
     const building = stamp.building ?? null;
     if (JSON.stringify(building) !== JSON.stringify(summaryBuild)) update({ summaryBuild: building });
+    const elsewhere = stamp.elsewhere ?? null;
+    if (elsewhere?.command !== summaryElsewhere?.command) update({ summaryElsewhere: elsewhere });
     // null too: the summary was cleared, here or from another viewer of the same repository
     if (data.summary && stamp.summary !== data.summary.stamp) {
       if (view === 'summary') await loadSummary();
@@ -71,14 +73,17 @@ export async function checkStamp(): Promise<void> {
 /** How often the page asks what moved. */
 const STAMP_POLL_MS = 5000;
 
-/** The stamp is polled while the page is in sight (the loop is poll.ts), and not during a refresh, which takes it all anyway. */
+/**
+ * The stamp is polled while the page is in sight (the loop is poll.ts), and not during a refresh, which takes it all anyway.
+ * It goes on while the server is gone: it's the cheapest request there is, and the one that notices the server is back.
+ */
 export const stampWatcher: Watcher = {
   id: 'stamp',
   every: STAMP_POLL_MS,
   when: () => {
     const state = getState();
     const watched = state.data.summary !== null || state.data.changeStamp !== null;
-    return watched && !state.serverGone && !isBusy(state, 'refresh');
+    return watched && !isBusy(state, 'refresh');
   },
   run: checkStamp,
 };
