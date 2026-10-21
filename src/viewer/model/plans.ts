@@ -43,7 +43,7 @@ export interface FilePlan {
 const buildFilePlan = memo(
   (file: ViewFile, hunksOnly: boolean, expanded: ReadonlySet<string>, showRemoved: boolean): FilePlan => {
     // Old-side lines the diff removed, keyed by the new-side line they follow.
-    const removedAfter = removedByLine(showRemoved ? file.removals || [] : []);
+    const removedAfter = removedByLine(showRemoved ? removedLines(file.removals || []) : []);
     const spans = fileSpans(file, hunksOnly, expanded);
     return { items: planCode(spans, file.regions, (afterLine) => removedAfter.get(afterLine) || []) };
   },
@@ -66,14 +66,19 @@ export interface UnitPlan {
   full: boolean;
 }
 
-/** The removed lines a file's blocks show after each line, keyed by the line they follow. */
-function removedByLine(blocks: RemovedBlock[]): Map<number, RemovedLine[]> {
+/** A file's removed blocks, each line with its old line number. */
+function removedLines(blocks: RemovedBlock[]): { afterLine: number; lines: RemovedLine[] }[] {
+  return blocks.map((block) => ({
+    afterLine: block.afterLine,
+    lines: block.lines.map((text, offset) => ({ text, old: block.oldStart + offset })),
+  }));
+}
+
+/** The removed lines blocks show after each line, keyed by the line they follow. */
+function removedByLine(blocks: { afterLine: number; lines: RemovedLine[] }[]): Map<number, RemovedLine[]> {
   const removedAfter = new Map<number, RemovedLine[]>();
-  for (const block of blocks) {
-    const existing = removedAfter.get(block.afterLine) || [];
-    const lines = block.lines.map((text, offset) => ({ text, old: block.oldStart + offset }));
-    removedAfter.set(block.afterLine, existing.concat(lines));
-  }
+  for (const block of blocks)
+    removedAfter.set(block.afterLine, (removedAfter.get(block.afterLine) || []).concat(block.lines));
   return removedAfter;
 }
 
@@ -102,9 +107,12 @@ const buildUnitPlan = memo(
     const items = planCode(spans, regions, removedAt);
     const around = fullUnits && file ? contextSpans(unit, file, hunksOnly, expanded) : null;
     if (!file || !around) return { file, items, gutter, full: false };
-    // around the unit, the file's other removed lines: the unit's own show with it
-    const own = new Set(unit.removals.map((block) => block.oldStart));
-    const others = showRemoved ? (file.removals || []).filter((block) => !own.has(block.oldStart)) : [];
+    // around the unit, the file's other removed lines: the unit's own show with it. By old line, not by
+    // block: units split one removed block between them (units.ts), so a unit may own only part of one
+    const own = new Set(unit.removals.flatMap((block) => block.lines.map((_, offset) => block.oldStart + offset)));
+    const others = (showRemoved ? removedLines(file.removals || []) : [])
+      .map((block) => ({ ...block, lines: block.lines.filter((line) => !own.has(line.old)) }))
+      .filter((block) => block.lines.length > 0);
     const removedOutside = removedByLine(others);
     const context = (side: 'above' | 'below', stretch: UnitContext): CodeItem[] => {
       if (stretch.start > stretch.end) return [];

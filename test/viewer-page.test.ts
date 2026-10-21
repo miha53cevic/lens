@@ -2031,3 +2031,29 @@ pageTest('full units: the rest of the file sits above and below the unit, each b
   assert.equal($$(code + ' .context').length, 0, 'off again: only the unit');
   assert.deepEqual(rows(code), ['5', 'R6', '−9', 'R9', '10', '11', '12']);
 });
+
+test('full units: a unit that owns part of a removed block shows that part once, and the stretch only the rest', async () => {
+  // units split a removed block between the declarations it was removed from (units.ts): here
+  // findOrders owns the block's last two lines, old 19–20, shown after its line 12
+  const block = payload.files.find((file) => file.file === 'src/orders.ts')!.removals!.find((b) => b.oldStart === 17)!;
+  const units = payload.summary!.units.map((unit) =>
+    unit.id.endsWith('#findOrders')
+      ? { ...unit, removals: [...unit.removals, { ...block, anchor: 12, oldStart: 19, lines: block.lines.slice(2) }] }
+      : unit,
+  );
+  try {
+    await open({ 'lens.fullUnits': '1' }, '', '', { ...payload, summary: { ...payload.summary!, units } });
+    await key('v');
+    await key('j');
+    const code = '.unit-code .code';
+    assert.deepEqual(rows(code), ['⋯', 'R6', '−9', 'R9', '10', '11', '12', '−19', '−20']);
+    const below = $(code + ' .context.below > .context-bar');
+    assert.equal(below.querySelector('.counts')!.textContent, '−2', 'only the lines the unit does not own');
+    await click(below);
+    assert.deepEqual(rows(code + ' > .context.below > .context-body'), [
+      ...['13', '⋯', '15', '16', '17', '−17', '−18', '18', '19', '20', '⋯'],
+    ]);
+  } finally {
+    await close();
+  }
+});
