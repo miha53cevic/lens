@@ -7,7 +7,7 @@ import { flushSync } from 'react-dom';
 import { create } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
 import { createStore } from 'zustand/vanilla';
-import type { ViewerPayload } from '../cli-app/render/web/server.ts';
+import type { ClearInfoResponse, ViewerPayload } from '../cli-app/render/web/server.ts';
 import type { AskSelection, AskState } from '../cli-app/ask/session.ts';
 import type { BuildProgress } from '../cli-app/summary/progress.ts';
 import type { ConcernKind } from '../cli-app/summary/store.ts';
@@ -102,6 +102,8 @@ export interface LensState {
   concernMarks: ReadonlyMap<string, ConcernMark>;
   /** Where the last jump landed: that row stays marked until the next jump */
   landed: { path: string; label: string } | null;
+  /** What the Clear saved data dialog offers, read when it opened; `opened` tells one opening from the next */
+  clearInfo: (ClearInfoResponse & { opened: number }) | null;
   // Ask rail
   ask: {
     open: boolean;
@@ -198,6 +200,7 @@ const initialState: LensState = {
   flowOpen: new Map(),
   concernMarks: loadMarks(),
   landed: null,
+  clearInfo: null,
   ask: {
     open: readPref('lens.askOpen') === '1',
     width: savedWidth('lens.askWidth', 280, 720, 360),

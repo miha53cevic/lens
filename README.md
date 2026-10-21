@@ -65,6 +65,7 @@ Or open the desktop app, pick the repository and what to review.
 | `lens pr 123` / `lens pr <url>` | a GitHub PR, fetched with plain git (no API, no gh) |
 | `lens info` | what could be reviewed here: the branch, its changes, the PR remote |
 | `lens config` | the effective config and where it comes from |
+| `lens clear` | what lens keeps in `.lens/`, by kind; `lens clear summaries --all` (or `<key>`) clears it |
 
 | flag | meaning |
 | --- | --- |
@@ -95,6 +96,8 @@ shows code you didn't write.
 - **Viewed marks** and a progress ring, so you know what's left.
 - **The code theme** colors the whole page; a light theme turns it light.
 - **Reload** (`r`) re-runs the analysis; the status bar says when the code changed on disk.
+- **Clear saved data** (⋯ menu): this review's summary or every review's, and the viewed and
+  concern marks, each ticked on its own and listed before anything goes. Settings stay.
 
 Press `?` in the viewer for every key.
 

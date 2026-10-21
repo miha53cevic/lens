@@ -34,7 +34,7 @@ async function loadSummary(): Promise<void> {
       const summary: SummaryView | null = await response.json();
       // only once it's loaded: a failed load is tried again
       update((state) => ({ summaryDot: false, data: summary ? { ...state.data, summary } : state.data }));
-      noteDone('New summary loaded');
+      noteDone(summary && summary.stamp === null ? 'The summary was cleared' : 'New summary loaded');
     },
   );
 }
@@ -56,7 +56,8 @@ export async function checkStamp(): Promise<void> {
     if (changed !== changedOnDisk) update({ changedOnDisk: changed });
     const building = stamp.building ?? null;
     if (JSON.stringify(building) !== JSON.stringify(summaryBuild)) update({ summaryBuild: building });
-    if (data.summary && stamp.summary !== null && stamp.summary !== data.summary.stamp) {
+    // null too: the summary was cleared, here or from another viewer of the same repository
+    if (data.summary && stamp.summary !== data.summary.stamp) {
       if (view === 'summary') await loadSummary();
       else if (!summaryDot) update({ summaryDot: true });
     }

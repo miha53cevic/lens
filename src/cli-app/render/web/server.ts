@@ -9,6 +9,7 @@ import { isLocalRequest, readBody, readCookie, sendJson } from "./http.ts";
 import { previewResponse } from "../../summary/previews.ts";
 import { writeSettings } from "../../summary/settings.ts";
 import { buildProgressReader, type BuildProgress } from "../../summary/progress.ts";
+import { clearKinds, describeKinds, type ClearKindInfo, type ClearPlan, type ClearScope } from "../../clear.ts";
 import { escapeHtml } from "../../text.ts";
 import { isLightColor, THEME_COOKIE } from "../../theme.ts";
 import { bundleViewer } from "./bundle.ts";
@@ -106,6 +107,22 @@ export interface StampResponse {
   summary: number | null;
   change: string | null;
   building: BuildProgress | null;
+}
+
+/** What GET /api/clear answers: what each kind would remove */
+export interface ClearInfoResponse {
+  kinds: ClearKindInfo[];
+}
+
+/** What POST /api/clear takes: each kind to clear, with its scope */
+export interface ClearRequest {
+  picks: Record<string, ClearScope>;
+}
+
+/** What POST /api/clear answers: what it removed, and the summary as it is now */
+export interface ClearResponse {
+  cleared: Record<string, ClearPlan>;
+  summary: SummaryView | null;
 }
 
 /** What /api/tokens answers: a theme's tokens, and the analysis whose files they are. */
@@ -344,6 +361,27 @@ export async function serveViewer(
         writeSettings(current.root, { buildPreviews: body.buildPreviews });
         current = { ...current, buildPreviews: body.buildPreviews };
         sendJson(res, 200, { buildPreviews: body.buildPreviews });
+      } else if (url.pathname === "/api/clear" && req.method === "GET") {
+        const info: ClearInfoResponse = { kinds: describeKinds({ root: current.root, key: current.summary?.key ?? null }) };
+        sendJson(res, 200, info);
+      } else if (url.pathname === "/api/clear" && req.method === "POST") {
+        const body = JSON.parse(await readBody(req)) as Partial<ClearRequest> | null;
+        const picks = body?.picks;
+        if (typeof picks !== "object" || picks === null || Object.keys(picks).length === 0) {
+          sendJson(res, 400, { error: "pick something to clear" });
+          return;
+        }
+        let cleared: Record<string, ClearPlan>;
+        try {
+          cleared = clearKinds({ root: current.root, key: current.summary?.key ?? null }, picks);
+        } catch (err) {
+          sendJson(res, 400, { error: (err as Error).message });
+          return;
+        }
+        // the stored summary is gone: the view is made again, with no unit summarized
+        syncSummary();
+        const answer: ClearResponse = { cleared, summary: current.summary };
+        sendJson(res, 200, answer);
       } else if (url.pathname === "/api/shutdown" && req.method === "POST") {
         res.writeHead(200, { "content-type": "application/json" });
         res.end(JSON.stringify({ ok: true }), () => {

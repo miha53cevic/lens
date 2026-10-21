@@ -520,7 +520,7 @@ pageTest(
     const count = (selector: string) => $$(selector).length;
     assert.equal(text('.sandbox h1'), 'Sandbox');
     assert.equal(count('.settings, .start'), 0, 'the screen is its own');
-    assert.equal(count('#g-button .btn'), 7);
+    assert.equal(count('#g-button .btn'), 8);
     assert.equal(count('#g-button .btn-primary'), 1);
     assert.equal(count('#g-button .btn .tip.tip-start kbd'), 1, 'a button with a key teaches it');
     assert.equal(count('#g-icon-button .icon-btn'), 4);

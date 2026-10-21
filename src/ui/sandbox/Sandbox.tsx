@@ -67,6 +67,7 @@ export function Sandbox() {
         <Button>Default</Button>
         <Button variant='ghost'>Ghost</Button>
         <Button variant='primary'>Primary</Button>
+        <Button variant='danger'>Danger</Button>
         <Button disabled>Disabled</Button>
         <Button size='sm'>
           <RefreshCw size={12} /> Small

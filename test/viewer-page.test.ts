@@ -11,7 +11,14 @@ import { fireEvent, within } from '@testing-library/dom';
 import { analyze } from '../src/cli-app/analyze.ts';
 import { loadConfig } from '../src/cli-app/config.ts';
 import { bundleViewer } from '../src/cli-app/render/web/bundle.ts';
-import { highlightFiles, renderPage, viewerPayload, type ViewerPayload } from '../src/cli-app/render/web/server.ts';
+import {
+  highlightFiles,
+  renderPage,
+  viewerPayload,
+  type ClearInfoResponse,
+  type ClearResponse,
+  type ViewerPayload,
+} from '../src/cli-app/render/web/server.ts';
 import { themeSwatch } from '../src/cli-app/render/highlight.ts';
 import { writeStored, type StoredSummary } from '../src/cli-app/summary/store.ts';
 import type { AskQuestion, AskState } from '../src/cli-app/ask/session.ts';
@@ -78,6 +85,8 @@ interface Page {
   ask: AskState;
   /** The analysis GET /api/tokens says its tokens are from; null: the page's own */
   tokensAnalysis: string | null;
+  /** What GET /api/clear answers */
+  clearInfo: ClearInfoResponse;
 }
 
 /** Opens the viewer on the payload, with these localStorage entries (and this cookie) already there. */
@@ -89,7 +98,25 @@ async function open(prefs: Record<string, string> = {}, hash = '', cookie = ''):
     height: 900,
     settings: { navigation: { disableChildFrameNavigation: true } },
   });
-  const page: Page = { requests: [], ask: { listening: false, questions: [] }, tokensAnalysis: null };
+  const page: Page = {
+    requests: [],
+    ask: { listening: false, questions: [] },
+    tokensAnalysis: null,
+    clearInfo: {
+      kinds: [
+        {
+          id: 'summaries',
+          label: 'Summaries',
+          unit: ['review', 'reviews'],
+          plans: {
+            this: { count: 1, paths: ['.lens/summary/diff@main/'] },
+            all: { count: 2, paths: ['.lens/summary/diff@main/', '.lens/summary/pr-87/'] },
+          },
+          warning: null,
+        },
+      ],
+    },
+  };
   globalThis.fetch = (async (input: string | URL, init?: RequestInit) => {
     const url = new URL(String(input), 'http://127.0.0.1:5326');
     const method = init?.method ?? 'GET';
@@ -116,6 +143,18 @@ async function open(prefs: Record<string, string> = {}, hash = '', cookie = ''):
         return reply({ ok: true });
       case 'POST /api/settings':
         return reply(body);
+      case 'GET /api/clear':
+        return reply(page.clearInfo);
+      case 'POST /api/clear': {
+        // the summary as the server makes it again once summary.json is gone: no unit summarized
+        const summary = payload.summary!;
+        const scope = body.picks.summaries as 'this' | 'all';
+        const answer: ClearResponse = {
+          cleared: { summaries: page.clearInfo.kinds[0].plans[scope]! },
+          summary: { ...summary, stamp: null, units: summary.units.map((unit) => ({ ...unit, summary: null })) },
+        };
+        return reply(answer);
+      }
     }
     return new Response('{}', { status: 404 });
   }) as typeof fetch;
@@ -1773,6 +1812,68 @@ test('the copied concerns name a removed line as one, in the order of the summar
       /\d\. \[question\] src\/orders\.ts \(removed line 17\) — legacyTotal\n {3}did anything still call it\?\n/,
     );
   } finally {
+    await close();
+  }
+});
+
+pageTest(
+  'clear saved data: nothing goes until a kind is ticked, and a cleared summary leaves the Summary tab without it',
+  async (page) => {
+    await key('v');
+    await click($('.sum-item'));
+    assert.equal($('.sum-headline').textContent, 'findOrders skips deleted orders');
+
+    await click($('#clear-data'));
+    assert.ok(($('#clear-modal') as HTMLDialogElement).open);
+    assert.ok(($('#clear-confirm') as HTMLButtonElement).disabled, 'nothing ticked: nothing to clear');
+    assert.equal(document.querySelector('#clear-scope-summaries'), null, 'the scope shows once the kind is ticked');
+    assert.match($('[data-kind="marks"] .clear-kind-detail').textContent!, /^1 mark: viewed files/);
+
+    await click($('#clear-summaries'));
+    assert.ok($('#clear-scope-summaries'));
+    assert.deepEqual(
+      $$('.clear-gone li').map((item) => item.textContent),
+      ['.lens/summary/diff@main/'],
+    );
+    await click(within($('#clear-scope-summaries')).getByText('All reviews · 2'));
+    await click($('#clear-marks'));
+    assert.deepEqual(
+      $$('.clear-gone li').map((item) => item.textContent),
+      ['.lens/summary/diff@main/', '.lens/summary/pr-87/', '1 mark in this browser'],
+    );
+
+    await click($('#clear-confirm'));
+    await settle();
+    assert.deepEqual(
+      page.requests
+        .filter((request) => request.path === '/api/clear')
+        .map((request) => request.method + ' ' + JSON.stringify(request.body)),
+      ['GET null', 'POST {"picks":{"summaries":"all"}}'],
+      "the marks are the browser's own: the server hears only of the summaries",
+    );
+    assert.ok(!($('#clear-modal') as HTMLDialogElement).open);
+    assert.equal($('#status .status-label').textContent, 'Cleared summaries (2 reviews) and review marks');
+    assert.ok(!$('#root').textContent!.includes('skips deleted orders'), 'no summary is shown any more');
+    assert.equal(localStorage.getItem('lens.viewedFiles'), '[]');
+
+    // opened again, nothing is ticked
+    await click($('#clear-data'));
+    assert.ok(($('#clear-confirm') as HTMLButtonElement).disabled);
+  },
+  { 'lens.viewedFiles': '["src/orders.ts@x"]' },
+);
+
+test('a summary cleared from elsewhere (another viewer, `lens clear`) leaves this page too, once it looks', async () => {
+  const fresh = payload.summary!;
+  try {
+    await open();
+    payload.summary = { ...fresh, stamp: null, units: fresh.units.map((unit) => ({ ...unit, summary: null })) };
+    await key('v');
+    await settle();
+    assert.ok($('#no-summary'), 'the overview says what to run');
+    assert.equal($('#status .status-label').textContent, 'The summary was cleared');
+  } finally {
+    payload.summary = fresh;
     await close();
   }
 });
