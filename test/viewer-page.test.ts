@@ -479,6 +479,46 @@ test('a viewed mark sticks, and survives a reload', async () => {
   }
 });
 
+pageTest(
+  'a file viewed before its code changed says so, until it is viewed again',
+  async () => {
+    const box = () => $('#tree .file .viewed-box');
+    assert.equal(box().getAttribute('aria-checked'), 'false', 'not viewed: the code is new');
+    assert.ok(box().classList.contains('changed'));
+    assert.match($('#tree .file').getAttribute('title')!, /changed since you viewed it/);
+    assert.equal($('#nav .progress-count').textContent, '0 of 1');
+    assert.equal($('#nav .legend.changed').textContent, '1 changed since viewed');
+
+    await key('m');
+    assert.equal(box().getAttribute('aria-checked'), 'true');
+    assert.ok(!box().classList.contains('changed'));
+    assert.equal($$('#nav .legend.changed').length, 0);
+    assert.deepEqual(
+      JSON.parse(localStorage.getItem('lens.viewedFiles')!).filter((key: string) => key.startsWith('src/orders.ts@')),
+      [JSON.parse(localStorage.getItem('lens.viewedFiles')!).at(-1)],
+      'the old mark gives way to the new one',
+    );
+
+    await key('m');
+    assert.ok(!box().classList.contains('changed'), 'unticked now: never viewed, as far as it shows');
+  },
+  { 'lens.viewedFiles': '["src/orders.ts@old"]' },
+);
+
+test('a change reviewed before its code changed says so in the Summary list', async () => {
+  const unit = payload.summary!.units.find((candidate) => candidate.name === 'findOrders')!;
+  await open({ 'lens.viewedUnits': JSON.stringify([unit.id + '@old']) });
+  try {
+    await key('v');
+    const item = $$('.sum-item').find((candidate) => candidate.querySelector('.name')!.textContent === 'findOrders')!;
+    assert.ok(item.querySelector('.viewed-box.changed'));
+    assert.equal(item.querySelector('.gist.changed')!.textContent, 'changed since you reviewed it');
+    assert.equal($('#nav .legend.changed').textContent, '1 changed since viewed');
+  } finally {
+    await close();
+  }
+});
+
 pageTest('the review pill marks the file viewed and opens the next one, stopping at the ends of the tree', async () => {
   const pill = () => $('#review-next').textContent!.trim();
   const open = () => $('.tab.active .tab-name').textContent;

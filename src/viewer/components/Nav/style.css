@@ -95,6 +95,10 @@ nav .file.binary:disabled {
   color: var(--faint);
   font-size: var(--text-xs);
 }
+/* under the ring: how many were viewed, then changed */
+.legend.changed {
+  color: var(--mod);
+}
 
 .sum-overview-item {
   display: flex;
@@ -215,7 +219,8 @@ nav .file.binary:disabled {
   display: inline-flex;
   color: var(--faint);
 }
-.sum-item .gist.stale {
+.sum-item .gist.stale,
+.sum-item .gist.changed {
   grid-column: 2 / -1;
   color: var(--mod);
   font-size: var(--text-xs);

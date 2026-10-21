@@ -11,3 +11,6 @@ export const STATUS_TITLE: Record<TreeStatus, string> = {
 
 /** What a binary file's row adds to its status: why it can't be opened. */
 export const BINARY_TITLE = 'a binary file: nothing to show';
+
+/** What the row of a file viewed, then changed, adds to its title. */
+export const CHANGED_SINCE_VIEWED = 'changed since you viewed it';

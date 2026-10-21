@@ -9,7 +9,8 @@ import { fileViewKey, type ViewFile } from '../../shared.ts';
 import { ViewedBox } from '../ViewedBox.tsx';
 import { StatusLetter } from '../../../ui/FileStatus.tsx';
 import { ListRow } from '../../../ui/ListRow.tsx';
-import { BINARY_TITLE, STATUS_TITLE } from './const.ts';
+import { BINARY_TITLE, CHANGED_SINCE_VIEWED, STATUS_TITLE } from './const.ts';
+import { changedSinceViewed } from '../../model/viewed.ts';
 
 interface TreeContext {
   filter: string;
@@ -78,13 +79,15 @@ function keepInSight(row: HTMLElement | null) {
 function FileRow({ entry, indent, context }: { entry: TreeFile; indent: number; context: TreeContext }) {
   const fileIndex = entry.index;
   const active = fileIndex !== null && fileIndex === context.active;
-  const viewed = fileIndex !== null && context.viewedFiles.has(fileViewKey(context.files[fileIndex]));
+  const viewKey = fileIndex !== null ? fileViewKey(context.files[fileIndex]) : null;
+  const viewed = viewKey !== null && context.viewedFiles.has(viewKey);
+  const changed = viewKey !== null && changedSinceViewed(context.viewedFiles, viewKey);
   const title =
-    entry.status === 'renamed'
+    (entry.status === 'renamed'
       ? entry.renamedFrom + ' → ' + entry.path + ' — ' + STATUS_TITLE.renamed
       : entry.path +
         (entry.status ? ' — ' + STATUS_TITLE[entry.status] : '') +
-        (entry.binary ? ', ' + BINARY_TITLE : '');
+        (entry.binary ? ', ' + BINARY_TITLE : '')) + (changed ? '\n' + CHANGED_SINCE_VIEWED : '');
   return (
     <ListRow
       ref={active ? keepInSight : undefined}
@@ -98,7 +101,7 @@ function FileRow({ entry, indent, context }: { entry: TreeFile; indent: number; 
     >
       {/* files that can't be opened keep the box's width, so names stay aligned */}
       {fileIndex !== null ? (
-        <ViewedBox checked={viewed} onToggle={() => toggleFileViewed(fileIndex)} />
+        <ViewedBox checked={viewed} changed={changed} onToggle={() => toggleFileViewed(fileIndex)} />
       ) : (
         <span className='viewed-box placeholder' />
       )}

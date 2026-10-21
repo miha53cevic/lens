@@ -5,11 +5,14 @@ import type { LensState } from '../store.ts';
 import { fileViewKey, isTestFile, memo } from '../shared.ts';
 import { unitViewKey } from './signals.ts';
 import { listModel } from './summaryList.ts';
+import { changedSinceViewed } from './viewed.ts';
 import { treeModel } from './tree.ts';
 
 export interface Progress {
   done: number;
   total: number;
+  /** Of those not done, the ones viewed before their code changed (model/viewed.ts) */
+  changed: number;
   /** The open file or change is viewed */
   currentDone: boolean;
   /** The next one not viewed after the open one, or null when none is left after it: the review stops at the end */
@@ -48,6 +51,7 @@ const buildFileProgress = memo(
     return {
       done: counted.filter(isViewed).length,
       total: counted.length,
+      changed: counted.filter((fileIndex) => changedSinceViewed(viewedFiles, fileViewKey(files[fileIndex]))).length,
       currentDone: active >= 0 && isViewed(active),
       next: nextNotDone(order, active >= 0 ? active : null, isViewed),
       ...ends(order, active >= 0 ? active : null),
@@ -70,6 +74,7 @@ const buildUnitProgress = memo(
     const progress: Progress = {
       done: list.units.filter((unit) => viewedUnits.has(unitViewKey(unit))).length,
       total: list.units.length,
+      changed: list.units.filter((unit) => changedSinceViewed(viewedUnits, unitViewKey(unit))).length,
       currentDone: current !== null && isViewed(current),
       next: nextNotDone(list.order, current, isViewed),
       ...ends(list.order, current),

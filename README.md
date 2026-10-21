@@ -93,7 +93,8 @@ shows code you didn't write.
   (`1 guard → return DEFAULTS + log`), one click from the real code.
 - **Diff reading**: hunks only, inline removed lines, word diff, hide tests.
 - **Search** across loaded files (⌘P / Ctrl P), ⌥-click for usages.
-- **Viewed marks** and a progress ring, so you know what's left.
+- **Viewed marks** and a progress ring, so you know what's left. A file or change whose code moved
+  after you ticked it says so.
 - **The code theme** colors the whole page; a light theme turns it light.
 - **Reload** (`r`) re-runs the analysis; the status bar says when the code changed on disk.
 - **Clear saved data** (⋯ menu): this review's summary or every review's, and the viewed and

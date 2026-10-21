@@ -36,6 +36,19 @@
   transform: translateY(-1px) rotate(-45deg) scale(1);
   transition: transform var(--motion-enter);
 }
+/* ticked once, changed since: dashed in the "modified" color, a dot where the tick was */
+.viewed-box.changed {
+  border-style: dashed;
+  border-color: var(--mod);
+}
+.viewed-box.changed::after {
+  width: 5px;
+  height: 5px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--mod);
+  transform: none;
+}
 
 /* in the summary list: a dot, filled once reviewed, ringed for the open change */
 .sum-item .viewed-box {
@@ -46,6 +59,11 @@
 }
 .sum-item .viewed-box::after {
   content: none;
+}
+.sum-item .viewed-box.changed::after {
+  content: '';
+  width: 4px;
+  height: 4px;
 }
 .sum-item.active .viewed-box:not([aria-checked='true']) {
   border-color: var(--accent);

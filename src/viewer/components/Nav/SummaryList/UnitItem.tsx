@@ -6,6 +6,7 @@ import { openSummaryUnit } from '../../../actions/summary.ts';
 import { toggleUnitViewed } from '../../../actions/prefs.ts';
 import { SignalMarker } from '../../SignalMarker.tsx';
 import { ViewedBox } from '../../ViewedBox.tsx';
+import { changedSinceViewed } from '../../../model/viewed.ts';
 import { ListRow } from '../../../../ui/ListRow.tsx';
 import { drawnUnits } from '../../../model/drawings.ts';
 
@@ -23,9 +24,10 @@ function keepInSight(item: HTMLElement | null) {
 
 /** One change in the summary list. */
 export function UnitItem({ unit, side, active }: UnitItemProps) {
-  const { marks, viewed, drawn } = useLens((state) => ({
+  const { marks, viewed, changed, drawn } = useLens((state) => ({
     marks: state.concernMarks,
     viewed: state.viewedUnits.has(unitViewKey(unit)),
+    changed: changedSinceViewed(state.viewedUnits, unitViewKey(unit)),
     drawn: drawnUnits(state.data.summary, state.data.buildPreviews).has(unit.id),
   }));
   const summary = unit.summary;
@@ -38,7 +40,7 @@ export function UnitItem({ unit, side, active }: UnitItemProps) {
       title={unit.id + ' — ' + unit.status + (summary ? '\n' + summary.gist : '')}
       onClick={() => openSummaryUnit(unit.id)}
     >
-      <ViewedBox checked={viewed} onToggle={() => toggleUnitViewed(unit)} />
+      <ViewedBox checked={viewed} changed={changed} onToggle={() => toggleUnitViewed(unit)} />
       <span className='name'>{unitLabel(unit)}</span>
       {drawn && (
         <span className='drawn' title='Has a preview or a sequence'>
@@ -48,6 +50,7 @@ export function UnitItem({ unit, side, active }: UnitItemProps) {
       <SignalMarker marks={marks} unit={unit} />
       {side && <span className='side'>{side}</span>}
       {unit.stale && <span className='gist stale'>code changed — re-run</span>}
+      {changed && !unit.stale && <span className='gist changed'>changed since you reviewed it</span>}
     </ListRow>
   );
 }
