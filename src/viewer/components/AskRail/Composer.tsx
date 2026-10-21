@@ -9,6 +9,8 @@ import { waitingQuestion } from '../../model/status.ts';
 import { askSend, growInput, setAsk } from '../../ask/rail.ts';
 import { Button } from '../../../ui/Button.tsx';
 import { Kbd } from '../../../ui/Kbd.tsx';
+import { Tag } from '../../../ui/Tag.tsx';
+import { TextArea } from '../../../ui/TextArea.tsx';
 
 /** The question being written, with what goes along with it: the open change and the selection. */
 export function Composer() {
@@ -52,19 +54,29 @@ export function Composer() {
   return (
     <div className='ask-composer'>
       <div className='ask-chips' id='ask-chips'>
-        {composer.contextLabel && <span className='ask-chip unit'>{composer.contextLabel}</span>}
+        {composer.contextLabel && (
+          <Tag className='ask-chip unit' mono>
+            {composer.contextLabel}
+          </Tag>
+        )}
         {composer.contextLabel && composer.selectionLabel && (
-          <span className='ask-chip'>{composer.selectionLabel}</span>
+          <Tag className='ask-chip' mono color='var(--question)'>
+            {composer.selectionLabel}
+          </Tag>
         )}
         {/* the unit's open concerns go along: the agent knows what "the risk here" is */}
         {composer.contextLabel && composer.concernCount > 0 && (
-          <span className='ask-chip'>{plural(composer.concernCount, 'concern')}</span>
+          <Tag className='ask-chip' mono color='var(--question)'>
+            {plural(composer.concernCount, 'concern')}
+          </Tag>
         )}
         {composer.contextLabel && composer.breakCount > 0 && (
-          <span className='ask-chip'>{plural(composer.breakCount, 'possible break')}</span>
+          <Tag className='ask-chip' mono color='var(--question)'>
+            {plural(composer.breakCount, 'possible break')}
+          </Tag>
         )}
       </div>
-      <textarea
+      <TextArea
         id='ask-input'
         ref={inputRef}
         rows={2}

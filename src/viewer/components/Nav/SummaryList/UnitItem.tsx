@@ -6,6 +6,7 @@ import { openSummaryUnit } from '../../../actions/summary.ts';
 import { toggleUnitViewed } from '../../../actions/prefs.ts';
 import { SignalMarker } from '../../SignalMarker.tsx';
 import { ViewedBox } from '../../ViewedBox.tsx';
+import { ListRow } from '../../../../ui/ListRow.tsx';
 import { drawnUnits } from '../../../model/drawings.ts';
 
 interface UnitItemProps {
@@ -30,8 +31,9 @@ export function UnitItem({ unit, side, active }: UnitItemProps) {
   const summary = unit.summary;
 
   return (
-    <button
+    <ListRow
       ref={active ? keepInSight : undefined}
+      selected={active}
       className={clsx('sum-item', active && 'active', !summary && 'pending', viewed && 'viewed', 'st-' + unit.status)}
       title={unit.id + ' — ' + unit.status + (summary ? '\n' + summary.gist : '')}
       onClick={() => openSummaryUnit(unit.id)}
@@ -46,6 +48,6 @@ export function UnitItem({ unit, side, active }: UnitItemProps) {
       <SignalMarker marks={marks} unit={unit} />
       {side && <span className='side'>{side}</span>}
       {unit.stale && <span className='gist stale'>code changed — re-run</span>}
-    </button>
+    </ListRow>
   );
 }

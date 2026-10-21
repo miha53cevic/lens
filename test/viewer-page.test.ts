@@ -1444,7 +1444,7 @@ pageTest('the tree filter offers its clear button only while there is text, and 
 pageTest("a tab closes from its button, which is the design system's icon button", async () => {
   const close = $('#tabbar .tab .tab-close');
   assert.ok(close.classList.contains('icon-btn'));
-  assert.equal(close.getAttribute('aria-label'), 'close');
+  assert.equal(close.getAttribute('aria-label'), 'Close orders.ts', 'it names the tab it closes');
   await click(close);
   assert.equal($$('#tabbar .tab').length, 0);
 });
@@ -1735,7 +1735,7 @@ test('a changed binary file is a row of the tree: its status, dimmed, and nothin
     await type($('.nav-filter input'), 'logo');
     assert.deepEqual(
       $$('#tree .file').map((file) => file.className),
-      ['file modified binary'],
+      ['list-row file modified binary'],
     );
   } finally {
     payload = whole;
@@ -1828,9 +1828,11 @@ pageTest(
     assert.ok(($('#clear-modal') as HTMLDialogElement).open);
     assert.ok(($('#clear-confirm') as HTMLButtonElement).disabled, 'nothing ticked: nothing to clear');
     assert.equal(document.querySelector('#clear-scope-summaries'), null, 'the scope shows once the kind is ticked');
-    assert.match($('[data-kind="marks"] .clear-kind-detail').textContent!, /^1 mark: viewed files/);
+    assert.equal($('.choice[data-kind="marks"] .choice-sub').textContent, '1 mark · in this browser');
+    assert.ok(!$('.choice[data-kind="summaries"]').classList.contains('checked'));
 
-    await click($('#clear-summaries'));
+    await click($('.choice[data-kind="summaries"]'));
+    assert.ok($('.choice[data-kind="summaries"]').classList.contains('checked'), 'the whole row ticks it');
     assert.ok($('#clear-scope-summaries'));
     assert.deepEqual(
       $$('.clear-gone li').map((item) => item.textContent),
@@ -1853,7 +1855,10 @@ pageTest(
       "the marks are the browser's own: the server hears only of the summaries",
     );
     assert.ok(!($('#clear-modal') as HTMLDialogElement).open);
-    assert.equal($('#status .status-label').textContent, 'Cleared summaries (2 reviews) and review marks');
+    assert.equal(
+      $('#status .status-label').textContent,
+      'Cleared summaries (2 reviews) and viewed and concern marks (1 mark)',
+    );
     assert.ok(!$('#root').textContent!.includes('skips deleted orders'), 'no summary is shown any more');
     assert.equal(localStorage.getItem('lens.viewedFiles'), '[]');
 

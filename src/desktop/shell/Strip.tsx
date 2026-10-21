@@ -1,7 +1,7 @@
-import clsx from 'clsx';
-import { ArrowLeftRight, Folder, Plus, Settings, Shapes, X } from 'lucide-react';
+import { ArrowLeftRight, Folder, Plus, Settings, Shapes } from 'lucide-react';
 import type { StripTab } from '../shared/api.ts';
 import { IconButton } from '../../ui/IconButton.tsx';
+import { Tab } from '../../ui/Tab.tsx';
 import { widenIn } from '../../ui/motion.ts';
 import { ThemeTrigger } from '../../ui/ThemeMenu.tsx';
 import { useStrip } from './store.ts';
@@ -25,41 +25,35 @@ function keepInSight(button: HTMLElement | null) {
 function RepoTab({ tab, active }: { tab: StripTab; active: boolean }) {
   const { strip } = window.lensApp;
   return (
-    <div
-      ref={widenIn}
-      className={clsx('rtab', active && 'active')}
+    <Tab
+      tabRef={widenIn}
+      mainRef={active ? keepInSight : undefined}
+      className='rtab'
       data-tab={tab.id}
-      // the middle button closes a tab, as in a browser
-      onAuxClick={(event) => event.button === 1 && strip.close(tab.id)}
+      active={active}
+      onSelect={() => strip.select(tab.id)}
+      onClose={() => strip.close(tab.id)}
+      closeLabel={'Close ' + tab.title}
+      actions={
+        // on every tab with a review, shown or not, so a tab keeps its width when another comes to the front
+        tab.canChange && (
+          // an icon alone: the title says what it swaps
+          <IconButton
+            size='sm'
+            className='tab-btn'
+            label="Change what's reviewed"
+            title="Change what's reviewed"
+            onClick={() => strip.change(tab.id)}
+          >
+            <ArrowLeftRight size={12} />
+          </IconButton>
+        )
+      }
     >
-      <button
-        ref={active ? keepInSight : undefined}
-        className='rtab-main'
-        role='tab'
-        aria-selected={active}
-        onClick={() => strip.select(tab.id)}
-      >
-        <TabIcon icon={tab.icon} />
-        <span className='rtab-title'>{tab.title}</span>
-        {tab.detail && <span className='rtab-detail'>{tab.detail}</span>}
-      </button>
-      {/* on every tab with a review, shown or not, so a tab keeps its width when another comes to the front */}
-      {tab.canChange && (
-        // an icon alone: the title says what it swaps
-        <IconButton
-          size='sm'
-          className='rtab-btn'
-          label="Change what's reviewed"
-          title="Change what's reviewed"
-          onClick={() => strip.change(tab.id)}
-        >
-          <ArrowLeftRight size={12} />
-        </IconButton>
-      )}
-      <IconButton size='sm' className='rtab-btn' label={'Close ' + tab.title} onClick={() => strip.close(tab.id)}>
-        <X size={12} />
-      </IconButton>
-    </div>
+      <TabIcon icon={tab.icon} />
+      <span className='rtab-title'>{tab.title}</span>
+      {tab.detail && <span className='rtab-detail'>{tab.detail}</span>}
+    </Tab>
   );
 }
 

@@ -1,6 +1,5 @@
-import clsx from 'clsx';
 import type { ClearScope } from '../../../cli-app/clear.ts';
-import { Chip } from '../../../ui/Chip.tsx';
+import { Choice } from '../../../ui/Choice.tsx';
 import { Segmented } from '../../../ui/Segmented.tsx';
 
 const SCOPE_LABELS: Record<ClearScope, string> = { this: 'This review', all: 'All reviews' };
@@ -22,7 +21,7 @@ interface KindRowProps {
   onScope?: (scope: ClearScope) => void;
 }
 
-/** One kind of saved data: its tick, how much it holds, and its scope. */
+/** One kind of saved data: a row that ticks it; then, under it, its scope and what clearing it would interrupt. */
 export function KindRow({
   id,
   label,
@@ -36,31 +35,36 @@ export function KindRow({
   scopeCount,
   onScope,
 }: KindRowProps) {
+  const scoped = scopes && scopes.length > 1 && scope && onScope;
   return (
-    <div className={clsx('clear-kind', checked && 'on')} data-kind={id}>
-      <div className='clear-kind-head'>
-        {empty ? (
-          <span className='clear-kind-label'>{label}</span>
-        ) : (
-          <Chip id={'clear-' + id} checked={checked} onChange={onCheck}>
-            {label}
-          </Chip>
-        )}
-        <span className='clear-kind-detail'>{empty ? 'nothing saved' : detail}</span>
-      </div>
-      {checked && scopes && scopes.length > 1 && scope && onScope && (
-        <Segmented
-          id={'clear-scope-' + id}
-          label={label + ': which reviews'}
-          options={scopes.map((option) => ({
-            value: option,
-            label: SCOPE_LABELS[option] + (option === 'all' && scopeCount ? ' · ' + scopeCount(option) : ''),
-          }))}
-          value={scope}
-          onChange={onScope}
-        />
+    <>
+      <Choice
+        type='checkbox'
+        id={'clear-' + id}
+        data-kind={id}
+        checked={checked}
+        disabled={empty}
+        onChange={onCheck}
+        label={label}
+        hint={empty ? 'nothing saved' : detail}
+      />
+      {checked && (scoped || warning) && (
+        <div className='clear-kind-more'>
+          {scoped && (
+            <Segmented
+              id={'clear-scope-' + id}
+              label={label + ': which reviews'}
+              options={scopes.map((option) => ({
+                value: option,
+                label: SCOPE_LABELS[option] + (option === 'all' && scopeCount ? ' · ' + scopeCount(option) : ''),
+              }))}
+              value={scope}
+              onChange={onScope}
+            />
+          )}
+          {warning && <p className='clear-warning'>{warning}</p>}
+        </div>
       )}
-      {warning && <p className='clear-warning'>{warning}</p>}
-    </div>
+    </>
   );
 }

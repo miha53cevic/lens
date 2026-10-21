@@ -51,19 +51,7 @@ nav .file {
   text-align: left;
 }
 /* the tree's files and the Summary tab's items: under the pointer, unless it is the selected one (that keeps its own look) */
-nav .file:hover:not(:disabled, .active),
-.sum-overview-item:hover:not(.active),
-.sum-item:hover:not(.active) {
-  background: var(--hover-bg);
-  color: var(--text);
-}
-nav .file.active,
-.sum-overview-item.active,
-.sum-item.active {
-  background: var(--selected-bg);
-  box-shadow: 0 0 0 1px var(--selected-ring);
-  color: var(--text);
-}
+/* the rows' hover and selected look: ui/ListRow */
 nav .file .fname,
 .sum-item .name {
   overflow: hidden;
@@ -134,34 +122,16 @@ nav .file.binary:disabled {
   gap: var(--space-1);
   padding: var(--space-1) var(--space-1) var(--space-2);
 }
+/* ui/Tag: the signal's color on its icon, and all over it once it's on */
 .sig-chip {
   --sig: var(--text);
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  height: var(--control-h-xs);
-  padding: 0 var(--space-2);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-full);
-  color: var(--muted);
-  font-size: var(--text-xs);
 }
-.sig-chip .si {
-  display: inline-flex;
+.sig-chip .tag-icon {
   color: var(--sig);
 }
 .sig-chip .n {
   color: var(--text);
   font-variant-numeric: tabular-nums;
-}
-.sig-chip:hover {
-  border-color: color-mix(in oklab, var(--sig) 50%, var(--line));
-  color: var(--text);
-}
-.sig-chip[aria-pressed='true'] {
-  border-color: color-mix(in oklab, var(--sig) 60%, transparent);
-  background: color-mix(in oklab, var(--sig) var(--tint), transparent);
-  color: var(--text);
 }
 
 .sum-section {

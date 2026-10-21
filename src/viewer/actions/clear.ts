@@ -13,7 +13,7 @@ import { noteDone, request, tracked } from './status.ts';
 export interface ViewerKind {
   id: string;
   label: string;
-  /** Where it is, said in the dialog */
+  /** Where it is, said in the dialog after its count */
   where: string;
   unit: [string, string];
   count: (state: LensState) => number;
@@ -23,8 +23,8 @@ export interface ViewerKind {
 export const VIEWER_KINDS: ViewerKind[] = [
   {
     id: 'marks',
-    label: 'Review marks',
-    where: 'viewed files and changes, and concerns marked real or dismissed, in this browser',
+    label: 'Viewed and concern marks',
+    where: 'in this browser',
     unit: ['mark', 'marks'],
     count: (state) => state.viewedFiles.size + state.viewedUnits.size + state.concernMarks.size,
     clear: () => {
@@ -78,8 +78,8 @@ export async function clearData(picks: ClearPicks): Promise<void> {
       }
     }
     for (const kind of VIEWER_KINDS.filter((candidate) => picks.viewer.includes(candidate.id))) {
+      said.push(kind.label.toLowerCase() + ' (' + countText(kind.unit, kind.count(getState())) + ')');
       kind.clear();
-      said.push(kind.label.toLowerCase());
     }
     dialog('clear-modal')?.close();
     noteDone('Cleared ' + said.join(' and '));

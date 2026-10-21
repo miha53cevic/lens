@@ -2,10 +2,11 @@
 // (always one status); on the right, the standing notices. The page decides what it says; this
 // draws it, the same in the viewer and in the app's own screens.
 
-import { Check, CircleAlert, LoaderCircle, MessageSquare, Unplug } from 'lucide-react';
+import { Check, CircleAlert, MessageSquare, Unplug } from 'lucide-react';
 import clsx from 'clsx';
 import { Button } from './Button.tsx';
 import { riseIn } from './motion.ts';
+import { Spinner } from './Spinner.tsx';
 import './StatusBar.css';
 
 export type StatusKind = 'gone' | 'failed' | 'working' | 'waiting' | 'done' | 'idle';
@@ -43,7 +44,7 @@ function StatusIcon({ kind }: { kind: StatusKind }) {
     case 'failed':
       return <CircleAlert size={13} className='status-icon' />;
     case 'working':
-      return <LoaderCircle size={13} className='status-icon spin' />;
+      return <Spinner className='status-icon' />;
     case 'waiting':
       return <MessageSquare size={13} className='status-icon' />;
     case 'done':

@@ -58,49 +58,6 @@
   flex-wrap: wrap;
   gap: var(--space-2);
 }
-.drawing-unit,
-.step-kind {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  height: var(--control-h-xs);
-  padding: 0 var(--space-2);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-full);
-  color: var(--muted);
-  font: var(--text-xs) var(--font-mono);
-}
-.drawing-unit:hover {
-  background: var(--hover-bg);
-  color: var(--text);
-}
-.drawing-unit.on {
-  border-color: var(--selected-ring);
-  background: var(--selected-bg);
-  color: var(--text);
-}
-.drawing-unit {
-  --dot: var(--mod);
-}
-.drawing-unit.st-new {
-  --dot: var(--add);
-}
-.drawing-unit.st-deleted {
-  --dot: var(--del);
-}
-.step-kind {
-  font-family: var(--font-sans);
-}
-.step-kind.added {
-  --dot: var(--add);
-}
-.step-kind.changed {
-  --dot: var(--mod);
-}
-.step-kind.removed {
-  --dot: var(--del);
-}
-
 /* a preview: the agent's page in its own look, on the page's background */
 .preview-stage {
   padding: var(--space-4);

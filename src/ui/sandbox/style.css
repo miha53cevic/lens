@@ -39,6 +39,23 @@
 .sandbox-row .field {
   width: 240px;
 }
+/* a row of tabs, and a list of rows, as their pages lay them out */
+.sandbox-tabs {
+  display: flex;
+  gap: var(--space-1);
+}
+.sandbox-rows {
+  display: grid;
+  gap: var(--space-1);
+  width: 260px;
+}
+.sandbox-rows .list-row {
+  padding: var(--space-1) var(--space-2);
+  font: var(--text-sm) var(--font-mono);
+}
+.sandbox-row .textarea {
+  width: 360px;
+}
 /* the bars, as wide as a page's */
 .sandbox-bars {
   overflow: hidden;

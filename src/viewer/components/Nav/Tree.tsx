@@ -8,6 +8,7 @@ import { toggleDir, toggleFileViewed } from '../../actions/prefs.ts';
 import { fileViewKey, type ViewFile } from '../../shared.ts';
 import { ViewedBox } from '../ViewedBox.tsx';
 import { StatusLetter } from '../../../ui/FileStatus.tsx';
+import { ListRow } from '../../../ui/ListRow.tsx';
 import { BINARY_TITLE, STATUS_TITLE } from './const.ts';
 
 interface TreeContext {
@@ -85,8 +86,9 @@ function FileRow({ entry, indent, context }: { entry: TreeFile; indent: number; 
         (entry.status ? ' — ' + STATUS_TITLE[entry.status] : '') +
         (entry.binary ? ', ' + BINARY_TITLE : '');
   return (
-    <button
+    <ListRow
       ref={active ? keepInSight : undefined}
+      selected={active}
       className={clsx('file', entry.status, entry.binary && 'binary', active && 'active', viewed && 'viewed')}
       style={{ paddingLeft: indent + 'px' }}
       title={title}
@@ -105,7 +107,7 @@ function FileRow({ entry, indent, context }: { entry: TreeFile; indent: number; 
         {entry.binary && <span className='kind'>binary</span>}
       </span>
       {entry.status && <StatusLetter status={entry.status} />}
-    </button>
+    </ListRow>
   );
 }
 

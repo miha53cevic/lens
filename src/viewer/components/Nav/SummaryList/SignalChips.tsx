@@ -3,6 +3,7 @@ import type { SignalFilter, SignalId } from '../../../store.ts';
 import { SIGNALS } from '../../../model/signals.ts';
 import { setSignalFilter } from '../../../actions/summary.ts';
 import { SignalIcon } from '../../SignalIcon.tsx';
+import { Tag } from '../../../../ui/Tag.tsx';
 
 interface SignalChipsProps {
   counts: Record<NonNullable<SignalFilter>, number>;
@@ -13,21 +14,19 @@ interface SignalChipsProps {
 export function SignalChips({ counts, signal }: SignalChipsProps) {
   if (counts.any === 0 && counts.dismissed === 0) return null;
   const chip = (id: NonNullable<SignalFilter>, label: string) => (
-    <button
+    // the signal's color once it's on; till then only on its icon
+    <Tag
       key={id}
       className={clsx('sig-chip', id !== 'any' && 'sig-' + id)}
       data-sig={id}
-      aria-pressed={signal === id}
+      color={signal === id ? 'var(--sig)' : undefined}
+      icon={id !== 'any' && <SignalIcon signal={id} size={11} />}
+      pressed={signal === id}
       onClick={() => setSignalFilter(id)}
     >
-      {id !== 'any' && (
-        <span className='si'>
-          <SignalIcon signal={id} size={11} />
-        </span>
-      )}
       {label}
       <span className='n'>{counts[id]}</span>
-    </button>
+    </Tag>
   );
   const present = (Object.keys(SIGNALS) as SignalId[]).filter((id) => counts[id] > 0);
 

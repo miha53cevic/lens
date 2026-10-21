@@ -532,6 +532,23 @@ pageTest(
     assert.equal(count('#g-stepper .stepper .icon-btn-sm:disabled'), 1, 'a stepper at its end can only go back');
     assert.equal(count('#g-chip .chip'), 3);
     assert.equal(count('#g-chip .chip .dot'), 2, 'a chip without a color has no dot');
+    assert.equal(count('#g-choice [role="radiogroup"] .choice .choice-radio'), 3);
+    assert.equal(count('#g-choice [role="group"] .choice .choice-box'), 2);
+    assert.equal(count('#g-choice .choice.checked'), 2, 'the picked radio and the ticked box');
+    assert.equal(count('#g-choice .choice.disabled input:disabled'), 1);
+    assert.equal(count('#g-tag .tag'), 6);
+    assert.equal(count('#g-tag button.tag'), 2, 'a tag that does something is a button');
+    assert.equal(count('#g-tag .tag-toned'), 1);
+    assert.equal(count('#g-tag .tag[aria-pressed="true"]'), 1);
+    assert.equal(count('#g-tab [role="tablist"] .tab'), 3);
+    assert.equal(count('#g-tab .tab.active [role="tab"][aria-selected="true"]'), 1);
+    assert.equal(count('#g-tab .tab .tab-close'), 3);
+    assert.equal(count('#g-list-row .list-row'), 3);
+    assert.equal(count('#g-list-row .list-row.selected'), 1);
+    assert.equal(count('#g-select .select select'), 2);
+    assert.equal(count('#g-select .select select:disabled'), 1);
+    assert.equal(count('#g-textarea textarea.textarea'), 1);
+    assert.equal(count('#g-kbd .spinner'), 1);
     assert.equal(count('#g-field .field'), 3);
     assert.equal(count('#g-field .field-md .icon-btn-sm'), 1, 'a field with text offers to clear it');
     assert.equal(count('#g-menu [role="menu"]:not(.theme-menu) [role="menuitem"]'), 2);
@@ -611,7 +628,7 @@ pageTest(
       'every tab with a review can change it, in front or not: a tab keeps its width when another comes forward',
     );
 
-    await click($$('.rtab-main')[1]);
+    await click($$('.rtab .tab-main')[1]);
     await click($('[aria-label="Change what\'s reviewed"]'));
     await click($('[aria-label="Close storefront"]'));
     await click($('#new-tab'));

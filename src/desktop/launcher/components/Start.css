@@ -18,17 +18,13 @@
   padding: 0;
   list-style: none;
 }
+/* ui/ListRow: a tint under the pointer, and while a key is on one of its buttons */
 .recent {
   display: flex;
   align-items: center;
-  border-radius: var(--radius-md);
-  color: var(--muted);
 }
-/* the row under the pointer: what a picked choice looks like in the picker */
-.recent:hover,
 .recent:focus-within {
-  background: var(--selected-bg);
-  box-shadow: 0 0 0 1px var(--selected-ring);
+  background: var(--hover-bg);
   color: var(--text);
 }
 .recent-open {

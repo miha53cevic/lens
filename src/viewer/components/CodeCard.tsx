@@ -2,6 +2,7 @@ import type { ReactNode, Ref, UIEvent } from 'react';
 import clsx from 'clsx';
 import { baseName } from '../shared.ts';
 import { StatusBadge, type FileStatus } from '../../ui/FileStatus.tsx';
+import { Tag } from '../../ui/Tag.tsx';
 import { FoldChips } from './FoldChips.tsx';
 import './CodeCard.css';
 
@@ -53,7 +54,7 @@ export function CodeCard(props: CodeCardProps) {
             </span>
           )}
         </span>
-        {tag && <span className='tag'>{tag}</span>}
+        {tag && <Tag>{tag}</Tag>}
         <span className='spacer' />
         <FoldChips />
         {action}

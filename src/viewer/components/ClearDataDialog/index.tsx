@@ -6,6 +6,7 @@ import { useLens } from '../../store.ts';
 import { isBusy } from '../../model/status.ts';
 import { clearData, countText, VIEWER_KINDS } from '../../actions/clear.ts';
 import { Button } from '../../../ui/Button.tsx';
+import { ChoiceList } from '../../../ui/Choice.tsx';
 import { ModalHead } from '../ModalHead.tsx';
 import { KindRow } from './KindRow.tsx';
 import './style.css';
@@ -52,38 +53,40 @@ function Picker({ kinds }: { kinds: ClearInfoResponse['kinds'] }) {
   return (
     <>
       <div className='modal-body clear-body'>
-        {kinds.map((kind) => {
-          const scope = scopes[kind.id];
-          const plan = kind.plans[scope];
-          return (
+        <ChoiceList type='checkbox' label='What to clear'>
+          {kinds.map((kind) => {
+            const scope = scopes[kind.id];
+            const plan = kind.plans[scope];
+            return (
+              <KindRow
+                key={kind.id}
+                id={kind.id}
+                label={kind.label}
+                detail={plan ? countText(kind.unit, plan.count) : ''}
+                empty={Object.values(kind.plans).every((candidate) => !candidate || candidate.count === 0)}
+                warning={checked.has(kind.id) ? kind.warning : null}
+                checked={checked.has(kind.id)}
+                onCheck={(on) => toggle(kind.id, on)}
+                scopes={Object.keys(kind.plans) as ClearScope[]}
+                scope={scope}
+                scopeCount={(option) => kind.plans[option]?.count ?? 0}
+                onScope={(option) => setScopes({ ...scopes, [kind.id]: option })}
+              />
+            );
+          })}
+          {VIEWER_KINDS.map((kind, kindIndex) => (
             <KindRow
               key={kind.id}
               id={kind.id}
               label={kind.label}
-              detail={plan ? countText(kind.unit, plan.count) : ''}
-              empty={Object.values(kind.plans).every((candidate) => !candidate || candidate.count === 0)}
-              warning={checked.has(kind.id) ? kind.warning : null}
+              detail={countText(kind.unit, viewerCounts[kindIndex]) + ' · ' + kind.where}
+              empty={viewerCounts[kindIndex] === 0}
+              warning={null}
               checked={checked.has(kind.id)}
               onCheck={(on) => toggle(kind.id, on)}
-              scopes={Object.keys(kind.plans) as ClearScope[]}
-              scope={scope}
-              scopeCount={(option) => kind.plans[option]?.count ?? 0}
-              onScope={(option) => setScopes({ ...scopes, [kind.id]: option })}
             />
-          );
-        })}
-        {VIEWER_KINDS.map((kind, kindIndex) => (
-          <KindRow
-            key={kind.id}
-            id={kind.id}
-            label={kind.label}
-            detail={countText(kind.unit, viewerCounts[kindIndex]) + ': ' + kind.where}
-            empty={viewerCounts[kindIndex] === 0}
-            warning={null}
-            checked={checked.has(kind.id)}
-            onCheck={(on) => toggle(kind.id, on)}
-          />
-        ))}
+          ))}
+        </ChoiceList>
         {gone.length > 0 && (
           <ul className='clear-gone' aria-label='what goes'>
             {gone.map((what) => (

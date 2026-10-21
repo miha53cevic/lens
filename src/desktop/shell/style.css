@@ -42,46 +42,7 @@
   scrollbar-width: none;
 }
 
-/* a repository's tab: the viewer's file tabs (components/Tabs.css), in the UI font */
-.rtab {
-  display: flex;
-  align-items: center;
-  flex: none;
-  max-width: 280px;
-  padding-right: var(--space-1);
-  border: 1px solid transparent;
-  border-radius: var(--radius-full);
-  color: var(--muted);
-  font-size: var(--text-sm);
-  white-space: nowrap;
-}
-.rtab:hover {
-  color: var(--text);
-}
-.rtab.active {
-  border-color: var(--selected-ring);
-  background: var(--selected-bg);
-  color: var(--text);
-}
-/* the focus ring goes around the whole tab, its buttons included */
-.rtab:has(.rtab-main:focus-visible) {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
-}
-.rtab-main:focus-visible {
-  outline: none;
-}
-.rtab-main {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
-  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-3);
-  border-radius: var(--radius-full);
-}
-.rtab-main svg {
-  flex: none;
-}
+/* a repository's tab: ui/Tab, as the viewer's file tabs are, in the UI font */
 .rtab-title {
   font-weight: 600;
 }
@@ -89,13 +50,4 @@
   overflow: hidden;
   color: var(--muted);
   text-overflow: ellipsis;
-}
-/* ui/IconButton: they show on the tab in front and on the one under the pointer, as on the viewer's file tabs */
-.rtab-btn {
-  visibility: hidden;
-}
-.rtab.active .rtab-btn,
-.rtab:hover .rtab-btn,
-.rtab:focus-within .rtab-btn {
-  visibility: visible;
 }
