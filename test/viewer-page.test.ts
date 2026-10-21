@@ -1827,18 +1827,26 @@ pageTest(
     await click($('#clear-data'));
     assert.ok(($('#clear-modal') as HTMLDialogElement).open);
     assert.ok(($('#clear-confirm') as HTMLButtonElement).disabled, 'nothing ticked: nothing to clear');
-    assert.equal(document.querySelector('#clear-scope-summaries'), null, 'the scope shows once the kind is ticked');
+    assert.equal(
+      ($('#clear-scope-summaries') as HTMLSelectElement).value,
+      'this',
+      'the scope is in sight from the start',
+    );
     assert.equal($('.choice[data-kind="marks"] .choice-sub').textContent, '1 mark · in this browser');
     assert.ok(!$('.choice[data-kind="summaries"]').classList.contains('checked'));
 
     await click($('.choice[data-kind="summaries"]'));
     assert.ok($('.choice[data-kind="summaries"]').classList.contains('checked'), 'the whole row ticks it');
-    assert.ok($('#clear-scope-summaries'));
     assert.deepEqual(
       $$('.clear-gone li').map((item) => item.textContent),
       ['.lens/summary/diff@main/'],
     );
-    await click(within($('#clear-scope-summaries')).getByText('All reviews · 2'));
+    fireEvent.change($('#clear-scope-summaries'), { target: { value: 'all' } });
+    await settle();
+    assert.ok(
+      $('.choice[data-kind="summaries"]').classList.contains('checked'),
+      'picking the scope leaves the tick as it was',
+    );
     await click($('#clear-marks'));
     assert.deepEqual(
       $$('.clear-gone li').map((item) => item.textContent),

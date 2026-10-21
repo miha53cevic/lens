@@ -1,6 +1,6 @@
 import type { ClearScope } from '../../../cli-app/clear.ts';
 import { Choice } from '../../../ui/Choice.tsx';
-import { Segmented } from '../../../ui/Segmented.tsx';
+import { Select } from '../../../ui/Select.tsx';
 
 const SCOPE_LABELS: Record<ClearScope, string> = { this: 'This review', all: 'All reviews' };
 
@@ -14,14 +14,14 @@ interface KindRowProps {
   warning: string | null;
   checked: boolean;
   onCheck: (on: boolean) => void;
-  /** More than one: a switch between them, once the row is ticked */
+  /** More than one: a dropdown between them, on the row's right */
   scopes?: ClearScope[];
   scope?: ClearScope;
   scopeCount?: (scope: ClearScope) => number;
   onScope?: (scope: ClearScope) => void;
 }
 
-/** One kind of saved data: a row that ticks it; then, under it, its scope and what clearing it would interrupt. */
+/** One kind of saved data: a row that ticks it, with its scope on the right; under it, what clearing it would interrupt. */
 export function KindRow({
   id,
   label,
@@ -47,24 +47,23 @@ export function KindRow({
         onChange={onCheck}
         label={label}
         hint={empty ? 'nothing saved' : detail}
-      />
-      {checked && (scoped || warning) && (
-        <div className='clear-kind-more'>
-          {scoped && (
-            <Segmented
+        // which reviews, always in sight on the row's right, as the picker's base branch is
+        meta={
+          scoped && !empty ? (
+            <Select
               id={'clear-scope-' + id}
               label={label + ': which reviews'}
+              value={scope}
               options={scopes.map((option) => ({
                 value: option,
                 label: SCOPE_LABELS[option] + (option === 'all' && scopeCount ? ' · ' + scopeCount(option) : ''),
               }))}
-              value={scope}
-              onChange={onScope}
+              onChange={(value) => onScope(value as ClearScope)}
             />
-          )}
-          {warning && <p className='clear-warning'>{warning}</p>}
-        </div>
-      )}
+          ) : undefined
+        }
+      />
+      {checked && warning && <p className='clear-warning'>{warning}</p>}
     </>
   );
 }
