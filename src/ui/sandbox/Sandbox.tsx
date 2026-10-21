@@ -1,7 +1,19 @@
 import { useState, type ReactNode } from 'react';
-import { GitPullRequest, MessageSquare, MoreHorizontal, RefreshCw, Search, Trash2, X } from 'lucide-react';
+import {
+  ArrowLeftRight,
+  Folder,
+  GitBranch,
+  GitPullRequest,
+  MessageSquare,
+  MoreHorizontal,
+  RefreshCw,
+  Search,
+  Trash2,
+  X,
+} from 'lucide-react';
 import { Brand } from '../Brand.tsx';
 import { Button } from '../Button.tsx';
+import { Choice, ChoiceList } from '../Choice.tsx';
 import { Chip } from '../Chip.tsx';
 import { CopyCommand } from '../CopyCommand.tsx';
 import { CrashPanel } from '../ErrorBoundary.tsx';
@@ -9,14 +21,20 @@ import { Field } from '../Field.tsx';
 import { StatusBadge, StatusLetter, type FileStatus } from '../FileStatus.tsx';
 import { IconButton } from '../IconButton.tsx';
 import { Kbd } from '../Kbd.tsx';
+import { ListRow } from '../ListRow.tsx';
 import { Menu, MenuItem, MenuSection, MenuSeparator, MenuSwitch } from '../Menu.tsx';
 import { ProgressRing } from '../ProgressRing.tsx';
 import { ReviewSkeleton } from '../ReviewSkeleton.tsx';
 import { Segmented } from '../Segmented.tsx';
+import { Select } from '../Select.tsx';
 import { Skeleton } from '../Skeleton.tsx';
+import { Spinner } from '../Spinner.tsx';
 import { Stepper } from '../Stepper.tsx';
 import { StatusBar } from '../StatusBar.tsx';
 import { Swatch } from '../Swatch.tsx';
+import { Tab } from '../Tab.tsx';
+import { Tag } from '../Tag.tsx';
+import { TextArea } from '../TextArea.tsx';
 import { ThemeMenu } from '../ThemeMenu.tsx';
 import { TopBar, TopBarDivider } from '../TopBar.tsx';
 import './style.css';
@@ -53,6 +71,13 @@ export function Sandbox() {
   const [level, setLevel] = useState(1);
   const [size, setSize] = useState(12);
   const [chips, setChips] = useState({ logging: true, imports: false, word: true });
+  const [range, setRange] = useState('staged');
+  const [tab, setTab] = useState(0);
+  const [row, setRow] = useState(1);
+  const [filter, setFilter] = useState(true);
+  const [branch, setBranch] = useState('main');
+  const [draft, setDraft] = useState('');
+  const [ticks, setTicks] = useState({ summaries: true, marks: false });
   const [pressed, setPressed] = useState(true);
   const [wordDiff, setWordDiff] = useState(true);
   const [query, setQuery] = useState('orders');
@@ -67,6 +92,7 @@ export function Sandbox() {
         <Button>Default</Button>
         <Button variant='ghost'>Ghost</Button>
         <Button variant='primary'>Primary</Button>
+        <Button variant='danger'>Danger</Button>
         <Button disabled>Disabled</Button>
         <Button size='sm'>
           <RefreshCw size={12} /> Small
@@ -138,6 +164,112 @@ export function Sandbox() {
         </Chip>
       </Section>
 
+      <Section id='g-choice' title='Choice'>
+        <ChoiceList type='radio' label='Changes'>
+          {['worktree', 'staged'].map((value) => (
+            <Choice
+              key={value}
+              type='radio'
+              name='sandbox-range'
+              checked={range === value}
+              onChange={() => setRange(value)}
+              label={value === 'worktree' ? 'Working tree' : 'Staged'}
+              hint={value === 'worktree' ? "Changes you haven't staged" : 'What the next commit would take'}
+              meta={value === 'worktree' ? '3 files' : '1 file'}
+            />
+          ))}
+          <Choice type='radio' name='sandbox-range' checked={false} disabled onChange={() => {}} label='Disabled' />
+        </ChoiceList>
+        <ChoiceList type='checkbox' label='What to clear'>
+          <Choice
+            type='checkbox'
+            checked={ticks.summaries}
+            onChange={(summaries) => setTicks({ ...ticks, summaries })}
+            label='Summaries'
+            hint='3 reviews'
+          />
+          <Choice
+            type='checkbox'
+            checked={ticks.marks}
+            onChange={(marks) => setTicks({ ...ticks, marks })}
+            label='Viewed and concern marks'
+            hint='12 marks · in this browser'
+          />
+        </ChoiceList>
+      </Section>
+
+      <Section id='g-tag' title='Tag'>
+        <Tag>component</Tag>
+        <Tag icon={<GitBranch size={11} />}>feature-x</Tag>
+        <Tag mono color='var(--question)'>
+          src/orders.ts:10
+        </Tag>
+        <Tag dot='var(--add)'>added</Tag>
+        <Tag mono dot='var(--mod)' onClick={() => {}}>
+          findOrders
+        </Tag>
+        <Tag pressed={filter} onClick={() => setFilter(!filter)}>
+          all flagged
+        </Tag>
+      </Section>
+
+      <Section id='g-tab' title='Tab'>
+        <div className='sandbox-tabs' role='tablist'>
+          {['orders.ts', 'report.ts'].map((name, tabIndex) => (
+            <Tab
+              key={name}
+              mono
+              active={tab === tabIndex}
+              onSelect={() => setTab(tabIndex)}
+              onClose={() => {}}
+              closeLabel={'Close ' + name}
+            >
+              <StatusLetter status='modified' />
+              {name}
+            </Tab>
+          ))}
+          <Tab
+            active={false}
+            onSelect={() => {}}
+            onClose={() => {}}
+            closeLabel='Close lens'
+            actions={
+              <IconButton size='sm' className='tab-btn' label="Change what's reviewed">
+                <ArrowLeftRight size={12} />
+              </IconButton>
+            }
+          >
+            <Folder size={13} />
+            lens
+          </Tab>
+        </div>
+      </Section>
+
+      <Section id='g-list-row' title='ListRow'>
+        <div className='sandbox-rows'>
+          {['src/orders.ts', 'src/report.ts', 'src/types.ts'].map((path, rowIndex) => (
+            <ListRow key={path} selected={row === rowIndex} onClick={() => setRow(rowIndex)}>
+              {path}
+            </ListRow>
+          ))}
+        </div>
+      </Section>
+
+      <Section id='g-select' title='Select'>
+        <Select label='branch' value={branch} options={['main', 'develop', 'release/2.0']} onChange={setBranch} />
+        <Select label='disabled' value='main' options={['main']} onChange={() => {}} disabled />
+      </Section>
+
+      <Section id='g-textarea' title='TextArea'>
+        <TextArea
+          rows={2}
+          aria-label='a question'
+          placeholder='Ask about findOrders…'
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+        />
+      </Section>
+
       <Section id='g-field' title='Field'>
         <Field size='sm' mono placeholder='HEAD~3 -- src/' aria-label='small' />
         <Field
@@ -182,12 +314,13 @@ export function Sandbox() {
         ))}
       </Section>
 
-      <Section id='g-kbd' title='Kbd, CopyCommand, ProgressRing, dot'>
+      <Section id='g-kbd' title='Kbd, CopyCommand, ProgressRing, Spinner, dot'>
         <Kbd combo='⌘P' />
         <Kbd combo='Ctrl P' />
         <Kbd combo='⌥ click' />
         <CopyCommand command='/lens-review' />
         <ProgressRing done={3} total={8} label='files viewed' />
+        <Spinner />
         <span className='dot' />
       </Section>
 

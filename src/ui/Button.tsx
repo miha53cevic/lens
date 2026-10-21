@@ -4,8 +4,8 @@ import { Tip } from './Tip.tsx';
 import './Button.css';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  /** default: outlined · ghost: no border, a tint under the pointer · primary: the accent */
-  variant?: 'default' | 'ghost' | 'primary';
+  /** default: outlined · ghost: no border, a tint under the pointer · primary: the accent · danger: deletes something */
+  variant?: 'default' | 'ghost' | 'primary' | 'danger';
   size?: 'md' | 'sm';
   /** Its key: the button gets a tooltip that teaches it */
   shortcut?: string;

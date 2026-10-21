@@ -78,13 +78,6 @@
 .counts .d {
   color: var(--del);
 }
-.code-head .tag {
-  flex: none;
-  padding: 0 var(--space-2);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-full);
-  font-size: var(--text-xs);
-}
 .toggles {
   display: flex;
   flex-wrap: wrap;

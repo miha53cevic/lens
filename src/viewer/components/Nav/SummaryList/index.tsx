@@ -8,6 +8,7 @@ import { baseName, plural } from '../../../shared.ts';
 import { Kbd } from '../../../../ui/Kbd.tsx';
 import { SignalChips } from './SignalChips.tsx';
 import { UnitItem } from './UnitItem.tsx';
+import { ListRow } from '../../../../ui/ListRow.tsx';
 import { stepHeadings } from './util.ts';
 
 /** The Summary tab's list: flows (the agent's priority orders them), then the changes in no flow. */
@@ -17,11 +18,11 @@ export function SummaryList() {
 
   return (
     <>
-      <button className={clsx('sum-overview-item', overview && 'active')} onClick={showOverview}>
+      <ListRow selected={overview} className={clsx('sum-overview-item', overview && 'active')} onClick={showOverview}>
         <FileText size={14} className='ico' />
         Overview
         <Kbd combo='g' />
-      </button>
+      </ListRow>
       <SignalChips counts={list.counts} signal={list.signal} />
       {list.sections.map(({ flow, members }) => {
         const folded = list.folded.has(flow.title);

@@ -7,6 +7,8 @@ import { askMarkdown } from '../../ask/markdown.ts';
 import { askSelLabel } from '../../ask/selection.ts';
 import { CopyCommand } from '../../../ui/CopyCommand.tsx';
 import { Skeleton } from '../../../ui/Skeleton.tsx';
+import { Spinner } from '../../../ui/Spinner.tsx';
+import { Tag } from '../../../ui/Tag.tsx';
 import { fadeIn, riseIn } from '../../../ui/motion.ts';
 
 /** The questions and the agent's answers. A thread scrolled to its end follows new ones (askPoll). */
@@ -62,10 +64,14 @@ function QuestionAndAnswer({ question, listening, files }: QuestionAndAnswerProp
     <>
       <div ref={riseIn} className={clsx('ask-q', question.stale && 'stale')}>
         <div className='ask-chips'>
-          <button className='ask-chip unit' onClick={() => askGoto(question)}>
+          <Tag className='ask-chip unit' mono onClick={() => askGoto(question)}>
             {question.label}
-          </button>
-          {question.selection && <span className='ask-chip'>{askSelLabel(question.selection)}</span>}
+          </Tag>
+          {question.selection && (
+            <Tag className='ask-chip' mono color='var(--question)'>
+              {askSelLabel(question.selection)}
+            </Tag>
+          )}
         </div>
         <div className='ask-text'>{question.text}</div>
       </div>
@@ -91,7 +97,7 @@ function QuestionAndAnswer({ question, listening, files }: QuestionAndAnswerProp
       ) : (
         <div key='waiting' ref={riseIn} className='ask-a'>
           <div className='ask-who ask-wait'>
-            <span className='ask-spin spin' />
+            <Spinner size={11} />
             {'waiting for agent · ' + Math.round((Date.now() - question.askedAt) / 1000) + 's'}
           </div>
           {/* where the answer will be: only here, where an agent is known to be writing one */}

@@ -1,0 +1,51 @@
+#clear-modal {
+  width: min(480px, 90vw);
+}
+.clear-body {
+  display: grid;
+  gap: var(--space-3);
+}
+
+/* under a ticked kind (ui/Choice), lined up with its label: past the row's padding, the mark and the gap */
+.clear-warning {
+  margin: 0;
+  padding: 0 var(--space-3) var(--space-2) 40px;
+  color: var(--risk);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+}
+
+/* what the Clear button removes, said before it does */
+.clear-gone {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: color-mix(in oklab, var(--danger) var(--tint), transparent);
+  list-style: none;
+}
+.clear-gone li {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
+}
+.clear-gone li::before {
+  content: '− ';
+  color: var(--danger);
+}
+
+.clear-foot {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--line);
+}
+.clear-hint {
+  flex: 1;
+  min-width: 0;
+  color: var(--faint);
+  font-size: var(--text-sm);
+}

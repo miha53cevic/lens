@@ -175,7 +175,7 @@ svg.lucide {
   *::after {
     transition: none !important;
   }
-  :not(.spin, .ask-spin, .pulse, .row.flash) {
+  :not(.spin, .pulse, .row.flash) {
     animation: none !important;
   }
 }

@@ -11,7 +11,14 @@ import { fireEvent, within } from '@testing-library/dom';
 import { analyze } from '../src/cli-app/analyze.ts';
 import { loadConfig } from '../src/cli-app/config.ts';
 import { bundleViewer } from '../src/cli-app/render/web/bundle.ts';
-import { highlightFiles, renderPage, viewerPayload, type ViewerPayload } from '../src/cli-app/render/web/server.ts';
+import {
+  highlightFiles,
+  renderPage,
+  viewerPayload,
+  type ClearInfoResponse,
+  type ClearResponse,
+  type ViewerPayload,
+} from '../src/cli-app/render/web/server.ts';
 import { themeSwatch } from '../src/cli-app/render/highlight.ts';
 import { writeStored, type StoredSummary } from '../src/cli-app/summary/store.ts';
 import type { AskQuestion, AskState } from '../src/cli-app/ask/session.ts';
@@ -78,10 +85,12 @@ interface Page {
   ask: AskState;
   /** The analysis GET /api/tokens says its tokens are from; null: the page's own */
   tokensAnalysis: string | null;
+  /** What GET /api/clear answers */
+  clearInfo: ClearInfoResponse;
 }
 
-/** Opens the viewer on the payload, with these localStorage entries (and this cookie) already there. */
-async function open(prefs: Record<string, string> = {}, hash = '', cookie = ''): Promise<Page> {
+/** Opens the viewer on the payload (or `data`), with these localStorage entries (and this cookie) already there. */
+async function open(prefs: Record<string, string> = {}, hash = '', cookie = '', data = payload): Promise<Page> {
   // a preview's frame isn't loaded, and says nothing about it: there is no server, and what it shows is the agent's, not the page's
   GlobalRegistrator.register({
     url: 'http://127.0.0.1:5326/' + hash,
@@ -89,7 +98,25 @@ async function open(prefs: Record<string, string> = {}, hash = '', cookie = ''):
     height: 900,
     settings: { navigation: { disableChildFrameNavigation: true } },
   });
-  const page: Page = { requests: [], ask: { listening: false, questions: [] }, tokensAnalysis: null };
+  const page: Page = {
+    requests: [],
+    ask: { listening: false, questions: [] },
+    tokensAnalysis: null,
+    clearInfo: {
+      kinds: [
+        {
+          id: 'summaries',
+          label: 'Summaries',
+          unit: ['review', 'reviews'],
+          plans: {
+            this: { count: 1, paths: ['.lens/summary/diff@main/'] },
+            all: { count: 2, paths: ['.lens/summary/diff@main/', '.lens/summary/pr-87/'] },
+          },
+          warning: null,
+        },
+      ],
+    },
+  };
   globalThis.fetch = (async (input: string | URL, init?: RequestInit) => {
     const url = new URL(String(input), 'http://127.0.0.1:5326');
     const method = init?.method ?? 'GET';
@@ -116,13 +143,25 @@ async function open(prefs: Record<string, string> = {}, hash = '', cookie = ''):
         return reply({ ok: true });
       case 'POST /api/settings':
         return reply(body);
+      case 'GET /api/clear':
+        return reply(page.clearInfo);
+      case 'POST /api/clear': {
+        // the summary as the server makes it again once summary.json is gone: no unit summarized
+        const summary = payload.summary!;
+        const scope = body.picks.summaries as 'this' | 'all';
+        const answer: ClearResponse = {
+          cleared: { summaries: page.clearInfo.kinds[0].plans[scope]! },
+          summary: { ...summary, stamp: null, units: summary.units.map((unit) => ({ ...unit, summary: null })) },
+        };
+        return reply(answer);
+      }
     }
     return new Response('{}', { status: 404 });
   }) as typeof fetch;
   for (const [key, value] of Object.entries(prefs)) localStorage.setItem(key, value);
   if (cookie) document.cookie = cookie;
   document.body.innerHTML = '<div id="root"></div><script id="lens-data" type="application/json"></script>';
-  document.getElementById('lens-data')!.textContent = JSON.stringify(payload);
+  document.getElementById('lens-data')!.textContent = JSON.stringify(data);
   new Function(bundle)();
   await settle();
   return page;
@@ -440,6 +479,46 @@ test('a viewed mark sticks, and survives a reload', async () => {
   }
 });
 
+pageTest(
+  'a file viewed before its code changed says so, until it is viewed again',
+  async () => {
+    const box = () => $('#tree .file .viewed-box');
+    assert.equal(box().getAttribute('aria-checked'), 'false', 'not viewed: the code is new');
+    assert.ok(box().classList.contains('changed'));
+    assert.match($('#tree .file').getAttribute('title')!, /changed since you viewed it/);
+    assert.equal($('#nav .progress-count').textContent, '0 of 1');
+    assert.equal($('#nav .legend.changed').textContent, '1 changed since viewed');
+
+    await key('m');
+    assert.equal(box().getAttribute('aria-checked'), 'true');
+    assert.ok(!box().classList.contains('changed'));
+    assert.equal($$('#nav .legend.changed').length, 0);
+    assert.deepEqual(
+      JSON.parse(localStorage.getItem('lens.viewedFiles')!).filter((key: string) => key.startsWith('src/orders.ts@')),
+      [JSON.parse(localStorage.getItem('lens.viewedFiles')!).at(-1)],
+      'the old mark gives way to the new one',
+    );
+
+    await key('m');
+    assert.ok(!box().classList.contains('changed'), 'unticked now: never viewed, as far as it shows');
+  },
+  { 'lens.viewedFiles': '["src/orders.ts@old"]' },
+);
+
+test('a change reviewed before its code changed says so in the Summary list', async () => {
+  const unit = payload.summary!.units.find((candidate) => candidate.name === 'findOrders')!;
+  await open({ 'lens.viewedUnits': JSON.stringify([unit.id + '@old']) });
+  try {
+    await key('v');
+    const item = $$('.sum-item').find((candidate) => candidate.querySelector('.name')!.textContent === 'findOrders')!;
+    assert.ok(item.querySelector('.viewed-box.changed'));
+    assert.equal(item.querySelector('.gist.changed')!.textContent, 'changed since you reviewed it');
+    assert.equal($('#nav .legend.changed').textContent, '1 changed since viewed');
+  } finally {
+    await close();
+  }
+});
+
 pageTest('the review pill marks the file viewed and opens the next one, stopping at the ends of the tree', async () => {
   const pill = () => $('#review-next').textContent!.trim();
   const open = () => $('.tab.active .tab-name').textContent;
@@ -652,6 +731,67 @@ pageTest("the agent's summary run shows as a notice while it goes: units in, the
   await settle();
   undo();
   assert.deepEqual(notices(), [], 'the run is done');
+});
+
+test("a first run: the page opened before any summary, and shows the agent's run and then its summary", async () => {
+  const summary = payload.summary!;
+  const fresh: ViewerPayload = {
+    ...payload,
+    summary: { ...summary, stamp: null, units: summary.units.map((unit) => ({ ...unit, summary: null })) },
+  };
+  await open({}, '', '', fresh);
+  try {
+    const notices = () => $$('#status-bar .status-notices > *').map((notice) => notice.textContent);
+    let stamp: unknown = {
+      summary: null,
+      change: payload.changeStamp,
+      building: { done: 0, total: 2, finalPass: false },
+    };
+    const undo = answering((path) => (path === '/api/stamp' ? new Response(JSON.stringify(stamp)) : undefined));
+    window.dispatchEvent(new Event('focus'));
+    await settle();
+    assert.deepEqual(notices(), ['Agent writing summary · 0 of 2 units']);
+    // the first submit: summary.json is there now, where there was none
+    stamp = { summary: summary.stamp, change: payload.changeStamp, building: null };
+    window.dispatchEvent(new Event('focus'));
+    await settle();
+    undo();
+    assert.deepEqual(notices(), ['New summary waiting']);
+    await click($('#status-bar .status-notice'));
+    await settle();
+    assert.ok($('#summary-pane .sum-headline'), 'the Summary tab, with the summary loaded');
+  } finally {
+    await close();
+  }
+});
+
+pageTest('the stamp poll is what notices a stopped server is back', async () => {
+  const undo = answering(() => Promise.reject(new TypeError('fetch failed')));
+  window.dispatchEvent(new Event('focus'));
+  await settle();
+  assert.equal(status().label, 'Server stopped');
+  undo();
+  window.dispatchEvent(new Event('focus'));
+  await settle();
+  assert.deepEqual(status(), REST, 'the next poll got through, with no click');
+});
+
+pageTest('a summary the agent wrote for another review says so, until this review has a newer run', async () => {
+  const notices = () => $$('#status-bar .status-notices > *').map((notice) => notice.textContent);
+  let elsewhere: unknown = { command: '/lens-review --staged' };
+  const undo = answering((path) =>
+    path === '/api/stamp'
+      ? new Response(JSON.stringify({ summary: payload.summary!.stamp, change: payload.changeStamp, elsewhere }))
+      : undefined,
+  );
+  window.dispatchEvent(new Event('focus'));
+  await settle();
+  assert.deepEqual(notices(), ['Agent summarized another review · /lens-review --staged']);
+  elsewhere = null;
+  window.dispatchEvent(new Event('focus'));
+  await settle();
+  undo();
+  assert.deepEqual(notices(), []);
 });
 
 pageTest(
@@ -1224,6 +1364,7 @@ pageTest('a deleted unit is its removed lines; o opens a unit in the code view',
   assert.equal($('.sum-item.active .name').textContent, 'legacyTotal');
   assert.deepEqual(rows('.unit-code .code'), ['−17', '−18', '−19', '−20']);
   await key('k');
+  assert.equal($('#open-in-code .tip kbd').textContent, 'o', 'its button teaches the key');
   await key('o');
   assert.equal($('main').style.display, '', 'back on the code view');
   assert.ok($('#code .row[data-line="9"]').classList.contains('flash'), "at the unit's first changed line");
@@ -1404,7 +1545,7 @@ pageTest('the tree filter offers its clear button only while there is text, and 
 pageTest("a tab closes from its button, which is the design system's icon button", async () => {
   const close = $('#tabbar .tab .tab-close');
   assert.ok(close.classList.contains('icon-btn'));
-  assert.equal(close.getAttribute('aria-label'), 'close');
+  assert.equal(close.getAttribute('aria-label'), 'Close orders.ts', 'it names the tab it closes');
   await click(close);
   assert.equal($$('#tabbar .tab').length, 0);
 });
@@ -1695,7 +1836,7 @@ test('a changed binary file is a row of the tree: its status, dimmed, and nothin
     await type($('.nav-filter input'), 'logo');
     assert.deepEqual(
       $$('#tree .file').map((file) => file.className),
-      ['file modified binary'],
+      ['list-row file modified binary'],
     );
   } finally {
     payload = whole;
@@ -1772,6 +1913,146 @@ test('the copied concerns name a removed line as one, in the order of the summar
       text,
       /\d\. \[question\] src\/orders\.ts \(removed line 17\) — legacyTotal\n {3}did anything still call it\?\n/,
     );
+  } finally {
+    await close();
+  }
+});
+
+pageTest(
+  'clear saved data: nothing goes until a kind is ticked, and a cleared summary leaves the Summary tab without it',
+  async (page) => {
+    await key('v');
+    await click($('.sum-item'));
+    assert.equal($('.sum-headline').textContent, 'findOrders skips deleted orders');
+
+    await click($('#clear-data'));
+    assert.ok(($('#clear-modal') as HTMLDialogElement).open);
+    assert.ok(($('#clear-confirm') as HTMLButtonElement).disabled, 'nothing ticked: nothing to clear');
+    assert.equal(
+      ($('#clear-scope-summaries') as HTMLSelectElement).value,
+      'this',
+      'the scope is in sight from the start',
+    );
+    assert.equal($('.choice[data-kind="marks"] .choice-sub').textContent, '1 mark · in this browser');
+    assert.ok(!$('.choice[data-kind="summaries"]').classList.contains('checked'));
+
+    await click($('.choice[data-kind="summaries"]'));
+    assert.ok($('.choice[data-kind="summaries"]').classList.contains('checked'), 'the whole row ticks it');
+    assert.deepEqual(
+      $$('.clear-gone li').map((item) => item.textContent),
+      ['.lens/summary/diff@main/'],
+    );
+    fireEvent.change($('#clear-scope-summaries'), { target: { value: 'all' } });
+    await settle();
+    assert.ok(
+      $('.choice[data-kind="summaries"]').classList.contains('checked'),
+      'picking the scope leaves the tick as it was',
+    );
+    await click($('#clear-marks'));
+    assert.deepEqual(
+      $$('.clear-gone li').map((item) => item.textContent),
+      ['.lens/summary/diff@main/', '.lens/summary/pr-87/', '1 mark in this browser'],
+    );
+
+    await click($('#clear-confirm'));
+    await settle();
+    assert.deepEqual(
+      page.requests
+        .filter((request) => request.path === '/api/clear')
+        .map((request) => request.method + ' ' + JSON.stringify(request.body)),
+      ['GET null', 'POST {"picks":{"summaries":"all"}}'],
+      "the marks are the browser's own: the server hears only of the summaries",
+    );
+    assert.ok(!($('#clear-modal') as HTMLDialogElement).open);
+    assert.equal(
+      $('#status .status-label').textContent,
+      'Cleared summaries (2 reviews) and viewed and concern marks (1 mark)',
+    );
+    assert.ok(!$('#root').textContent!.includes('skips deleted orders'), 'no summary is shown any more');
+    assert.equal(localStorage.getItem('lens.viewedFiles'), '[]');
+
+    // opened again, nothing is ticked
+    await click($('#clear-data'));
+    assert.ok(($('#clear-confirm') as HTMLButtonElement).disabled);
+  },
+  { 'lens.viewedFiles': '["src/orders.ts@x"]' },
+);
+
+test('a summary cleared from elsewhere (another viewer, `lens clear`) leaves this page too, once it looks', async () => {
+  const fresh = payload.summary!;
+  try {
+    await open();
+    payload.summary = { ...fresh, stamp: null, units: fresh.units.map((unit) => ({ ...unit, summary: null })) };
+    await key('v');
+    await settle();
+    assert.ok($('#no-summary'), 'the overview says what to run');
+    assert.equal($('#status .status-label').textContent, 'The summary was cleared');
+  } finally {
+    payload.summary = fresh;
+    await close();
+  }
+});
+
+pageTest('full units: the rest of the file sits above and below the unit, each behind a bar', async () => {
+  await key('v');
+  await key('j');
+  const code = '.unit-code .code';
+  const bar = (side: string) => $(code + ' .context.' + side + ' > .context-bar');
+  const opened = (side: string) => rows(code + ' > .context.' + side + ' > .context-body');
+  const unitRows = ['⋯', 'R6', '−9', 'R9', '10', '11', '12'];
+  assert.equal($$(code + ' .context').length, 0, 'off by default: only the unit');
+  await click($('#full-units'));
+  assert.equal($('#full-units').getAttribute('aria-checked'), 'true');
+  assert.equal(localStorage.getItem('lens.fullUnits'), '1');
+  // both closed: the unit's rows are as they were, between the two bars
+  assert.deepEqual(rows(code), unitRows);
+  assert.equal(bar('above').textContent!.trim(), 'Above4 lines', 'nothing declared above it, nothing changed');
+  assert.equal(bar('below').querySelector('.context-names')!.textContent, 'toOrder, formatTotal');
+  assert.equal(bar('below').querySelector('.counts')!.textContent, '−4', "legacyTotal's removed lines are below");
+  assert.ok(bar('below').querySelector('.mark.changed'));
+  assert.equal(bar('below').querySelector('.context-count')!.textContent, '15 lines');
+  // a closed stretch's change ticks the ruler at its bar; a click on the tick opens it
+  assert.deepEqual(ticks('.unit-card'), ['del O9', 'add N9', 'del O17', 'bug N10']);
+  assert.ok(!$(code + ' .context.below').classList.contains('open'));
+  await click($('.unit-card .ruler .tick[data-label="O17"]'));
+  assert.ok($(code + ' .context.below').classList.contains('open'));
+  // open, it is the file's code, in hunks only as the Code view shows it (14 and 21–27 hidden)
+  assert.deepEqual(opened('below'), ['13', '⋯', '15', '16', '17', '−17', '−18', '−19', '−20', '18', '19', '20', '⋯']);
+  await key('h');
+  await click(bar('above'));
+  assert.deepEqual(opened('above'), ['R1', '4']);
+  assert.deepEqual(opened('below'), [
+    ...['13', '14', '15', '16', '17', '−17', '−18', '−19', '−20'],
+    ...['18', '19', '20', '21', '22', '23', '24', '25', '26', '27'],
+  ]);
+  await click(bar('above'));
+  assert.ok(!$(code + ' .context.above').classList.contains('open'), 'a second click closes it');
+  await click($('#full-units'));
+  assert.equal($$(code + ' .context').length, 0, 'off again: only the unit');
+  assert.deepEqual(rows(code), ['5', 'R6', '−9', 'R9', '10', '11', '12']);
+});
+
+test('full units: a unit that owns part of a removed block shows that part once, and the stretch only the rest', async () => {
+  // units split a removed block between the declarations it was removed from (units.ts): here
+  // findOrders owns the block's last two lines, old 19–20, shown after its line 12
+  const block = payload.files.find((file) => file.file === 'src/orders.ts')!.removals!.find((b) => b.oldStart === 17)!;
+  const units = payload.summary!.units.map((unit) =>
+    unit.id.endsWith('#findOrders')
+      ? { ...unit, removals: [...unit.removals, { ...block, anchor: 12, oldStart: 19, lines: block.lines.slice(2) }] }
+      : unit,
+  );
+  try {
+    await open({ 'lens.fullUnits': '1' }, '', '', { ...payload, summary: { ...payload.summary!, units } });
+    await key('v');
+    await key('j');
+    const code = '.unit-code .code';
+    assert.deepEqual(rows(code), ['⋯', 'R6', '−9', 'R9', '10', '11', '12', '−19', '−20']);
+    const below = $(code + ' .context.below > .context-bar');
+    assert.equal(below.querySelector('.counts')!.textContent, '−2', 'only the lines the unit does not own');
+    await click(below);
+    assert.deepEqual(rows(code + ' > .context.below > .context-body'), [
+      ...['13', '⋯', '15', '16', '17', '−17', '−18', '18', '19', '20', '⋯'],
+    ]);
   } finally {
     await close();
   }

@@ -6,6 +6,7 @@ import { fileViewKey, INITIAL_DATA, type ViewFile, writePref } from '../shared.t
 import { CODE_SIZE_COOKIE, CODE_SIZE_DEFAULT, steppedSize } from '../codeSize.ts';
 import { type Unit, unitViewKey } from '../model/signals.ts';
 import { fileProgress, type Progress, unitProgress } from '../model/progress.ts';
+import { toggledMark } from '../model/viewed.ts';
 import { currentUnit } from '../model/summaryList.ts';
 import { visibleActive } from './tabs.ts';
 import { growOpen, pop, slideIn } from '../../ui/motion.ts';
@@ -32,11 +33,16 @@ export function toggleDir(path: string): void {
   if (!getState().closedDirs.has(path)) growOpen(document.querySelector(`[data-dir-files="${CSS.escape(path)}"]`));
 }
 
-// The view settings: hunks only, removed lines, word diff, hide tests, the fold level.
+// The view settings: hunks only, full units, removed lines, word diff, hide tests, the fold level.
 
 export function setHunksOnly(on: boolean): void {
   writePref('lens.hunksOnly', on ? '1' : '0');
   update({ hunksOnly: on, expandedGaps: new Set() }); // toggling starts fresh — no stale expansions
+}
+
+export function setFullUnits(on: boolean): void {
+  writePref('lens.fullUnits', on ? '1' : '0');
+  update({ fullUnits: on });
 }
 
 export function setHideTests(on: boolean): void {
@@ -83,7 +89,8 @@ export function stepCodeSize(delta: number): void {
   setCodeSize(steppedSize(getState().codeSize, delta));
 }
 
-// Viewed marks: keyed by content, so what changes after it was ticked comes back unticked.
+// Viewed marks: keyed by content, so what changes after it was ticked comes back unticked (and
+// says it changed since, model/viewed.ts).
 
 function saveViewed(prefKey: string, viewed: ReadonlySet<string>) {
   // Sets keep insertion order: the oldest marks drop first
@@ -94,7 +101,7 @@ export function toggleFileViewed(fileIndex: number): void {
   const state = getState();
   const file: ViewFile | undefined = state.data.files[fileIndex];
   if (!file) return;
-  const viewedFiles = toggled(state.viewedFiles, fileViewKey(file));
+  const viewedFiles = toggledMark(state.viewedFiles, fileViewKey(file));
   saveViewed(VIEWED_PREF.files, viewedFiles);
   const before = fileProgress(state);
   commit({ viewedFiles });
@@ -104,7 +111,7 @@ export function toggleFileViewed(fileIndex: number): void {
 export function toggleUnitViewed(unit: Unit | null): void {
   if (!unit) return;
   const state = getState();
-  const viewedUnits = toggled(state.viewedUnits, unitViewKey(unit));
+  const viewedUnits = toggledMark(state.viewedUnits, unitViewKey(unit));
   saveViewed(VIEWED_PREF.units, viewedUnits);
   const before = unitProgress(state);
   commit({ viewedUnits });

@@ -227,13 +227,9 @@
   color: var(--faint);
   font-size: var(--text-xs);
 }
-.ask-spin {
+.ask-wait .spinner {
   flex: none;
-  width: 10px;
-  height: 10px;
-  border: 2px solid color-mix(in oklab, var(--accent) 30%, transparent);
-  border-top-color: var(--accent);
-  border-radius: var(--radius-full);
+  color: var(--accent);
 }
 /* the answer on its way: three lines of ui/Skeleton, each in a line of the answer's own height */
 .ask-lines {
@@ -272,44 +268,6 @@
 }
 .ask-chips:empty {
   display: none;
-}
-.ask-chip {
-  display: inline-flex;
-  align-items: center;
-  max-width: 100%;
-  padding: 0 var(--space-2);
-  overflow: hidden;
-  border: 1px solid color-mix(in oklab, var(--question) 50%, transparent);
-  border-radius: var(--radius-full);
-  background: color-mix(in oklab, var(--question) var(--tint), transparent);
-  color: var(--text);
-  font: var(--text-xs) / 18px var(--font-mono);
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-.ask-chip.unit {
-  border-color: var(--line-strong);
-  background: var(--surface);
-}
-button.ask-chip:hover {
-  border-color: var(--accent);
-}
-#ask-input {
-  width: 100%;
-  min-height: 0;
-  padding: var(--space-2) var(--space-3);
-  resize: none;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-md);
-  background: var(--surface);
-  line-height: 1.45;
-}
-#ask-input:focus {
-  border-color: var(--field-focus);
-  outline: none;
-}
-#ask-input:disabled {
-  opacity: 0.6;
 }
 .ask-row {
   display: flex;

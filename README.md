@@ -65,6 +65,7 @@ Or open the desktop app, pick the repository and what to review.
 | `lens pr 123` / `lens pr <url>` | a GitHub PR, fetched with plain git (no API, no gh) |
 | `lens info` | what could be reviewed here: the branch, its changes, the PR remote |
 | `lens config` | the effective config and where it comes from |
+| `lens clear` | what lens keeps in `.lens/`, by kind; `lens clear summaries --all` (or `<key>`) clears it |
 
 | flag | meaning |
 | --- | --- |
@@ -92,9 +93,12 @@ shows code you didn't write.
   (`1 guard → return DEFAULTS + log`), one click from the real code.
 - **Diff reading**: hunks only, inline removed lines, word diff, hide tests.
 - **Search** across loaded files (⌘P / Ctrl P), ⌥-click for usages.
-- **Viewed marks** and a progress ring, so you know what's left.
+- **Viewed marks** and a progress ring, so you know what's left. A file or change whose code moved
+  after you ticked it says so.
 - **The code theme** colors the whole page; a light theme turns it light.
 - **Reload** (`r`) re-runs the analysis; the status bar says when the code changed on disk.
+- **Clear saved data** (⋯ menu): this review's summary or every review's, and the viewed and
+  concern marks, each ticked on its own and listed before anything goes. Settings stay.
 
 Press `?` in the viewer for every key.
 
@@ -106,7 +110,8 @@ what triggers it and the smallest fix), what behaves differently, and callers it
 break. You mark each concern and possible break *real* or *dismiss* it, and copy the real
 ones back to your agent. Units are grouped into **flows**: one story each, read step by step, ranked P1 to
 P3, with each unit in one flow and import-only or formatting-only changes under
-Housekeeping. An overview of the whole diff sits on top.
+Housekeeping. An overview of the whole diff sits on top. With **Full units** on (the ⋯ menu),
+the rest of a unit's file sits above and below it, behind a bar that says what it holds.
 
 With **Build previews** on (the ⋯ menu, on by default), the agent also draws what the
 change looks like: **previews** of the screens a UI diff changes, in your project's own

@@ -3,11 +3,11 @@
 import { commit, getState, type LensState, update } from '../store.ts';
 import { jumpToLine } from './views.ts';
 
-function dialog(id: string): HTMLDialogElement | null {
+export function dialog(id: string): HTMLDialogElement | null {
   return document.getElementById(id) as HTMLDialogElement | null;
 }
 
-export function openDialog(id: 'settings-modal' | 'keys-modal'): void {
+export function openDialog(id: 'settings-modal' | 'keys-modal' | 'clear-modal'): void {
   const element = dialog(id);
   if (element && !element.open) element.showModal();
 }

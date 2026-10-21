@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react';
-import clsx from 'clsx';
-import { ChevronDown } from 'lucide-react';
 import type { RepoInfo } from '../../../shared/api.ts';
 import { plural } from '../../../../cli-app/text.ts';
 import { Field } from '../../../../ui/Field.tsx';
+import { Choice, ChoiceList } from '../../../../ui/Choice.tsx';
+import { Select } from '../../../../ui/Select.tsx';
 import { baseOptions, type Range } from './util.ts';
 
 interface ChangesProps {
@@ -16,7 +16,7 @@ interface ChangesProps {
   onCustom: (args: string) => void;
 }
 
-interface ChoiceProps {
+interface RangeChoiceProps {
   value: Range;
   picked: Range;
   onPick: (range: Range) => void;
@@ -27,25 +27,20 @@ interface ChoiceProps {
   disabled?: boolean;
 }
 
-/** One way to pick changes: a radio that looks like a row. */
-function Choice({ value, picked, onPick, name, sub, meta, disabled }: ChoiceProps) {
+/** One way to pick changes: ui/Choice, as one of the ranges. */
+function RangeChoice({ value, picked, onPick, name, sub, meta, disabled }: RangeChoiceProps) {
   return (
-    <label className={clsx('choice', picked === value && 'checked', disabled && 'disabled')} data-range={value}>
-      <input
-        type='radio'
-        name='range'
-        value={value}
-        checked={picked === value}
-        disabled={disabled}
-        onChange={() => onPick(value)}
-      />
-      <span className='choice-radio' />
-      <span className='choice-text'>
-        <span className='choice-name'>{name}</span>
-        <span className='choice-sub'>{sub}</span>
-      </span>
-      {meta !== undefined && <span className='choice-meta'>{meta}</span>}
-    </label>
+    <Choice
+      type='radio'
+      name='range'
+      data-range={value}
+      checked={picked === value}
+      onChange={() => onPick(value)}
+      disabled={disabled}
+      label={name}
+      hint={sub}
+      meta={meta}
+    />
   );
 }
 
@@ -54,22 +49,22 @@ export function Changes({ repo, range, onRange, base, onBase, custom, onCustom }
   const bases = baseOptions(repo);
   const shared = { picked: range, onPick: onRange };
   return (
-    <div className='choices' role='radiogroup' aria-label='Changes'>
-      <Choice
+    <ChoiceList type='radio' label='Changes'>
+      <RangeChoice
         {...shared}
         value='worktree'
         name='Working tree'
         sub="Changes you haven't staged"
         meta={plural(repo.changed, 'file')}
       />
-      <Choice
+      <RangeChoice
         {...shared}
         value='staged'
         name='Staged'
         sub='What the next commit would take'
         meta={plural(repo.staged, 'file')}
       />
-      <Choice
+      <RangeChoice
         {...shared}
         value='branch'
         disabled={bases.length === 0}
@@ -77,20 +72,13 @@ export function Changes({ repo, range, onRange, base, onBase, custom, onCustom }
           <>
             This branch vs
             {bases.length > 0 && (
-              // a chip that opens the system's list: the select is the chip, the caret lies over it
-              <span className='choice-select'>
-                <select
-                  id='picker-base'
-                  aria-label='The branch to compare against'
-                  value={base}
-                  onChange={(event) => onBase(event.target.value)}
-                >
-                  {bases.map((branch) => (
-                    <option key={branch}>{branch}</option>
-                  ))}
-                </select>
-                <ChevronDown size={11} />
-              </span>
+              <Select
+                id='picker-base'
+                label='The branch to compare against'
+                value={base}
+                options={bases}
+                onChange={onBase}
+              />
             )}
           </>
         }
@@ -102,7 +90,7 @@ export function Changes({ repo, range, onRange, base, onBase, custom, onCustom }
         // the count is against the base it was asked for: shown once it is this one's
         meta={bases.length > 0 && repo.base === base && repo.ahead !== null ? plural(repo.ahead, 'commit') : ''}
       />
-      <Choice
+      <RangeChoice
         {...shared}
         value='custom'
         name='Custom'
@@ -128,6 +116,6 @@ export function Changes({ repo, range, onRange, base, onBase, custom, onCustom }
           />
         }
       />
-    </div>
+    </ChoiceList>
   );
 }

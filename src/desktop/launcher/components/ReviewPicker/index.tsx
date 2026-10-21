@@ -9,6 +9,7 @@ import { CopyCommand } from '../../../../ui/CopyCommand.tsx';
 import { IconButton } from '../../../../ui/IconButton.tsx';
 import { Kbd } from '../../../../ui/Kbd.tsx';
 import { Segmented } from '../../../../ui/Segmented.tsx';
+import { Tag } from '../../../../ui/Tag.tsx';
 import { Brand } from '../../../../ui/Brand.tsx';
 import { TopBar, TopBarDivider } from '../../../../ui/TopBar.tsx';
 import { useApp } from '../../store.ts';
@@ -63,10 +64,9 @@ export function ReviewPicker() {
         <span className='repo-id'>
           <Folder size={15} />
           <span className='repo-name'>{repo.name}</span>
-          <span className='repo-branch'>
-            <GitBranch size={11} />
+          <Tag className='repo-branch' icon={<GitBranch size={11} />}>
             {repo.branch ?? 'detached at ' + (repo.head ?? 'no commit')}
-          </span>
+          </Tag>
           {/* a long path is cut: the whole of it is in the title */}
           <span className='repo-path' title={repo.root}>
             {repoPath}

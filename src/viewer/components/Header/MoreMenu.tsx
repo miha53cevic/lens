@@ -1,8 +1,9 @@
-import { Keyboard, MoreHorizontal, Power, Settings } from 'lucide-react';
+import { Keyboard, MoreHorizontal, Power, Settings, Trash2 } from 'lucide-react';
 import { useLens } from '../../store.ts';
 import { treeModel } from '../../model/tree.ts';
 import { collapseAll, expandAll } from '../../actions/folds.ts';
 import {
+  setFullUnits,
   setHideTests,
   setHunksOnly,
   setShowRemoved,
@@ -19,6 +20,7 @@ import { Segmented } from '../../../ui/Segmented.tsx';
 import { Stepper } from '../../../ui/Stepper.tsx';
 import { foldLevelHint } from './util.ts';
 import { setBuildPreviews } from '../../actions/previews.ts';
+import { openClearData } from '../../actions/clear.ts';
 
 const LEVELS = [
   { value: -1, label: 'off', title: 'nothing folds' },
@@ -30,7 +32,8 @@ const LEVELS = [
 
 /**
  * ⋯: the code's size and the view settings first (they act on the Code tab's file and the
- * Summary tab's change alike), then the summary's own switch, the shortcuts and the settings, then end session.
+ * Summary tab's change alike), then the summary's own switch, the shortcuts and the settings, then the two that
+ * remove something: clear saved data and end session.
  */
 export function MoreMenu() {
   const more = useLens((state) => ({
@@ -45,6 +48,7 @@ export function MoreMenu() {
     codeSize: state.codeSize,
     hasSummary: state.data.summary !== null,
     buildPreviews: state.data.buildPreviews,
+    fullUnits: state.fullUnits,
   }));
 
   return (
@@ -143,6 +147,9 @@ export function MoreMenu() {
             <MenuSwitch id='build-previews' checked={more.buildPreviews} onChange={setBuildPreviews}>
               Build previews
             </MenuSwitch>
+            <MenuSwitch id='full-units' checked={more.fullUnits} onChange={setFullUnits}>
+              Full units
+            </MenuSwitch>
           </MenuSection>
         </>
       )}
@@ -154,6 +161,9 @@ export function MoreMenu() {
         Settings
       </MenuItem>
       <MenuSeparator />
+      <MenuItem id='clear-data' danger icon={<Trash2 size={14} />} onSelect={openClearData}>
+        Clear saved data…
+      </MenuItem>
       <MenuItem id='end-session' danger icon={<Power size={14} />} onSelect={endSession}>
         End session
       </MenuItem>

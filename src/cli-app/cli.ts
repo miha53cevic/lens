@@ -6,6 +6,8 @@ import { analyze } from "./analyze.ts";
 import { runSummary } from "./summary/command.ts";
 import { runAsk } from "./ask/command.ts";
 import { runInfo } from "./info.ts";
+import { runClear } from "./clear.ts";
+import { gitRoot } from "./git.ts";
 import { pickPort } from "./port.ts";
 import type { LensConfig } from "./model.ts";
 import manifest from "../../package.json" with { type: "json" };
@@ -26,6 +28,11 @@ summary mode (written by your own coding agent — see skills/lens-review):
                               write a task bundle for the agent (.lens/summary/<key>/)
   lens summary submit <bundle-dir | result.json>
                               validate the agent's result.json and store it for the viewer
+
+saved data (also the viewer's ⋯ → Clear saved data…):
+  lens clear                  list what lens keeps in .lens/, by kind
+  lens clear <kind> --all     clear all of a kind (e.g. lens clear summaries --all)
+  lens clear summaries <key>  clear one review's summary (the folder name lens clear lists)
 
 ask mode (the viewer's Ask rail, answered by your own agent — see skills/lens-ask):
   lens ask listen             wait for the next question asked in the viewer and print it
@@ -53,8 +60,8 @@ interface CliOptions {
   theme: string | null;
 }
 
-type Command = "paths" | "diff" | "pr" | "config" | "info" | "summary" | "ask";
-const COMMANDS: string[] = ["diff", "pr", "config", "info", "summary", "ask"] satisfies Command[];
+type Command = "paths" | "diff" | "pr" | "config" | "info" | "summary" | "ask" | "clear";
+const COMMANDS: string[] = ["diff", "pr", "config", "info", "summary", "ask", "clear"] satisfies Command[];
 
 function parseCli(argv: string[]): { command: Command; rest: string[]; opts: CliOptions } {
   const opts: CliOptions = { json: false, open: true, openSummary: false, port: 0, portSet: false, threshold: null, theme: null };
@@ -78,6 +85,15 @@ function parseCli(argv: string[]): { command: Command; rest: string[]; opts: Cli
   return { command, rest, opts };
 }
 
+/** Where .lens/ is: the repository's root, as summary mode writes it, or here outside a repository. */
+function repoRootOr(cwd: string): string {
+  try {
+    return gitRoot(cwd);
+  } catch {
+    return cwd;
+  }
+}
+
 async function main(): Promise<void> {
   const { command, rest, opts } = parseCli(process.argv.slice(2));
   const cwd = process.cwd();
@@ -93,6 +109,7 @@ async function main(): Promise<void> {
   if (command === "info") return runInfo(rest, cwd, opts.json, opts.theme);
   if (command === "summary") return runSummary(rest, cwd);
   if (command === "ask") return runAsk(rest, cwd, opts.portSet ? opts.port : null);
+  if (command === "clear") return runClear(rest, repoRootOr(cwd));
 
   if (opts.portSet && (!Number.isInteger(opts.port) || opts.port < 1 || opts.port > 65535)) {
     throw new Error("--port needs a number between 1 and 65535");

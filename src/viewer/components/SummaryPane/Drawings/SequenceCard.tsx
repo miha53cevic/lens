@@ -3,6 +3,9 @@ import type { SequenceView } from '../../../../cli-app/summary/view.ts';
 import type { StepChange } from '../../../../cli-app/summary/store.ts';
 import { BeforeNow, type Moment } from './BeforeNow.tsx';
 import { SequenceDiagram } from './SequenceDiagram.tsx';
+import { Tag } from '../../../../ui/Tag.tsx';
+
+const STEP_DOT: Record<StepChange, string> = { added: 'var(--add)', changed: 'var(--mod)', removed: 'var(--del)' };
 
 const KINDS: StepChange[] = ['added', 'changed', 'removed'];
 
@@ -22,10 +25,9 @@ export function SequenceCard({ sequence, unitId }: { sequence: SequenceView; uni
       <footer className='drawing-foot'>
         <div className='drawing-units'>
           {kinds.map((kind) => (
-            <span key={kind} className={'step-kind ' + kind}>
-              <i className='dot' />
+            <Tag key={kind} className={'step-kind ' + kind} dot={STEP_DOT[kind]}>
               {kind}
-            </span>
+            </Tag>
           ))}
         </div>
         <span className='drawing-note'>Click a step to open its change</span>

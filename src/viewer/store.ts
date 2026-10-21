@@ -7,9 +7,9 @@ import { flushSync } from 'react-dom';
 import { create } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
 import { createStore } from 'zustand/vanilla';
-import type { ViewerPayload } from '../cli-app/render/web/server.ts';
+import type { ClearInfoResponse, ViewerPayload } from '../cli-app/render/web/server.ts';
 import type { AskSelection, AskState } from '../cli-app/ask/session.ts';
-import type { BuildProgress } from '../cli-app/summary/progress.ts';
+import type { BuildProgress, ElsewhereRun } from '../cli-app/summary/progress.ts';
 import type { ConcernKind } from '../cli-app/summary/store.ts';
 import { INITIAL_DATA, readPref } from './shared.ts';
 import { CODE_SIZE_DEFAULT, savedCodeSize } from './codeSize.ts';
@@ -70,6 +70,8 @@ export interface LensState {
   showRemoved: boolean;
   hideTests: boolean;
   hunksOnly: boolean;
+  /** The Summary tab shows each unit inside its whole file */
+  fullUnits: boolean;
   /** Mark the words a replaced line changed (wordDiff.ts) */
   wordDiff: boolean;
   /** The code's size in px, one of CODE_SIZES (codeSize.ts) */
@@ -92,6 +94,8 @@ export interface LensState {
   changedOnDisk: boolean;
   /** The agent's summary run, as the last stamp poll found it; null: none is going */
   summaryBuild: BuildProgress | null;
+  /** Another review's summary run, newer than this one's, as the last stamp poll found it: the agent summarized something else */
+  summaryElsewhere: ElsewhereRun | null;
   /** Asking the server for a newer summary: the overview holds off on "not written yet" until it knows */
   summaryChecking: boolean;
   /** The list filter's text (transient) */
@@ -102,6 +106,8 @@ export interface LensState {
   concernMarks: ReadonlyMap<string, ConcernMark>;
   /** Where the last jump landed: that row stays marked until the next jump */
   landed: { path: string; label: string } | null;
+  /** What the Clear saved data dialog offers, read when it opened; `opened` tells one opening from the next */
+  clearInfo: (ClearInfoResponse & { opened: number }) | null;
   // Ask rail
   ask: {
     open: boolean;
@@ -179,6 +185,7 @@ const initialState: LensState = {
   showRemoved: true,
   hideTests: readPref('lens.hideTests') !== '0', // on by default
   hunksOnly: readPref('lens.hunksOnly') !== '0', // on by default
+  fullUnits: readPref('lens.fullUnits') === '1', // off by default
   wordDiff: readPref('lens.wordDiff') === '1', // off by default
   codeSize: loadCodeSize(),
   navCollapsed: readPref('lens.navCollapsed') === '1',
@@ -192,12 +199,14 @@ const initialState: LensState = {
   summaryDot: false,
   changedOnDisk: false,
   summaryBuild: null,
+  summaryElsewhere: null,
   summaryChecking: false,
   sumQuery: '',
   sumSignal: null,
   flowOpen: new Map(),
   concernMarks: loadMarks(),
   landed: null,
+  clearInfo: null,
   ask: {
     open: readPref('lens.askOpen') === '1',
     width: savedWidth('lens.askWidth', 280, 720, 360),
