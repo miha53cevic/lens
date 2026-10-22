@@ -8,7 +8,7 @@ import { createAskRoutes } from "../../ask/routes.ts";
 import { isLocalRequest, readBody, readCookie, sendJson } from "./http.ts";
 import { previewResponse } from "../../summary/previews.ts";
 import { writeSettings } from "../../summary/settings.ts";
-import { buildProgressReader, elsewhereReader, type BuildProgress, type ElsewhereRun } from "../../summary/progress.ts";
+import { buildProgressReader, type BuildProgress } from "../../summary/progress.ts";
 import { clearKinds, describeKinds, type ClearKindInfo, type ClearPlan, type ClearScope } from "../../clear.ts";
 import { escapeHtml } from "../../text.ts";
 import { isLightColor, THEME_COOKIE } from "../../theme.ts";
@@ -103,13 +103,12 @@ export interface ThemeTokens {
 /**
  * What /api/stamp answers, everything the page watches for in one request: the stored summary's
  * stamp, the change's fingerprint as it is on disk now (null when this review has none), and the
- * agent's summary run while one is going, and another review's run that is newer than this one's.
+ * agent's summary run while one is going.
  */
 export interface StampResponse {
   summary: number | null;
   change: string | null;
   building: BuildProgress | null;
-  elsewhere: ElsewhereRun | null;
 }
 
 /** What GET /api/clear answers: what each kind would remove */
@@ -278,16 +277,6 @@ export async function serveViewer(
     return progress.read();
   }
 
-  // another review's run counts from when the page's review became this one: older ones aren't news
-  let elsewhere: { at: string; read: ReturnType<typeof elsewhereReader> } | null = null;
-  function elsewhereNow(): ElsewhereRun | null {
-    const key = current.summary?.key;
-    if (!key) return null;
-    const at = current.root + "\n" + key;
-    if (elsewhere?.at !== at) elsewhere = { at, read: elsewhereReader(current.root, key, Date.now()) };
-    return elsewhere.read();
-  }
-
   function syncSummary(): void {
     const summary = current.latestSummary?.() ?? null;
     if (summary !== current.summary) current = { ...current, summary };
@@ -358,7 +347,6 @@ export async function serveViewer(
           summary: current.summary?.stamp ?? null,
           change: await changeNow(),
           building: buildingNow(),
-          elsewhere: elsewhereNow(),
         };
         sendJson(res, 200, stamp);
       } else if (url.pathname.startsWith("/api/preview/")) {

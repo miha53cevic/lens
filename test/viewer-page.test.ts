@@ -792,24 +792,6 @@ test('a PR diffed against a guessed base says so, and one with its own base says
   }
 });
 
-pageTest('a summary the agent wrote for another review says so, until this review has a newer run', async () => {
-  const notices = () => $$('#status-bar .status-notices > *').map((notice) => notice.textContent);
-  let elsewhere: unknown = { command: '/lens-review --staged' };
-  const undo = answering((path) =>
-    path === '/api/stamp'
-      ? new Response(JSON.stringify({ summary: payload.summary!.stamp, change: payload.changeStamp, elsewhere }))
-      : undefined,
-  );
-  window.dispatchEvent(new Event('focus'));
-  await settle();
-  assert.deepEqual(notices(), ['Agent summarized another review · /lens-review --staged']);
-  elsewhere = null;
-  window.dispatchEvent(new Event('focus'));
-  await settle();
-  undo();
-  assert.deepEqual(notices(), []);
-});
-
 pageTest(
   'code that changed on disk shows as a notice: undoing the change takes it back, a click refreshes',
   async () => {

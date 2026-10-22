@@ -4,7 +4,6 @@
 
 import type { LensState } from '../store.ts';
 import { plural } from '../shared.ts';
-import { truncate } from '../../cli-app/text.ts';
 import { listModel } from './summaryList.ts';
 
 export type StatusKind = 'gone' | 'failed' | 'working' | 'waiting' | 'done' | 'idle';
@@ -130,17 +129,6 @@ const summaryBuilding: NoticeSource = (state) => {
   return { id: 'summary-build', text: 'Agent writing summary · ' + progress, tone: 'live', action: null };
 };
 
-const summaryElsewhere: NoticeSource = (state) =>
-  // known only from the stamp poll, which takes it back once this review's own run moves
-  state.summaryElsewhere && !state.serverGone
-    ? {
-        id: 'summary-elsewhere',
-        text: 'Agent summarized another review · ' + truncate(state.summaryElsewhere.command, 40),
-        tone: 'warn',
-        action: null,
-      }
-    : null;
-
 const guessedBase: NoticeSource = (state) =>
   // a merged or closed PR: GitHub no longer says which branch it targeted, so the diff may not be the PR's
   state.data.guessedBase
@@ -158,7 +146,6 @@ const NOTICE_SOURCES: NoticeSource[] = [
   staleSummaries,
   newSummary,
   summaryBuilding,
-  summaryElsewhere,
   agentListening,
 ];
 
