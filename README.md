@@ -129,6 +129,8 @@ The skill runs `lens summary prepare` (splits the diff into units, writes the ag
 instructions) and `lens summary submit` (checks the agent's result and stores it). Any
 agent with a shell can follow `prepare`'s printed instructions. `submit` drops any claim
 that doesn't point at real code, and a summary goes stale when its code changes.
+A summary is written from the checked-out code, so a branch diff (`main...feature`) is
+summarized with that branch checked out; a PR is summarized from any branch.
 `/lens-build-review` does the whole review step after an agent's build.
 
 ## Ask mode

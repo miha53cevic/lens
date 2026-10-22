@@ -5,9 +5,9 @@ import { mkdtempSync, writeFileSync, rmSync, mkdirSync, readFileSync, existsSync
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { Window } from "happy-dom";
-import { parseDiff } from "../src/cli-app/git.ts";
+import { parseDiff, uncheckedOutRevision } from "../src/cli-app/git.ts";
 import { extractUnits, checkCoverage, citeableLabels, removalAnchors, type UnitFileInput } from "../src/cli-app/summary/units.ts";
-import { summaryKey, summaryPath, readStored, writeStored, unitSetHash, type Bundle } from "../src/cli-app/summary/store.ts";
+import { checkoutFirst, summaryKey, summaryPath, readStored, writeStored, unitSetHash, type Bundle } from "../src/cli-app/summary/store.ts";
 import { runSummary } from "../src/cli-app/summary/command.ts";
 import { validateResult } from "../src/cli-app/summary/validate.ts";
 import { LIMITS, prepareBundle, renderUnit } from "../src/cli-app/summary/bundle.ts";
@@ -1220,5 +1220,57 @@ test("a summary run's progress: units in, then the final pass, then nothing; a s
     assert.equal(read(), null, "the final pass is in: done");
   } finally {
     rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a branch diff isn't summarized until that branch is checked out; a PR, the working tree and the index are", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "lens-checkout-"));
+  const git = (...args: string[]) => execFileSync("git", args, { cwd: dir, encoding: "utf8" });
+  try {
+    git("init", "-q", "-b", "main");
+    git("config", "user.email", "t@t");
+    git("config", "user.name", "t");
+    mkdirSync(join(dir, "src"));
+    writeFileSync(join(dir, "src/repo.ts"), OLD_REPO);
+    git("add", "-A");
+    git("commit", "-qm", "init");
+    git("checkout", "-qb", "feature");
+    writeFileSync(join(dir, "src/repo.ts"), NEW_REPO);
+    git("commit", "-qam", "paging");
+    git("checkout", "-q", "main");
+
+    assert.equal(uncheckedOutRevision(["main...feature"], dir), "feature");
+    assert.equal(uncheckedOutRevision(["main..feature"], dir), "feature");
+    assert.equal(uncheckedOutRevision(["main", "feature", "--", "src"], dir), "feature");
+    assert.equal(uncheckedOutRevision(["feature", "main"], dir), null, "main is checked out");
+    assert.equal(uncheckedOutRevision(["feature..."], dir), null, "B left out: HEAD");
+    assert.equal(uncheckedOutRevision(["-R", "main", "feature"], dir), null, "-R swaps the sides");
+    assert.equal(uncheckedOutRevision(["feature"], dir), null, "one revision: the working tree");
+    assert.equal(uncheckedOutRevision([], dir), null);
+    assert.equal(uncheckedOutRevision(["--staged"], dir), null, "the index");
+    assert.equal(checkoutFirst(dir, "pr", ["87"]), null, "a PR is summarized from anywhere");
+
+    // prepare refuses, saying what to run; nothing is written
+    await assert.rejects(runSummary(["prepare", "main...feature"], dir), /isn't checked out[\s\S]*git checkout feature/);
+    assert.equal(existsSync(join(dir, ".lens", "summary")), false);
+    const diff = await loadDiff("diff", ["main...feature"], dir, DEFAULT_CONFIG);
+    const units = await collectUnits(diff, DEFAULT_CONFIG, dir);
+    const view = (args: string[]) => buildSummaryView({ root: diff.root, cwd: dir, command: "diff", args, units });
+    assert.equal(view(["main...feature"]).checkout, "feature", "the Summary tab says the same");
+
+    // checked out, the same diff is summarized as any other
+    git("checkout", "-q", "feature");
+    assert.equal(view(["main...feature"]).checkout, null);
+    const lines: string[] = [];
+    const log = console.log;
+    console.log = (line: string) => lines.push(line);
+    try {
+      await runSummary(["prepare", "main...feature"], dir);
+    } finally {
+      console.log = log;
+    }
+    assert.match(lines.join("\n"), /instructions for the agent/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
   }
 });

@@ -1,5 +1,6 @@
 import type { SummaryView } from '../../../../cli-app/summary/view.ts';
 import { CopyCommand } from '../../../../ui/CopyCommand.tsx';
+import { CheckoutFirst } from '../CheckoutFirst.tsx';
 
 interface AgentOverviewProps {
   summary: SummaryView;
@@ -11,6 +12,16 @@ interface AgentOverviewProps {
 /** The agent's account of the whole diff, or what to run to get one. */
 export function AgentOverview({ summary, anySummarized, checking }: AgentOverviewProps) {
   const overview = summary.overview;
+  if (!overview && summary.checkout) {
+    return (
+      <div className='ov-what' id='no-summary'>
+        <div className='ov-what-label'>Agent summary</div>
+        <p className='ov-how'>
+          <CheckoutFirst branch={summary.checkout} />
+        </p>
+      </div>
+    );
+  }
   if (!overview && anySummarized) {
     return (
       <div className='sum-note'>
@@ -44,8 +55,14 @@ export function AgentOverview({ summary, anySummarized, checking }: AgentOvervie
       </div>
       {overview.stale && (
         <div className='sum-note stale'>
-          The diff changed since this overview was written. Run <CopyCommand command={summary.command} /> again to
-          update it.
+          The diff changed since this overview was written.{' '}
+          {summary.checkout ? (
+            <CheckoutFirst branch={summary.checkout} />
+          ) : (
+            <>
+              Run <CopyCommand command={summary.command} /> again to update it.
+            </>
+          )}
         </div>
       )}
     </>

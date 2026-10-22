@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { relPath } from "../paths.ts";
 import { prepareCommand } from "./bundle.ts";
 import {
-  HOUSEKEEPING, isHousekeeping, readStored, reviewKey, summaryArgs, summaryStamp, unitSetHash,
+  checkoutFirst, HOUSEKEEPING, isHousekeeping, readStored, reviewKey, summaryArgs, summaryStamp, unitSetHash,
   type ChangeRow, type Concern, type Flow, type SequenceStep, type StoredSummary,
 } from "./store.ts";
 import { citeableLabels, placedHash, removalAnchors, type Unit } from "./units.ts";
@@ -69,6 +69,8 @@ export interface SummaryView {
   command: string;
   /** The same without the skill, for any agent with a shell */
   cli: string;
+  /** The branch to check out before a summary can be written (`checkoutFirst`); null: it can be now */
+  checkout: string | null;
   /** summary.json mtime; null when nothing was submitted yet */
   stamp: number | null;
   units: ViewUnit[];
@@ -125,6 +127,7 @@ export function buildSummaryView(opts: {
     key,
     command: `/lens-review${hint ? " " + hint : ""}`,
     cli: prepareCommand(opts),
+    checkout: checkoutFirst(opts.cwd, opts.command, opts.args),
     stamp: summaryStamp(opts.root, key),
     units: visible,
     flows,

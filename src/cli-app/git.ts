@@ -295,6 +295,45 @@ export function worktreePathspecs(gitArgs: string[], cwd: string): string[] | nu
 }
 
 /**
+ * The revision `git diff <gitArgs>` ends at, as typed (B of `A B`, `A..B`, `A...B`), when it isn't
+ * what's checked out: then the files on disk are other code than the diff's. Null when the diff ends
+ * at the working tree, the index or HEAD, or when the arguments can't be read for sure.
+ */
+export function uncheckedOutRevision(gitArgs: string[], cwd: string): string | null {
+  const split = gitArgs.indexOf("--");
+  const before = split === -1 ? gitArgs : gitArgs.slice(0, split);
+  const commit = (name: string) => {
+    try {
+      return execFileSync("git", ["rev-parse", "--verify", "--quiet", `${name}^{commit}`], {
+        cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"],
+      }).trim() || null;
+    } catch {
+      return null;
+    }
+  };
+  const revisions: string[] = [];
+  for (const arg of before) {
+    // -R swaps the sides
+    if (["--staged", "--cached", "--no-index", "-R"].includes(arg)) return null;
+    if (arg.startsWith("-")) continue;
+    const range = /^(.*?)\.\.\.?(.*)$/.exec(arg);
+    // a path may hold ".." too: "../src"
+    if (range && !existsSync(resolve(cwd, arg))) revisions.push(range[1] || "HEAD", range[2] || "HEAD");
+    else if (commit(arg) !== null) revisions.push(arg);
+  }
+  if (revisions.length !== 2) return null;
+  try {
+    // both in one call: a git process is ~15 ms on Windows, and the viewer asks on every analysis
+    const [end, head] = execFileSync("git", ["rev-parse", `${revisions[1]}^{commit}`, "HEAD"], {
+      cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"],
+    }).trim().split("\n");
+    return end && head && end !== head ? revisions[1] : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * The files git doesn't track and isn't told to ignore, as paths from the root: what `git status`
  * lists as untracked. `pathspecs` are relative to `cwd`, as git diff's are.
  */

@@ -4,7 +4,7 @@ import { loadConfig } from "../config.ts";
 import { loadDiff, collectUnits, commitLog } from "./collect.ts";
 import { prepareBundle, prepareCommand } from "./bundle.ts";
 import { hasUnits, validateResult } from "./validate.ts";
-import { HOUSEKEEPING, reviewKey, readStored, writeStored, unitSetHash, wholeDiffLeft, type Bundle } from "./store.ts";
+import { checkoutFirst, HOUSEKEEPING, reviewKey, readStored, writeStored, unitSetHash, wholeDiffLeft, type Bundle } from "./store.ts";
 import { relPath } from "../paths.ts";
 import { buildPreviewsOn } from "./settings.ts";
 import { writeAssets } from "./previews.ts";
@@ -17,6 +17,11 @@ export async function runSummary(rest: string[], cwd: string): Promise<void> {
     if (args[0] === "pr") { command = "pr"; args.shift(); }
     else if (args[0] === "diff") args.shift();
     if (command === "pr" && args.length !== 1) throw new Error("summary prepare pr takes one argument — a PR URL or number");
+    const checkout = checkoutFirst(cwd, command, args);
+    if (checkout) {
+      throw new Error(`this diff ends at ${checkout}, which isn't checked out: a summary is written from the code on disk. ` +
+        `Run \`git checkout ${checkout}\`, then prepare again`);
+    }
     const config = loadConfig(cwd);
     const diff = await loadDiff(command, args, cwd, config);
     const units = await collectUnits(diff, config, cwd);

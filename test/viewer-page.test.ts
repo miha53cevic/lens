@@ -993,6 +993,32 @@ test('with nothing summarized, the Summary tab opens on the overview: what to ru
   }
 });
 
+test('a diff that ends at a branch not checked out says to check it out, instead of what to run', async () => {
+  const fresh = payload.summary!;
+  payload.summary = { ...fresh, checkout: 'feature', units: fresh.units.map((unit) => ({ ...unit, summary: null })) };
+  try {
+    await open();
+    await key('v');
+    await settle();
+    const how = $('#no-summary');
+    assert.match(how.textContent!, /this diff ends at feature\. Check it out first/);
+    assert.deepEqual(
+      [...how.querySelectorAll('.copy-cmd-text')].map((command) => command.textContent),
+      ['git checkout feature'],
+    );
+    await click($('#review-next'));
+    const note = $('#summary-pane .sum-note');
+    assert.match(note.textContent!, /^Not summarized yet\. A summary is written from the checked-out code/);
+    assert.deepEqual(
+      [...note.querySelectorAll('.copy-cmd-text')].map((command) => command.textContent),
+      ['git checkout feature'],
+    );
+  } finally {
+    payload.summary = fresh;
+    await close();
+  }
+});
+
 test('a summary submitted after the page loaded: the overview doesn\'t say "not written yet" while it fetches it', async () => {
   const fresh = payload.summary!;
   // the page loaded before the agent's submit: no unit summarized yet
