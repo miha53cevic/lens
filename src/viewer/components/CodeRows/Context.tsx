@@ -1,17 +1,19 @@
 import { ChevronRight } from 'lucide-react';
+import type { ReactNode } from 'react';
 import clsx from 'clsx';
 import type { CodeItem } from '../../rows.ts';
 import { plural } from '../../../cli-app/text.ts';
 import { toggleContext } from '../../actions/folds.ts';
-import { planRows } from './index.tsx';
 import type { RowContext } from './types.ts';
 
 /** How many of a stretch's names its bar lists before "+N more" */
 const NAMES_SHOWN = 4;
 
 interface ContextProps {
-  item: Extract<CodeItem, { kind: 'context' }>;
+  item: Omit<Extract<CodeItem, { kind: 'context' }>, 'body'>;
   context: RowContext;
+  /** Its rows, unified or side by side */
+  children: ReactNode;
 }
 
 /**
@@ -21,10 +23,10 @@ interface ContextProps {
  * Its rows are there while it's closed, as a fold's are, so a jump to one of them finds it
  * (openFoldAround).
  */
-export function Context({ item, context }: ContextProps) {
+export function Context({ item, context, children }: ContextProps) {
   const changed = item.added > 0 || item.removed > 0;
   const hidden = item.names.length - NAMES_SHOWN;
-  const body = <div className='context-body'>{planRows(item.body, context)}</div>;
+  const body = <div className='context-body'>{children}</div>;
   return (
     <div className={clsx('context', item.side, item.open && 'open')} data-key={item.key}>
       {item.side === 'above' && body}

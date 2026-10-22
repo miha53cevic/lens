@@ -75,8 +75,15 @@ export function onSelectionChange(): void {
     askSetSelection(null);
     return;
   }
+  // side by side, a selection takes the code of the side it started on (holdSelectionSide keeps the other unselectable)
+  const startRow = selection.anchorNode ? rowOf(selection.anchorNode) : null;
+  const otherSide = startRow?.classList.contains('left')
+    ? '.right'
+    : startRow?.classList.contains('right')
+      ? '.left'
+      : null;
   const rows = [...root.querySelectorAll<HTMLElement>('.row')].filter(
-    (row) => !row.matches('.pill-row, .gap, .unit-gap'),
+    (row) => !row.matches('.pill-row, .gap, .unit-gap, .half.none') && !(otherSide && row.matches('.half' + otherSide)),
   );
   const taken = selectedRows(rows, selection.getRangeAt(0));
   if (taken.length === 0) {

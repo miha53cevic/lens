@@ -7,6 +7,7 @@ import {
   setHideTests,
   setHunksOnly,
   setShowRemoved,
+  setSideBySide,
   setThreshold,
   setWordDiff,
   stepCodeSize,
@@ -15,6 +16,7 @@ import { CODE_SIZE_DEFAULT, CODE_SIZES } from '../../codeSize.ts';
 import { openDialog } from '../../actions/dialogs.ts';
 import { endSession } from '../../actions/session.ts';
 import { isDiffMode } from '../../shared.ts';
+import { isSplit } from '../../model/plans.ts';
 import { Menu, MenuItem, MenuSection, MenuSeparator, MenuSwitch } from '../../../ui/Menu.tsx';
 import { Segmented } from '../../../ui/Segmented.tsx';
 import { Stepper } from '../../../ui/Stepper.tsx';
@@ -44,6 +46,7 @@ export function MoreMenu() {
     hunksOnly: state.hunksOnly,
     showRemoved: state.showRemoved,
     wordDiff: state.wordDiff,
+    split: isSplit(state),
     hideTests: state.hideTests,
     codeSize: state.codeSize,
     hasSummary: state.data.summary !== null,
@@ -111,9 +114,20 @@ export function MoreMenu() {
               </MenuSwitch>
             )}
             {more.diffMode && (
-              <MenuSwitch id='show-removed' shortcut='x' checked={more.showRemoved} onChange={setShowRemoved}>
+              <MenuSwitch
+                id='show-removed'
+                shortcut='x'
+                disabled={more.split}
+                checked={more.showRemoved || more.split}
+                onChange={setShowRemoved}
+              >
                 Removed lines
               </MenuSwitch>
+            )}
+            {more.split && (
+              <div className='menu-hint' id='show-removed-hint'>
+                Side by side always shows them: they're its left side.
+              </div>
             )}
             {more.diffMode && (
               <MenuSwitch
@@ -124,6 +138,17 @@ export function MoreMenu() {
                 onChange={setWordDiff}
               >
                 Word diff
+              </MenuSwitch>
+            )}
+            {more.diffMode && (
+              <MenuSwitch
+                id='side-by-side'
+                shortcut='l'
+                title='old code on the left, new on the right'
+                checked={more.split}
+                onChange={setSideBySide}
+              >
+                Side by side
               </MenuSwitch>
             )}
             {more.testsPresent && (

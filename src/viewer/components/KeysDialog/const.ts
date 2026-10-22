@@ -22,6 +22,7 @@ export const KEY_TABS: { id: KeyTab; label: string; keys: KeyHelp[] }[] = [
       { keys: ['h'], action: 'toggle hunks only', note: '(diff mode)' },
       { keys: ['x'], action: 'toggle removed lines', note: '(diff mode)' },
       { keys: ['d'], action: 'toggle word diff', note: '(diff mode)' },
+      { keys: ['l'], action: 'toggle side by side', note: '(diff mode)' },
       { keys: ['t'], action: 'toggle hide tests' },
       { keys: ['r'], action: 'refresh the analysis' },
       { keys: ['a'], action: 'ask your agent about the open change (and your selection) · close the Ask rail' },

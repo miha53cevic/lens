@@ -8,6 +8,8 @@ import { splitAt, type WordRange } from '../../wordDiff.ts';
 
 interface LineRowProps {
   line: number;
+  /** The number shown, when it isn't `line`: side by side, an unchanged line's old-side number */
+  num?: number;
   /** The highlighted line, as HTML */
   html: string;
   changed: boolean;
@@ -15,10 +17,10 @@ interface LineRowProps {
   extraClass?: string;
 }
 
-export const LineRow = memo(function LineRow({ line, html, changed, gutter, extraClass }: LineRowProps) {
+export const LineRow = memo(function LineRow({ line, num, html, changed, gutter, extraClass }: LineRowProps) {
   return (
     <div className={clsx('row', changed && 'changed', extraClass)} data-line={line}>
-      <span className='num'>{String(line).padStart(gutter)}</span>
+      <span className='num'>{String(num ?? line).padStart(gutter)}</span>
       <span className={clsx('mark', changed && 'changed')} />
       <span dangerouslySetInnerHTML={{ __html: html || ' ' }} />
     </div>
@@ -31,6 +33,8 @@ interface RemovedLineRowProps {
   oldLine: number;
   /** The words the added line changed (word diff): marked */
   words?: WordRange[];
+  /** Side by side: the old side numbers its lines (unified marks them −) */
+  numbered?: boolean;
   gutter: number;
   extraClass?: string;
 }
@@ -39,12 +43,13 @@ export const RemovedLineRow = memo(function RemovedLineRow({
   text,
   oldLine,
   words,
+  numbered,
   gutter,
   extraClass,
 }: RemovedLineRowProps) {
   return (
     <div className={clsx('row removed', extraClass)} data-old={oldLine}>
-      <span className='num'>{'−'.padStart(gutter)}</span>
+      <span className='num'>{(numbered ? String(oldLine) : '−').padStart(gutter)}</span>
       <span className='mark' />
       <span>
         {words
@@ -70,6 +75,17 @@ export function RemovedRow({ text, gutter }: { text: string; gutter: number }) {
       <span className='num'>{'−'.padStart(gutter)}</span>
       <span className='mark' />
       <span>{text || ' '}</span>
+    </div>
+  );
+}
+
+/** Side by side: the side a line doesn't have (an added line has no old side, a removed one no new side). */
+export function EmptyHalf({ side, gutter }: { side: 'left' | 'right'; gutter: number }) {
+  return (
+    <div className={clsx('row half none', side)}>
+      <span className='num'>{''.padStart(gutter)}</span>
+      <span className='mark' />
+      <span />
     </div>
   );
 }

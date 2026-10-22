@@ -249,3 +249,40 @@
 .context:not(.open) > .context-body {
   display: none;
 }
+
+/* side by side: each row two halves, old on the left and new on the right; long lines wrap, so the halves stay level */
+.code.split {
+  min-width: 0;
+}
+.srow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+/* the right half comes first in the markup (lookups by line find the new side): placed by column */
+.srow > .left {
+  grid-area: 1 / 1;
+}
+.srow > .right {
+  grid-area: 1 / 2;
+  border-left: 1px solid var(--line);
+}
+.row.half {
+  min-width: 0;
+  padding: 0 var(--space-4) 0 var(--space-3);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.row.half > :last-child {
+  flex: 1;
+  min-width: 0;
+}
+/* the side a line doesn't have: the hidden stretch's fill */
+.row.half.none,
+.row.half.none:hover {
+  background: color-mix(in oklab, var(--surface-2) 55%, transparent);
+}
+/* a drag selects one side's code (holdSelectionSide) */
+.code.split[data-side='left'] .half.right,
+.code.split[data-side='right'] .half.left {
+  user-select: none;
+}

@@ -3,7 +3,7 @@ import clsx from 'clsx';
 import type { FoldRegion } from '../../cli-app/model.ts';
 import type { CodeItem } from '../rows.ts';
 import { useLens } from '../store.ts';
-import { isRegionOpen } from '../model/plans.ts';
+import { isRegionOpen, isSplit } from '../model/plans.ts';
 import { rulerTicks, type RegionShows } from '../model/ruler.ts';
 import { landOn } from '../actions/views.ts';
 import './OverviewRuler.css';
@@ -19,7 +19,8 @@ interface OverviewRulerProps {
 
 /**
  * A strip beside the code, the height of its rows, with a tick where each change, removed
- * stretch and concern sits. A click scrolls to the tick's row, opening its fold.
+ * stretch and concern sits. A click scrolls to the tick's row, opening its fold. Side by side has
+ * none: its rows pair the old side with the new, so the ticks wouldn't sit on theirs.
  */
 export function OverviewRuler({ path, items, changedLines, flagged }: OverviewRulerProps) {
   const folds = useLens((state) => ({
@@ -27,6 +28,7 @@ export function OverviewRuler({ path, items, changedLines, flagged }: OverviewRu
     openCats: state.openCats,
     threshold: state.threshold,
   }));
+  const split = useLens((state) => isSplit(state));
   const ticks = useMemo(() => {
     // as Region shows it: a fold holding a concern's note stays open whatever the fold controls say
     const regionShows = (region: FoldRegion, body: CodeItem[]): RegionShows => {
@@ -41,7 +43,7 @@ export function OverviewRuler({ path, items, changedLines, flagged }: OverviewRu
     };
     return rulerTicks(items, changedLines, flagged, regionShows);
   }, [folds, path, items, changedLines, flagged]);
-  if (ticks.length === 0) return null;
+  if (split || ticks.length === 0) return null;
 
   const jump = (event: MouseEvent<HTMLElement>, label: string) => {
     const line = label.slice(1);

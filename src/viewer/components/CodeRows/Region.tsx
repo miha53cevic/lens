@@ -1,24 +1,24 @@
 import { ChevronRight } from 'lucide-react';
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import clsx from 'clsx';
 import type { FoldRegion } from '../../../cli-app/model.ts';
-import type { CodeItem } from '../../rows.ts';
 import { catColor } from '../../shared.ts';
 import { useLens } from '../../store.ts';
 import { isRegionOpen } from '../../model/plans.ts';
 import { toggleRegion } from '../../actions/folds.ts';
-import { planRows } from './index.tsx';
 import type { RowContext } from './types.ts';
 
 interface RegionProps {
   region: FoldRegion;
-  /** The region's lines, with the removed lines anchored inside it */
-  body: CodeItem[];
+  /** The labels of the rows inside ("N12", "O5"): a note on one keeps the fold open */
+  labels: string[];
   context: RowContext;
+  /** Its rows, unified or side by side */
+  children: ReactNode;
 }
 
 /** A fold: its pill, and its lines underneath (shown when it's open, or pinned by the fold level). */
-export function Region({ region, body, context }: RegionProps) {
+export function Region({ region, labels, context, children }: RegionProps) {
   const { path, changedLines, gutter, marks } = context;
   const { open, pinned } = useLens((state) => ({
     open: isRegionOpen(state, path, region),
@@ -27,12 +27,7 @@ export function Region({ region, body, context }: RegionProps) {
   let touchesChange = false;
   for (let line = region.startLine; line <= region.endLine; line++) if (changedLines.has(line)) touchesChange = true;
   const notes = marks?.notes;
-  const hasNote =
-    !!notes &&
-    body.some(
-      (item) =>
-        (item.kind === 'line' && notes.has('N' + item.line)) || (item.kind === 'removed' && notes.has('O' + item.old)),
-    );
+  const hasNote = !!notes && labels.some((label) => notes.has(label));
 
   return (
     <div
@@ -50,7 +45,7 @@ export function Region({ region, body, context }: RegionProps) {
           {region.summary}
         </span>
       </div>
-      <div className='body'>{planRows(body, context)}</div>
+      <div className='body'>{children}</div>
     </div>
   );
 }

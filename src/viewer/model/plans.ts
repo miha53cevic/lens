@@ -3,14 +3,17 @@
 import type { FoldRegion, RemovedBlock } from '../../cli-app/model.ts';
 import type { ViewUnit } from '../../cli-app/summary/view.ts';
 import type { LensState } from '../store.ts';
-import { memo, type ViewFile } from '../shared.ts';
+import { isDiffMode, memo, type ViewFile } from '../shared.ts';
 import {
   type CodeItem,
   contextSpans,
   declaredIn,
   fileSpans,
+  oldLineNumbers,
+  pairRows,
   planCode,
   type RemovedLine,
+  type SplitItem,
   type UnitContext,
   unitSpans,
 } from '../rows.ts';
@@ -36,6 +39,31 @@ export function planRegions(items: CodeItem[]): FoldRegion[] {
   );
 }
 
+/** The code shows old and new side by side: the reader's switch, for a diff (a set of paths has no old side). */
+export function isSplit(state: Pick<LensState, 'sideBySide' | 'data'>): boolean {
+  return state.sideBySide && isDiffMode(state.data);
+}
+
+/** The code shows removed lines: side by side always does, they're its left side. */
+export function showsRemoved(state: Pick<LensState, 'showRemoved' | 'sideBySide' | 'data'>): boolean {
+  return state.showRemoved || isSplit(state);
+}
+
+const oldLinesCache = new WeakMap<ViewFile, number[]>();
+
+/**
+ * A plan's side-by-side rows, paired by the changed lines it marks. Components memoize it with
+ * the plan, so a fold toggle re-renders only the rows it changes.
+ */
+export function splitRows(items: CodeItem[], file: ViewFile | null, changedLines: ReadonlySet<number>): SplitItem[] {
+  let oldLines: number[] = [];
+  if (file) {
+    oldLines = oldLinesCache.get(file) ?? oldLineNumbers(file);
+    oldLinesCache.set(file, oldLines);
+  }
+  return pairRows(items, changedLines, oldLines);
+}
+
 export interface FilePlan {
   items: CodeItem[];
 }
@@ -50,7 +78,7 @@ const buildFilePlan = memo(
 );
 
 export function filePlan(state: LensState, file: ViewFile): FilePlan {
-  return buildFilePlan(file, state.hunksOnly, state.expandedGaps, state.showRemoved);
+  return buildFilePlan(file, state.hunksOnly, state.expandedGaps, showsRemoved(state));
 }
 
 /** The open file, unless there's none. */
@@ -149,7 +177,7 @@ export function unitFile(state: LensState, unit: ViewUnit): ViewFile | null {
 
 export function unitPlan(state: LensState, unit: ViewUnit): UnitPlan {
   const file = unitFile(state, unit);
-  return buildUnitPlan(unit, file, state.hunksOnly, state.expandedGaps, state.showRemoved, state.fullUnits);
+  return buildUnitPlan(unit, file, state.hunksOnly, state.expandedGaps, showsRemoved(state), state.fullUnits);
 }
 
 // memoized, one per source: a selector gets the same array back while the code stays the same
