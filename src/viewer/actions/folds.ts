@@ -66,7 +66,14 @@ export function expandGap(gapKey: string): void {
   update((state) => ({ expandedGaps: toggled(state.expandedGaps, gapKey, true) }));
 }
 
-/** Full units: the stretch of the file above or below the unit opens, or closes (model/plans.ts). */
-export function toggleContext(key: string): void {
+/**
+ * Full units: the stretch of the file above or below the unit opens, or closes (model/plans.ts).
+ * A click on its bar keeps the bar where it was on screen: Above grows over its bar, and the
+ * pane scrolls by as much, so the unit stays in sight.
+ */
+export function toggleContext(key: string, bar?: HTMLElement): void {
+  const offset = bar?.getBoundingClientRect().top;
   commit((state) => ({ expandedGaps: toggled(state.expandedGaps, key) }));
+  const pane = document.getElementById('summary-pane');
+  if (bar && pane && offset !== undefined) pane.scrollTop += bar.getBoundingClientRect().top - offset;
 }

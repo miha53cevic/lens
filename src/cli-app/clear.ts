@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, rmSync } from "node:fs";
 import { basename, join } from "node:path";
 import { buildProgressReader } from "./summary/progress.ts";
+import { countText } from "./text.ts";
 
 // What lens keeps on disk that the reader can clear: one entry per kind in CLEAR_KINDS. The
 // viewer's dialog and `lens clear` both list them, so a new kind is one more entry here and
@@ -120,10 +121,6 @@ export function clearKinds(at: ClearContext, picks: Record<string, ClearScope>):
   return Object.fromEntries(chosen.map(({ kind, scope }) => [kind.id, kind.clear(at, scope)]));
 }
 
-export function countText(kind: { unit: [string, string] }, count: number): string {
-  return count + " " + kind.unit[count === 1 ? 0 : 1];
-}
-
 /**
  * `lens clear`: with no kind, what each holds; `lens clear <kind> --all` clears all of it,
  * `lens clear summaries <key>` one review's (the keys `lens clear` lists).
@@ -134,7 +131,7 @@ export function runClear(rest: string[], root: string): void {
   if (!id) {
     for (const kind of CLEAR_KINDS) {
       const plan = kind.describe({ root, key: null }, "all");
-      console.log(`${kind.id}  ${countText(kind, plan.count)}`);
+      console.log(`${kind.id}  ${countText(kind.unit, plan.count)}`);
       for (const path of plan.paths) console.log(`  ${path}`);
     }
     console.log("\nlens clear <kind> --all       clear all of it");
@@ -150,6 +147,6 @@ export function runClear(rest: string[], root: string): void {
   const at: ClearContext = { root, key: key ?? null };
   if (key && kind.describe(at, "this").count === 0) throw new Error(`no ${kind.label.toLowerCase()} saved for "${key}"`);
   const plan = clearKinds(at, { [kind.id]: all ? "all" : "this" })[kind.id];
-  console.log(`lens: cleared ${countText(kind, plan.count)}`);
+  console.log(`lens: cleared ${countText(kind.unit, plan.count)}`);
   for (const path of plan.paths) console.log(`  - ${path}`);
 }

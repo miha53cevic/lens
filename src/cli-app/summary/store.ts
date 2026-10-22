@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { currentBranch } from "../git.ts";
+import { currentBranch, uncheckedOutRevision } from "../git.ts";
 import { parsePrRef } from "../pr.ts";
 import { placedHash, type Anchor, type LineRange, type UnitKind, type UnitStatus } from "./units.ts";
 
@@ -209,6 +209,16 @@ export function summaryKey(command: "diff" | "pr", args: string[], branch: strin
 /** The key of a review in the repository at `root`, on the branch it's on now. */
 export function reviewKey(root: string, command: "diff" | "pr", args: string[]): string {
   return summaryKey(command, args, command === "diff" ? currentBranch(root) : null);
+}
+
+/**
+ * What to check out before a summary of this review can be written; null when it can be now. A
+ * summary is written from the code on disk (the agent reads it, `submit` checks callers in it), so
+ * a diff that ends at a branch not checked out isn't summarized. A PR is: its callers are close
+ * enough from the base branch, and checking out every PR to review it would be a chore.
+ */
+export function checkoutFirst(cwd: string, command: "diff" | "pr", args: string[]): string | null {
+  return command === "diff" ? uncheckedOutRevision(args, cwd) : null;
 }
 
 /**

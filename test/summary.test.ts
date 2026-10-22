@@ -1,13 +1,14 @@
 import { test } from "bun:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, writeFileSync, rmSync, mkdirSync, readFileSync, existsSync, utimesSync } from "node:fs";
+import { mkdtempSync, writeFileSync, rmSync, mkdirSync, readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { Window } from "happy-dom";
-import { parseDiff } from "../src/cli-app/git.ts";
+import { parseDiff, uncheckedOutRevision } from "../src/cli-app/git.ts";
 import { extractUnits, checkCoverage, citeableLabels, removalAnchors, type UnitFileInput } from "../src/cli-app/summary/units.ts";
-import { summaryKey, summaryPath, readStored, writeStored, unitSetHash, type Bundle } from "../src/cli-app/summary/store.ts";
+import { analyze } from "../src/cli-app/analyze.ts";
+import { checkoutFirst, summaryKey, summaryPath, readStored, writeStored, unitSetHash, type Bundle } from "../src/cli-app/summary/store.ts";
 import { runSummary } from "../src/cli-app/summary/command.ts";
 import { validateResult } from "../src/cli-app/summary/validate.ts";
 import { LIMITS, prepareBundle, renderUnit } from "../src/cli-app/summary/bundle.ts";
@@ -16,7 +17,7 @@ import { loadDiff, collectUnits, commitLog } from "../src/cli-app/summary/collec
 import { buildSummaryView } from "../src/cli-app/summary/view.ts";
 import { previewProblems, previewResponse, writeAssets } from "../src/cli-app/summary/previews.ts";
 import { buildPreviewsOn, readSettings, writeSettings } from "../src/cli-app/summary/settings.ts";
-import { buildProgressReader, elsewhereReader } from "../src/cli-app/summary/progress.ts";
+import { buildProgressReader } from "../src/cli-app/summary/progress.ts";
 import { DEFAULT_CONFIG } from "../src/cli-app/config.ts";
 
 /** Builds a unit input from two versions of a file, via a real unified=0 diff. */
@@ -1223,32 +1224,63 @@ test("a summary run's progress: units in, then the final pass, then nothing; a s
   }
 });
 
-test("another review's run shows only while it is newer than the page's review and this review's own run", () => {
-  const root = mkdtempSync(join(tmpdir(), "lens-elsewhere-"));
+test("a branch diff isn't summarized until that branch is checked out; a PR, the working tree and the index are", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "lens-checkout-"));
+  const git = (...args: string[]) => execFileSync("git", args, { cwd: dir, encoding: "utf8" });
   try {
-    const since = Date.UTC(2026, 0, 1);
-    /** Writes a review's file, dated `at` (ms) */
-    const write = (key: string, name: string, text: string, at: number) => {
-      const path = join(root, ".lens", "summary", key, name);
-      mkdirSync(join(path, ".."), { recursive: true });
-      writeFileSync(path, text);
-      utimesSync(path, at / 1000, at / 1000);
-    };
-    const read = elsewhereReader(root, "diff@main", since);
-    assert.equal(read(), null, "no .lens yet");
+    git("init", "-q", "-b", "main");
+    git("config", "user.email", "t@t");
+    git("config", "user.name", "t");
+    mkdirSync(join(dir, "src"));
+    writeFileSync(join(dir, "src/repo.ts"), OLD_REPO);
+    git("add", "-A");
+    git("commit", "-qm", "init");
+    git("checkout", "-qb", "feature");
+    writeFileSync(join(dir, "src/repo.ts"), NEW_REPO);
+    git("commit", "-qam", "paging");
+    git("checkout", "-q", "main");
 
-    write("diff-staged@main", "bundle.json", JSON.stringify({ version: 1, command: "diff", args: ["--staged"], units: [] }), since - 60_000);
-    assert.equal(read(), null, "a run from before the page's review isn't news");
+    assert.equal(uncheckedOutRevision(["main...feature"], dir), "feature");
+    assert.equal(uncheckedOutRevision(["main..feature"], dir), "feature");
+    assert.equal(uncheckedOutRevision(["main", "feature", "--", "src"], dir), "feature");
+    assert.equal(uncheckedOutRevision(["feature", "main"], dir), null, "main is checked out");
+    assert.equal(uncheckedOutRevision(["feature..."], dir), null, "B left out: HEAD");
+    assert.equal(uncheckedOutRevision(["-R", "main", "feature"], dir), null, "-R swaps the sides");
+    assert.equal(uncheckedOutRevision(["feature"], dir), null, "one revision: the working tree");
+    assert.equal(uncheckedOutRevision([], dir), null);
+    assert.equal(uncheckedOutRevision(["--staged"], dir), null, "the index");
+    assert.equal(checkoutFirst(dir, "pr", ["87"]), null, "a PR is summarized from anywhere");
 
-    write("diff-staged@main", "summary.json", "{}", since + 1000);
-    assert.deepEqual(read(), { command: "/lens-review --staged" }, "the agent submitted for other arguments");
+    // prepare refuses, saying what to run; nothing is written
+    await assert.rejects(runSummary(["prepare", "main...feature"], dir), /isn't checked out[\s\S]*git checkout feature/);
+    assert.equal(existsSync(join(dir, ".lens", "summary")), false);
+    const diff = await loadDiff("diff", ["main...feature"], dir, DEFAULT_CONFIG);
+    const units = await collectUnits(diff, DEFAULT_CONFIG, dir);
+    const view = (args: string[]) => buildSummaryView({ root: diff.root, cwd: dir, command: "diff", args, units });
+    assert.equal(view(["main...feature"]).checkout, "feature", "the Summary tab says the same");
+    // the viewer's own summary, which the page polls
+    const open = await analyze("diff", ["main...feature"], dir, DEFAULT_CONFIG);
+    assert.equal(open.summary?.checkout, "feature");
 
-    write("diff@main", "bundle.json", "{}", since + 2000);
-    assert.equal(read(), null, "this review's own run is newer: it's the one going on");
-
-    write("pr-87", "summary.json", "{}", since + 3000);
-    assert.deepEqual(read(), { command: "pr-87" }, "no bundle to read: the folder's key");
+    // checked out, the same diff is summarized as any other
+    git("checkout", "-q", "feature");
+    assert.equal(view(["main...feature"]).checkout, null);
+    // and the open viewer follows, though the diff is the same: read under the branch's key now
+    const followed = open.latestSummary!();
+    assert.equal(followed.checkout, null);
+    assert.equal(followed.key, summaryKey("diff", ["main...feature"], "feature"));
+    assert.notEqual(followed.key, open.summary?.key);
+    assert.equal(uncheckedOutRevision(["main", "HEAD~1"], dir), null, "counted from HEAD: no checkout puts it on disk");
+    const lines: string[] = [];
+    const log = console.log;
+    console.log = (line: string) => lines.push(line);
+    try {
+      await runSummary(["prepare", "main...feature"], dir);
+    } finally {
+      console.log = log;
+    }
+    assert.match(lines.join("\n"), /instructions for the agent/);
   } finally {
-    rmSync(root, { recursive: true, force: true });
+    rmSync(dir, { recursive: true, force: true });
   }
 });

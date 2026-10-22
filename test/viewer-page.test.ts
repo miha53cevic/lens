@@ -132,7 +132,7 @@ async function open(prefs: Record<string, string> = {}, hash = '', cookie = '', 
       case 'POST /api/ask/prompt':
         return reply({ text: 'the prompt' });
       case 'GET /api/stamp':
-        return reply({ summary: payload.summary!.stamp, change: payload.changeStamp });
+        return reply({ summary: payload.summary!.stamp, key: payload.summary!.key, change: payload.changeStamp });
       case 'GET /api/summary':
         return reply(payload.summary);
       case 'GET /api/refresh':
@@ -776,22 +776,20 @@ pageTest('the stamp poll is what notices a stopped server is back', async () => 
   assert.deepEqual(status(), REST, 'the next poll got through, with no click');
 });
 
-pageTest('a summary the agent wrote for another review says so, until this review has a newer run', async () => {
+test('a PR diffed against a guessed base says so, and one with its own base says nothing', async () => {
   const notices = () => $$('#status-bar .status-notices > *').map((notice) => notice.textContent);
-  let elsewhere: unknown = { command: '/lens-review --staged' };
-  const undo = answering((path) =>
-    path === '/api/stamp'
-      ? new Response(JSON.stringify({ summary: payload.summary!.stamp, change: payload.changeStamp, elsewhere }))
-      : undefined,
-  );
-  window.dispatchEvent(new Event('focus'));
-  await settle();
-  assert.deepEqual(notices(), ['Agent summarized another review · /lens-review --staged']);
-  elsewhere = null;
-  window.dispatchEvent(new Event('focus'));
-  await settle();
-  undo();
-  assert.deepEqual(notices(), []);
+  await open({}, '', '', { ...payload, label: 'a/b#7', guessedBase: 'main' });
+  try {
+    assert.deepEqual(notices(), ['PR base unknown · diffed against main']);
+  } finally {
+    await close();
+  }
+  await open({}, '', '', { ...payload, label: 'a/b#7', guessedBase: null });
+  try {
+    assert.deepEqual(notices(), []);
+  } finally {
+    await close();
+  }
 });
 
 pageTest(
@@ -989,6 +987,50 @@ test('with nothing summarized, the Summary tab opens on the overview: what to ru
     assert.ok($('#summary-pane').dataset.unit, 'a change is open');
     await key('g');
     assert.ok($('#no-summary'), 'back on the overview, the same page');
+  } finally {
+    payload.summary = fresh;
+    await close();
+  }
+});
+
+test('a diff that ends at a branch not checked out says to check it out, instead of what to run', async () => {
+  const fresh = payload.summary!;
+  payload.summary = { ...fresh, checkout: 'feature', units: fresh.units.map((unit) => ({ ...unit, summary: null })) };
+  try {
+    await open();
+    await key('v');
+    await settle();
+    const how = $('#no-summary');
+    assert.match(how.textContent!, /this diff ends at feature\. Check it out first/);
+    assert.deepEqual(
+      [...how.querySelectorAll('.copy-cmd-text')].map((command) => command.textContent),
+      ['git checkout feature'],
+    );
+    await click($('#review-next'));
+    const note = $('#summary-pane .sum-note');
+    assert.match(note.textContent!, /^Not summarized yet\. A summary is written from the checked-out code/);
+    assert.deepEqual(
+      [...note.querySelectorAll('.copy-cmd-text')].map((command) => command.textContent),
+      ['git checkout feature'],
+    );
+
+    // the reader checks it out: the server reads the summary under that branch's key, and the page follows
+    const unsummarized = payload.summary;
+    payload.summary = { ...unsummarized, key: unsummarized.key + '-feature', checkout: null };
+    window.dispatchEvent(new Event('focus'));
+    await settle();
+    const after = $('#summary-pane .sum-note');
+    assert.match(after.textContent!, /^Not summarized yet\. Run .* in your agent\./);
+    assert.deepEqual(
+      [...after.querySelectorAll('.copy-cmd-text')].map((command) => command.textContent),
+      [fresh.command],
+    );
+    assert.deepEqual(status(), {
+      kind: 'done',
+      label: 'Another branch is checked out: the summary is read for it',
+      detail: '',
+    });
+    assert.equal(document.querySelector('#summary-dot'), null, 'nothing new is waiting');
   } finally {
     payload.summary = fresh;
     await close();
@@ -1918,6 +1960,27 @@ test('the copied concerns name a removed line as one, in the order of the summar
   }
 });
 
+test("a confirmed concern on code that changed since is counted, not copied: its unit's summary is stale", async () => {
+  const fresh = payload.summary!;
+  const unit = fresh.units.find((candidate) => candidate.summary?.concerns.length)!;
+  // the code changed: the stored summary was written for another hash, the one the reader's mark has
+  payload.summary = {
+    ...fresh,
+    units: fresh.units.map((candidate) =>
+      candidate === unit ? { ...candidate, stale: true, staleHash: 'oldhash', summary: null } : candidate,
+    ),
+  };
+  const marks = { [`${unit.id}@oldhash#bug:N3:deleted is a string column`]: 'real' };
+  await open({ 'lens.concernMarks': JSON.stringify(marks) }, '#summary');
+  try {
+    assert.equal($('.ov-real-count').textContent, '1 confirmed finding on code that changed since');
+    assert.equal($$('.ov-real-copy').length, 0, 'nothing to copy: its lines may point elsewhere now');
+  } finally {
+    payload.summary = fresh;
+    await close();
+  }
+});
+
 pageTest(
   'clear saved data: nothing goes until a kind is ticked, and a cleared summary leaves the Summary tab without it',
   async (page) => {
@@ -2021,6 +2084,12 @@ pageTest('full units: the rest of the file sits above and below the unit, each b
   await key('h');
   await click(bar('above'));
   assert.deepEqual(opened('above'), ['R1', '4']);
+  // Above opens over its bar: the bar stays on the unit's top edge
+  const above = $(code + ' > .context.above');
+  assert.deepEqual(
+    [...above.children].map((child) => child.className),
+    ['context-body', 'row context-bar'],
+  );
   assert.deepEqual(opened('below'), [
     ...['13', '14', '15', '16', '17', '−17', '−18', '−19', '−20'],
     ...['18', '19', '20', '21', '22', '23', '24', '25', '26', '27'],

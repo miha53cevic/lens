@@ -10,6 +10,11 @@ export function plural(n: number, word: string): string {
   return `${n} ${word}${n === 1 ? "" : "s"}`;
 }
 
+/** "1 review", "3 marks": a count in a unit whose plural isn't always an "s" away. */
+export function countText(unit: readonly [string, string], count: number): string {
+  return count + " " + unit[count === 1 ? 0 : 1];
+}
+
 export function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

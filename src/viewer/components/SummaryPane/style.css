@@ -80,28 +80,16 @@
 .ov-stats {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2) var(--space-4);
+  gap: var(--space-2);
   margin-top: calc(-1 * var(--space-2));
 }
-.ov-stat {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-1) 0;
-  color: var(--muted);
-}
-.ov-stat .dot {
-  --dot: var(--sig);
+/* ui/Tag: the signal's color on its icon, and all over it once it's on */
+.ov-stat .tag-icon {
+  color: var(--sig);
 }
 .ov-stat b {
   color: var(--text);
-}
-.ov-stat:hover,
-.ov-stat[aria-pressed='true'] {
-  color: var(--text);
-  text-decoration: underline;
-  text-decoration-color: var(--sig);
-  text-underline-offset: 4px;
+  font-variant-numeric: tabular-nums;
 }
 /* the concerns marked real, to hand to the agent */
 .ov-real {

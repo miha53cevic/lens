@@ -5,6 +5,7 @@
 import type { ClearInfoResponse, ClearRequest, ClearResponse } from '../../cli-app/render/web/server.ts';
 import type { ClearScope } from '../../cli-app/clear.ts';
 import { commit, CONCERN_PREF, getState, type LensState, update, VIEWED_PREF } from '../store.ts';
+import { countText } from '../../cli-app/text.ts';
 import { writePref } from '../shared.ts';
 import { dialog } from './dialogs.ts';
 import { noteDone, request, tracked } from './status.ts';
@@ -84,8 +85,4 @@ export async function clearData(picks: ClearPicks): Promise<void> {
     dialog('clear-modal')?.close();
     noteDone('Cleared ' + said.join(' and '));
   });
-}
-
-export function countText(unit: [string, string], count: number): string {
-  return count + ' ' + unit[count === 1 ? 0 : 1];
 }

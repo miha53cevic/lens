@@ -1,7 +1,7 @@
 // The findings the reader marked real (concerns and callers it may break), as text for the agent that will fix them.
 
 import { memo, plural } from '../shared.ts';
-import { type Finding, findingMark, findings, type Marks, type Unit } from './signals.ts';
+import { type Finding, findingMark, findings, type Marks, type Unit, unitViewKey } from './signals.ts';
 
 export interface RealConcerns {
   /** The confirmed findings, in the summary's order */
@@ -41,15 +41,24 @@ function findingText(unit: Unit, finding: Finding, index: number): string {
   return `\n${index + 1}. [${finding.kind}] ${place} — ${unit.name}\n   ${finding.text}`;
 }
 
+/**
+ * The marks a stale unit's findings got: its summary is gone from the view, but its marks are still
+ * keyed by the hash that summary was written for.
+ */
+function staleRealMarks(marks: Marks, unit: Unit): number {
+  if (!unit.staleHash) return 0;
+  const prefix = unitViewKey({ ...unit, hash: unit.staleHash }) + '#';
+  let count = 0;
+  for (const [key, mark] of marks) if (mark === 'real' && key.startsWith(prefix)) count++;
+  return count;
+}
+
 export const realConcerns = memo((units: readonly Unit[], marks: Marks): RealConcerns => {
   const items: RealConcerns['items'] = [];
   let stale = 0;
   for (const unit of units) {
-    for (const finding of findings(unit)) {
-      if (findingMark(marks, finding) !== 'real') continue;
-      if (unit.stale) stale++;
-      else items.push({ unit, finding });
-    }
+    stale += staleRealMarks(marks, unit);
+    for (const finding of findings(unit)) if (findingMark(marks, finding) === 'real') items.push({ unit, finding });
   }
   const lines = [
     'Fix these review findings. Each was raised in a lens review and confirmed by the reviewer.',

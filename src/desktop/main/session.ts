@@ -23,8 +23,8 @@ export interface ReviewSession {
 export interface StartingReview {
   /** The session once the viewer is up; rejects with the CLI's reason when it exits first. */
   ready: Promise<ReviewSession>;
-  /** Stops waiting and ends the process. */
-  cancel(): void;
+  /** Stops waiting and ends the process; resolves once it's gone. */
+  cancel(): Promise<void>;
 }
 
 /** A port nothing listens on right now. */
@@ -133,7 +133,7 @@ export function startReview(cli: LensCli, root: string, args: string[], port: nu
     ready,
     cancel() {
       cancelled = true;
-      void stop(null);
+      return stop(null);
     },
   };
 }

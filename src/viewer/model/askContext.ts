@@ -33,13 +33,13 @@ export function askContext(state: LensState): AskContext | null {
   return file ? { key: 'f:' + fileViewKey(file), file: file.file, unitId: null, label: baseName(file.file) } : null;
 }
 
-/** The kept selection, when it belongs to the open change. */
 /** The open unit's findings the reader hasn't dismissed: they go along with a question about it. */
 export function askFindings(state: LensState): Finding[] {
   const unit = state.view === 'summary' && summaryPage(state) === 'unit' ? currentUnit(state) : null;
   return unit ? openFindings(state.concernMarks, unit) : [];
 }
 
+/** The kept selection, when it belongs to the open change. */
 export function askSelection(state: LensState) {
   const context = askContext(state);
   const selection = state.ask.selection;

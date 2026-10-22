@@ -16,13 +16,15 @@ import { Breaks } from './Breaks.tsx';
 import { UnitCode } from './UnitCode.tsx';
 import { UnitRuler } from './UnitRuler.tsx';
 import { Drawings } from '../Drawings/index.tsx';
+import { CheckoutFirst } from '../CheckoutFirst.tsx';
 
 // Mounted per unit (SummaryPane's key): another unit starts afresh.
 export function UnitPage({ unit }: { unit: Unit }) {
   /** The cite of the "what behaves differently" row under the pointer: its line is tinted in the code */
   const [hoveredCite, setHoveredCite] = useState<string | null>(null);
-  const { command, inCodeView } = useLens((state) => ({
+  const { command, checkout, inCodeView } = useLens((state) => ({
     command: state.data.summary?.command ?? '',
+    checkout: state.data.summary?.checkout ?? null,
     inCodeView: state.data.files.some((file) => file.file === unit.displayFile) && unit.ranges.length > 0,
   }));
   const summary = unit.summary;
@@ -36,12 +38,26 @@ export function UnitPage({ unit }: { unit: Unit }) {
       )}
       {unit.stale ? (
         <div className='sum-note stale'>
-          The code changed since this was summarized. Run <CopyCommand command={command} /> again to update it.
+          The code changed since this was summarized.{' '}
+          {checkout ? (
+            <CheckoutFirst branch={checkout} />
+          ) : (
+            <>
+              Run <CopyCommand command={command} /> again to update it.
+            </>
+          )}
         </div>
       ) : (
         !summary && (
           <div className='sum-note'>
-            Not summarized yet. Run <CopyCommand command={command} /> in your agent.
+            Not summarized yet.{' '}
+            {checkout ? (
+              <CheckoutFirst branch={checkout} />
+            ) : (
+              <>
+                Run <CopyCommand command={command} /> in your agent.
+              </>
+            )}
           </div>
         )
       )}
