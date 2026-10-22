@@ -13,6 +13,11 @@ export interface ResolvedPr {
   diffArgs: [string, string];
   /** "owner/repo#123", for the viewer header and logs */
   label: string;
+  /**
+   * The default branch the PR was diffed against when GitHub no longer says which branch it
+   * targets (merged, closed, or conflicting); null when the base is the PR's own.
+   */
+  guessedBase: string | null;
 }
 
 const OWNER = "[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?";
@@ -102,6 +107,16 @@ export function parseRemoteRefs(output: string, prNumber: number): RemoteRefs {
 }
 
 /**
+ * Which ref the PR's base tip is fetched from: refs/pull/N/merge while GitHub serves it, else the
+ * remote's default branch, whose name then comes back as `guessedBase`. Null: no base at all.
+ */
+export function pickBase(refs: RemoteRefs, prNumber: number): { baseRef: string; guessedBase: string | null } | null {
+  if (refs.mergeSha) return { baseRef: `refs/pull/${prNumber}/merge`, guessedBase: null };
+  if (!refs.defaultRef) return null;
+  return { baseRef: refs.defaultRef, guessedBase: refs.defaultRef.replace(/^refs\/heads\//, "") };
+}
+
+/**
  * Resolves a PR reference into local git diff arguments, with git alone — no
  * GitHub API, so private repos just use your normal git auth. Fetches the PR
  * head (GitHub serves every PR at refs/pull/N/head, forks included) and a base
@@ -145,8 +160,9 @@ export async function resolvePr(arg: string, cwd: string): Promise<ResolvedPr> {
     throw new Error(`${label} not found on remote "${remote}" — does the PR exist?`);
   }
 
-  const baseRef = refs.mergeSha ? `refs/pull/${ref.number}/merge` : refs.defaultRef;
-  if (!baseRef) throw new Error(`remote "${remote}" has no default branch to diff against`);
+  const base = pickBase(refs, ref.number);
+  if (!base) throw new Error(`remote "${remote}" has no default branch to diff against`);
+  const { baseRef, guessedBase } = base;
   runGit(["fetch", remote, `refs/pull/${ref.number}/head`, baseRef], cwd);
   const baseTip = refs.mergeSha
     ? runGit(["rev-parse", `${refs.mergeSha}^1`], cwd).trim()
@@ -161,5 +177,5 @@ export async function resolvePr(arg: string, cwd: string): Promise<ResolvedPr> {
       `a shallow clone may lack the shared history (try \`git fetch --unshallow ${remote}\`)`,
     );
   }
-  return { diffArgs: [mergeBase, refs.headSha], label };
+  return { diffArgs: [mergeBase, refs.headSha], label, guessedBase };
 }

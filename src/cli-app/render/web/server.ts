@@ -53,6 +53,8 @@ export interface ViewerInput {
   buildPreviews: boolean;
   /** PR mode: "owner/repo#N — title", shown in the viewer header */
   label: string | null;
+  /** PR mode: the default branch it was diffed against, when GitHub no longer says the PR's base */
+  guessedBase: string | null;
   /** Diff/PR mode: data for the Summary tab */
   summary: SummaryView | null;
   /** The summary as stored now: the same object until a submit changes summary.json */

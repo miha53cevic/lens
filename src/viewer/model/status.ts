@@ -141,7 +141,19 @@ const summaryElsewhere: NoticeSource = (state) =>
       }
     : null;
 
+const guessedBase: NoticeSource = (state) =>
+  // a merged or closed PR: GitHub no longer says which branch it targeted, so the diff may not be the PR's
+  state.data.guessedBase
+    ? {
+        id: 'guessed-base',
+        text: 'PR base unknown · diffed against ' + state.data.guessedBase,
+        tone: 'warn',
+        action: null,
+      }
+    : null;
+
 const NOTICE_SOURCES: NoticeSource[] = [
+  guessedBase,
   changedOnDisk,
   staleSummaries,
   newSummary,

@@ -776,6 +776,22 @@ pageTest('the stamp poll is what notices a stopped server is back', async () => 
   assert.deepEqual(status(), REST, 'the next poll got through, with no click');
 });
 
+test('a PR diffed against a guessed base says so, and one with its own base says nothing', async () => {
+  const notices = () => $$('#status-bar .status-notices > *').map((notice) => notice.textContent);
+  await open({}, '', '', { ...payload, label: 'a/b#7', guessedBase: 'main' });
+  try {
+    assert.deepEqual(notices(), ['PR base unknown · diffed against main']);
+  } finally {
+    await close();
+  }
+  await open({}, '', '', { ...payload, label: 'a/b#7', guessedBase: null });
+  try {
+    assert.deepEqual(notices(), []);
+  } finally {
+    await close();
+  }
+});
+
 pageTest('a summary the agent wrote for another review says so, until this review has a newer run', async () => {
   const notices = () => $$('#status-bar .status-notices > *').map((notice) => notice.textContent);
   let elsewhere: unknown = { command: '/lens-review --staged' };

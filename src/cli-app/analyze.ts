@@ -95,6 +95,7 @@ export async function analyze(
     configSource: findConfigPath(cwd),
     buildPreviews: buildPreviewsOn(diff ? diff.root : cwd, config),
     label: diff ? diff.label : null,
+    guessedBase: diff ? diff.guessedBase : null,
     summary,
     latestSummary,
     changeStamp,

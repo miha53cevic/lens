@@ -1,6 +1,6 @@
 import { test } from "bun:test";
 import assert from "node:assert/strict";
-import { parsePrRef, githubRepoFromRemoteUrl, matchRemote, parseRemoteRefs } from "../src/cli-app/pr.ts";
+import { parsePrRef, githubRepoFromRemoteUrl, matchRemote, parseRemoteRefs, pickBase } from "../src/cli-app/pr.ts";
 
 test("parsePrRef accepts PR URLs in the forms GitHub produces", () => {
   assert.deepEqual(parsePrRef("https://github.com/anthropics/claude-code/pull/42"), {
@@ -92,4 +92,13 @@ test("parseRemoteRefs tolerates a missing merge ref and a missing PR", () => {
   });
   // other PRs' refs never bleed in
   assert.equal(parseRemoteRefs("bbb\trefs/pull/50/head", 5).headSha, null);
+});
+
+test("pickBase takes the PR's own base while GitHub serves its merge ref, and says when it guessed", () => {
+  const open = parseRemoteRefs("ref: refs/heads/main\tHEAD\naaa\tHEAD\nbbb\trefs/pull/5/head\nccc\trefs/pull/5/merge", 5);
+  assert.deepEqual(pickBase(open, 5), { baseRef: "refs/pull/5/merge", guessedBase: null });
+  // merged or closed: no merge ref, so the default branch stands in, named
+  const merged = parseRemoteRefs("ref: refs/heads/dev\tHEAD\naaa\tHEAD\nbbb\trefs/pull/5/head", 5);
+  assert.deepEqual(pickBase(merged, 5), { baseRef: "refs/heads/dev", guessedBase: "dev" });
+  assert.equal(pickBase(parseRemoteRefs("bbb\trefs/pull/5/head", 5), 5), null);
 });

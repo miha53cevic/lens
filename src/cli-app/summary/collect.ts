@@ -12,6 +12,8 @@ export interface LoadedDiff {
   diffArgs: string[];
   /** PR mode: "owner/repo#N" */
   label: string | null;
+  /** PR mode: the default branch it was diffed against, when the PR's own base is unknown (ResolvedPr) */
+  guessedBase: string | null;
   /** Changed files, excluded ones already dropped */
   targets: DiffTarget[];
   /** Absolute path → new-side content, for each target */
@@ -35,10 +37,12 @@ export interface LoadedDiff {
 export async function loadDiff(command: "diff" | "pr", args: string[], cwd: string, config: LensConfig): Promise<LoadedDiff> {
   let diffArgs = args;
   let label: string | null = null;
+  let guessedBase: string | null = null;
   if (command === "pr") {
     const pr = await resolvePr(args[0], cwd);
     diffArgs = pr.diffArgs;
     label = pr.label;
+    guessedBase = pr.guessedBase;
   }
   const root = gitRoot(cwd);
   const result = gitDiffTargets(diffArgs, cwd);
@@ -57,7 +61,7 @@ export async function loadDiff(command: "diff" | "pr", args: string[], cwd: stri
   // New-side content: from git for ref diffs, from disk for the working tree.
   const newBlobs = readBlobs(targets.flatMap((t) => (t.newBlob !== undefined ? [t.newBlob] : [])), cwd);
   return {
-    root, diffArgs, label, targets, excluded,
+    root, diffArgs, label, guessedBase, targets, excluded,
     sources: new Map(targets.map((t) =>
       [t.file, t.newBlob !== undefined ? newBlobs.get(t.newBlob)! : readFileSync(t.file, "utf8")])),
     deleted: result.deleted,
