@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.0](https://github.com/miha53cevic/lens/compare/v0.2.3...v0.3.0) (2026-10-22)
+
+
+### Features
+
+* reader notes on lines, and a right-click menu on the code ([#32](https://github.com/miha53cevic/lens/issues/32)) ([5b7a6c7](https://github.com/miha53cevic/lens/commit/5b7a6c7cd701c6bd3b5efea3bf6c04bb10d22acc))
+* side by side diff view ([#31](https://github.com/miha53cevic/lens/issues/31)) ([f077749](https://github.com/miha53cevic/lens/commit/f0777492f0b69c9a78d9ac07be4cdf7932f08a88))
+
+
+### Bug Fixes
+
+* more fixes ([#29](https://github.com/miha53cevic/lens/issues/29)) ([03e06f8](https://github.com/miha53cevic/lens/commit/03e06f86fc78493bd6a98b37ef7da8dd34547cc7))
+
 ## [0.2.3](https://github.com/miha53cevic/lens/compare/v0.2.2...v0.2.3) (2026-10-21)
 
 
