@@ -3,7 +3,7 @@ import { useCallback, useMemo } from 'react';
 import clsx from 'clsx';
 import { useLens } from '../../store.ts';
 import { activeFile, filePlan, isSplit, showsRemoved, splitRows } from '../../model/plans.ts';
-import { askSelLabels } from '../../ask/selection.ts';
+import { askSelLabels, tintsLeftHalf } from '../../ask/selection.ts';
 import { askSelection } from '../../model/askContext.ts';
 import { codeLines, isTestFile, listedOnlyCount } from '../../shared.ts';
 import { CodeRows, holdSelectionSide, SplitRows } from '../CodeRows/index.tsx';
@@ -38,9 +38,12 @@ export function FileCode() {
   // has focus), and the row the last jump landed on stays marked
   const path = file?.file ?? null;
   const marks = useMemo(() => {
-    const classes = new Map(askSelLabels(selection).map((label) => [label, 'ask-sel']));
+    const classes = new Map<string, string>();
+    const left = new Map<string, string>();
+    for (const label of askSelLabels(selection))
+      (tintsLeftHalf(selection, label) ? left : classes).set(label, 'ask-sel');
     if (landed && landed.path === path) classes.set(landed.label, clsx(classes.get(landed.label), 'landed'));
-    return { classes };
+    return { classes, left };
   }, [selection, landed, path]);
   const changedLines = useMemo(() => new Set(file?.changedLines || []), [file]);
   const items = plan?.items;

@@ -77,13 +77,14 @@ export function onSelectionChange(): void {
   }
   // side by side, a selection takes the code of the side it started on (holdSelectionSide keeps the other unselectable)
   const startRow = selection.anchorNode ? rowOf(selection.anchorNode) : null;
-  const otherSide = startRow?.classList.contains('left')
-    ? '.right'
+  const half = startRow?.classList.contains('left')
+    ? 'left'
     : startRow?.classList.contains('right')
-      ? '.left'
-      : null;
+      ? 'right'
+      : undefined;
+  const otherSide = half && (half === 'left' ? '.half.right' : '.half.left');
   const rows = [...root.querySelectorAll<HTMLElement>('.row')].filter(
-    (row) => !row.matches('.pill-row, .gap, .unit-gap, .half.none') && !(otherSide && row.matches('.half' + otherSide)),
+    (row) => !row.matches('.pill-row, .gap, .unit-gap, .half.none') && !(otherSide && row.matches(otherSide)),
   );
   const taken = selectedRows(rows, selection.getRangeAt(0));
   if (taken.length === 0) {
@@ -99,13 +100,21 @@ export function onSelectionChange(): void {
       text: text === ' ' ? '' : text,
     };
   });
-  askSetSelection({ key: context.key, file: context.file, lines });
+  askSetSelection({ key: context.key, file: context.file, lines, ...(half && { half }) });
 }
 
 /** A selection from another change goes once the reader opens a different one. */
 export function dropForeignSelection(state: LensState): void {
   const context = askContext(state);
   if (state.ask.selection && (!context || state.ask.selection.key !== context.key)) setAsk({ selection: null });
+}
+
+/**
+ * Side by side, a selection made in the left column tints the left half of its unchanged lines
+ * (RowMarks' `left`), not the right half that shares their label. Its removed lines are left only.
+ */
+export function tintsLeftHalf(selection: KeptSelection | null, label: string): boolean {
+  return selection?.half === 'left' && label.startsWith('N');
 }
 
 /** The labels ("N12" / "O5") of the selection's rows, for the rows to tint. */

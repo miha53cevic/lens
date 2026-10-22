@@ -40,7 +40,7 @@ function itemRows(item: SplitItem, itemIndex: number, context: RowContext): Reac
       html={lines[line - 1] ?? ''}
       changed={side === 'right' && changedLines.has(line)}
       gutter={gutter}
-      extraClass={clsx('half', side, marks?.classes?.get('N' + line))}
+      extraClass={clsx('half', side, (side === 'right' ? marks?.classes : marks?.left)?.get('N' + line))}
     />
   );
   switch (item.kind) {

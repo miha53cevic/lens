@@ -3,7 +3,7 @@ import clsx from 'clsx';
 import { useLens } from '../../../store.ts';
 import { concernLabel, findingMark, findings, isConcern, type Unit } from '../../../model/signals.ts';
 import { isSplit, showsRemoved, splitRows, unitPlan } from '../../../model/plans.ts';
-import { askSelLabels } from '../../../ask/selection.ts';
+import { askSelLabels, tintsLeftHalf } from '../../../ask/selection.ts';
 import { askSelection } from '../../../model/askContext.ts';
 import { codeLines } from '../../../shared.ts';
 import { CodeRows, holdSelectionSide, RemovedRow, SplitRows } from '../../CodeRows/index.tsx';
@@ -55,7 +55,11 @@ export function UnitCode({ unit, hoveredCite }: { unit: Unit; hoveredCite: strin
     );
     notes.set(concern.line, [...(notes.get(concern.line) ?? []), note]);
   }
-  for (const label of askSelLabels(selection)) addClass(label, 'ask-sel');
+  const left = new Map<string, string>();
+  for (const label of askSelLabels(selection)) {
+    if (tintsLeftHalf(selection, label)) left.set(label, 'ask-sel');
+    else addClass(label, 'ask-sel');
+  }
   if (hoveredCite) addClass(hoveredCite, 'hover-cite');
   if (landed && landed.path === unit.displayFile) addClass(landed.label, 'landed');
 
@@ -73,7 +77,7 @@ export function UnitCode({ unit, hoveredCite }: { unit: Unit; hoveredCite: strin
             changedLines={changedLines}
             removedWords={removedWords}
             gutter={plan.gutter}
-            marks={{ classes, notes }}
+            marks={{ classes, left, notes }}
           />
         ) : (
           <CodeRows
@@ -83,7 +87,7 @@ export function UnitCode({ unit, hoveredCite }: { unit: Unit; hoveredCite: strin
             changedLines={changedLines}
             removedWords={removedWords}
             gutter={plan.gutter}
-            marks={{ classes, notes }}
+            marks={{ classes, left, notes }}
           />
         )}
         {unit.renamedFrom && (

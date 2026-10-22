@@ -26,8 +26,11 @@ export interface Tab {
   pinned: boolean;
 }
 
-/** The reader's kept code selection, tied to the change it was made in. */
-export type KeptSelection = AskSelection & { key: string };
+/**
+ * The reader's kept code selection, tied to the change it was made in. Side by side, `half` is the
+ * column it was made in, so only that column shows it (the viewer's own: the question doesn't carry it).
+ */
+export type KeptSelection = AskSelection & { key: string; half?: 'left' | 'right' };
 
 /** A slow action under way (actions/status.ts). */
 export interface Activity {

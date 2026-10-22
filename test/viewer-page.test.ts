@@ -487,28 +487,44 @@ pageTest('side by side (l, off by default) puts each removed line beside what re
   assert.equal(localStorage.getItem('lens.sideBySide'), '0');
 });
 
-pageTest('side by side: an Ask selection takes the lines of the side it started on', async (page) => {
-  page.ask = { listening: true, questions: [] };
-  await key('l');
-  await key('\\');
-  // from the new side of line 11 to the new side of line 12: the old side of 11 is in between in the markup
+/** Selects from the start of one row to the first character of another, as a drag would. */
+async function selectRows(from: HTMLElement, to: HTMLElement) {
   const range = document.createRange();
-  range.setStart($('#code .half.right[data-line="11"]'), 0);
-  range.setEnd($('#code .half.right[data-line="12"]').lastElementChild!, 1);
+  range.setStart(from, 0);
+  range.setEnd(to.lastElementChild!, 1);
   document.getSelection()!.removeAllRanges();
   document.getSelection()!.addRange(range);
   document.dispatchEvent(new Event('selectionchange'));
   await settle();
-  assert.equal($('#ask-chips').textContent, 'orders.tssrc/orders.ts:11–12');
-  await type($('#ask-input'), 'why?');
-  await click($('#ask-send'));
-  const sent = page.requests.find((request) => request.method === 'POST' && request.path === '/api/ask')!;
-  const body = sent.body as { selection: { lines: { n: number; side: string }[] } };
-  assert.deepEqual(
-    body.selection.lines.map((line) => line.side + line.n),
-    ['new11', 'new12'],
-  );
-});
+}
+
+pageTest(
+  'side by side: an Ask selection takes the lines of the side it started on, and only that side shows it',
+  async (page) => {
+    page.ask = { listening: true, questions: [] };
+    await key('l');
+    await key('\\');
+    const half = (side: string, line: number) => $('#code .half.' + side + '[data-line="' + line + '"]');
+    // from the old side of line 11 to the old side of line 12: the new side of 12 is in between in the markup
+    await selectRows(half('left', 11), half('left', 12));
+    assert.equal($('#ask-chips').textContent, 'orders.tssrc/orders.ts:11–12');
+    assert.ok(half('left', 11).classList.contains('ask-sel'));
+    assert.ok(!half('right', 11).classList.contains('ask-sel'), "the unchanged line's other half isn't tinted");
+    // and the other way round
+    await selectRows(half('right', 11), half('right', 12));
+    assert.equal($('#ask-chips').textContent, 'orders.tssrc/orders.ts:11–12');
+    assert.ok(half('right', 12).classList.contains('ask-sel'));
+    assert.ok(!half('left', 12).classList.contains('ask-sel'));
+    await type($('#ask-input'), 'why?');
+    await click($('#ask-send'));
+    const sent = page.requests.find((request) => request.method === 'POST' && request.path === '/api/ask')!;
+    const body = sent.body as { selection: { lines: { n: number; side: string }[] } };
+    assert.deepEqual(
+      body.selection.lines.map((line) => line.side + line.n),
+      ['new11', 'new12'],
+    );
+  },
+);
 
 /** The overview ruler's ticks: "add N9" a run of changes from line 9, "del O17" removed lines, "bug N10" a concern */
 function ticks(card = '.code-pane'): string[] {
