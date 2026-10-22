@@ -16,15 +16,19 @@ interface ContextProps {
 
 /**
  * Full units: the rest of the unit's file above or below it, behind a bar that says what it
- * holds. A click on the bar opens it as ordinary code, and closes it again. Its rows are there
- * while it's closed, as a fold's are, so a jump to one of them finds it (openFoldAround).
+ * holds. A click on the bar opens it as ordinary code, and closes it again. Above opens over
+ * its bar, so the bar stays on the unit's top edge and on screen where it was (toggleContext).
+ * Its rows are there while it's closed, as a fold's are, so a jump to one of them finds it
+ * (openFoldAround).
  */
 export function Context({ item, context }: ContextProps) {
   const changed = item.added > 0 || item.removed > 0;
   const hidden = item.names.length - NAMES_SHOWN;
+  const body = <div className='context-body'>{planRows(item.body, context)}</div>;
   return (
     <div className={clsx('context', item.side, item.open && 'open')} data-key={item.key}>
-      <div className='row context-bar' onClick={() => toggleContext(item.key)}>
+      {item.side === 'above' && body}
+      <div className='row context-bar' onClick={(event) => toggleContext(item.key, event.currentTarget)}>
         <span className='num'>{''.padStart(context.gutter)}</span>
         <span className={clsx('mark', changed && 'changed')} />
         <span className='context-label'>
@@ -46,7 +50,7 @@ export function Context({ item, context }: ContextProps) {
         )}
         <span className='context-count'>{plural(item.lineCount, 'line')}</span>
       </div>
-      <div className='context-body'>{planRows(item.body, context)}</div>
+      {item.side === 'below' && body}
     </div>
   );
 }

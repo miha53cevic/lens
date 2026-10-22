@@ -2021,6 +2021,12 @@ pageTest('full units: the rest of the file sits above and below the unit, each b
   await key('h');
   await click(bar('above'));
   assert.deepEqual(opened('above'), ['R1', '4']);
+  // Above opens over its bar: the bar stays on the unit's top edge
+  const above = $(code + ' > .context.above');
+  assert.deepEqual(
+    [...above.children].map((child) => child.className),
+    ['context-body', 'row context-bar'],
+  );
   assert.deepEqual(opened('below'), [
     ...['13', '14', '15', '16', '17', '−17', '−18', '−19', '−20'],
     ...['18', '19', '20', '21', '22', '23', '24', '25', '26', '27'],

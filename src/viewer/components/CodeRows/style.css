@@ -206,8 +206,8 @@
   background: var(--hover-bg);
   color: var(--text);
 }
-/* the card's own edge is the bar's outer line */
-.context.above:first-child > .context-bar {
+/* the card's own edge is the bar's outer line (open, Above's body is over its bar) */
+.context.above:first-child:not(.open) > .context-bar {
   margin-top: calc(-1 * var(--space-1));
   border-top-color: transparent;
 }
@@ -216,8 +216,12 @@
   margin-bottom: calc(-1 * var(--space-3));
   border-bottom-color: transparent;
 }
-.context.above:not(.open) > .context-bar {
+.context.above > .context-bar {
   margin-bottom: var(--space-1);
+}
+/* the caret points at the code it opened: up for Above, down for Below */
+.context.above > .context-bar .caret.open {
+  transform: rotate(-90deg);
 }
 .context.below:not(.open) > .context-bar {
   margin-top: var(--space-1);
