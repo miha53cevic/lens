@@ -7,15 +7,19 @@ import { plural } from '../../../shared.ts';
 import { Button } from '../../../../ui/Button.tsx';
 
 /**
- * The concerns and possible breaks the reader marked real, ready to hand to the agent: one click copies them, each
- * with its place in the code. Shown only while there is one, or one on code that changed since. lens fixes nothing itself.
+ * The concerns and possible breaks the reader marked real, and the notes they wrote for the agent, ready to hand
+ * over: one click copies them, each with its place in the code. Shown only while there is one, or a confirmed one
+ * on code that changed since. lens fixes nothing itself.
  */
 export function RealConcerns() {
-  const real = useLens((state) => realConcerns(state.data.summary!.units, state.concernMarks));
+  const real = useLens((state) =>
+    realConcerns(state.data.summary!.units, state.concernMarks, state.notes, state.data.files),
+  );
   const [copied, setCopied] = useState(false);
   // no clipboard (an insecure origin, a denied permission): the text itself, to select and copy
   const [shown, setShown] = useState(false);
-  if (real.items.length === 0 && real.stale === 0) return null;
+  const count = real.items.length + real.notes.length;
+  if (count === 0 && real.stale === 0) return null;
 
   const copy = async () => {
     try {
@@ -31,19 +35,17 @@ export function RealConcerns() {
     <div className='ov-real'>
       <div className='ov-real-row'>
         <span className='ov-real-count'>
-          {real.items.length > 0 && (
-            <>
-              <b>{confirmedLabel(real, 'confirmed ')}</b> in {plural(real.unitCount, 'change')}
-            </>
-          )}
+          {count > 0 && <b>{confirmedLabel(real, 'confirmed ')}</b>}
+          {/* the notes are on lines, not in changes: the count of changes is for confirmed findings alone */}
+          {real.items.length > 0 && real.notes.length === 0 && <> in {plural(real.unitCount, 'change')}</>}
           {real.stale > 0 && (
             <span className='stale-count'>
-              {(real.items.length > 0 ? ' · ' + real.stale + ' more' : plural(real.stale, 'confirmed finding')) +
+              {(count > 0 ? ' · ' + real.stale + ' more' : plural(real.stale, 'confirmed finding')) +
                 ' on code that changed since'}
             </span>
           )}
         </span>
-        {real.items.length > 0 && (
+        {count > 0 && (
           <Button size='sm' className='ov-real-copy' onClick={copy}>
             {copied ? <Check size={13} /> : <Copy size={13} />}
             Copy for your agent

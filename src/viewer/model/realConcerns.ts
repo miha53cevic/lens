@@ -1,7 +1,11 @@
-// The findings the reader marked real (concerns and callers it may break), as text for the agent that will fix them.
+// The findings the reader marked real (concerns and callers it may break), and the notes they wrote
+// for the agent, as text for the agent that will fix them.
 
+import type { ReaderNote } from '../../cli-app/notes/store.ts';
+import type { ViewerPayload } from '../../cli-app/render/web/server.ts';
 import { memo, plural } from '../shared.ts';
 import { type Finding, findingMark, findings, type Marks, type Unit, unitViewKey } from './signals.ts';
+import { forAgent, placeOn } from './notes.ts';
 
 export interface RealConcerns {
   /** The confirmed findings, in the summary's order */
@@ -11,15 +15,18 @@ export interface RealConcerns {
   breakCount: number;
   /** How many units they are in */
   unitCount: number;
+  /** The reader's notes that go along: a bug, risk or question (a plain note stays theirs) */
+  notes: ReaderNote[];
   /** Confirmed findings left out: their unit's code changed since, so their lines may point elsewhere */
   stale: number;
-  /** What the overview's button copies */
+  /** What the copy button copies */
   text: string;
 }
 
-/** "1 concern and 2 possible breaks": what is confirmed, by kind, each word prefixed */
+/** "2 notes and 1 concern": the reader's notes, then what is confirmed by kind, each finding's word prefixed */
 export function confirmedLabel(real: RealConcerns, prefix = ''): string {
   const parts = [];
+  if (real.notes.length > 0) parts.push(plural(real.notes.length, 'note'));
   if (real.concernCount > 0) parts.push(plural(real.concernCount, prefix + 'concern'));
   if (real.breakCount > 0) parts.push(plural(real.breakCount, prefix + 'possible break'));
   return parts.join(' and ');
@@ -41,6 +48,31 @@ function findingText(unit: Unit, finding: Finding, index: number): string {
   return `\n${index + 1}. [${finding.kind}] ${place} — ${unit.name}\n   ${finding.text}`;
 }
 
+const lineSpan = (start: number, end: number) => (start === end ? String(start) : start + '–' + end);
+
+/** One of the reader's notes as the agent can act on it: where its lines are now, and what it says. */
+function noteText(files: ViewerPayload['files'], note: ReaderNote, index: number): string {
+  const file = files.find((candidate) => candidate.file === note.file);
+  const placed = file ? placeOn(file, note) : null;
+  const start = placed?.start ?? note.start;
+  const end = placed?.end ?? note.end;
+  const place =
+    note.side === 'old'
+      ? `${note.file} (removed ${start === end ? 'line' : 'lines'} ${lineSpan(start, end)})`
+      : `${note.file}:${lineSpan(start, end)}`;
+  const changed = placed && !placed.changed ? '' : '\n   (The code there changed since this was written.)';
+  return `\n${index + 1}. [${note.kind} · reviewer] ${place}\n   ${note.text.split('\n').join('\n   ')}${changed}`;
+}
+
+/** What the text asks first: who raised what, and what to do with each kind. */
+function intro(confirmed: number, notes: number): string {
+  if (notes === 0) return 'Fix these review findings. Each was raised in a lens review and confirmed by the reviewer.';
+  const what = 'Fix the bugs and risks; answer the questions without changing code.';
+  return confirmed === 0
+    ? 'Act on these notes the reviewer wrote in a lens review. ' + what
+    : 'Act on these lens review findings: the reviewer raised some and confirmed the others. ' + what;
+}
+
 /**
  * The marks a stale unit's findings got: its summary is gone from the view, but its marks are still
  * keyed by the hash that summary was written for.
@@ -53,27 +85,48 @@ function staleRealMarks(marks: Marks, unit: Unit): number {
   return count;
 }
 
-export const realConcerns = memo((units: readonly Unit[], marks: Marks): RealConcerns => {
-  const items: RealConcerns['items'] = [];
-  let stale = 0;
-  for (const unit of units) {
-    stale += staleRealMarks(marks, unit);
-    for (const finding of findings(unit)) if (findingMark(marks, finding) === 'real') items.push({ unit, finding });
-  }
-  const lines = [
-    'Fix these review findings. Each was raised in a lens review and confirmed by the reviewer.',
-    ...items.map(({ unit, finding }, index) => findingText(unit, finding, index)),
-  ];
-  if (stale > 0) {
-    lines.push(`\nLeft out: ${plural(stale, 'confirmed finding')} on code that changed since the summary was written.`);
-  }
-  const breakCount = items.filter(({ finding }) => finding.kind === 'breaks').length;
-  return {
-    items,
-    concernCount: items.length - breakCount,
-    breakCount,
-    unitCount: new Set(items.map((item) => item.unit.id)).size,
-    stale,
-    text: lines.join('\n') + '\n',
-  };
-});
+export const realConcerns = memo(
+  (
+    units: readonly Unit[],
+    marks: Marks,
+    allNotes: readonly ReaderNote[],
+    files: ViewerPayload['files'],
+  ): RealConcerns => {
+    const items: RealConcerns['items'] = [];
+    let stale = 0;
+    for (const unit of units) {
+      stale += staleRealMarks(marks, unit);
+      for (const finding of findings(unit)) if (findingMark(marks, finding) === 'real') items.push({ unit, finding });
+    }
+    const notes = allNotes
+      .filter(forAgent)
+      .toSorted((one, other) => one.file.localeCompare(other.file) || one.start - other.start);
+    const lines = [
+      intro(items.length, notes.length),
+      ...notes.map((note, index) => noteText(files, note, index)),
+      ...items.map(({ unit, finding }, index) => findingText(unit, finding, notes.length + index)),
+    ];
+    if (stale > 0) {
+      lines.push(
+        `\nLeft out: ${plural(stale, 'confirmed finding')} on code that changed since the summary was written.`,
+      );
+    }
+    const breakCount = items.filter(({ finding }) => finding.kind === 'breaks').length;
+    return {
+      items,
+      concernCount: items.length - breakCount,
+      breakCount,
+      unitCount: new Set(items.map((item) => item.unit.id)).size,
+      notes,
+      stale,
+      text: lines.join('\n') + '\n',
+    };
+  },
+);
+
+/** The Code view's copy, with no summary to confirm anything in: the reader's notes alone. */
+const NO_UNITS: readonly Unit[] = [];
+const NO_MARKS: Marks = new Map();
+export function notesForAgent(notes: readonly ReaderNote[], files: ViewerPayload['files']): RealConcerns {
+  return realConcerns(NO_UNITS, NO_MARKS, notes, files);
+}

@@ -99,6 +99,19 @@ nav .file.binary:disabled {
 .legend.changed {
   color: var(--mod);
 }
+/* under the ring, with no summary: the reader's notes for the agent, and their copy */
+.legend.notes-for-agent {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--muted);
+}
+.notes-for-agent .btn {
+  height: var(--control-h-xs);
+  padding: 0 var(--space-2);
+  font-size: var(--text-xs);
+}
 
 .sum-overview-item {
   display: flex;

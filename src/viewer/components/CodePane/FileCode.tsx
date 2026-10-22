@@ -1,50 +1,64 @@
 import { TriangleAlert } from 'lucide-react';
-import { useCallback, useMemo } from 'react';
+import { type ReactNode, useCallback, useMemo } from 'react';
 import clsx from 'clsx';
 import { useLens } from '../../store.ts';
 import { activeFile, filePlan, isSplit, showsRemoved, splitRows } from '../../model/plans.ts';
 import { askSelLabels, tintsLeftHalf } from '../../ask/selection.ts';
 import { askSelection } from '../../model/askContext.ts';
+import { fileNotes } from '../../model/notes.ts';
 import { codeLines, isTestFile, listedOnlyCount } from '../../shared.ts';
 import { CodeRows, holdSelectionSide, SplitRows } from '../CodeRows/index.tsx';
 import { CodeCard, removedCount } from '../CodeCard.tsx';
 import { OverviewRuler } from '../OverviewRuler.tsx';
+import { addNoteMarks, OutdatedNotes } from '../Notes/marks.tsx';
 import { fileStatus } from '../../../ui/FileStatus.tsx';
 import { findUsages, restoreFileScroll, saveFileScroll } from './util.ts';
 
-/** The Code view has no concerns: only changes tick the ruler. */
-const NO_FLAGS: ReadonlyMap<string, string> = new Map();
-
 /** The open file's code card, or why there's none. */
 export function FileCode() {
-  const { file, plan, hiddenAsTest, fileCount, listedOnly, selection, showRemoved, wordDiff, split, landed } = useLens(
-    (state) => {
-      const file = activeFile(state);
-      return {
-        file,
-        plan: file ? filePlan(state, file) : null,
-        hiddenAsTest: !!file && state.hideTests && isTestFile(file.file),
-        fileCount: state.data.files.length,
-        listedOnly: listedOnlyCount(state.data),
-        selection: askSelection(state),
-        showRemoved: showsRemoved(state),
-        wordDiff: state.wordDiff,
-        split: isSplit(state),
-        landed: state.landed,
-      };
-    },
-  );
+  const {
+    file,
+    plan,
+    notes,
+    draft,
+    hiddenAsTest,
+    fileCount,
+    listedOnly,
+    selection,
+    showRemoved,
+    wordDiff,
+    split,
+    landed,
+  } = useLens((state) => {
+    const file = activeFile(state);
+    return {
+      file,
+      plan: file ? filePlan(state, file) : null,
+      notes: file ? fileNotes(state.notes, file) : null,
+      draft: state.noteDraft,
+      hiddenAsTest: !!file && state.hideTests && isTestFile(file.file),
+      fileCount: state.data.files.length,
+      listedOnly: listedOnlyCount(state.data),
+      selection: askSelection(state),
+      showRemoved: showsRemoved(state),
+      wordDiff: state.wordDiff,
+      split: isSplit(state),
+      landed: state.landed,
+    };
+  });
   // the kept Ask selection's rows are tinted (the browser's own highlight goes once the rail's input
-  // has focus), and the row the last jump landed on stays marked
+  // has focus), the row the last jump landed on stays marked, and the reader's notes sit under their lines
   const path = file?.file ?? null;
   const marks = useMemo(() => {
     const classes = new Map<string, string>();
     const left = new Map<string, string>();
+    const noteNodes = new Map<string, ReactNode[]>();
     for (const label of askSelLabels(selection))
       (tintsLeftHalf(selection, label) ? left : classes).set(label, 'ask-sel');
     if (landed && landed.path === path) classes.set(landed.label, clsx(classes.get(landed.label), 'landed'));
-    return { classes, left };
-  }, [selection, landed, path]);
+    if (notes && path) addNoteMarks({ classes, notes: noteNodes }, notes, draft, path);
+    return { classes, left, notes: noteNodes };
+  }, [selection, landed, path, notes, draft]);
   const changedLines = useMemo(() => new Set(file?.changedLines || []), [file]);
   const items = plan?.items;
   const pairs = useMemo(
@@ -87,7 +101,7 @@ export function FileCode() {
           </>
         )
       }
-      ruler={<OverviewRuler path={file.file} items={plan.items} changedLines={changedLines} flagged={NO_FLAGS} />}
+      ruler={<OverviewRuler path={file.file} items={plan.items} changedLines={changedLines} flagged={notes!.flagged} />}
       bodyRef={restoreScroll}
       onBodyScroll={(event) => saveFileScroll(event.currentTarget, file.file)}
     >
@@ -97,6 +111,7 @@ export function FileCode() {
         onClick={findUsages}
         onMouseDown={pairs ? holdSelectionSide : undefined}
       >
+        <OutdatedNotes fileNotes={notes!} />
         {pairs ? (
           <SplitRows
             path={file.file}

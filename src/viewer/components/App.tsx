@@ -17,6 +17,7 @@ import { SearchDialog } from './SearchDialog/index.tsx';
 import { ClearDataDialog } from './ClearDataDialog/index.tsx';
 import { ReviewPill } from './ReviewPill.tsx';
 import { StatusBar } from './StatusBar/index.tsx';
+import { CodeMenu } from './CodeMenu.tsx';
 import './App.css';
 
 export function App() {
@@ -34,6 +35,7 @@ export function App() {
       <KeysDialog />
       <SearchDialog />
       <ClearDataDialog />
+      <CodeMenu />
       <div className='layout'>
         <Nav />
         <Resizer

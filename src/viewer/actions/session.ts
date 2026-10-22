@@ -81,6 +81,8 @@ export function refresh(theme = getState().data.theme): Promise<boolean> {
       if (active >= 0) tabs = withTab(tabs, active, active);
       return {
         data,
+        notes: data.notes,
+        noteDraft: null, // its lines are numbers, which an edit moves
         tabs,
         active,
         expandedGaps: new Set(), // keyed by line numbers, which an edit moves

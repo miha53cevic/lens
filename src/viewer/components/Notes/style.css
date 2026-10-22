@@ -1,0 +1,103 @@
+/* the reader's notes: under their line like a review comment, as the agent's concerns are
+   (.inline-note), in the kind's signal color; a plain note is neutral */
+.reader-note {
+  --k: var(--line-strong);
+  max-width: 76ch;
+  margin: var(--space-1) var(--space-5) var(--space-2) 5.5rem;
+  padding: var(--space-1) var(--space-3) var(--space-2);
+  border: 1px solid color-mix(in oklab, var(--k) 35%, transparent);
+  border-left: 3px solid var(--k);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  background: var(--surface);
+  color: var(--text);
+  font: var(--text-sm) / 1.45 var(--font-sans);
+  white-space: normal;
+}
+.reader-note.k-note {
+  --k: var(--line-strong);
+}
+/* what it was written on isn't there as it was: likely dealt with */
+.reader-note.changed {
+  opacity: 0.75;
+}
+.reader-note.changed:hover,
+.reader-note.changed:focus-within {
+  opacity: 1;
+}
+.rn-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  margin-bottom: var(--space-1);
+}
+.reader-note b {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--k);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.reader-note.k-note b {
+  color: var(--muted);
+}
+.rn-meta {
+  min-width: 0;
+  color: var(--muted);
+  font: var(--text-2xs) var(--font-mono);
+}
+.rn-acts {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: auto;
+}
+.reader-note .rn-acts .btn {
+  height: var(--control-h-xs);
+  padding: 0 var(--space-2);
+  font-size: var(--text-xs);
+}
+.rn-text {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.reader-note.composer .textarea {
+  width: 100%;
+  margin: var(--space-1) 0 var(--space-2);
+}
+.rn-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.rn-hint {
+  display: inline-flex;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  min-width: 0;
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+/* the line a note is on: in its kind's color, a plain note's in neutral */
+.row.noted {
+  background: color-mix(in oklab, var(--k, var(--line-strong)) var(--tint), transparent);
+}
+.row.noted .num {
+  color: var(--k, var(--text));
+  font-weight: 700;
+}
+
+/* notes whose lines are gone, above the file's code */
+.outdated-notes {
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--line);
+}
+.outdated-notes .reader-note {
+  margin-left: var(--space-4);
+}

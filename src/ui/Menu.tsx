@@ -76,6 +76,14 @@ function placeUnder(menu: HTMLElement | null, trigger: HTMLElement) {
   menu.style.right = Math.max(8, window.innerWidth - rect.right) + 'px';
 }
 
+/** An open menu at a point (a right-click): its top left corner there, kept inside the window. */
+export function placeAt(menu: HTMLElement, x: number, y: number) {
+  const { width, height } = menu.getBoundingClientRect();
+  menu.style.right = 'auto';
+  menu.style.left = Math.max(8, Math.min(x, window.innerWidth - width - 8)) + 'px';
+  menu.style.top = Math.max(8, Math.min(y, window.innerHeight - height - 8)) + 'px';
+}
+
 /** Closes the menu an item is in. */
 function closeMenu(item: HTMLElement) {
   item.closest<HTMLElement>('[popover]')?.hidePopover?.();
