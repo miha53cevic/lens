@@ -103,13 +103,7 @@ export function MoreMenu() {
           <MenuSeparator />
           <MenuSection title='Show'>
             {more.diffMode && (
-              <MenuSwitch
-                id='hunks-only'
-                shortcut='h'
-                title='only the changed hunks, with 3 lines of context, like a PR diff'
-                checked={more.hunksOnly}
-                onChange={setHunksOnly}
-              >
+              <MenuSwitch id='hunks-only' shortcut='h' checked={more.hunksOnly} onChange={setHunksOnly}>
                 Hunks only
               </MenuSwitch>
             )}
@@ -124,41 +118,18 @@ export function MoreMenu() {
                 Removed lines
               </MenuSwitch>
             )}
-            {more.split && (
-              <div className='menu-hint' id='show-removed-hint'>
-                Side by side always shows them: they're its left side.
-              </div>
-            )}
             {more.diffMode && (
-              <MenuSwitch
-                id='word-diff'
-                shortcut='d'
-                title='mark the words a replaced line changed, on both sides'
-                checked={more.wordDiff}
-                onChange={setWordDiff}
-              >
+              <MenuSwitch id='word-diff' shortcut='d' checked={more.wordDiff} onChange={setWordDiff}>
                 Word diff
               </MenuSwitch>
             )}
             {more.diffMode && (
-              <MenuSwitch
-                id='side-by-side'
-                shortcut='l'
-                title='old code on the left, new on the right'
-                checked={more.split}
-                onChange={setSideBySide}
-              >
+              <MenuSwitch id='side-by-side' shortcut='l' checked={more.split} onChange={setSideBySide}>
                 Side by side
               </MenuSwitch>
             )}
             {more.testsPresent && (
-              <MenuSwitch
-                id='hide-tests'
-                shortcut='t'
-                title='hide files matching the configured test patterns (*.spec.*, *.test.*, ...)'
-                checked={more.hideTests}
-                onChange={setHideTests}
-              >
+              <MenuSwitch id='hide-tests' shortcut='t' checked={more.hideTests} onChange={setHideTests}>
                 Hide tests
               </MenuSwitch>
             )}
