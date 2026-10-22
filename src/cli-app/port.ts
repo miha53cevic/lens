@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { createServer } from "node:net";
 import { runningServer } from "./ask/discovery.ts";
+import { toPosix } from "./paths.ts";
 
 // The viewer's port when --port isn't given: each repository has its own, the same on every run.
 // Two reviews then run side by side, and a repository's page keeps what the browser files under
@@ -12,9 +13,12 @@ const PORT_COUNT = 1000;
 /** How many ports after a repository's own are tried when something else holds it. */
 const PORT_TRIES = 50;
 
-/** The port `root` gets: from its path, so it is the same every time. */
+/**
+ * The port `root` gets: from its path, so it is the same every time. `/`-separated, as git gives a
+ * repository's root: on Windows a path from the shell has `\` instead, and would get another port.
+ */
 export function repoPort(root: string): number {
-  return FIRST_PORT + (createHash("sha256").update(root).digest().readUInt32BE(0) % PORT_COUNT);
+  return FIRST_PORT + (createHash("sha256").update(toPosix(root)).digest().readUInt32BE(0) % PORT_COUNT);
 }
 
 /** Whether nothing listens on `port` right now. */

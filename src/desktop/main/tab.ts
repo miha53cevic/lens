@@ -65,6 +65,8 @@ export class Tab {
   private reads = 0;
   /** How many of them haven't answered yet */
   private reading = 0;
+  /** Those reads: a closing tab waits for them, as each runs `lens info` in the repository */
+  private readonly inFlight = new Set<Promise<void>>();
   /** What the picker's last poll failed with: said once, not on every poll */
   private pollFailure: string | null = null;
   /** A reopened tab: the folder it is reading, until `lens info` has answered for it */
@@ -242,7 +244,13 @@ export class Tab {
     await this.read(undefined, true);
   }
 
-  private async read(base: string | undefined, quiet: boolean): Promise<void> {
+  private read(base: string | undefined, quiet: boolean): Promise<void> {
+    const reading = this.readNow(base, quiet);
+    this.inFlight.add(reading);
+    return reading.finally(() => this.inFlight.delete(reading));
+  }
+
+  private async readNow(base: string | undefined, quiet: boolean): Promise<void> {
     const root = this.repo?.root;
     if (!root) return;
     const read = ++this.reads;
@@ -362,7 +370,7 @@ export class Tab {
   }
 
   cancel(): void {
-    this.starting?.cancel();
+    void this.starting?.cancel();
   }
 
   dismiss(): void {
@@ -403,7 +411,8 @@ export class Tab {
 
   /** The tab is closing: nothing of it keeps running. */
   async close(): Promise<void> {
-    this.starting?.cancel();
-    await this.endReview();
+    await Promise.all([this.starting?.cancel(), this.endReview()]);
+    // nothing of it still runs in the repository (on Windows, that would hold its folder)
+    await Promise.allSettled([...this.inFlight]);
   }
 }

@@ -9,7 +9,7 @@ import { compilePatterns, matchesAny } from "./glob.ts";
 import { relPath } from "./paths.ts";
 import type { FileFoldModel, LensConfig } from "./model.ts";
 import { loadDiff, collectUnits, type LoadedDiff } from "./summary/collect.ts";
-import { summaryStamp } from "./summary/store.ts";
+import { reviewKey, summaryStamp } from "./summary/store.ts";
 import { buildSummaryView, type SummaryView } from "./summary/view.ts";
 import { buildPreviewsOn } from "./summary/settings.ts";
 
@@ -74,8 +74,12 @@ export async function analyze(
       const { root } = diff;
       const build = () => buildSummaryView({ root, cwd, command, args, units });
       let view = build();
-      // summary.json's mtime is cheap to check; rebuild only after a submit
-      latestSummary = () => (summaryStamp(root, view.key) === view.stamp ? view : (view = build()));
+      // rebuilt only after a submit (summary.json's mtime), or on another branch: a diff's key names
+      // the branch, and what must be checked out first is measured from HEAD (checkoutFirst)
+      latestSummary = () => {
+        const key = reviewKey(root, command, args);
+        return key === view.key && summaryStamp(root, key) === view.stamp ? view : (view = build());
+      };
       summary = view;
     } catch (err) {
       console.error(`lens: summary mode unavailable: ${(err as Error).message}`);

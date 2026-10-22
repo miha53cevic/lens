@@ -26,7 +26,8 @@ export function setView(view: View): void {
   }
 }
 
-async function loadSummary(): Promise<void> {
+/** `branch`: another branch was checked out, and the summary is read under its key now */
+async function loadSummary(branch = false): Promise<void> {
   await tracked(
     { id: 'summary', label: 'Loading the new summary…', failed: "Couldn't load the new summary" },
     async () => {
@@ -34,7 +35,8 @@ async function loadSummary(): Promise<void> {
       const summary: SummaryView | null = await response.json();
       // only once it's loaded: a failed load is tried again
       update((state) => ({ summaryDot: false, data: summary ? { ...state.data, summary } : state.data }));
-      noteDone(summary && summary.stamp === null ? 'The summary was cleared' : 'New summary loaded');
+      if (branch) noteDone('Another branch is checked out: the summary is read for it');
+      else noteDone(summary && summary.stamp === null ? 'The summary was cleared' : 'New summary loaded');
     },
   );
 }
@@ -56,6 +58,12 @@ export async function checkStamp(): Promise<void> {
     if (changed !== changedOnDisk) update({ changedOnDisk: changed });
     const building = stamp.building ?? null;
     if (JSON.stringify(building) !== JSON.stringify(summaryBuild)) update({ summaryBuild: building });
+    // another branch checked out: its summary, and whether to check one out first, in either view
+    // (nothing new is waiting, so no dot)
+    if (data.summary && stamp.key && stamp.key !== data.summary.key) {
+      await loadSummary(true);
+      return;
+    }
     // null too: the summary was cleared, here or from another viewer of the same repository
     if (data.summary && stamp.summary !== data.summary.stamp) {
       if (view === 'summary') await loadSummary();

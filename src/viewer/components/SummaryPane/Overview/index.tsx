@@ -9,6 +9,8 @@ import { plural } from '../../../shared.ts';
 import { AgentOverview } from './AgentOverview.tsx';
 import { RealConcerns } from './RealConcerns.tsx';
 import { Drawings } from '../Drawings/index.tsx';
+import { SignalIcon } from '../../SignalIcon.tsx';
+import { Tag } from '../../../../ui/Tag.tsx';
 
 const SHOWN_SIGNALS: SignalId[] = ['bug', 'risk', 'question', 'breaks'];
 
@@ -34,16 +36,18 @@ export function Overview() {
       {flagged.length > 0 && (
         <div className='ov-stats'>
           {flagged.map((signal) => (
-            <button
+            // the list's signal filters (SignalChips), at the overview's size: the color once it's on
+            <Tag
               key={signal}
               className={clsx('ov-stat', 'sig-' + signal)}
               data-sig={signal}
-              aria-pressed={list.signal === signal}
+              color={list.signal === signal ? 'var(--sig)' : undefined}
+              icon={<SignalIcon signal={signal} size={11} />}
+              pressed={list.signal === signal}
               onClick={() => setSignalFilter(signal)}
             >
-              <i className='dot' />
               <b>{list.counts[signal]}</b> {list.counts[signal] === 1 ? SIGNALS[signal].one : SIGNALS[signal].many}
-            </button>
+            </Tag>
           ))}
         </div>
       )}

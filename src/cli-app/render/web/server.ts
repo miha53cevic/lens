@@ -102,11 +102,13 @@ export interface ThemeTokens {
 
 /**
  * What /api/stamp answers, everything the page watches for in one request: the stored summary's
- * stamp, the change's fingerprint as it is on disk now (null when this review has none), and the
- * agent's summary run while one is going.
+ * stamp and the key it's read under (another branch checked out moves it), the change's
+ * fingerprint as it is on disk now (null when this review has none), and the agent's summary run
+ * while one is going.
  */
 export interface StampResponse {
   summary: number | null;
+  key: string | null;
   change: string | null;
   building: BuildProgress | null;
 }
@@ -266,7 +268,6 @@ export async function serveViewer(
   await tokensFor(current.files, opts.theme);
   const template = await loadTemplate();
 
-  /** A submit since the summary was read: take the new one (the units stay those of the last analysis). */
   // the reader keeps its last read, so it's made again only for another review's summary
   let progress: { at: string; read: ReturnType<typeof buildProgressReader> } | null = null;
   function buildingNow(): BuildProgress | null {
@@ -277,6 +278,7 @@ export async function serveViewer(
     return progress.read();
   }
 
+  /** A submit or another branch since the summary was read: take the new one (the units stay those of the last analysis). */
   function syncSummary(): void {
     const summary = current.latestSummary?.() ?? null;
     if (summary !== current.summary) current = { ...current, summary };
@@ -345,6 +347,7 @@ export async function serveViewer(
         syncSummary();
         const stamp: StampResponse = {
           summary: current.summary?.stamp ?? null,
+          key: current.summary?.key ?? null,
           change: await changeNow(),
           building: buildingNow(),
         };
@@ -364,6 +367,8 @@ export async function serveViewer(
         current = { ...current, buildPreviews: body.buildPreviews };
         sendJson(res, 200, { buildPreviews: body.buildPreviews });
       } else if (url.pathname === "/api/clear" && req.method === "GET") {
+        // the review's key as it is now: it names the branch checked out
+        syncSummary();
         const info: ClearInfoResponse = { kinds: describeKinds({ root: current.root, key: current.summary?.key ?? null }) };
         sendJson(res, 200, info);
       } else if (url.pathname === "/api/clear" && req.method === "POST") {
@@ -374,6 +379,7 @@ export async function serveViewer(
           return;
         }
         let cleared: Record<string, ClearPlan>;
+        syncSummary();
         try {
           cleared = clearKinds({ root: current.root, key: current.summary?.key ?? null }, picks);
         } catch (err) {

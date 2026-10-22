@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import { Window } from "happy-dom";
 import { parseDiff, uncheckedOutRevision } from "../src/cli-app/git.ts";
 import { extractUnits, checkCoverage, citeableLabels, removalAnchors, type UnitFileInput } from "../src/cli-app/summary/units.ts";
+import { analyze } from "../src/cli-app/analyze.ts";
 import { checkoutFirst, summaryKey, summaryPath, readStored, writeStored, unitSetHash, type Bundle } from "../src/cli-app/summary/store.ts";
 import { runSummary } from "../src/cli-app/summary/command.ts";
 import { validateResult } from "../src/cli-app/summary/validate.ts";
@@ -1257,10 +1258,19 @@ test("a branch diff isn't summarized until that branch is checked out; a PR, the
     const units = await collectUnits(diff, DEFAULT_CONFIG, dir);
     const view = (args: string[]) => buildSummaryView({ root: diff.root, cwd: dir, command: "diff", args, units });
     assert.equal(view(["main...feature"]).checkout, "feature", "the Summary tab says the same");
+    // the viewer's own summary, which the page polls
+    const open = await analyze("diff", ["main...feature"], dir, DEFAULT_CONFIG);
+    assert.equal(open.summary?.checkout, "feature");
 
     // checked out, the same diff is summarized as any other
     git("checkout", "-q", "feature");
     assert.equal(view(["main...feature"]).checkout, null);
+    // and the open viewer follows, though the diff is the same: read under the branch's key now
+    const followed = open.latestSummary!();
+    assert.equal(followed.checkout, null);
+    assert.equal(followed.key, summaryKey("diff", ["main...feature"], "feature"));
+    assert.notEqual(followed.key, open.summary?.key);
+    assert.equal(uncheckedOutRevision(["main", "HEAD~1"], dir), null, "counted from HEAD: no checkout puts it on disk");
     const lines: string[] = [];
     const log = console.log;
     console.log = (line: string) => lines.push(line);

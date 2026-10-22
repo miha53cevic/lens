@@ -31,6 +31,8 @@ export interface ViewUnit extends Omit<Unit, "removals"> {
   displayFile: string;
   /** The code changed since the summary was written — it no longer applies */
   stale: boolean;
+  /** A stale unit's: the hash its summary was written for, which the reader's marks on it are keyed by */
+  staleHash: string | null;
   summary: {
     headline: string;
     gist: string;
@@ -110,6 +112,7 @@ export function buildSummaryView(opts: {
       removals: anchored,
       displayFile: relPath(opts.cwd, join(opts.root, u.file)),
       stale,
+      staleHash: stale ? stored!.units[u.id].hash : null,
       summary: s ? {
         headline: s.headline,
         gist: s.gist,

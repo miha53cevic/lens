@@ -322,6 +322,8 @@ export function uncheckedOutRevision(gitArgs: string[], cwd: string): string | n
     else if (commit(arg) !== null) revisions.push(arg);
   }
   if (revisions.length !== 2) return null;
+  // counted from HEAD (HEAD~1, @^, @{-1}): any checkout moves it too, so none makes it the code on disk
+  if (/^(HEAD|@)([~^@{]|$)/.test(revisions[1])) return null;
   try {
     // both in one call: a git process is ~15 ms on Windows, and the viewer asks on every analysis
     const [end, head] = execFileSync("git", ["rev-parse", `${revisions[1]}^{commit}`, "HEAD"], {

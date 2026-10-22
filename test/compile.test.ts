@@ -43,7 +43,9 @@ test("the compiled lens runs on its own: info, folds, themes and the viewer page
       const tokens = await (await fetch(new URL("api/tokens?theme=dracula", url))).json();
       assert.equal(tokens.theme, "dracula", "a theme Shiki loads lazily");
     } finally {
-      viewer.kill();
+      // on Windows a running exe can't be removed: wait until it's gone
+      const exited = new Promise((resolve) => viewer.once("exit", resolve));
+      if (viewer.exitCode === null && viewer.kill()) await exited;
     }
   } finally {
     rmSync(out, { recursive: true, force: true });

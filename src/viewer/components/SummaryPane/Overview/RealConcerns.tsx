@@ -8,14 +8,14 @@ import { Button } from '../../../../ui/Button.tsx';
 
 /**
  * The concerns and possible breaks the reader marked real, ready to hand to the agent: one click copies them, each
- * with its place in the code. Shown only while there is one. lens fixes nothing itself.
+ * with its place in the code. Shown only while there is one, or one on code that changed since. lens fixes nothing itself.
  */
 export function RealConcerns() {
   const real = useLens((state) => realConcerns(state.data.summary!.units, state.concernMarks));
   const [copied, setCopied] = useState(false);
   // no clipboard (an insecure origin, a denied permission): the text itself, to select and copy
   const [shown, setShown] = useState(false);
-  if (real.items.length === 0) return null;
+  if (real.items.length === 0 && real.stale === 0) return null;
 
   const copy = async () => {
     try {
@@ -31,13 +31,24 @@ export function RealConcerns() {
     <div className='ov-real'>
       <div className='ov-real-row'>
         <span className='ov-real-count'>
-          <b>{confirmedLabel(real, 'confirmed ')}</b> in {plural(real.unitCount, 'change')}
-          {real.stale > 0 && <span className='stale-count'>{' · ' + real.stale + ' more on stale code'}</span>}
+          {real.items.length > 0 && (
+            <>
+              <b>{confirmedLabel(real, 'confirmed ')}</b> in {plural(real.unitCount, 'change')}
+            </>
+          )}
+          {real.stale > 0 && (
+            <span className='stale-count'>
+              {(real.items.length > 0 ? ' · ' + real.stale + ' more' : plural(real.stale, 'confirmed finding')) +
+                ' on code that changed since'}
+            </span>
+          )}
         </span>
-        <Button size='sm' className='ov-real-copy' onClick={copy}>
-          {copied ? <Check size={13} /> : <Copy size={13} />}
-          Copy for your agent
-        </Button>
+        {real.items.length > 0 && (
+          <Button size='sm' className='ov-real-copy' onClick={copy}>
+            {copied ? <Check size={13} /> : <Copy size={13} />}
+            Copy for your agent
+          </Button>
+        )}
       </div>
       {shown && <pre className='ov-real-text'>{real.text}</pre>}
     </div>

@@ -132,7 +132,7 @@ async function open(prefs: Record<string, string> = {}, hash = '', cookie = '', 
       case 'POST /api/ask/prompt':
         return reply({ text: 'the prompt' });
       case 'GET /api/stamp':
-        return reply({ summary: payload.summary!.stamp, change: payload.changeStamp });
+        return reply({ summary: payload.summary!.stamp, key: payload.summary!.key, change: payload.changeStamp });
       case 'GET /api/summary':
         return reply(payload.summary);
       case 'GET /api/refresh':
@@ -1013,6 +1013,24 @@ test('a diff that ends at a branch not checked out says to check it out, instead
       [...note.querySelectorAll('.copy-cmd-text')].map((command) => command.textContent),
       ['git checkout feature'],
     );
+
+    // the reader checks it out: the server reads the summary under that branch's key, and the page follows
+    const unsummarized = payload.summary;
+    payload.summary = { ...unsummarized, key: unsummarized.key + '-feature', checkout: null };
+    window.dispatchEvent(new Event('focus'));
+    await settle();
+    const after = $('#summary-pane .sum-note');
+    assert.match(after.textContent!, /^Not summarized yet\. Run .* in your agent\./);
+    assert.deepEqual(
+      [...after.querySelectorAll('.copy-cmd-text')].map((command) => command.textContent),
+      [fresh.command],
+    );
+    assert.deepEqual(status(), {
+      kind: 'done',
+      label: 'Another branch is checked out: the summary is read for it',
+      detail: '',
+    });
+    assert.equal(document.querySelector('#summary-dot'), null, 'nothing new is waiting');
   } finally {
     payload.summary = fresh;
     await close();
@@ -1938,6 +1956,27 @@ test('the copied concerns name a removed line as one, in the order of the summar
       /\d\. \[question\] src\/orders\.ts \(removed line 17\) — legacyTotal\n {3}did anything still call it\?\n/,
     );
   } finally {
+    await close();
+  }
+});
+
+test("a confirmed concern on code that changed since is counted, not copied: its unit's summary is stale", async () => {
+  const fresh = payload.summary!;
+  const unit = fresh.units.find((candidate) => candidate.summary?.concerns.length)!;
+  // the code changed: the stored summary was written for another hash, the one the reader's mark has
+  payload.summary = {
+    ...fresh,
+    units: fresh.units.map((candidate) =>
+      candidate === unit ? { ...candidate, stale: true, staleHash: 'oldhash', summary: null } : candidate,
+    ),
+  };
+  const marks = { [`${unit.id}@oldhash#bug:N3:deleted is a string column`]: 'real' };
+  await open({ 'lens.concernMarks': JSON.stringify(marks) }, '#summary');
+  try {
+    assert.equal($('.ov-real-count').textContent, '1 confirmed finding on code that changed since');
+    assert.equal($$('.ov-real-copy').length, 0, 'nothing to copy: its lines may point elsewhere now');
+  } finally {
+    payload.summary = fresh;
     await close();
   }
 });

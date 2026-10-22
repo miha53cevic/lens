@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { readStored, summaryPath, summaryStamp, wholeDiffLeft, type Bundle } from "./store.ts";
+import { readStored, summaryPath, wholeDiffLeft, type Bundle } from "./store.ts";
 
 // How far the agent's summary run has got, from what it leaves on disk: the bundle `prepare`
 // wrote and the summary its submits merged into. lens never sees the agent itself.
@@ -23,10 +23,16 @@ export function buildProgressReader(root: string, key: string): () => BuildProgr
   let held: { stamps: string; progress: BuildProgress | null } | null = null;
   return () => {
     if (!existsSync(bundlePath)) return null;
-    const stamps = statSync(bundlePath).mtimeMs + ":" + (summaryStamp(root, key) ?? 0);
+    const stamps = fileStamp(bundlePath) + "|" + fileStamp(summaryPath(root, key));
     if (held?.stamps !== stamps) held = { stamps, progress: progressOf(bundlePath, root, key) };
     return held.progress;
   };
+}
+
+/** A file's time and size: two writes in one tick of the clock still tell apart, unless they're the same size */
+function fileStamp(path: string): string {
+  const stats = statSync(path, { throwIfNoEntry: false });
+  return stats ? stats.mtimeMs + ":" + stats.size : "none";
 }
 
 function progressOf(bundlePath: string, root: string, key: string): BuildProgress | null {
