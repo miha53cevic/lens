@@ -2,11 +2,11 @@ import { TriangleAlert } from 'lucide-react';
 import { useCallback, useMemo } from 'react';
 import clsx from 'clsx';
 import { useLens } from '../../store.ts';
-import { activeFile, filePlan } from '../../model/plans.ts';
-import { askSelLabels } from '../../ask/selection.ts';
+import { activeFile, filePlan, isSplit, showsRemoved, splitRows } from '../../model/plans.ts';
+import { askSelLabels, tintsLeftHalf } from '../../ask/selection.ts';
 import { askSelection } from '../../model/askContext.ts';
 import { codeLines, isTestFile, listedOnlyCount } from '../../shared.ts';
-import { CodeRows } from '../CodeRows/index.tsx';
+import { CodeRows, holdSelectionSide, SplitRows } from '../CodeRows/index.tsx';
 import { CodeCard, removedCount } from '../CodeCard.tsx';
 import { OverviewRuler } from '../OverviewRuler.tsx';
 import { fileStatus } from '../../../ui/FileStatus.tsx';
@@ -17,7 +17,7 @@ const NO_FLAGS: ReadonlyMap<string, string> = new Map();
 
 /** The open file's code card, or why there's none. */
 export function FileCode() {
-  const { file, plan, hiddenAsTest, fileCount, listedOnly, selection, showRemoved, wordDiff, landed } = useLens(
+  const { file, plan, hiddenAsTest, fileCount, listedOnly, selection, showRemoved, wordDiff, split, landed } = useLens(
     (state) => {
       const file = activeFile(state);
       return {
@@ -27,8 +27,9 @@ export function FileCode() {
         fileCount: state.data.files.length,
         listedOnly: listedOnlyCount(state.data),
         selection: askSelection(state),
-        showRemoved: state.showRemoved,
+        showRemoved: showsRemoved(state),
         wordDiff: state.wordDiff,
+        split: isSplit(state),
         landed: state.landed,
       };
     },
@@ -37,11 +38,19 @@ export function FileCode() {
   // has focus), and the row the last jump landed on stays marked
   const path = file?.file ?? null;
   const marks = useMemo(() => {
-    const classes = new Map(askSelLabels(selection).map((label) => [label, 'ask-sel']));
+    const classes = new Map<string, string>();
+    const left = new Map<string, string>();
+    for (const label of askSelLabels(selection))
+      (tintsLeftHalf(selection, label) ? left : classes).set(label, 'ask-sel');
     if (landed && landed.path === path) classes.set(landed.label, clsx(classes.get(landed.label), 'landed'));
-    return { classes };
+    return { classes, left };
   }, [selection, landed, path]);
   const changedLines = useMemo(() => new Set(file?.changedLines || []), [file]);
+  const items = plan?.items;
+  const pairs = useMemo(
+    () => (split && items ? splitRows(items, file, changedLines) : null),
+    [split, items, file, changedLines],
+  );
   // stable per file: a new callback would run again on every render and reset the scroll
   const restoreScroll = useCallback((body: HTMLDivElement | null) => restoreFileScroll(body, path), [path]);
 
@@ -60,6 +69,9 @@ export function FileCode() {
     return <div className='empty'>Every file here is a test file. Turn off "Hide tests" in ⋯ to see them.</div>;
   }
   const { lines, removedWords } = codeLines(file, wordDiff, showRemoved);
+  // side by side numbers the old side too, which may be the longer one
+  const oldLineCount = file.lineCount - (file.changedLines?.length ?? 0) + removedCount(file.removals || []);
+  const gutter = String(pairs ? Math.max(file.lineCount, oldLineCount) : file.lineCount).length;
   return (
     // keyed by the file: another file mounts afresh, back where the reader left it (scrollStore), even after a refresh
     <CodeCard
@@ -79,16 +91,33 @@ export function FileCode() {
       bodyRef={restoreScroll}
       onBodyScroll={(event) => saveFileScroll(event.currentTarget, file.file)}
     >
-      <div className='code' id='code' onClick={findUsages}>
-        <CodeRows
-          path={file.file}
-          items={plan.items}
-          lines={lines}
-          changedLines={changedLines}
-          removedWords={removedWords}
-          gutter={String(file.lineCount).length}
-          marks={marks}
-        />
+      <div
+        className={clsx('code', pairs && 'split')}
+        id='code'
+        onClick={findUsages}
+        onMouseDown={pairs ? holdSelectionSide : undefined}
+      >
+        {pairs ? (
+          <SplitRows
+            path={file.file}
+            items={pairs}
+            lines={lines}
+            changedLines={changedLines}
+            removedWords={removedWords}
+            gutter={gutter}
+            marks={marks}
+          />
+        ) : (
+          <CodeRows
+            path={file.file}
+            items={plan.items}
+            lines={lines}
+            changedLines={changedLines}
+            removedWords={removedWords}
+            gutter={gutter}
+            marks={marks}
+          />
+        )}
       </div>
     </CodeCard>
   );

@@ -6,10 +6,13 @@ import {
   contextSpans,
   declaredIn,
   hiddenCount,
+  oldLineNumbers,
+  pairRows,
   planCode,
   unitSpans,
   type CodeItem,
   type RemovedLine,
+  type SplitItem,
 } from '../src/viewer/rows.ts';
 import { lineHtml, pairWordDiffs, splitAt, wordDiff } from '../src/viewer/wordDiff.ts';
 import type { FileFoldModel, RemovedBlock } from '../src/cli-app/model.ts';
@@ -74,6 +77,68 @@ test('planCode: a fold keeps the removed lines inside it; removals after its las
   const items = planCode(fileSpans(file, false, new Set()), file.regions, removedAfter(file.removals!));
   assert.deepEqual(show(items), ['L1', 'R2-4[L2,L3,-5,L4]', ...lines(5, 10), '-12', ...lines(11, 20)]);
   assert.equal(hiddenCount(items), 0);
+});
+
+// side by side: "6=5" an unchanged line (old=new), "-3|3" a removed line beside a changed one ("·" none)
+function showSplit(items: SplitItem[]): string[] {
+  return items.map((item) => {
+    switch (item.kind) {
+      case 'same':
+        return item.old + '=' + item.line;
+      case 'pair':
+        return (item.removed ? '-' + item.removed.old : '·') + '|' + (item.line ?? '·');
+      case 'gap':
+        return 'gap:' + item.start + '-' + item.end;
+      case 'break':
+        return '⋯';
+      case 'region':
+        return 'R' + item.region.startLine + '-' + item.region.endLine + '[' + showSplit(item.body).join(',') + ']';
+      case 'context':
+        return item.side + '[' + showSplit(item.body).join(',') + ']';
+    }
+  });
+}
+
+// old: A B oa ob oc C D E oz F · new: A B na nb C D + E F (oa–oc replaced by two lines, a line added, oz removed)
+const replaced: FileFoldModel = {
+  file: 'src/b.ts',
+  language: 'typescript',
+  lineCount: 9,
+  regions: [],
+  changedLines: [3, 4, 7],
+  removals: [
+    { afterLine: 2, oldStart: 3, lines: ['oa', 'ob', 'oc'] },
+    { afterLine: 8, oldStart: 9, lines: ['oz'] },
+  ],
+};
+
+test('oldLineNumbers: an unchanged line is numbered past the lines removed and added above it', () => {
+  assert.deepEqual(oldLineNumbers(replaced), [0, 1, 2, 0, 0, 6, 7, 0, 8, 10]);
+});
+
+test('pairRows: a removed run sits beside the changed lines after it, the longer run beside nothing', () => {
+  const items = planCode(fileSpans(replaced, false, new Set()), [], removedAfter(replaced.removals!));
+  const split = pairRows(items, new Set(replaced.changedLines), oldLineNumbers(replaced));
+  assert.deepEqual(showSplit(split), [
+    '1=1',
+    '2=2',
+    '-3|3',
+    '-4|4',
+    '-5|·',
+    '6=5',
+    '7=6',
+    '·|7',
+    '8=8',
+    '-9|·',
+    '10=9',
+  ]);
+});
+
+test("pairRows: a fold's body is paired on its own; a run doesn't pair across the fold's edge", () => {
+  const region = { startLine: 1, endLine: 3, category: 'import', score: 0, summary: '3 imports' };
+  const items = planCode(fileSpans(replaced, false, new Set()), [region], removedAfter(replaced.removals!));
+  const split = pairRows(items, new Set(replaced.changedLines), oldLineNumbers(replaced));
+  assert.deepEqual(showSplit(split).slice(0, 2), ['R1-3[1=1,2=2,-3|3,-4|·,-5|·]', '·|4']);
 });
 
 test('fileSpans: hunks only hides the unchanged stretch behind a gap until its key is expanded', () => {

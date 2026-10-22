@@ -115,13 +115,15 @@ interface MenuSwitchProps {
   id?: string;
   shortcut?: string;
   title?: string;
+  /** Can't be changed now: another setting decides it */
+  disabled?: boolean;
   checked: boolean;
   onChange: (checked: boolean) => void;
   children: ReactNode;
 }
 
 /** A setting turned on or off: the menu stays open, so several can change in a row. */
-export function MenuSwitch({ id, shortcut, title, checked, onChange, children }: MenuSwitchProps) {
+export function MenuSwitch({ id, shortcut, title, disabled, checked, onChange, children }: MenuSwitchProps) {
   return (
     <button
       id={id}
@@ -129,6 +131,7 @@ export function MenuSwitch({ id, shortcut, title, checked, onChange, children }:
       aria-checked={checked}
       className='menu-item'
       title={title}
+      disabled={disabled}
       onClick={() => onChange(!checked)}
     >
       <span className='menu-label'>{children}</span>

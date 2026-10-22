@@ -5,6 +5,11 @@ import type { WordRange } from '../../wordDiff.ts';
 export interface RowMarks {
   /** Extra classes per row */
   classes?: ReadonlyMap<string, string>;
+  /**
+   * Side by side: classes for the left half of an unchanged line, by its label (an Ask selection made
+   * in the left column). The other marks show on the right half, the new code.
+   */
+  left?: ReadonlyMap<string, string>;
   /** Notes under a row, like review comments */
   notes?: ReadonlyMap<string, ReactNode[]>;
 }

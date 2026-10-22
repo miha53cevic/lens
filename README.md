@@ -91,7 +91,7 @@ shows code you didn't write.
 
 - **Folds** collapse into one-line pills that quote what they hide
   (`1 guard → return DEFAULTS + log`), one click from the real code.
-- **Diff reading**: hunks only, inline removed lines, word diff, hide tests.
+- **Diff reading**: hunks only, inline removed lines, word diff, side by side (old and new in two columns), hide tests.
 - **Search** across loaded files (⌘P / Ctrl P), ⌥-click for usages.
 - **Viewed marks** and a progress ring, so you know what's left. A file or change whose code moved
   after you ticked it says so.

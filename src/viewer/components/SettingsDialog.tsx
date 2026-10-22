@@ -45,12 +45,13 @@ function Section({ title, hint, rows }: { title: string; hint?: string; rows: [R
 
 /** The settings in effect: where they come from, this session's choices, every rule. */
 export function SettingsDialog() {
-  const { data, threshold, hideTests, hunksOnly, wordDiff, codeSize } = useLens((state) => ({
+  const { data, threshold, hideTests, hunksOnly, wordDiff, sideBySide, codeSize } = useLens((state) => ({
     data: state.data,
     threshold: state.threshold,
     hideTests: state.hideTests,
     hunksOnly: state.hunksOnly,
     wordDiff: state.wordDiff,
+    sideBySide: state.sideBySide,
     codeSize: state.codeSize,
   }));
   const config = data.config;
@@ -84,6 +85,7 @@ export function SettingsDialog() {
             ['Theme', data.theme],
             ['Hunks only', onOff(hunksOnly)],
             ['Word diff', onOff(wordDiff)],
+            ['Side by side', onOff(sideBySide)],
             ['Hide tests', onOff(hideTests)],
             [
               'Build previews',

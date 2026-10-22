@@ -1,12 +1,12 @@
-import type { ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import clsx from 'clsx';
 import { useLens } from '../../../store.ts';
 import { concernLabel, findingMark, findings, isConcern, type Unit } from '../../../model/signals.ts';
-import { unitPlan } from '../../../model/plans.ts';
-import { askSelLabels } from '../../../ask/selection.ts';
+import { isSplit, showsRemoved, splitRows, unitPlan } from '../../../model/plans.ts';
+import { askSelLabels, tintsLeftHalf } from '../../../ask/selection.ts';
 import { askSelection } from '../../../model/askContext.ts';
 import { codeLines } from '../../../shared.ts';
-import { CodeRows, RemovedRow } from '../../CodeRows/index.tsx';
+import { CodeRows, holdSelectionSide, RemovedRow, SplitRows } from '../../CodeRows/index.tsx';
 import { SignalIcon } from '../../SignalIcon.tsx';
 import { Verdict } from './Verdict.tsx';
 import { useShownChanges } from './hooks.ts';
@@ -17,16 +17,21 @@ import { useShownChanges } from './hooks.ts';
  * under it like a review comment), the Ask selection and the hovered cite.
  */
 export function UnitCode({ unit, hoveredCite }: { unit: Unit; hoveredCite: string | null }) {
-  const { plan, marks, selection, showRemoved, wordDiff, landed } = useLens((state) => ({
+  const { plan, marks, selection, showRemoved, wordDiff, split, landed } = useLens((state) => ({
     plan: unitPlan(state, unit),
     marks: state.concernMarks,
     selection: askSelection(state),
-    showRemoved: state.showRemoved,
+    showRemoved: showsRemoved(state),
     wordDiff: state.wordDiff,
+    split: isSplit(state),
     landed: state.landed,
   }));
   const summary = unit.summary;
   const changedLines = useShownChanges(unit, plan);
+  const pairs = useMemo(
+    () => (split ? splitRows(plan.items, plan.file, changedLines) : null),
+    [split, plan, changedLines],
+  );
 
   const classes = new Map<string, string>();
   const addClass = (label: string, className: string) => classes.set(label, clsx(classes.get(label), className));
@@ -50,7 +55,11 @@ export function UnitCode({ unit, hoveredCite }: { unit: Unit; hoveredCite: strin
     );
     notes.set(concern.line, [...(notes.get(concern.line) ?? []), note]);
   }
-  for (const label of askSelLabels(selection)) addClass(label, 'ask-sel');
+  const left = new Map<string, string>();
+  for (const label of askSelLabels(selection)) {
+    if (tintsLeftHalf(selection, label)) left.set(label, 'ask-sel');
+    else addClass(label, 'ask-sel');
+  }
   if (hoveredCite) addClass(hoveredCite, 'hover-cite');
   if (landed && landed.path === unit.displayFile) addClass(landed.label, 'landed');
 
@@ -59,16 +68,28 @@ export function UnitCode({ unit, hoveredCite }: { unit: Unit; hoveredCite: strin
     : { lines: [], removedWords: undefined };
   return (
     <div className='unit-code'>
-      <div className='code'>
-        <CodeRows
-          path={unit.displayFile}
-          items={plan.items}
-          lines={lines}
-          changedLines={changedLines}
-          removedWords={removedWords}
-          gutter={plan.gutter}
-          marks={{ classes, notes }}
-        />
+      <div className={clsx('code', pairs && 'split')} onMouseDown={pairs ? holdSelectionSide : undefined}>
+        {pairs ? (
+          <SplitRows
+            path={unit.displayFile}
+            items={pairs}
+            lines={lines}
+            changedLines={changedLines}
+            removedWords={removedWords}
+            gutter={plan.gutter}
+            marks={{ classes, left, notes }}
+          />
+        ) : (
+          <CodeRows
+            path={unit.displayFile}
+            items={plan.items}
+            lines={lines}
+            changedLines={changedLines}
+            removedWords={removedWords}
+            gutter={plan.gutter}
+            marks={{ classes, left, notes }}
+          />
+        )}
         {unit.renamedFrom && (
           <>
             <div className='renamed-from'>was {unit.renamedFrom.id}</div>

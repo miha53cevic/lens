@@ -26,8 +26,11 @@ export interface Tab {
   pinned: boolean;
 }
 
-/** The reader's kept code selection, tied to the change it was made in. */
-export type KeptSelection = AskSelection & { key: string };
+/**
+ * The reader's kept code selection, tied to the change it was made in. Side by side, `half` is the
+ * column it was made in, so only that column shows it (the viewer's own: the question doesn't carry it).
+ */
+export type KeptSelection = AskSelection & { key: string; half?: 'left' | 'right' };
 
 /** A slow action under way (actions/status.ts). */
 export interface Activity {
@@ -74,6 +77,8 @@ export interface LensState {
   fullUnits: boolean;
   /** Mark the words a replaced line changed (wordDiff.ts) */
   wordDiff: boolean;
+  /** Diffs show old and new side by side (isSplit in model/plans.ts: a diff only) */
+  sideBySide: boolean;
   /** The code's size in px, one of CODE_SIZES (codeSize.ts) */
   codeSize: number;
   navCollapsed: boolean;
@@ -185,6 +190,7 @@ const initialState: LensState = {
   hunksOnly: readPref('lens.hunksOnly') !== '0', // on by default
   fullUnits: readPref('lens.fullUnits') === '1', // off by default
   wordDiff: readPref('lens.wordDiff') === '1', // off by default
+  sideBySide: readPref('lens.sideBySide') === '1', // off by default
   codeSize: loadCodeSize(),
   navCollapsed: readPref('lens.navCollapsed') === '1',
   navWidth: savedWidth('lens.navWidth', 160, 600, 0),

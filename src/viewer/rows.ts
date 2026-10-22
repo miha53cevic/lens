@@ -300,3 +300,75 @@ export function unitSpans(
   }
   return [...shown, ...hidden].sort(byStart);
 }
+
+// Side by side: the same plan, drawn as rows of old · new.
+
+/** A row of the side-by-side layout: the plan's items, with the removed lines paired with what replaced them. */
+export type SplitItem =
+  /** an unchanged line, on both sides: `old` is its old-side number */
+  | { kind: 'same'; line: number; old: number }
+  /** a removed line beside the changed line in its place; either side may have none */
+  | { kind: 'pair'; removed: RemovedLine | null; line: number | null }
+  | { kind: 'region'; region: FoldRegion; body: SplitItem[] }
+  | Extract<CodeItem, { kind: 'gap' } | { kind: 'break' }>
+  | (Omit<Extract<CodeItem, { kind: 'context' }>, 'body'> & { body: SplitItem[] });
+
+/**
+ * The side-by-side rows for a plan. A run of removed lines and the run of changed lines after it
+ * are zipped by position, the longer run's rest beside nothing; an unchanged line shows on both
+ * sides, numbered by `oldLines` (oldLineNumbers) on the left. Folds and full units' context keep
+ * their place, their bodies paired the same way.
+ */
+export function pairRows(items: CodeItem[], changed: ReadonlySet<number>, oldLines: readonly number[]): SplitItem[] {
+  const rows: SplitItem[] = [];
+  let index = 0;
+  // the item's line when it's a changed one, else null
+  const changedLine = (item: CodeItem | undefined) =>
+    item?.kind === 'line' && changed.has(item.line) ? item.line : null;
+  while (index < items.length) {
+    const item = items[index];
+    if (item.kind === 'removed' || changedLine(item) !== null) {
+      const removed: RemovedLine[] = [];
+      for (let next = items[index]; next?.kind === 'removed'; next = items[++index]) {
+        removed.push({ text: next.text, old: next.old });
+      }
+      const added: number[] = [];
+      for (let line = changedLine(items[index]); line !== null; line = changedLine(items[++index])) added.push(line);
+      for (let pairIndex = 0; pairIndex < Math.max(removed.length, added.length); pairIndex++) {
+        rows.push({ kind: 'pair', removed: removed[pairIndex] ?? null, line: added[pairIndex] ?? null });
+      }
+      continue;
+    }
+    index++;
+    switch (item.kind) {
+      case 'line':
+        rows.push({ kind: 'same', line: item.line, old: oldLines[item.line] ?? item.line });
+        break;
+      case 'region':
+        rows.push({ kind: 'region', region: item.region, body: pairRows(item.body, changed, oldLines) });
+        break;
+      case 'context':
+        rows.push({ ...item, body: pairRows(item.body, changed, oldLines) });
+        break;
+      default:
+        rows.push(item);
+    }
+  }
+  return rows;
+}
+
+/** Each new-side line's old-side number, by line (0 for a changed line, which has none). */
+export function oldLineNumbers(file: FileFoldModel): number[] {
+  const changed = new Set(file.changedLines || []);
+  const removedAfter = new Map<number, number>();
+  for (const block of file.removals || []) {
+    removedAfter.set(block.afterLine, (removedAfter.get(block.afterLine) ?? 0) + block.lines.length);
+  }
+  const old = [0];
+  let oldLine = 0;
+  for (let line = 1; line <= file.lineCount; line++) {
+    oldLine += removedAfter.get(line - 1) ?? 0;
+    old.push(changed.has(line) ? 0 : ++oldLine);
+  }
+  return old;
+}

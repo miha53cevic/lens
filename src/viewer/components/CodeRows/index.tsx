@@ -9,6 +9,7 @@ import type { RowContext } from './types.ts';
 import './style.css';
 
 export { RemovedRow } from './Rows.tsx';
+export { SplitRows, holdSelectionSide } from './Split.tsx';
 
 interface CodeRowsProps extends RowContext {
   items: CodeItem[];
@@ -60,8 +61,23 @@ function itemRows(item: CodeItem, itemIndex: number, context: RowContext): React
     case 'break':
       return [<BreakRow key={'break' + itemIndex} gutter={gutter} />];
     case 'region':
-      return [<Region key={'R' + item.region.startLine} region={item.region} body={item.body} context={context} />];
+      return [
+        <Region key={'R' + item.region.startLine} region={item.region} labels={bodyLabels(item.body)} context={context}>
+          {planRows(item.body, context)}
+        </Region>,
+      ];
     case 'context':
-      return [<Context key={item.key} item={item} context={context} />];
+      return [
+        <Context key={item.key} item={item} context={context}>
+          {planRows(item.body, context)}
+        </Context>,
+      ];
   }
+}
+
+/** The labels of a fold's own rows. */
+function bodyLabels(body: CodeItem[]): string[] {
+  return body.flatMap((item) =>
+    item.kind === 'line' ? ['N' + item.line] : item.kind === 'removed' ? ['O' + item.old] : [],
+  );
 }

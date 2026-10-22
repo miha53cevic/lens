@@ -7,6 +7,7 @@ import {
   setHideTests,
   setHunksOnly,
   setShowRemoved,
+  setSideBySide,
   setThreshold,
   setWordDiff,
   stepCodeSize,
@@ -15,6 +16,7 @@ import { CODE_SIZE_DEFAULT, CODE_SIZES } from '../../codeSize.ts';
 import { openDialog } from '../../actions/dialogs.ts';
 import { endSession } from '../../actions/session.ts';
 import { isDiffMode } from '../../shared.ts';
+import { isSplit } from '../../model/plans.ts';
 import { Menu, MenuItem, MenuSection, MenuSeparator, MenuSwitch } from '../../../ui/Menu.tsx';
 import { Segmented } from '../../../ui/Segmented.tsx';
 import { Stepper } from '../../../ui/Stepper.tsx';
@@ -44,6 +46,7 @@ export function MoreMenu() {
     hunksOnly: state.hunksOnly,
     showRemoved: state.showRemoved,
     wordDiff: state.wordDiff,
+    split: isSplit(state),
     hideTests: state.hideTests,
     codeSize: state.codeSize,
     hasSummary: state.data.summary !== null,
@@ -100,40 +103,33 @@ export function MoreMenu() {
           <MenuSeparator />
           <MenuSection title='Show'>
             {more.diffMode && (
-              <MenuSwitch
-                id='hunks-only'
-                shortcut='h'
-                title='only the changed hunks, with 3 lines of context, like a PR diff'
-                checked={more.hunksOnly}
-                onChange={setHunksOnly}
-              >
+              <MenuSwitch id='hunks-only' shortcut='h' checked={more.hunksOnly} onChange={setHunksOnly}>
                 Hunks only
               </MenuSwitch>
             )}
             {more.diffMode && (
-              <MenuSwitch id='show-removed' shortcut='x' checked={more.showRemoved} onChange={setShowRemoved}>
+              <MenuSwitch
+                id='show-removed'
+                shortcut='x'
+                disabled={more.split}
+                checked={more.showRemoved || more.split}
+                onChange={setShowRemoved}
+              >
                 Removed lines
               </MenuSwitch>
             )}
             {more.diffMode && (
-              <MenuSwitch
-                id='word-diff'
-                shortcut='d'
-                title='mark the words a replaced line changed, on both sides'
-                checked={more.wordDiff}
-                onChange={setWordDiff}
-              >
+              <MenuSwitch id='word-diff' shortcut='d' checked={more.wordDiff} onChange={setWordDiff}>
                 Word diff
               </MenuSwitch>
             )}
+            {more.diffMode && (
+              <MenuSwitch id='side-by-side' shortcut='l' checked={more.split} onChange={setSideBySide}>
+                Side by side
+              </MenuSwitch>
+            )}
             {more.testsPresent && (
-              <MenuSwitch
-                id='hide-tests'
-                shortcut='t'
-                title='hide files matching the configured test patterns (*.spec.*, *.test.*, ...)'
-                checked={more.hideTests}
-                onChange={setHideTests}
-              >
+              <MenuSwitch id='hide-tests' shortcut='t' checked={more.hideTests} onChange={setHideTests}>
                 Hide tests
               </MenuSwitch>
             )}

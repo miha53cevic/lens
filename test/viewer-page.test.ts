@@ -419,6 +419,113 @@ pageTest('word diff (d, off by default) marks the words a replaced line changed,
   );
 });
 
+/** Side by side's rows: "10|11" old|new numbers, "−9|·" a removed line beside nothing, "R6" a fold, "⋯" a gap */
+function splitRows(root = '#code'): string[] {
+  const half = (row: Element, side: string) => {
+    const element = row.querySelector<HTMLElement>(':scope > .' + side)!;
+    if (element.classList.contains('none')) return '·';
+    return (element.classList.contains('removed') ? '−' : '') + element.querySelector('.num')!.textContent!.trim();
+  };
+  return $$(root + ' > .srow, ' + root + ' > .region, ' + root + ' > .row').map((row) =>
+    row.classList.contains('srow')
+      ? half(row, 'left') + '|' + half(row, 'right')
+      : row.classList.contains('region')
+        ? 'R' + row.querySelector<HTMLElement>('.body .row[data-line]')!.dataset.line
+        : '⋯',
+  );
+}
+
+pageTest('side by side (l, off by default) puts each removed line beside what replaced it, in both views', async () => {
+  assert.equal($$('#code .srow').length, 0, 'off by default');
+  await key('l');
+  assert.equal($('#side-by-side').getAttribute('aria-checked'), 'true', 'the ⋯ menu switch follows the key');
+  assert.equal(localStorage.getItem('lens.sideBySide'), '1', 'remembered');
+  // unchanged lines on both sides, numbered on each; the old query sits apart from the new one, past the log fold
+  assert.deepEqual(splitRows(), [
+    '⋯',
+    'R6',
+    '−9|·',
+    'R9',
+    '·|10',
+    '10|11',
+    '11|12',
+    '12|13',
+    '⋯',
+    '14|15',
+    '15|16',
+    '16|17',
+    '−17|·',
+    '−18|·',
+    '−19|·',
+    '−20|·',
+    '21|18',
+    '22|19',
+    '23|20',
+    '⋯',
+  ]);
+  // a lookup by line finds the new side
+  assert.ok($('#code .row[data-line="11"]').classList.contains('right'));
+  assert.equal($$('.code-pane .ruler').length, 0, 'no overview ruler');
+  const removed = $('#show-removed') as HTMLButtonElement;
+  assert.ok(removed.disabled, 'the removed lines are its left side');
+  assert.equal(removed.getAttribute('aria-checked'), 'true');
+  await key('x');
+  assert.equal($$('#code .half.removed').length, 5, 'x leaves them');
+  await key('x');
+  await key('d');
+  assert.deepEqual(
+    $$('#code .half.right[data-line="10"] .w-add').map((word) => word.textContent),
+    ['and deleted = 0'],
+  );
+  await key('v');
+  await key('j');
+  assert.ok($('.unit-code .code').classList.contains('split'), 'the Summary tab too');
+  assert.ok($$('.unit-code .srow').length > 0);
+  assert.equal($$('.unit-card .ruler').length, 0);
+  await key('l');
+  assert.equal($$('.unit-code .srow').length, 0, 'l works on the Summary tab');
+  assert.equal(localStorage.getItem('lens.sideBySide'), '0');
+});
+
+/** Selects from the start of one row to the first character of another, as a drag would. */
+async function selectRows(from: HTMLElement, to: HTMLElement) {
+  const range = document.createRange();
+  range.setStart(from, 0);
+  range.setEnd(to.lastElementChild!, 1);
+  document.getSelection()!.removeAllRanges();
+  document.getSelection()!.addRange(range);
+  document.dispatchEvent(new Event('selectionchange'));
+  await settle();
+}
+
+pageTest(
+  'side by side: an Ask selection takes the lines of the side it started on, and only that side shows it',
+  async (page) => {
+    page.ask = { listening: true, questions: [] };
+    await key('l');
+    await key('\\');
+    const half = (side: string, line: number) => $('#code .half.' + side + '[data-line="' + line + '"]');
+    // from the old side of line 11 to the old side of line 12: the new side of 12 is in between in the markup
+    await selectRows(half('left', 11), half('left', 12));
+    assert.equal($('#ask-chips').textContent, 'orders.tssrc/orders.ts:11–12');
+    assert.ok(half('left', 11).classList.contains('ask-sel'));
+    assert.ok(!half('right', 11).classList.contains('ask-sel'), "the unchanged line's other half isn't tinted");
+    // and the other way round
+    await selectRows(half('right', 11), half('right', 12));
+    assert.equal($('#ask-chips').textContent, 'orders.tssrc/orders.ts:11–12');
+    assert.ok(half('right', 12).classList.contains('ask-sel'));
+    assert.ok(!half('left', 12).classList.contains('ask-sel'));
+    await type($('#ask-input'), 'why?');
+    await click($('#ask-send'));
+    const sent = page.requests.find((request) => request.method === 'POST' && request.path === '/api/ask')!;
+    const body = sent.body as { selection: { lines: { n: number; side: string }[] } };
+    assert.deepEqual(
+      body.selection.lines.map((line) => line.side + line.n),
+      ['new11', 'new12'],
+    );
+  },
+);
+
 /** The overview ruler's ticks: "add N9" a run of changes from line 9, "del O17" removed lines, "bug N10" a concern */
 function ticks(card = '.code-pane'): string[] {
   return $$(card + ' .ruler .tick').map((tick) => tick.className.match(/tick-(\w+)/)![1] + ' ' + tick.dataset.label);

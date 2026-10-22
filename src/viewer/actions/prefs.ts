@@ -33,7 +33,7 @@ export function toggleDir(path: string): void {
   if (!getState().closedDirs.has(path)) growOpen(document.querySelector(`[data-dir-files="${CSS.escape(path)}"]`));
 }
 
-// The view settings: hunks only, full units, removed lines, word diff, hide tests, the fold level.
+// The view settings: hunks only, full units, removed lines, word diff, side by side, hide tests, the fold level.
 
 export function setHunksOnly(on: boolean): void {
   writePref('lens.hunksOnly', on ? '1' : '0');
@@ -60,6 +60,11 @@ export function setShowRemoved(on: boolean): void {
 export function setWordDiff(on: boolean): void {
   writePref('lens.wordDiff', on ? '1' : '0');
   update({ wordDiff: on });
+}
+
+export function setSideBySide(on: boolean): void {
+  writePref('lens.sideBySide', on ? '1' : '0');
+  update({ sideBySide: on });
 }
 
 /**
