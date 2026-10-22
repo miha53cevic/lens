@@ -1,4 +1,4 @@
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, ChevronsDown, ChevronsUp } from 'lucide-react';
 import type { ReactNode } from 'react';
 import clsx from 'clsx';
 import type { CodeItem } from '../../rows.ts';
@@ -27,15 +27,21 @@ export function Context({ item, context, children }: ContextProps) {
   const changed = item.added > 0 || item.removed > 0;
   const hidden = item.names.length - NAMES_SHOWN;
   const body = <div className='context-body'>{children}</div>;
+  const Arrow = item.side === 'above' ? ChevronsUp : ChevronsDown;
   return (
     <div className={clsx('context', item.side, item.open && 'open')} data-key={item.key}>
       {item.side === 'above' && body}
       <div className='row context-bar' onClick={(event) => toggleContext(item.key, event.currentTarget)}>
-        <span className='num'>{''.padStart(context.gutter)}</span>
+        <span className='num'>
+          {''.padStart(context.gutter)}
+          <Arrow className='context-arrow' size={14} strokeWidth={2.25} />
+        </span>
         <span className={clsx('mark', changed && 'changed')} />
         <span className='context-label'>
-          <ChevronRight className={clsx('caret', item.open && 'open')} size={12} strokeWidth={2.5} />
-          <span>{item.side === 'above' ? 'Above' : 'Below'}</span>
+          <span className='context-side'>
+            <ChevronRight className={clsx('caret', item.open && 'open')} size={12} strokeWidth={2.5} />
+            {item.side === 'above' ? 'Above' : 'Below'}
+          </span>
           {item.names.length > 0 && (
             <span className='context-names'>
               {item.names.slice(0, NAMES_SHOWN).join(', ')}

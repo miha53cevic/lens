@@ -193,18 +193,19 @@
 }
 
 /* full units: the rest of the file above and below the unit, each behind one bar until opened */
+/* a band a control high, so it reads as the way to more code and not as a blank line */
 .row.context-bar {
   align-items: center;
-  border-block: 1px solid var(--line);
-  background: color-mix(in oklab, var(--surface-2) 55%, transparent);
-  color: var(--muted);
-  font: var(--text-xs) / 2.4 var(--font-sans);
+  height: var(--control-h);
+  border-block: 1px solid var(--line-strong);
+  background: var(--surface-2);
+  color: var(--text);
+  font: var(--text-xs) / 1 var(--font-sans);
   cursor: pointer;
   user-select: none;
 }
 .row.context-bar:hover {
-  background: var(--hover-bg);
-  color: var(--text);
+  background: color-mix(in oklab, var(--text) 7%, var(--surface-2));
 }
 /* the card's own edge is the bar's outer line (open, Above's body is over its bar) */
 .context.above:first-child:not(.open) > .context-bar {
@@ -226,11 +227,27 @@
 .context.below:not(.open) > .context-bar {
   margin-top: var(--space-1);
 }
+/* the gutter keeps its width (the padded number) and shows which way the code is: ⇡ or ⇣ */
 .row.context-bar .num {
+  position: relative;
+  color: var(--muted);
   font-family: var(--font-mono);
+}
+.context-arrow {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  translate: 0 -50%;
+}
+.row.context-bar:hover .context-arrow {
+  color: var(--accent);
 }
 .context-bar .mark {
   align-self: stretch;
+  background: var(--line-strong);
+}
+.context-bar .mark.changed {
+  background: var(--add);
 }
 .context-label {
   display: inline-flex;
@@ -238,12 +255,32 @@
   gap: var(--space-2);
   min-width: 0;
 }
+/* the side, as a tag on the band */
+.context-side {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: var(--control-h-xs);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  font-weight: 600;
+}
+.context-side .caret {
+  color: var(--accent);
+}
+/* the accent is picked for the code, not for small marks on a light band: darken it there */
+:root[data-appearance='light'] .context-side .caret,
+:root[data-appearance='light'] .row.context-bar:hover .context-arrow {
+  color: color-mix(in oklab, var(--accent) 80%, var(--text));
+}
 .context-names {
-  color: var(--text);
+  color: var(--muted);
   font-family: var(--font-mono);
 }
 .context-count {
-  color: var(--faint);
+  color: var(--muted);
   font-family: var(--font-mono);
 }
 .context:not(.open) > .context-body {
