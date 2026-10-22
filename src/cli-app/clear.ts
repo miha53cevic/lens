@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, rmSync } from "node:fs";
 import { basename, join } from "node:path";
 import { buildProgressReader } from "./summary/progress.ts";
+import { NOTES_PATH, readStoredNotes } from "./notes/store.ts";
 import { countText } from "./text.ts";
 
 // What lens keeps on disk that the reader can clear: one entry per kind in CLEAR_KINDS. The
@@ -90,7 +91,26 @@ const summaries: ClearKind = {
   },
 };
 
-export const CLEAR_KINDS: ClearKind[] = [summaries];
+function notesPlan(at: ClearContext): ClearPlan {
+  const count = readStoredNotes(at.root).length;
+  return { count, paths: existsSync(join(at.root, NOTES_PATH)) ? [NOTES_PATH] : [] };
+}
+
+/** The reader's notes on the code: one file for the repository, whatever review they were written in. */
+const notes: ClearKind = {
+  id: "notes",
+  label: "Notes",
+  unit: ["note", "notes"],
+  scopes: () => ["all"],
+  describe: (at) => notesPlan(at),
+  clear(at) {
+    const plan = notesPlan(at);
+    rmSync(join(at.root, NOTES_PATH), { force: true });
+    return plan;
+  },
+};
+
+export const CLEAR_KINDS: ClearKind[] = [summaries, notes];
 
 export function clearKind(id: string): ClearKind | undefined {
   return CLEAR_KINDS.find((kind) => kind.id === id);

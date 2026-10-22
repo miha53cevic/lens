@@ -11,6 +11,7 @@ import type { ClearInfoResponse, ViewerPayload } from '../cli-app/render/web/ser
 import type { AskSelection, AskState } from '../cli-app/ask/session.ts';
 import type { BuildProgress } from '../cli-app/summary/progress.ts';
 import type { ConcernKind } from '../cli-app/summary/store.ts';
+import type { ReaderNote } from '../cli-app/notes/store.ts';
 import { INITIAL_DATA, readPref } from './shared.ts';
 import { CODE_SIZE_DEFAULT, savedCodeSize } from './codeSize.ts';
 
@@ -31,6 +32,13 @@ export interface Tab {
  * column it was made in, so only that column shows it (the viewer's own: the question doesn't carry it).
  */
 export type KeptSelection = AskSelection & { key: string; half?: 'left' | 'right' };
+
+/** A note being written under its lines (actions/notes.ts): where it goes, and the note it edits, if any. */
+export type NoteDraft = Pick<ReaderNote, 'file' | 'side' | 'start' | 'end' | 'lines'> & {
+  /** The row it's written under ("N12", "O5") */
+  label: string;
+  editing: ReaderNote | null;
+};
 
 /** A slow action under way (actions/status.ts). */
 export interface Activity {
@@ -107,6 +115,9 @@ export interface LensState {
   /** Flow title -> open, once the reader toggled it */
   flowOpen: ReadonlyMap<string, boolean>;
   concernMarks: ReadonlyMap<string, ConcernMark>;
+  /** The reader's notes on the review's files, as the server keeps them (.lens/notes.json) */
+  notes: readonly ReaderNote[];
+  noteDraft: NoteDraft | null;
   /** Where the last jump landed: that row stays marked until the next jump */
   landed: { path: string; label: string } | null;
   /** What the Clear saved data dialog offers, read when it opened; `opened` tells one opening from the next */
@@ -208,6 +219,8 @@ const initialState: LensState = {
   sumSignal: null,
   flowOpen: new Map(),
   concernMarks: loadMarks(),
+  notes: INITIAL_DATA.notes,
+  noteDraft: null,
   landed: null,
   clearInfo: null,
   ask: {

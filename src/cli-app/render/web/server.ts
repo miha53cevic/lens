@@ -5,6 +5,8 @@ import type { FileFoldModel, LensConfig } from "../../model.ts";
 import type { SummaryView } from "../../summary/view.ts";
 import { removeServerInfo, writeServerInfo } from "../../ask/discovery.ts";
 import { createAskRoutes } from "../../ask/routes.ts";
+import { createNoteRoutes } from "../../notes/routes.ts";
+import { notesFor, type ReaderNote } from "../../notes/store.ts";
 import { isLocalRequest, readBody, readCookie, sendJson } from "./http.ts";
 import { previewResponse } from "../../summary/previews.ts";
 import { writeSettings } from "../../summary/settings.ts";
@@ -89,6 +91,8 @@ export type ViewerPayload = Omit<ViewerInput, "root" | "cwd" | "files" | "latest
   canRefresh: boolean;
   /** Which analysis the files are from: tokens fetched later are applied only when theirs is the same */
   analysis: string;
+  /** The reader's notes on the review's files (.lens/notes.json) */
+  notes: ReaderNote[];
 };
 
 export interface ThemeTokens {
@@ -169,7 +173,7 @@ export async function highlightFiles(
 /** The page's payload: the analysis, made serializable, with one theme's tokens. */
 export function viewerPayload(
   input: ViewerInput, t: ThemeTokens, themes: ThemeSwatch[],
-  opts: { themePinned: boolean; canRefresh: boolean; analysis: string },
+  opts: { themePinned: boolean; canRefresh: boolean; analysis: string; notes?: ReaderNote[] },
 ): ViewerPayload {
   const { root: _root, cwd: _cwd, latestSummary: _latest, latestChange: _change, ...data } = input;
   return {
@@ -181,6 +185,7 @@ export function viewerPayload(
     accent: t.accent,
     files: input.files.map((f, i) => ({ ...f, tokens: t.tokens[i] })),
     ...opts,
+    notes: opts.notes ?? [],
   };
 }
 
@@ -212,6 +217,9 @@ export async function serveViewer(
 ): Promise<void> {
   let current = input;
   const ask = createAskRoutes(() => current, opts.port);
+  // the page carries the notes: once they change, the page held for a reload has the old ones
+  let notesVersion = 0;
+  const notes = createNoteRoutes(() => current, () => notesVersion++);
   // the root of the analysis that wrote server.json — a refresh can't move it
   const infoRoot = input.root;
   const stop = () => {
@@ -234,7 +242,7 @@ export async function serveViewer(
   // another theme or a ↻ refresh replaces them instead of adding to them. The promise is what's
   // kept, so requests that arrive while it tokenizes wait for the same work.
   let heldTokens: { files: ViewerFile[]; theme: string; tokens: Promise<ThemeTokens> } | null = null;
-  let heldPage: { input: ViewerInput; theme: string; html: string } | null = null;
+  let heldPage: { input: ViewerInput; theme: string; notes: number; html: string } | null = null;
 
   function tokensFor(files: ViewerFile[], theme: string): Promise<ThemeTokens> {
     if (heldTokens && heldTokens.files === files && heldTokens.theme === theme) return heldTokens.tokens;
@@ -261,6 +269,7 @@ export async function serveViewer(
     const t = await tokensFor(input.files, theme);
     return viewerPayload(input, t, themes, {
       themePinned: opts.themePinned, canRefresh: reanalyze !== undefined, analysis: analysisOf(input.files),
+      notes: notesFor(input, input.files.map((file) => file.file)),
     });
   }
 
@@ -298,9 +307,12 @@ export async function serveViewer(
     syncSummary();
     const input = current;
     // stringifying an MBs payload on every reload is waste
-    if (heldPage && heldPage.input === input && heldPage.theme === theme) return heldPage.html;
+    if (heldPage && heldPage.input === input && heldPage.theme === theme && heldPage.notes === notesVersion) {
+      return heldPage.html;
+    }
+    const version = notesVersion;
     const html = renderPage(template, await payloadFor(input, theme));
-    heldPage = { input, theme, html };
+    heldPage = { input, theme, notes: version, html };
     return html;
   }
 
@@ -388,6 +400,7 @@ export async function serveViewer(
         }
         // the stored summary is gone: the view is made again, with no unit summarized
         syncSummary();
+        if (cleared.notes) notesVersion++;
         const answer: ClearResponse = { cleared, summary: current.summary };
         sendJson(res, 200, answer);
       } else if (url.pathname === "/api/shutdown" && req.method === "POST") {
@@ -397,7 +410,8 @@ export async function serveViewer(
           server.close(stop);
           server.closeAllConnections();
         });
-      } else if (!(url.pathname.startsWith("/api/ask") && await ask.handle(req, res, url))) {
+      } else if (!(url.pathname.startsWith("/api/notes") && await notes.handle(req, res, url)) &&
+        !(url.pathname.startsWith("/api/ask") && await ask.handle(req, res, url))) {
         sendJson(res, 404, { error: "not found" });
       }
     } catch (err) {

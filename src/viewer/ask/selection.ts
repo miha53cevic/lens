@@ -2,7 +2,7 @@
 
 import type { AskSelection } from '../../cli-app/ask/session.ts';
 import { getState, type KeptSelection, type LensState } from '../store.ts';
-import { askContext } from '../model/askContext.ts';
+import { askContext, askSelection } from '../model/askContext.ts';
 import { ASK_MAX_LINES, setAsk } from './rail.ts';
 
 /** "src/a.ts:43–44" — the same wording as the agent's text (src/cli-app/ask/context.ts). */
@@ -84,23 +84,58 @@ export function onSelectionChange(): void {
       : undefined;
   const otherSide = half && (half === 'left' ? '.half.right' : '.half.left');
   const rows = [...root.querySelectorAll<HTMLElement>('.row')].filter(
-    (row) => !row.matches('.pill-row, .gap, .unit-gap, .half.none') && !(otherSide && row.matches(otherSide)),
+    (row) => !row.matches(NOT_CODE) && !(otherSide && row.matches(otherSide)),
   );
   const taken = selectedRows(rows, selection.getRangeAt(0));
   if (taken.length === 0) {
     askSetSelection(null); // nothing but ⋯ rows, a pill's text or blank space
     return;
   }
-  const lines = taken.slice(0, ASK_MAX_LINES).map((row) => {
-    const lineNumber = row.dataset.line ?? row.dataset.old;
-    const text = row.lastElementChild ? (row.lastElementChild.textContent ?? '') : '';
-    return {
-      n: lineNumber ? Number(lineNumber) : null,
-      side: row.classList.contains('removed') ? ('old' as const) : ('new' as const),
-      text: text === ' ' ? '' : text,
-    };
-  });
+  const lines = taken.slice(0, ASK_MAX_LINES).map(rowLine);
   askSetSelection({ key: context.key, file: context.file, lines, ...(half && { half }) });
+}
+
+/** Rows that aren't a line of code: a fold's pill, a hidden stretch, the empty half beside a lone line */
+const NOT_CODE = '.pill-row, .gap, .unit-gap, .half.none';
+
+/** A row as a line of the selection. */
+function rowLine(row: HTMLElement): AskSelection['lines'][number] {
+  const lineNumber = row.dataset.line ?? row.dataset.old;
+  const text = row.lastElementChild ? (row.lastElementChild.textContent ?? '') : '';
+  return {
+    n: lineNumber ? Number(lineNumber) : null,
+    side: row.classList.contains('removed') ? ('old' as const) : ('new' as const),
+    text: text === ' ' ? '' : text,
+  };
+}
+
+const halfOf = (row: HTMLElement) =>
+  row.classList.contains('left') ? 'left' : row.classList.contains('right') ? 'right' : undefined;
+
+/** The line of code under the pointer, in the open change's code; null anywhere else. */
+export function codeRowAt(target: EventTarget | null): HTMLElement | null {
+  const root = askCodeRoot(getState());
+  const row = target instanceof Node ? rowOf(target) : null;
+  return row && root?.contains(row) && !row.matches(NOT_CODE) ? row : null;
+}
+
+/** Whether the kept selection takes this row (side by side: in the column it was made in). */
+export function selectionHas(row: HTMLElement): boolean {
+  const selection = askSelection(getState());
+  const line = rowLine(row);
+  if (!selection || line.n === null) return false;
+  const label = (line.side === 'old' ? 'O' : 'N') + line.n;
+  return askSelLabels(selection).includes(label) && (line.side === 'old' || selection.half === halfOf(row));
+}
+
+/** The row alone becomes the kept selection: a right-click outside the selection takes the line it's on. */
+export function keepRow(row: HTMLElement): void {
+  const context = askContext(getState());
+  if (!context) return;
+  // no selectionchange undoes it: once the ranges are gone, the browser's selection isn't in the code
+  document.getSelection()?.removeAllRanges();
+  const half = halfOf(row);
+  askSetSelection({ key: context.key, file: context.file, lines: [rowLine(row)], ...(half && { half }) });
 }
 
 /** A selection from another change goes once the reader opens a different one. */

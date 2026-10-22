@@ -5,27 +5,34 @@ import { concernLabel, findingMark, findings, isConcern, type Unit } from '../..
 import { isSplit, showsRemoved, splitRows, unitPlan } from '../../../model/plans.ts';
 import { askSelLabels, tintsLeftHalf } from '../../../ask/selection.ts';
 import { askSelection } from '../../../model/askContext.ts';
+import { fileNotes } from '../../../model/notes.ts';
 import { codeLines } from '../../../shared.ts';
 import { CodeRows, holdSelectionSide, RemovedRow, SplitRows } from '../../CodeRows/index.tsx';
 import { SignalIcon } from '../../SignalIcon.tsx';
+import { addNoteMarks } from '../../Notes/marks.tsx';
 import { Verdict } from './Verdict.tsx';
 import { useShownChanges } from './hooks.ts';
 
 /**
  * The unit's code, as the Code view shows it, and what the summary adds to the rows: the
  * lines the When / Before / Now rows point at, each open concern (its row flagged, a note
- * under it like a review comment), the Ask selection and the hovered cite.
+ * under it like a review comment), the reader's notes, the Ask selection and the hovered cite.
  */
 export function UnitCode({ unit, hoveredCite }: { unit: Unit; hoveredCite: string | null }) {
-  const { plan, marks, selection, showRemoved, wordDiff, split, landed } = useLens((state) => ({
-    plan: unitPlan(state, unit),
-    marks: state.concernMarks,
-    selection: askSelection(state),
-    showRemoved: showsRemoved(state),
-    wordDiff: state.wordDiff,
-    split: isSplit(state),
-    landed: state.landed,
-  }));
+  const { plan, marks, readerNotes, draft, selection, showRemoved, wordDiff, split, landed } = useLens((state) => {
+    const plan = unitPlan(state, unit);
+    return {
+      plan,
+      marks: state.concernMarks,
+      readerNotes: plan.file ? fileNotes(state.notes, plan.file) : null,
+      draft: state.noteDraft,
+      selection: askSelection(state),
+      showRemoved: showsRemoved(state),
+      wordDiff: state.wordDiff,
+      split: isSplit(state),
+      landed: state.landed,
+    };
+  });
   const summary = unit.summary;
   const changedLines = useShownChanges(unit, plan);
   const pairs = useMemo(
@@ -55,6 +62,8 @@ export function UnitCode({ unit, hoveredCite }: { unit: Unit; hoveredCite: strin
     );
     notes.set(concern.line, [...(notes.get(concern.line) ?? []), note]);
   }
+  // those of the unit's lines the rows show: a note elsewhere in the file is the Code view's
+  if (readerNotes) addNoteMarks({ classes, notes }, readerNotes, draft, unit.displayFile);
   const left = new Map<string, string>();
   for (const label of askSelLabels(selection)) {
     if (tintsLeftHalf(selection, label)) left.set(label, 'ask-sel');

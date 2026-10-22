@@ -23,10 +23,11 @@ import {
 } from './actions/prefs.ts';
 import { setView } from './actions/views.ts';
 import { askOpenAndFocus, askSetOpen } from './ask/rail.ts';
+import { startNote } from './actions/notes.ts';
 import { isDiffMode } from './shared.ts';
 
 /** The keys that also work on the Summary tab: the view settings' keys act on the open unit's code. */
-const SUMMARY_KEYS = ['?', 'x', 'd', 'l', 's', 'r', 'e', 'c', '[', ']', 'h', 't', 'a', '\\'];
+const SUMMARY_KEYS = ['?', 'x', 'd', 'l', 's', 'r', 'e', 'c', '[', ']', 'h', 't', 'a', 'n', '\\'];
 /** Every key a shortcut takes, on either tab. */
 const SHORTCUT_KEYS = [...SUMMARY_KEYS, 'v', 'j', 'k', 'w', 'm', 'o', 'g', '/'];
 
@@ -144,6 +145,10 @@ export function onKeyDown(event: KeyboardEvent): void {
       if (state.ask.open) askSetOpen(false);
       else askOpenAndFocus();
       event.preventDefault(); // the "a" mustn't land in the textarea
+      break;
+    case 'n':
+      startNote();
+      event.preventDefault(); // the "n" mustn't land in the note
       break;
     case '\\':
       askSetOpen(!state.ask.open);

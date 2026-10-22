@@ -18,6 +18,7 @@ import { askWatcher } from './ask/rail.ts';
 import { dropForeignSelection, onSelectionChange } from './ask/selection.ts';
 import { onKeyDown } from './keys.ts';
 import { onPreviewMessage } from './actions/previews.ts';
+import { onContextMenu } from './actions/codeMenu.ts';
 import { check, watch } from '../ui/poll.ts';
 import { motionReady } from '../ui/motion.ts';
 
@@ -49,6 +50,8 @@ function syncDocument(state: LensState, previous: LensState | null) {
 
 document.addEventListener('keydown', onKeyDown);
 document.addEventListener('selectionchange', onSelectionChange);
+// a right-click on a line of code: lens's own menu (Ask, Note, Copy) instead of the browser's
+document.addEventListener('contextmenu', onContextMenu);
 // the preview frames' clicks and heights (actions/previews.ts)
 window.addEventListener('message', onPreviewMessage);
 subscribe(syncDocument);

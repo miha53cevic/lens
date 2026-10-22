@@ -72,6 +72,7 @@ export async function clearData(picks: ClearPicks): Promise<void> {
       update((state) => ({
         summaryDot: false,
         data: answer.summary ? { ...state.data, summary: answer.summary } : state.data,
+        ...(answer.cleared.notes && { notes: [], noteDraft: null }),
       }));
       for (const kind of getState().clearInfo?.kinds ?? []) {
         const plan = answer.cleared[kind.id];
