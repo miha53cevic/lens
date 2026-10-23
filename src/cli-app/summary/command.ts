@@ -8,6 +8,7 @@ import { checkoutFirst, HOUSEKEEPING, reviewKey, readStored, writeStored, unitSe
 import { relPath } from "../paths.ts";
 import { buildPreviewsOn } from "./settings.ts";
 import { writeAssets } from "./previews.ts";
+import { recordSubmit } from "./progress.ts";
 
 /** `lens summary prepare|submit` — the agent's side of summary mode. */
 export async function runSummary(rest: string[], cwd: string): Promise<void> {
@@ -107,6 +108,10 @@ export async function runSummary(rest: string[], cwd: string): Promise<void> {
       const what = undrawn ? "flows, the overview and the drawings" : "flows and the overview";
       console.log(`\nevery unit is summarized — run \`${prepareCommand(bundle)}\` for the final pass (${what})`);
     }
+    // what was printed above as "fix these" (not the advice, which is only worth a look): the viewer
+    // keeps showing the run until a submit asks for nothing more
+    const unflowed = missing.length === 0 && outcome.stored.flows.length > 0 && coverage.outside.length > 0;
+    recordSubmit(dir, bundle, outcome.dropped.length > 0 || unflowed);
     console.log(`\nsummary saved — refresh the lens viewer (↻) and open the Summary tab`);
     const submitted = hasUnits(result) ? Object.keys(result.units).length : 0;
     const acceptedAny = outcome.accepted.length > 0 || outcome.acceptedOverview ||
