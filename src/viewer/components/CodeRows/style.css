@@ -107,16 +107,13 @@
     background var(--motion),
     color var(--motion);
 }
+/* under the pointer it takes its category's tint, as a toned ui/Tag does */
 .pill-row:hover .pill {
-  background: color-mix(in oklab, var(--cat) 16%, var(--surface-2));
+  background: color-mix(in oklab, var(--cat) var(--tint), var(--surface-2));
   color: var(--text);
 }
 .pill .cat {
   color: var(--cat);
-  font-size: var(--text-2xs);
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
 }
 .pill .caret {
   align-self: center;
@@ -302,6 +299,29 @@
 .row.half.none,
 .row.half.none:hover {
   background: color-mix(in oklab, var(--surface-2) 55%, transparent);
+}
+/* a fold: its pill on the new half, over the code it quotes; the old half says which of its lines
+   are folded with it, and in red how many of them were removed */
+.srow.pill-row > .half {
+  align-items: baseline;
+}
+.srow.pill-row:hover > .half:not(.none) {
+  background: color-mix(in oklab, var(--code-fg) 5%, transparent);
+}
+.fold-old {
+  color: var(--faint);
+  font: var(--text-xs) / 1.75 var(--font-sans);
+}
+.fold-removed {
+  color: var(--del);
+}
+.mark.del {
+  background: var(--del);
+  opacity: 0.7;
+}
+/* hidden unchanged lines: each half numbers its own side's, and the row is one target */
+.srow.gap-row:hover > .half {
+  color: var(--text);
 }
 /* a drag selects one side's code (holdSelectionSide) */
 .code.split[data-side='left'] .half.right,

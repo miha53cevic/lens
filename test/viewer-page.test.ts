@@ -439,11 +439,13 @@ function splitRows(root = '#code'): string[] {
     return (element.classList.contains('removed') ? '−' : '') + element.querySelector('.num')!.textContent!.trim();
   };
   return $$(root + ' > .srow, ' + root + ' > .region, ' + root + ' > .row').map((row) =>
-    row.classList.contains('srow')
-      ? half(row, 'left') + '|' + half(row, 'right')
-      : row.classList.contains('region')
-        ? 'R' + row.querySelector<HTMLElement>('.body .row[data-line]')!.dataset.line
-        : '⋯',
+    row.classList.contains('gap-row')
+      ? '⋯'
+      : row.classList.contains('srow')
+        ? half(row, 'left') + '|' + half(row, 'right')
+        : row.classList.contains('region')
+          ? 'R' + row.querySelector<HTMLElement>('.body .row[data-line]')!.dataset.line
+          : '⋯',
   );
 }
 
@@ -475,6 +477,26 @@ pageTest('side by side (l, off by default) puts each removed line beside what re
     '23|20',
     '⋯',
   ]);
+  // a fold's pill sits on the new side, over the code it quotes; the old side says what it folds
+  const foldHalves = (row: Element) =>
+    [...row.children].map((half) => (half.classList.contains('none') ? '·' : half.textContent!.trim()));
+  assert.deepEqual($$('#code .region > .srow.pill-row').map(foldHalves), [
+    ['6guard1 guard → throw Error (3 lines)', '63 lines folded'],
+    ['9logginglog.info — "finding orders"', '·'],
+  ]);
+  assert.ok($$('#code .region .pill-row > .left .pill').length === 0, 'no pill on the old side');
+  // hidden lines: each side numbers its own
+  assert.deepEqual(
+    $$('#code .gap-row').map((row) => [...row.children].map((half) => half.textContent!.replace('⋯', '').trim())),
+    [
+      ['5 unchanged lines · 1–5', '5 unchanged lines · 1–5'],
+      ['1 unchanged line · 14', '1 unchanged line · 13'],
+      ['7 unchanged lines · 21–27', '7 unchanged lines · 24–30'],
+    ],
+  );
+  await click($('#code .region > .srow.pill-row > .left'));
+  assert.ok($('#code .region[data-cat="guard"]').classList.contains('open'), 'either half opens the fold');
+  await click($('#code .region > .srow.pill-row > .left'));
   // a lookup by line finds the new side
   assert.ok($('#code .row[data-line="11"]').classList.contains('right'));
   assert.equal($$('.code-pane .ruler').length, 0, 'no overview ruler');

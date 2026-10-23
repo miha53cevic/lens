@@ -5,7 +5,7 @@
 import type { MouseEvent, ReactNode } from 'react';
 import clsx from 'clsx';
 import type { SplitItem } from '../../rows.ts';
-import { BreakRow, EmptyHalf, GapRow, LineRow, RemovedLineRow } from './Rows.tsx';
+import { BreakRow, EmptyHalf, LineRow, RemovedLineRow, SplitGapRow } from './Rows.tsx';
 import { Region } from './Region.tsx';
 import { Context } from './Context.tsx';
 import type { RowContext } from './types.ts';
@@ -78,12 +78,28 @@ function itemRows(item: SplitItem, itemIndex: number, context: RowContext): Reac
       ];
     }
     case 'gap':
-      return [<GapRow key={item.key} lineCount={item.end - item.start + 1} gapKey={item.key} gutter={gutter} />];
+      return [
+        <SplitGapRow
+          key={item.key}
+          start={item.start}
+          end={item.end}
+          oldStart={item.oldStart}
+          oldEnd={item.oldEnd}
+          gapKey={item.key}
+          gutter={gutter}
+        />,
+      ];
     case 'break':
       return [<BreakRow key={'break' + itemIndex} gutter={gutter} />];
     case 'region':
       return [
-        <Region key={'R' + item.region.startLine} region={item.region} labels={bodyLabels(item.body)} context={context}>
+        <Region
+          key={'R' + item.region.startLine}
+          region={item.region}
+          labels={bodyLabels(item.body)}
+          context={context}
+          split={{ old: item.old }}
+        >
           {splitRows(item.body, context)}
         </Region>,
       ];

@@ -7,6 +7,7 @@ import {
   declaredIn,
   hiddenCount,
   oldLineNumbers,
+  oldStretch,
   pairRows,
   planCode,
   unitSpans,
@@ -139,6 +140,37 @@ test("pairRows: a fold's body is paired on its own; a run doesn't pair across th
   const items = planCode(fileSpans(replaced, false, new Set()), [region], removedAfter(replaced.removals!));
   const split = pairRows(items, new Set(replaced.changedLines), oldLineNumbers(replaced));
   assert.deepEqual(showSplit(split).slice(0, 2), ['R1-3[1=1,2=2,-3|3,-4|·,-5|·]', '·|4']);
+});
+
+test("pairRows: a fold knows the old lines it hides, and a gap its old-side numbers, for their rows' left halves", () => {
+  const changed = new Set(file.changedLines);
+  const unhidden = pairRows(
+    planCode(fileSpans(file, false, new Set()), file.regions, removedAfter(file.removals!)),
+    changed,
+    oldLineNumbers(file),
+  );
+  // the import fold (2–4) holds old 2, 3 and 5, and the removed old 5
+  const fold = unhidden.find((item) => item.kind === 'region');
+  assert.deepEqual(fold?.kind === 'region' && fold.old, { start: 2, end: 5, removed: 1 });
+  // hunks only: 14–20 is past one added line (10) and two removed ones (old 5 and 12), so old 15–21
+  const hunks = pairRows(
+    planCode(fileSpans(file, true, new Set()), file.regions, removedAfter(file.removals!)),
+    changed,
+    oldLineNumbers(file),
+  );
+  const gap = hunks.at(-1)!;
+  assert.deepEqual(gap.kind === 'gap' && [gap.start, gap.end, gap.oldStart, gap.oldEnd], [14, 20, 15, 21]);
+});
+
+test('oldStretch: a fold of new lines only has no old side', () => {
+  assert.equal(oldStretch([{ kind: 'pair', removed: null, line: 3 }]), null);
+  assert.deepEqual(
+    oldStretch([
+      { kind: 'same', line: 4, old: 2 },
+      { kind: 'pair', removed: { text: 'gone', old: 3 }, line: 5 },
+    ]),
+    { start: 2, end: 3, removed: 1 },
+  );
 });
 
 test('fileSpans: hunks only hides the unchanged stretch behind a gap until its key is expanded', () => {

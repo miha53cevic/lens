@@ -246,9 +246,34 @@ export type SplitItem =
   | { kind: 'same'; line: number; old: number }
   /** a removed line beside the changed line in its place; either side may have none */
   | { kind: 'pair'; removed: RemovedLine | null; line: number | null }
-  | { kind: 'region'; region: FoldRegion; body: SplitItem[] }
-  | Extract<CodeItem, { kind: 'gap' } | { kind: 'break' }>
+  /** old: the old side's lines the fold hides, so its left half can say so (null when it has none) */
+  | { kind: 'region'; region: FoldRegion; body: SplitItem[]; old: OldStretch | null }
+  /** a gap's unchanged lines, numbered on the old side too */
+  | (Extract<CodeItem, { kind: 'gap' }> & { oldStart: number; oldEnd: number })
+  | Extract<CodeItem, { kind: 'break' }>
   | (Omit<Extract<CodeItem, { kind: 'context' }>, 'body'> & { body: SplitItem[] });
+
+/** The old side of a fold, side by side: its first and last old line, and how many of them were removed. */
+export interface OldStretch {
+  start: number;
+  end: number;
+  removed: number;
+}
+
+/** The old lines a fold's paired body holds: its unchanged lines' old numbers and its removed lines. */
+export function oldStretch(body: SplitItem[]): OldStretch | null {
+  const lines: number[] = [];
+  let removed = 0;
+  for (const item of body) {
+    if (item.kind === 'same') lines.push(item.old);
+    else if (item.kind === 'pair' && item.removed) {
+      lines.push(item.removed.old);
+      removed++;
+    }
+  }
+  if (lines.length === 0) return null;
+  return { start: Math.min(...lines), end: Math.max(...lines), removed };
+}
 
 /**
  * The side-by-side rows for a plan. A run of removed lines and the run of changed lines after it
@@ -281,8 +306,14 @@ export function pairRows(items: CodeItem[], changed: ReadonlySet<number>, oldLin
       case 'line':
         rows.push({ kind: 'same', line: item.line, old: oldLines[item.line] ?? item.line });
         break;
-      case 'region':
-        rows.push({ kind: 'region', region: item.region, body: pairRows(item.body, changed, oldLines) });
+      case 'region': {
+        const body = pairRows(item.body, changed, oldLines);
+        rows.push({ kind: 'region', region: item.region, body, old: oldStretch(body) });
+        break;
+      }
+      case 'gap':
+        // a gap is unchanged lines only: each has an old number
+        rows.push({ ...item, oldStart: oldLines[item.start] ?? item.start, oldEnd: oldLines[item.end] ?? item.end });
         break;
       case 'context':
         rows.push({ ...item, body: pairRows(item.body, changed, oldLines) });

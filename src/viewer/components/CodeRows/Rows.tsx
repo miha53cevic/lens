@@ -4,6 +4,7 @@
 import { memo } from 'react';
 import clsx from 'clsx';
 import { expandGap } from '../../actions/folds.ts';
+import { plural } from '../../../cli-app/text.ts';
 import { splitAt, type WordRange } from '../../wordDiff.ts';
 
 interface LineRowProps {
@@ -103,6 +104,41 @@ export function GapRow({ lineCount, gapKey, gutter }: GapRowProps) {
       <span className='num'>{'⋯'.padStart(gutter)}</span>
       <span className='mark' />
       <span>{'⋯ ' + lineCount + ' unchanged line' + (lineCount === 1 ? '' : 's')}</span>
+    </div>
+  );
+}
+
+/** "10–21", or "14" for one line */
+export function lineSpan(start: number, end: number): string {
+  return start === end ? String(start) : start + '–' + end;
+}
+
+interface SplitGapRowProps {
+  /** Its new-side lines, and the same lines' old-side numbers */
+  start: number;
+  end: number;
+  oldStart: number;
+  oldEnd: number;
+  gapKey: string;
+  gutter: number;
+}
+
+/** Side by side, hidden unchanged lines: each half says which of its side's lines they are. */
+export function SplitGapRow({ start, end, oldStart, oldEnd, gapKey, gutter }: SplitGapRowProps) {
+  const label = plural(end - start + 1, 'unchanged line') + ' · ';
+  // the right half first, as in every split row
+  return (
+    <div className='srow gap-row' onClick={() => expandGap(gapKey)}>
+      <div className='row half right gap'>
+        <span className='num'>{'⋯'.padStart(gutter)}</span>
+        <span className='mark' />
+        <span>{label + lineSpan(start, end)}</span>
+      </div>
+      <div className='row half left gap'>
+        <span className='num'>{'⋯'.padStart(gutter)}</span>
+        <span className='mark' />
+        <span>{label + lineSpan(oldStart, oldEnd)}</span>
+      </div>
     </div>
   );
 }
