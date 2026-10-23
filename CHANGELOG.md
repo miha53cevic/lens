@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/miha53cevic/lens/compare/v0.3.0...v0.3.1) (2026-10-23)
+
+
+### Bug Fixes
+
+* fixes ([#33](https://github.com/miha53cevic/lens/issues/33)) ([89a4526](https://github.com/miha53cevic/lens/commit/89a4526cd8cd0ec470bac9f028caa1d2e081f8e8))
+
 ## [0.3.0](https://github.com/miha53cevic/lens/compare/v0.2.3...v0.3.0) (2026-10-22)
 
 
