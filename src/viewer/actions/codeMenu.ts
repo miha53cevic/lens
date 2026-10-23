@@ -31,7 +31,20 @@ export function onContextMenu(event: MouseEvent): void {
   }
   event.preventDefault();
   if (!selectionHas(row)) keepRow(row);
-  showMenu(event.clientX, event.clientY, false);
+  const { clientX, clientY } = event;
+  if (!event.buttons) {
+    showMenu(clientX, clientY, false);
+    return;
+  }
+  // macOS fires contextmenu on the press, not the release: opened now, the popover's light dismiss
+  // would close it again on the pointerup that follows. So it opens once that has gone by.
+  const settle = (up: Event) => {
+    window.removeEventListener('pointerup', settle, true);
+    window.removeEventListener('pointercancel', settle, true);
+    if (up.type === 'pointerup') setTimeout(() => showMenu(clientX, clientY, false));
+  };
+  window.addEventListener('pointerup', settle, true);
+  window.addEventListener('pointercancel', settle, true);
 }
 
 /** The menu under the kept selection's last line. Whether there was one to open it on. */
