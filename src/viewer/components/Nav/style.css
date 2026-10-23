@@ -107,11 +107,6 @@ nav .file.binary:disabled {
   gap: var(--space-1);
   color: var(--muted);
 }
-.notes-for-agent .btn {
-  height: var(--control-h-xs);
-  padding: 0 var(--space-2);
-  font-size: var(--text-xs);
-}
 
 .sum-overview-item {
   display: flex;
@@ -174,11 +169,6 @@ nav .file.binary:disabled {
 .sum-section-title.flow .t {
   font-size: var(--text-lg);
 }
-.sum-section-title.flow:hover .t {
-  text-decoration: underline;
-  text-decoration-color: var(--line-strong);
-  text-underline-offset: 3px;
-}
 /* folded: the name, muted, and how many changes it holds */
 .sum-section.folded .t {
   color: var(--muted);
@@ -201,11 +191,6 @@ nav .file.binary:disabled {
 /* where a flow's next step starts: "contract", "page", "tests" */
 .sum-step {
   padding: var(--space-2) var(--space-2) var(--space-1);
-  color: var(--faint);
-  font-size: var(--text-2xs);
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
 }
 
 .sum-item {

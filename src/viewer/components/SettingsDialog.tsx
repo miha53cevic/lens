@@ -3,6 +3,7 @@ import { useLens } from '../store.ts';
 import { catColor } from '../shared.ts';
 import { CODE_SIZE_DEFAULT } from '../codeSize.ts';
 import { ModalHead } from './ModalHead.tsx';
+import './SettingsRows.css';
 import './SettingsDialog.css';
 
 function CodeList({ items }: { items: readonly (string | number)[] | undefined }) {
@@ -29,7 +30,7 @@ function CategoryName({ category, disabled }: { category: string; disabled?: boo
 function Section({ title, hint, rows }: { title: string; hint?: string; rows: [ReactNode, ReactNode][] }) {
   return (
     <section className='set-section'>
-      <h3>{title}</h3>
+      <h3 className='eyebrow'>{title}</h3>
       {hint && <p className='set-hint'>{hint}</p>}
       <dl className='set-rows'>
         {rows.map(([label, value], rowIndex) => (

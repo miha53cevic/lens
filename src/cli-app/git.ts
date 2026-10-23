@@ -254,7 +254,11 @@ export function readBlobs(shas: Iterable<string>, cwd: string): Map<string, stri
 /** The branch HEAD is on; null when it's detached. */
 export function currentBranch(cwd: string): string | null {
   try {
-    return runGit(["symbolic-ref", "--short", "-q", "HEAD"], cwd).trim() || null;
+    // quiet: outside a repository (paths mode can be) "no branch" is the answer, not an error
+    const branch = execFileSync("git", ["symbolic-ref", "--short", "-q", "HEAD"], {
+      cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"],
+    });
+    return branch.trim() || null;
   } catch {
     return null;
   }

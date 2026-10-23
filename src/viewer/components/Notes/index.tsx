@@ -21,11 +21,11 @@ export function NoteCard({ note, placed }: { note: ReaderNote; placed: PlacedNot
   const busy = useLens((state) => isBusy(state, 'note'));
   return (
     <div
-      className={clsx('reader-note', 'k-' + note.kind, (!placed || placed.changed) && 'changed')}
+      className={clsx('line-note', 'reader-note', 'k-' + note.kind, (!placed || placed.changed) && 'changed')}
       data-note={note.id}
     >
       <div className='rn-top'>
-        <b>
+        <b className='rn-kind eyebrow sm'>
           {note.kind === 'note' ? (
             'your note'
           ) : (
@@ -37,11 +37,11 @@ export function NoteCard({ note, placed }: { note: ReaderNote; placed: PlacedNot
         <span className='rn-meta'>{noteState(note, placed)}</span>
         <span className='rn-acts'>
           {placed && (
-            <Button variant='ghost' size='sm' className='rn-edit' onClick={() => editNote(note)}>
+            <Button variant='ghost' size='xs' className='rn-edit' onClick={() => editNote(note)}>
               <Pencil size={11} /> Edit
             </Button>
           )}
-          <Button size='sm' className='rn-resolve' disabled={busy} onClick={() => void resolveNote(note)}>
+          <Button size='xs' className='rn-resolve' disabled={busy} onClick={() => void resolveNote(note)}>
             <Check size={11} /> Resolve
           </Button>
         </span>

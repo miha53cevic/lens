@@ -65,7 +65,7 @@ Or open the desktop app, pick the repository and what to review.
 | `lens pr 123` / `lens pr <url>` | a GitHub PR, fetched with plain git (no API, no gh) |
 | `lens info` | what could be reviewed here: the branch, its changes, the PR remote |
 | `lens config` | the effective config and where it comes from |
-| `lens clear` | what lens keeps in `.lens/`, by kind; `lens clear summaries --all` (or `<key>`), `lens clear notes --all` clears it |
+| `lens clear` | what lens keeps in `.lens/`, by kind; `lens clear <kind> --all` (or one review's `<key>`) clears it: `summaries`, `notes`, `marks` |
 
 | flag | meaning |
 | --- | --- |
@@ -94,15 +94,16 @@ shows code you didn't write.
 - **Diff reading**: hunks only, inline removed lines, word diff, side by side (old and new in two columns), hide tests.
 - **Search** across loaded files (⌘P / Ctrl P), ⌥-click for usages.
 - **Viewed marks** and a progress ring, so you know what's left. A file or change whose code moved
-  after you ticked it says so.
+  after you ticked it says so. They, and your real / dismissed verdicts on concerns, are kept per
+  review in `.lens/marks/`: a branch you come back to has them, another branch starts without them.
 - **Notes**: right-click a line (or select lines and press `n`) to leave your own note under it,
   in both views. A plain note is yours alone; a bug, risk or question goes along when you copy the
   review for your agent (the overview, or with no summary the sidebar). Notes follow their lines
-  as the code moves, and are kept in `.lens/notes.json`.
+  as the code moves, and are kept per review in `.lens/notes/`.
 - **The code theme** colors the whole page; a light theme turns it light.
 - **Reload** (`r`) re-runs the analysis; the status bar says when the code changed on disk.
-- **Clear saved data** (⋯ menu): this review's summary or every review's, your notes, and the
-  viewed and concern marks, each ticked on its own and listed before anything goes. Settings stay.
+- **Clear saved data** (⋯ menu): the summaries, your notes, and the viewed and concern marks, each
+  for this review or every review, ticked on its own and listed before anything goes. Settings stay.
 
 Press `?` in the viewer for every key.
 

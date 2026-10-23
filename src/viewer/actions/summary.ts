@@ -1,10 +1,10 @@
 // The Summary tab: the open unit, the list's filters, the reader's verdicts.
 
-import { CONCERN_PREF, type ConcernMark, getState, type SignalFilter, update, VIEWED_CAP } from '../store.ts';
-import { writePref } from '../shared.ts';
+import { type ConcernMark, getState, type SignalFilter, update } from '../store.ts';
 import type { Unit } from '../model/signals.ts';
 import { currentUnit, listModel } from '../model/summaryList.ts';
 import { jumpToLine, landOn } from './views.ts';
+import { saveMark } from './marks.ts';
 
 export function openSummaryUnit(unitId: string): void {
   update({ summaryUnit: unitId });
@@ -41,17 +41,16 @@ export function toggleFlow(title: string, open: boolean): void {
   update((state) => ({ flowOpen: new Map(state.flowOpen).set(title, open) }));
 }
 
-// The agent's findings are suspicions; the reader decides: "real" or "dismissed", per browser.
-// The same mark again takes it back. `key` is the finding's (`findings` in model/signals.ts).
+// The agent's findings are suspicions; the reader decides: "real" or "dismissed", kept for the
+// review by the server. The same mark again takes it back. `key` is the finding's (`findings` in
+// model/signals.ts).
 export function setMark(key: string, mark: ConcernMark): void {
   const marks = new Map(getState().concernMarks);
-  if (marks.get(key) === mark) marks.delete(key);
-  else {
-    marks.delete(key);
-    marks.set(key, mark); // re-insert: the oldest marks drop first
-  }
-  writePref(CONCERN_PREF, JSON.stringify(Object.fromEntries([...marks].slice(-VIEWED_CAP))));
+  const taken = marks.get(key) === mark;
+  marks.delete(key);
+  if (!taken) marks.set(key, mark); // re-insert: the oldest marks drop first
   update({ concernMarks: marks });
+  void saveMark({ list: 'concerns', key, mark: taken ? null : mark });
 }
 
 /** The row a label ("N31" / "O16") points at, in the open unit's code. */

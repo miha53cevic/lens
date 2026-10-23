@@ -6,7 +6,8 @@ import './Button.css';
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   /** default: outlined · ghost: no border, a tint under the pointer · primary: the accent · danger: deletes something */
   variant?: 'default' | 'ghost' | 'primary' | 'danger';
-  size?: 'md' | 'sm';
+  /** md: the usual · sm: a smaller one · xs: a chip's height, inside a card's row (a note's actions, a verdict) */
+  size?: 'md' | 'sm' | 'xs';
   /** Its key: the button gets a tooltip that teaches it */
   shortcut?: string;
   /** What the tooltip says before the key, when the label alone doesn't */
@@ -27,7 +28,7 @@ export function Button({
   ...props
 }: ButtonProps) {
   return (
-    <button {...props} className={clsx('btn', 'btn-' + variant, size === 'sm' && 'btn-sm', className)}>
+    <button {...props} className={clsx('btn', 'btn-' + variant, size !== 'md' && 'btn-' + size, className)}>
       {children}
       {shortcut && <Tip label={tip} shortcut={shortcut} side={tipSide} />}
     </button>

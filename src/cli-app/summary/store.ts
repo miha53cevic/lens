@@ -195,9 +195,9 @@ export function lensDir(root: string): string {
  * the key, and mark only what they changed. PR keys use the number, so a URL and a bare
  * number share one.
  */
-export function summaryKey(command: "diff" | "pr", args: string[], branch: string | null = null): string {
+export function summaryKey(command: "diff" | "pr" | "paths", args: string[], branch: string | null = null): string {
   const ref = command === "pr" ? parsePrRef(args[0] ?? "") : null;
-  const on = command === "diff" && branch ? "@" + branch : "";
+  const on = command !== "pr" && branch ? "@" + branch : "";
   const raw = ([command, ...(ref ? [String(ref.number)] : args)].join(" ") + on).toLowerCase();
   let slug = raw.replace(/[^a-z0-9._@]+/g, "-").replace(/^-+|-+$/g, "");
   if (slug.length > 60) {
@@ -206,9 +206,13 @@ export function summaryKey(command: "diff" | "pr", args: string[], branch: strin
   return slug;
 }
 
-/** The key of a review in the repository at `root`, on the branch it's on now. */
-export function reviewKey(root: string, command: "diff" | "pr", args: string[]): string {
-  return summaryKey(command, args, command === "diff" ? currentBranch(root) : null);
+/**
+ * The key of a review in the repository at `root`, on the branch it's on now. Its summary, the
+ * reader's marks and notes are kept under it. Paths mode has one too, with the branch as a diff
+ * has, though it has no summary.
+ */
+export function reviewKey(root: string, command: "diff" | "pr" | "paths", args: string[]): string {
+  return summaryKey(command, args, command !== "pr" ? currentBranch(root) : null);
 }
 
 /**

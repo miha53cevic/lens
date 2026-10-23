@@ -12,10 +12,10 @@ function parts(combo: string): { key: string; text?: boolean }[] {
   });
 }
 
-/** A keyboard shortcut, each key a keycap. */
-export function Kbd({ combo }: { combo: string }) {
+/** A keyboard shortcut, each key a keycap: md beside a control, sm in a line of small text (a hint). */
+export function Kbd({ combo, size = 'md' }: { combo: string; size?: 'md' | 'sm' }) {
   return (
-    <span className='kbd-combo'>
+    <span className={size === 'sm' ? 'kbd-combo kbd-sm' : 'kbd-combo'}>
       {parts(combo).map((part, partIndex) => (
         <Fragment key={partIndex}>
           {part.text ? (

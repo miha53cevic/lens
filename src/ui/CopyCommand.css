@@ -26,9 +26,9 @@
   flex: none;
   color: var(--muted);
 }
+/* the hover tint over its own surface, as ui/Button's: the selected look is for what's picked */
 .copy-cmd:hover {
-  border-color: var(--selected-ring);
-  background: var(--selected-bg);
+  background: linear-gradient(var(--hover-bg), var(--hover-bg)), var(--surface-2);
 }
 .copy-cmd:hover svg {
   color: var(--accent);

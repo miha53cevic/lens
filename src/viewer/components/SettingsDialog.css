@@ -51,9 +51,9 @@
   opacity: 0.6;
   text-decoration: line-through;
 }
+/* a setting with no value: the muted of an empty list */
 .set-none {
-  color: var(--faint);
-  font-style: italic;
+  color: var(--muted);
 }
 
 /* a category: its score, then whether it folds at this level */

@@ -163,14 +163,11 @@
 .ask-sources {
   margin: 0 0 var(--space-2);
 }
+/* ui/Disclosure's summary, lined up with the answer's text */
 .ask-sources summary {
-  width: fit-content;
+  margin-left: calc(-1 * var(--space-2));
   color: var(--faint);
   font-size: var(--text-xs);
-  cursor: pointer;
-}
-.ask-sources summary:hover {
-  color: var(--muted);
 }
 .ask-a .ask-sources ol {
   display: grid;
@@ -194,9 +191,8 @@
 .ask-flow-layer {
   margin-top: var(--space-2);
   color: var(--muted);
-  font: 600 var(--text-2xs) / 1.6 var(--font-mono);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-family: var(--font-mono);
+  line-height: 1.6;
 }
 .ask-flow-layer:first-child {
   margin-top: 0;
@@ -286,12 +282,6 @@
 }
 .ask-hint > span {
   white-space: nowrap;
-}
-.ask-hint kbd {
-  min-width: 18px;
-  height: 18px;
-  padding: 0 var(--space-1);
-  font-size: var(--text-xs);
 }
 .ask-hint.error {
   color: var(--del);

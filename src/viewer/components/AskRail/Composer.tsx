@@ -105,13 +105,13 @@ export function Composer() {
           {composer.error || (
             <>
               <span>
-                <Kbd combo='↵' /> {composer.listening ? 'ask' : 'copy'}
+                <Kbd size='sm' combo='↵' /> {composer.listening ? 'ask' : 'copy'}
               </span>
               <span>
-                <Kbd combo='⇧ ↵' /> newline
+                <Kbd size='sm' combo='⇧ ↵' /> newline
               </span>
               <span>
-                <Kbd combo='Esc' /> leave
+                <Kbd size='sm' combo='Esc' /> leave
               </span>
             </>
           )}

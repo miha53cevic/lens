@@ -44,11 +44,6 @@
 }
 .menu-title {
   padding: var(--space-2) var(--space-2) var(--space-1);
-  color: var(--faint);
-  font-size: var(--text-xs);
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 .menu-item {
   display: flex;

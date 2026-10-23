@@ -25,7 +25,7 @@
   --dot: var(--chip);
 }
 .chip:has(input:checked) {
-  border-color: color-mix(in oklab, var(--chip) 45%, transparent);
+  border-color: color-mix(in oklab, var(--chip) var(--tint-line), transparent);
   background: color-mix(in oklab, var(--chip) var(--tint), transparent);
   color: var(--text);
 }

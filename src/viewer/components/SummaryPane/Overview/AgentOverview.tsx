@@ -15,7 +15,7 @@ export function AgentOverview({ summary, anySummarized, checking }: AgentOvervie
   if (!overview && summary.checkout) {
     return (
       <div className='ov-what' id='no-summary'>
-        <div className='ov-what-label'>Agent summary</div>
+        <div className='ov-what-label eyebrow'>Agent summary</div>
         <p className='ov-how'>
           <CheckoutFirst branch={summary.checkout} />
         </p>
@@ -35,7 +35,7 @@ export function AgentOverview({ summary, anySummarized, checking }: AgentOvervie
     // nothing summarized yet: how to get a summary, where it will be
     return (
       <div className='ov-what' id='no-summary'>
-        <div className='ov-what-label'>Agent summary</div>
+        <div className='ov-what-label eyebrow'>Agent summary</div>
         <p className='ov-how'>Not written yet. Your coding agent writes it: run this in it.</p>
         <CopyCommand command={summary.command} block />
         <p className='ov-how'>
@@ -48,7 +48,7 @@ export function AgentOverview({ summary, anySummarized, checking }: AgentOvervie
   return (
     <>
       <div className='ov-what'>
-        <div className='ov-what-label'>Agent summary</div>
+        <div className='ov-what-label eyebrow'>Agent summary</div>
         {overview.what.split('\n\n').map((paragraph, paragraphIndex) => (
           <p key={paragraphIndex}>{paragraph}</p>
         ))}

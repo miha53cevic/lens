@@ -1,5 +1,5 @@
 import { Fragment } from 'react';
-import { ChevronRight, FileText } from 'lucide-react';
+import { FileText } from 'lucide-react';
 import clsx from 'clsx';
 import { useLens } from '../../../store.ts';
 import { listModel } from '../../../model/summaryList.ts';
@@ -9,6 +9,7 @@ import { Kbd } from '../../../../ui/Kbd.tsx';
 import { SignalChips } from './SignalChips.tsx';
 import { UnitItem } from './UnitItem.tsx';
 import { ListRow } from '../../../../ui/ListRow.tsx';
+import { Disclosure } from '../../../../ui/Disclosure.tsx';
 import { stepHeadings } from './util.ts';
 
 /** The Summary tab's list: flows (the agent's priority orders them), then the changes in no flow. */
@@ -30,24 +31,20 @@ export function SummaryList() {
         return (
           <div key={'flow:' + flow.title} className={clsx('sum-section', folded && 'folded')}>
             {/* the flow's name and why it matters: the agent's priority only orders the flows (P3 starts folded) */}
-            <button
+            <Disclosure
+              open={!folded}
               className='sum-section-title flow'
-              aria-expanded={!folded}
               title={folded ? flow.why : undefined}
               onClick={() => toggleFlow(flow.title, folded)}
             >
               <span className='t'>{flow.title}</span>
-              {folded && (
-                <span className='sub'>
-                  {plural(members.length, 'change')} <ChevronRight size={11} />
-                </span>
-              )}
-            </button>
+              {folded && <span className='sub'>{plural(members.length, 'change')}</span>}
+            </Disclosure>
             {!folded && flow.why && <div className='sum-section-why'>{flow.why}</div>}
             {!folded &&
               members.map((unit) => (
                 <Fragment key={unit.id}>
-                  {headings.has(unit.id) && <div className='sum-step'>{headings.get(unit.id)}</div>}
+                  {headings.has(unit.id) && <div className='sum-step eyebrow sm'>{headings.get(unit.id)}</div>}
                   <UnitItem unit={unit} active={isActive(unit.id)} />
                 </Fragment>
               ))}

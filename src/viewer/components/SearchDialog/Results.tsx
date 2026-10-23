@@ -17,12 +17,12 @@ export function Results({ query, hits, selected }: ResultsProps) {
   const trimmed = query.trim();
   if (trimmed.length < 2) {
     return (
-      <div className='search-empty'>
+      <div className='no-match'>
         {trimmed ? 'keep typing — at least 2 characters' : 'search across all ' + files.length + ' loaded files'}
       </div>
     );
   }
-  if (hits.length === 0) return <div className='search-empty'>no matches</div>;
+  if (hits.length === 0) return <div className='no-match'>no matches</div>;
 
   const rows: ReactNode[] = [];
   const definitionCount = hits.filter((hit) => hit.declares).length;
@@ -72,7 +72,7 @@ export function Results({ query, hits, selected }: ResultsProps) {
   });
   if (hits.length >= SEARCH_LIMIT) {
     rows.push(
-      <div key='limit' className='search-empty'>
+      <div key='limit' className='no-match'>
         stopped at {SEARCH_LIMIT} matches — refine the query
       </div>,
     );

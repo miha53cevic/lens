@@ -1,4 +1,4 @@
-// The reader's notes: written under the lines they select, kept by the server (.lens/notes.json),
+// The reader's notes: written under the lines they select, kept by the server per review (.lens/notes/),
 // edited and resolved in place. Only the reader writes them; lens copies the ones with a kind for
 // the agent when the reader asks (model/realConcerns.ts) and sends nothing anywhere itself.
 

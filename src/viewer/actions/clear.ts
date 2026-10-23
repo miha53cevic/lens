@@ -4,9 +4,8 @@
 
 import type { ClearInfoResponse, ClearRequest, ClearResponse } from '../../cli-app/render/web/server.ts';
 import type { ClearScope } from '../../cli-app/clear.ts';
-import { commit, CONCERN_PREF, getState, type LensState, update, VIEWED_PREF } from '../store.ts';
+import { commit, getState, type LensState, update } from '../store.ts';
 import { countText } from '../../cli-app/text.ts';
-import { writePref } from '../shared.ts';
 import { dialog } from './dialogs.ts';
 import { noteDone, request, tracked } from './status.ts';
 
@@ -21,21 +20,8 @@ export interface ViewerKind {
   clear: () => void;
 }
 
-export const VIEWER_KINDS: ViewerKind[] = [
-  {
-    id: 'marks',
-    label: 'Viewed and concern marks',
-    where: 'in this browser',
-    unit: ['mark', 'marks'],
-    count: (state) => state.viewedFiles.size + state.viewedUnits.size + state.concernMarks.size,
-    clear: () => {
-      writePref(VIEWED_PREF.files, '[]');
-      writePref(VIEWED_PREF.units, '[]');
-      writePref(CONCERN_PREF, '{}');
-      update({ viewedFiles: new Set(), viewedUnits: new Set(), concernMarks: new Map() });
-    },
-  },
-];
+/** None today: the marks were one, until the server kept them (src/cli-app/clear.ts) */
+export const VIEWER_KINDS: ViewerKind[] = [];
 
 /** What the reader ticked: a server kind with its scope, a viewer kind by its id */
 export interface ClearPicks {
@@ -72,7 +58,9 @@ export async function clearData(picks: ClearPicks): Promise<void> {
       update((state) => ({
         summaryDot: false,
         data: answer.summary ? { ...state.data, summary: answer.summary } : state.data,
+        // "this review" or "all": either way the open review's are gone
         ...(answer.cleared.notes && { notes: [], noteDraft: null }),
+        ...(answer.cleared.marks && { viewedFiles: new Set(), viewedUnits: new Set(), concernMarks: new Map() }),
       }));
       for (const kind of getState().clearInfo?.kinds ?? []) {
         const plan = answer.cleared[kind.id];

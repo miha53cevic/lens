@@ -92,6 +92,18 @@ interface Page {
   notes: ReaderNote[];
 }
 
+/** The payload, with these of the review's marks kept (.lens/marks/<review>.json) */
+function withMarks(marks: Partial<ViewerPayload['marks']>): ViewerPayload {
+  return { ...payload, marks: { files: [], units: [], concerns: {}, ...marks } };
+}
+
+const findOrdersId = () => payload.summary!.units.find((unit) => unit.name === 'findOrders')!.id;
+
+/** The mark changes the page posted, in order */
+function postedMarks(page: Page): unknown[] {
+  return page.requests.filter((request) => request.path === '/api/marks').map((request) => request.body);
+}
+
 /** Opens the viewer on the payload (or `data`), with these localStorage entries (and this cookie) already there. */
 async function open(prefs: Record<string, string> = {}, hash = '', cookie = '', data = payload): Promise<Page> {
   // a preview's frame isn't loaded, and says nothing about it: there is no server, and what it shows is the agent's, not the page's
@@ -137,6 +149,8 @@ async function open(prefs: Record<string, string> = {}, hash = '', cookie = '', 
       return reply({ notes: page.notes });
     }
     switch (method + ' ' + url.pathname) {
+      case 'POST /api/marks':
+        return reply({ ok: true });
       case 'GET /api/ask':
         return reply(page.ask);
       case 'POST /api/ask':
@@ -158,12 +172,20 @@ async function open(prefs: Record<string, string> = {}, hash = '', cookie = '', 
       case 'GET /api/clear':
         return reply(page.clearInfo);
       case 'POST /api/clear': {
+        const picks = body.picks as Record<string, 'this' | 'all'>;
+        const cleared = Object.fromEntries(
+          Object.entries(picks).map(([id, scope]) => [
+            id,
+            page.clearInfo.kinds.find((kind) => kind.id === id)!.plans[scope]!,
+          ]),
+        );
         // the summary as the server makes it again once summary.json is gone: no unit summarized
         const summary = payload.summary!;
-        const scope = body.picks.summaries as 'this' | 'all';
         const answer: ClearResponse = {
-          cleared: { summaries: page.clearInfo.kinds[0].plans[scope]! },
-          summary: { ...summary, stamp: null, units: summary.units.map((unit) => ({ ...unit, summary: null })) },
+          cleared,
+          summary: picks.summaries
+            ? { ...summary, stamp: null, units: summary.units.map((unit) => ({ ...unit, summary: null })) }
+            : summary,
         };
         return reply(answer);
       }
@@ -224,9 +246,16 @@ function treeFiles(): string[] {
 }
 
 /** A test on a freshly opened page. */
-function pageTest(name: string, run: (page: Page) => Promise<void>, prefs?: Record<string, string>, hash?: string) {
+function pageTest(
+  name: string,
+  run: (page: Page) => Promise<void>,
+  prefs?: Record<string, string>,
+  hash?: string,
+  /** The payload to open on, made once the analysis is there */
+  data?: () => ViewerPayload,
+) {
   test(name, async () => {
-    const page = await open(prefs, hash);
+    const page = await open(prefs, hash, '', data?.());
     try {
       await run(page);
     } finally {
@@ -439,11 +468,13 @@ function splitRows(root = '#code'): string[] {
     return (element.classList.contains('removed') ? '−' : '') + element.querySelector('.num')!.textContent!.trim();
   };
   return $$(root + ' > .srow, ' + root + ' > .region, ' + root + ' > .row').map((row) =>
-    row.classList.contains('srow')
-      ? half(row, 'left') + '|' + half(row, 'right')
-      : row.classList.contains('region')
-        ? 'R' + row.querySelector<HTMLElement>('.body .row[data-line]')!.dataset.line
-        : '⋯',
+    row.classList.contains('gap-row')
+      ? '⋯'
+      : row.classList.contains('srow')
+        ? half(row, 'left') + '|' + half(row, 'right')
+        : row.classList.contains('region')
+          ? 'R' + row.querySelector<HTMLElement>('.body .row[data-line]')!.dataset.line
+          : '⋯',
   );
 }
 
@@ -475,6 +506,26 @@ pageTest('side by side (l, off by default) puts each removed line beside what re
     '23|20',
     '⋯',
   ]);
+  // a fold's pill sits on the new side, over the code it quotes; the old side says what it folds
+  const foldHalves = (row: Element) =>
+    [...row.children].map((half) => (half.classList.contains('none') ? '·' : half.textContent!.trim()));
+  assert.deepEqual($$('#code .region > .srow.pill-row').map(foldHalves), [
+    ['6guard1 guard → throw Error (3 lines)', '63 lines folded'],
+    ['9logginglog.info — "finding orders"', '·'],
+  ]);
+  assert.ok($$('#code .region .pill-row > .left .pill').length === 0, 'no pill on the old side');
+  // hidden lines: each side numbers its own
+  assert.deepEqual(
+    $$('#code .gap-row').map((row) => [...row.children].map((half) => half.textContent!.replace('⋯', '').trim())),
+    [
+      ['5 unchanged lines · 1–5', '5 unchanged lines · 1–5'],
+      ['1 unchanged line · 14', '1 unchanged line · 13'],
+      ['7 unchanged lines · 21–27', '7 unchanged lines · 24–30'],
+    ],
+  );
+  await click($('#code .region > .srow.pill-row > .left'));
+  assert.ok($('#code .region[data-cat="guard"]').classList.contains('open'), 'either half opens the fold');
+  await click($('#code .region > .srow.pill-row > .left'));
   // a lookup by line finds the new side
   assert.ok($('#code .row[data-line="11"]').classList.contains('right'));
   assert.equal($$('.code-pane .ruler').length, 0, 'no overview ruler');
@@ -578,21 +629,52 @@ pageTest('hide tests: t shows the test file, and hiding it again leaves it', asy
   assert.equal($('.tab.active .tab-name').textContent, 'orders.ts', 'the open test file gives way');
 });
 
-test('a viewed mark sticks, and survives a reload', async () => {
-  await open();
+test('a viewed mark is kept by the server, and comes back with the review', async () => {
+  const page = await open();
   let saved = '';
   try {
     await key('m');
     assert.ok($('#tree .file').classList.contains('viewed'));
     assert.equal($('#nav .progress-count').textContent, '1 of 1');
-    saved = localStorage.getItem('lens.viewedFiles')!;
-    assert.match(saved, /src\/orders\.ts@/);
+    const [tick] = postedMarks(page) as { list: string; key: string; on: boolean }[];
+    assert.equal(tick.list, 'files');
+    assert.match(tick.key, /^src\/orders\.ts@/);
+    assert.equal(tick.on, true);
+    saved = tick.key;
+    assert.equal(localStorage.getItem('lens.viewedFiles'), null, 'not in the browser');
+
+    await key('m');
+    assert.deepEqual(postedMarks(page).at(-1), { list: 'files', key: saved, on: false });
   } finally {
     await close();
   }
-  await open({ 'lens.viewedFiles': saved });
+  await open({}, '', '', withMarks({ files: [saved] }));
   try {
     assert.ok($('#tree .file').classList.contains('viewed'));
+  } finally {
+    await close();
+  }
+});
+
+test('↻ takes the marks the review has now: another branch is another review', async () => {
+  await open();
+  try {
+    await key('m');
+    assert.ok($('#tree .file').classList.contains('viewed'));
+    // the refresh's payload has no marks: the review checked out now has none
+    await click($('#refresh'));
+    assert.ok(!$('#tree .file').classList.contains('viewed'));
+  } finally {
+    await close();
+  }
+});
+
+test('marks an older lens kept in the browser are dropped: they were for no review in particular', async () => {
+  await open({ 'lens.viewedFiles': '["src/orders.ts@x"]', 'lens.concernMarks': '{}' });
+  try {
+    assert.ok(!$('#tree .file').classList.contains('viewed'));
+    assert.equal(localStorage.getItem('lens.viewedFiles'), null);
+    assert.equal(localStorage.getItem('lens.concernMarks'), null);
   } finally {
     await close();
   }
@@ -612,21 +694,17 @@ pageTest(
     assert.equal(box().getAttribute('aria-checked'), 'true');
     assert.ok(!box().classList.contains('changed'));
     assert.equal($$('#nav .legend.changed').length, 0);
-    assert.deepEqual(
-      JSON.parse(localStorage.getItem('lens.viewedFiles')!).filter((key: string) => key.startsWith('src/orders.ts@')),
-      [JSON.parse(localStorage.getItem('lens.viewedFiles')!).at(-1)],
-      'the old mark gives way to the new one',
-    );
-
     await key('m');
     assert.ok(!box().classList.contains('changed'), 'unticked now: never viewed, as far as it shows');
   },
-  { 'lens.viewedFiles': '["src/orders.ts@old"]' },
+  {},
+  '',
+  () => withMarks({ files: ['src/orders.ts@old'] }),
 );
 
 test('a change reviewed before its code changed says so in the Summary list', async () => {
   const unit = payload.summary!.units.find((candidate) => candidate.name === 'findOrders')!;
-  await open({ 'lens.viewedUnits': JSON.stringify([unit.id + '@old']) });
+  await open({}, '', '', withMarks({ units: [unit.id + '@old'] }));
   try {
     await key('v');
     const item = $$('.sum-item').find((candidate) => candidate.querySelector('.name')!.textContent === 'findOrders')!;
@@ -1398,7 +1476,7 @@ test("a flow's steps are headings where each starts; a unit in two flows is list
   }
 });
 
-pageTest("a unit's code has the Code view's folds, hunks and toolbar keys", async () => {
+pageTest("a unit's code has the Code view's folds and toolbar keys, but shows whole", async () => {
   await key('v');
   await key('j');
   assert.equal($('.sum-headline').textContent, 'findOrders skips deleted orders');
@@ -1406,8 +1484,8 @@ pageTest("a unit's code has the Code view's folds, hunks and toolbar keys", asyn
   assert.equal($$('.sum-inner .kicker').length, 0);
   assert.equal($('.unit-card .code-path').textContent, 'src/orders.tsfindOrders');
   const code = '.unit-code .code';
-  // hunks only: line 5 is far from the changes and the cited line
-  assert.deepEqual(rows(code), ['⋯', 'R6', '−9', 'R9', '10', '11', '12']);
+  // hunks only is on, but the unit shows whole: line 5 is far from the changes and the cited line, and still there
+  assert.deepEqual(rows(code), ['5', 'R6', '−9', 'R9', '10', '11', '12']);
   assert.deepEqual(
     $$('#toggles .chip').map((chip) => chip.textContent),
     ['guard', 'logging'],
@@ -1416,12 +1494,12 @@ pageTest("a unit's code has the Code view's folds, hunks and toolbar keys", asyn
   await key('e');
   assert.equal($$(code + ' .region.open').length, 2);
   await key('h');
-  assert.deepEqual(rows(code), ['5', 'R6', '−9', 'R9', '10', '11', '12']);
+  assert.deepEqual(rows(code), ['5', 'R6', '−9', 'R9', '10', '11', '12'], 'h changes nothing here');
   await key('x');
   assert.deepEqual(rows(code), ['5', 'R6', 'R9', '10', '11', '12']);
 });
 
-pageTest("a concern sits under its line; dismissing it drops the note and the unit's flag", async () => {
+pageTest("a concern sits under its line; dismissing it drops the note and the unit's flag", async (page) => {
   await key('v');
   await key('j');
   const line = $('.unit-code .row[data-line="10"]');
@@ -1434,7 +1512,11 @@ pageTest("a concern sits under its line; dismissing it drops the note and the un
   assert.ok($('.concern').classList.contains('dismissed'));
   assert.equal($('.progress .legend').textContent, '1 flagged');
   assert.equal($$('.sum-item.active .sig').length, 0);
-  assert.match(localStorage.getItem('lens.concernMarks')!, /dismissed/);
+  assert.deepEqual(
+    postedMarks(page).map((change) => (change as { mark: string }).mark),
+    ['dismissed'],
+    'kept by the server',
+  );
 });
 
 pageTest("a verdict doesn't move the list: the order stays, and a signal filter keeps the open unit", async () => {
@@ -1952,10 +2034,10 @@ pageTest("an answer's flow block is a lane of steps under their layers, and its 
   assert.deepEqual(
     [...lane.children].map((item) => item.className + ' ' + item.textContent),
     [
-      'ask-flow-layer API',
+      'ask-flow-layer eyebrow sm API',
       'ask-flow-step checks the body  1',
       'ask-flow-step then the user',
-      'ask-flow-layer db',
+      'ask-flow-layer eyebrow sm db',
       'ask-flow-step inserts the row  2',
     ],
   );
@@ -2060,11 +2142,11 @@ test('the copied concerns name a removed line as one, in the order of the summar
         unit.summary!.concerns.map((concern) => [
           // the line counted from the unit's anchor (model/signals.ts)
           `${unit.id}@${unit.hash}#${concern.kind}:${concern.line[0]}${Number(concern.line.slice(1)) - (concern.line[0] === 'O' ? unit.anchor.o : unit.anchor.n)}:${concern.text}`,
-          'real',
+          'real' as const,
         ]),
       ),
   );
-  await open({ 'lens.concernMarks': JSON.stringify(marks) }, '#summary');
+  await open({}, '#summary', '', withMarks({ concerns: marks }));
   try {
     assert.equal($('.ov-real-count').textContent, '2 confirmed concerns in 2 changes');
     await click($('.ov-real-copy'));
@@ -2089,8 +2171,8 @@ test("a confirmed concern on code that changed since is counted, not copied: its
       candidate === unit ? { ...candidate, stale: true, staleHash: 'oldhash', summary: null } : candidate,
     ),
   };
-  const marks = { [`${unit.id}@oldhash#bug:N3:deleted is a string column`]: 'real' };
-  await open({ 'lens.concernMarks': JSON.stringify(marks) }, '#summary');
+  const marks = { [`${unit.id}@oldhash#bug:N3:deleted is a string column`]: 'real' as const };
+  await open({}, '#summary', '', withMarks({ concerns: marks }));
   try {
     assert.equal($('.ov-real-count').textContent, '1 confirmed finding on code that changed since');
     assert.equal($$('.ov-real-copy').length, 0, 'nothing to copy: its lines may point elsewhere now');
@@ -2106,7 +2188,19 @@ pageTest(
     await key('v');
     await click($('.sum-item'));
     assert.equal($('.sum-headline').textContent, 'findOrders skips deleted orders');
+    const changedSince = () => $$('.sum-item .viewed-box.changed').length;
+    assert.equal(changedSince(), 1, 'reviewed before its code changed');
 
+    page.clearInfo.kinds.push({
+      id: 'marks',
+      label: 'Viewed and concern marks',
+      unit: ['mark', 'marks'],
+      plans: {
+        this: { count: 1, paths: ['.lens/marks/diff@main.json'] },
+        all: { count: 1, paths: ['.lens/marks/diff@main.json'] },
+      },
+      warning: null,
+    });
     await click($('#clear-data'));
     assert.ok(($('#clear-modal') as HTMLDialogElement).open);
     assert.ok(($('#clear-confirm') as HTMLButtonElement).disabled, 'nothing ticked: nothing to clear');
@@ -2115,7 +2209,7 @@ pageTest(
       'this',
       'the scope is in sight from the start',
     );
-    assert.equal($('.choice[data-kind="marks"] .choice-sub').textContent, '1 mark · in this browser');
+    assert.equal($('.choice[data-kind="marks"] .choice-sub').textContent, '1 mark');
     assert.ok(!$('.choice[data-kind="summaries"]').classList.contains('checked'));
 
     await click($('.choice[data-kind="summaries"]'));
@@ -2133,7 +2227,7 @@ pageTest(
     await click($('#clear-marks'));
     assert.deepEqual(
       $$('.clear-gone li').map((item) => item.textContent),
-      ['.lens/summary/diff@main/', '.lens/summary/pr-87/', '1 mark in this browser'],
+      ['.lens/summary/diff@main/', '.lens/summary/pr-87/', '.lens/marks/diff@main.json'],
     );
 
     await click($('#clear-confirm'));
@@ -2142,8 +2236,8 @@ pageTest(
       page.requests
         .filter((request) => request.path === '/api/clear')
         .map((request) => request.method + ' ' + JSON.stringify(request.body)),
-      ['GET null', 'POST {"picks":{"summaries":"all"}}'],
-      "the marks are the browser's own: the server hears only of the summaries",
+      ['GET null', 'POST {"picks":{"summaries":"all","marks":"this"}}'],
+      "the marks are this review's, kept by the server",
     );
     assert.ok(!($('#clear-modal') as HTMLDialogElement).open);
     assert.equal(
@@ -2151,13 +2245,15 @@ pageTest(
       'Cleared summaries (2 reviews) and viewed and concern marks (1 mark)',
     );
     assert.ok(!$('#root').textContent!.includes('skips deleted orders'), 'no summary is shown any more');
-    assert.equal(localStorage.getItem('lens.viewedFiles'), '[]');
+    assert.equal(changedSince(), 0, 'the page drops them too');
 
     // opened again, nothing is ticked
     await click($('#clear-data'));
     assert.ok(($('#clear-confirm') as HTMLButtonElement).disabled);
   },
-  { 'lens.viewedFiles': '["src/orders.ts@x"]' },
+  {},
+  '',
+  () => withMarks({ units: [findOrdersId() + '@old'] }),
 );
 
 test('a summary cleared from elsewhere (another viewer, `lens clear`) leaves this page too, once it looks', async () => {
@@ -2181,14 +2277,14 @@ pageTest('full units: the rest of the file sits above and below the unit, each b
   const code = '.unit-code .code';
   const bar = (side: string) => $(code + ' .context.' + side + ' > .context-bar');
   const opened = (side: string) => rows(code + ' > .context.' + side + ' > .context-body');
-  const unitRows = ['⋯', 'R6', '−9', 'R9', '10', '11', '12'];
+  const unitRows = ['5', 'R6', '−9', 'R9', '10', '11', '12'];
   assert.equal($$(code + ' .context').length, 0, 'off by default: only the unit');
   await click($('#full-units'));
   assert.equal($('#full-units').getAttribute('aria-checked'), 'true');
   assert.equal(localStorage.getItem('lens.fullUnits'), '1');
   // both closed: the unit's rows are as they were, between the two bars
   assert.deepEqual(rows(code), unitRows);
-  assert.equal(bar('above').textContent!.trim(), 'Above4 lines', 'nothing declared above it, nothing changed');
+  assert.equal(bar('above').textContent!.trim(), '4 lines', 'nothing declared above it, nothing changed');
   assert.equal(bar('below').querySelector('.context-names')!.textContent, 'toOrder, formatTotal');
   assert.equal(bar('below').querySelector('.counts')!.textContent, '−4', "legacyTotal's removed lines are below");
   assert.ok(bar('below').querySelector('.mark.changed'));
@@ -2198,9 +2294,11 @@ pageTest('full units: the rest of the file sits above and below the unit, each b
   assert.ok(!$(code + ' .context.below').classList.contains('open'));
   await click($('.unit-card .ruler .tick[data-label="O17"]'));
   assert.ok($(code + ' .context.below').classList.contains('open'));
-  // open, it is the file's code, in hunks only as the Code view shows it (14 and 21–27 hidden)
-  assert.deepEqual(opened('below'), ['13', '⋯', '15', '16', '17', '−17', '−18', '−19', '−20', '18', '19', '20', '⋯']);
-  await key('h');
+  // open, it is the file's code, whole though hunks only is on
+  assert.deepEqual(opened('below'), [
+    ...['13', '14', '15', '16', '17', '−17', '−18', '−19', '−20'],
+    ...['18', '19', '20', '21', '22', '23', '24', '25', '26', '27'],
+  ]);
   await click(bar('above'));
   assert.deepEqual(opened('above'), ['R1', '4']);
   // Above opens over its bar: the bar stays on the unit's top edge
@@ -2209,15 +2307,11 @@ pageTest('full units: the rest of the file sits above and below the unit, each b
     [...above.children].map((child) => child.className),
     ['context-body', 'row context-bar'],
   );
-  assert.deepEqual(opened('below'), [
-    ...['13', '14', '15', '16', '17', '−17', '−18', '−19', '−20'],
-    ...['18', '19', '20', '21', '22', '23', '24', '25', '26', '27'],
-  ]);
   await click(bar('above'));
   assert.ok(!$(code + ' .context.above').classList.contains('open'), 'a second click closes it');
   await click($('#full-units'));
   assert.equal($$(code + ' .context').length, 0, 'off again: only the unit');
-  assert.deepEqual(rows(code), ['5', 'R6', '−9', 'R9', '10', '11', '12']);
+  assert.deepEqual(rows(code), unitRows);
 });
 
 test('full units: a unit that owns part of a removed block shows that part once, and the stretch only the rest', async () => {
@@ -2234,12 +2328,13 @@ test('full units: a unit that owns part of a removed block shows that part once,
     await key('v');
     await key('j');
     const code = '.unit-code .code';
-    assert.deepEqual(rows(code), ['⋯', 'R6', '−9', 'R9', '10', '11', '12', '−19', '−20']);
+    assert.deepEqual(rows(code), ['5', 'R6', '−9', 'R9', '10', '11', '12', '−19', '−20']);
     const below = $(code + ' .context.below > .context-bar');
     assert.equal(below.querySelector('.counts')!.textContent, '−2', 'only the lines the unit does not own');
     await click(below);
     assert.deepEqual(rows(code + ' > .context.below > .context-body'), [
-      ...['13', '⋯', '15', '16', '17', '−17', '−18', '18', '19', '20', '⋯'],
+      ...['13', '14', '15', '16', '17', '−17', '−18'],
+      ...['18', '19', '20', '21', '22', '23', '24', '25', '26', '27'],
     ]);
   } finally {
     await close();

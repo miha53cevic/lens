@@ -48,13 +48,13 @@ export function SearchDialog() {
       </div>
       <div className='palette-foot'>
         <span>
-          <kbd>↑</kbd> <kbd>↓</kbd> navigate
+          <Kbd size='sm' combo='↑ ↓' /> navigate
         </span>
         <span>
-          <kbd>↵</kbd> jump
+          <Kbd size='sm' combo='↵' /> jump
         </span>
         <span>
-          <kbd>Esc</kbd> close
+          <Kbd size='sm' combo='Esc' /> close
         </span>
         <span className='spacer' />
         <span>

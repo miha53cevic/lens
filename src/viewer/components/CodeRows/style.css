@@ -107,16 +107,13 @@
     background var(--motion),
     color var(--motion);
 }
+/* under the pointer it takes its category's tint, as a toned ui/Tag does */
 .pill-row:hover .pill {
-  background: color-mix(in oklab, var(--cat) 16%, var(--surface-2));
+  background: color-mix(in oklab, var(--cat) var(--tint), var(--surface-2));
   color: var(--text);
 }
 .pill .cat {
   color: var(--cat);
-  font-size: var(--text-2xs);
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
 }
 .pill .caret {
   align-self: center;
@@ -220,14 +217,11 @@
 .context.above > .context-bar {
   margin-bottom: var(--space-1);
 }
-/* the caret points at the code it opened: up for Above, down for Below */
-.context.above > .context-bar .caret.open {
-  transform: rotate(-90deg);
-}
 .context.below:not(.open) > .context-bar {
   margin-top: var(--space-1);
 }
-/* the gutter keeps its width (the padded number) and shows which way the code is: ⇡ or ⇣ */
+/* the gutter keeps its width (the padded number) and shows which way a click moves the code: closed,
+   ⇡ or ⇣ to where the code is; open, the other way, back into the bar */
 .row.context-bar .num {
   position: relative;
   color: var(--muted);
@@ -238,6 +232,10 @@
   top: 50%;
   right: 0;
   translate: 0 -50%;
+  transition: rotate var(--motion);
+}
+.context.open > .context-bar .context-arrow {
+  rotate: 180deg;
 }
 .row.context-bar:hover .context-arrow {
   color: var(--accent);
@@ -255,23 +253,7 @@
   gap: var(--space-2);
   min-width: 0;
 }
-/* the side, as a tag on the band */
-.context-side {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  height: var(--control-h-xs);
-  padding: 0 var(--space-2);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-full);
-  background: var(--surface);
-  font-weight: 600;
-}
-.context-side .caret {
-  color: var(--accent);
-}
 /* the accent is picked for the code, not for small marks on a light band: darken it there */
-:root[data-appearance='light'] .context-side .caret,
 :root[data-appearance='light'] .row.context-bar:hover .context-arrow {
   color: color-mix(in oklab, var(--accent) 80%, var(--text));
 }
@@ -317,6 +299,29 @@
 .row.half.none,
 .row.half.none:hover {
   background: color-mix(in oklab, var(--surface-2) 55%, transparent);
+}
+/* a fold: its pill on the new half, over the code it quotes; the old half says which of its lines
+   are folded with it, and in red how many of them were removed */
+.srow.pill-row > .half {
+  align-items: baseline;
+}
+.srow.pill-row:hover > .half:not(.none) {
+  background: color-mix(in oklab, var(--code-fg) 5%, transparent);
+}
+.fold-old {
+  color: var(--faint);
+  font: var(--text-xs) / 1.75 var(--font-sans);
+}
+.fold-removed {
+  color: var(--del);
+}
+.mark.del {
+  background: var(--del);
+  opacity: 0.7;
+}
+/* hidden unchanged lines: each half numbers its own side's, and the row is one target */
+.srow.gap-row:hover > .half {
+  color: var(--text);
 }
 /* a drag selects one side's code (holdSelectionSide) */
 .code.split[data-side='left'] .half.right,

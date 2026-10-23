@@ -52,9 +52,7 @@
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-.recent-forget.icon-btn {
-  width: 24px;
-  height: 24px;
+.recent-forget {
   margin-right: var(--space-2);
   visibility: hidden;
 }

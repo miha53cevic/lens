@@ -13,11 +13,11 @@ export function Drawings({ unitId }: { unitId: string | null }) {
   if (previews.length === 0 && sequences.length === 0) return null;
   return (
     <div className='drawings' id='drawings'>
-      <div className='section-label'>{previews.length > 0 ? 'Previews' : 'Sequences'}</div>
+      <div className='section-label eyebrow'>{previews.length > 0 ? 'Previews' : 'Sequences'}</div>
       {previews.map((preview) => (
         <PreviewCard key={preview.title} preview={preview} unitId={unitId} />
       ))}
-      {previews.length > 0 && sequences.length > 0 && <div className='section-label'>Sequences</div>}
+      {previews.length > 0 && sequences.length > 0 && <div className='section-label eyebrow'>Sequences</div>}
       {sequences.map((sequence) => (
         <SequenceCard key={sequence.title} sequence={sequence} unitId={unitId} />
       ))}

@@ -114,7 +114,6 @@ const buildUnitPlan = memo(
   (
     unit: ViewUnit,
     file: ViewFile | null,
-    hunksOnly: boolean,
     expanded: ReadonlySet<string>,
     showRemoved: boolean,
     fullUnits: boolean,
@@ -131,9 +130,10 @@ const buildUnitPlan = memo(
             .filter((block) => block.anchor === afterLine)
             .flatMap((block) => block.lines.map((text, offset) => ({ text, old: block.oldStart + offset })));
     const regions = file ? file.regions : [];
-    const spans = file ? unitSpans(unit, regions, hunksOnly, expanded) : [];
+    // the Summary tab shows a unit whole: hunks only is the Code view's (unitSpans)
+    const spans = file ? unitSpans(unit) : [];
     const items = planCode(spans, regions, removedAt);
-    const around = fullUnits && file ? contextSpans(unit, file, hunksOnly, expanded) : null;
+    const around = fullUnits && file ? contextSpans(unit, file) : null;
     if (!file || !around) return { file, items, gutter, full: false };
     // around the unit, the file's other removed lines: the unit's own show with it. By old line, not by
     // block: units split one removed block between them (units.ts), so a unit may own only part of one
@@ -177,7 +177,7 @@ export function unitFile(state: LensState, unit: ViewUnit): ViewFile | null {
 
 export function unitPlan(state: LensState, unit: ViewUnit): UnitPlan {
   const file = unitFile(state, unit);
-  return buildUnitPlan(unit, file, state.hunksOnly, state.expandedGaps, showsRemoved(state), state.fullUnits);
+  return buildUnitPlan(unit, file, state.expandedGaps, showsRemoved(state), state.fullUnits);
 }
 
 // memoized, one per source: a selector gets the same array back while the code stays the same

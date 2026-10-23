@@ -1,7 +1,7 @@
-// What the reader sets and the browser remembers: the sidebar, the view settings (the
-// header's ⋯ menu), the code's size and the viewed marks.
+// What the reader sets: the sidebar, the view settings (the header's ⋯ menu) and the code's size,
+// which the browser remembers, and the viewed marks, which the server keeps for the review.
 
-import { commit, getState, THRESHOLD_PREF, toggled, update, VIEWED_CAP, VIEWED_PREF } from '../store.ts';
+import { commit, getState, THRESHOLD_PREF, toggled, update } from '../store.ts';
 import { fileViewKey, INITIAL_DATA, type ViewFile, writePref } from '../shared.ts';
 import { CODE_SIZE_COOKIE, CODE_SIZE_DEFAULT, steppedSize } from '../codeSize.ts';
 import { type Unit, unitViewKey } from '../model/signals.ts';
@@ -9,6 +9,7 @@ import { fileProgress, type Progress, unitProgress } from '../model/progress.ts'
 import { toggledMark } from '../model/viewed.ts';
 import { currentUnit } from '../model/summaryList.ts';
 import { visibleActive } from './tabs.ts';
+import { saveMark } from './marks.ts';
 import { growOpen, pop, slideIn } from '../../ui/motion.ts';
 
 // The sidebar: collapsed or not, its width, the tree's closed folders.
@@ -95,19 +96,15 @@ export function stepCodeSize(delta: number): void {
 }
 
 // Viewed marks: keyed by content, so what changes after it was ticked comes back unticked (and
-// says it changed since, model/viewed.ts).
-
-function saveViewed(prefKey: string, viewed: ReadonlySet<string>) {
-  // Sets keep insertion order: the oldest marks drop first
-  writePref(prefKey, JSON.stringify([...viewed].slice(-VIEWED_CAP)));
-}
+// says it changed since, model/viewed.ts). Kept per review by the server (actions/marks.ts).
 
 export function toggleFileViewed(fileIndex: number): void {
   const state = getState();
   const file: ViewFile | undefined = state.data.files[fileIndex];
   if (!file) return;
-  const viewedFiles = toggledMark(state.viewedFiles, fileViewKey(file));
-  saveViewed(VIEWED_PREF.files, viewedFiles);
+  const key = fileViewKey(file);
+  const viewedFiles = toggledMark(state.viewedFiles, key);
+  void saveMark({ list: 'files', key, on: viewedFiles.has(key) });
   const before = fileProgress(state);
   commit({ viewedFiles });
   confirmMark(before, fileProgress(getState()), fileIndex === state.active);
@@ -116,8 +113,9 @@ export function toggleFileViewed(fileIndex: number): void {
 export function toggleUnitViewed(unit: Unit | null): void {
   if (!unit) return;
   const state = getState();
-  const viewedUnits = toggledMark(state.viewedUnits, unitViewKey(unit));
-  saveViewed(VIEWED_PREF.units, viewedUnits);
+  const key = unitViewKey(unit);
+  const viewedUnits = toggledMark(state.viewedUnits, key);
+  void saveMark({ list: 'units', key, on: viewedUnits.has(key) });
   const before = unitProgress(state);
   commit({ viewedUnits });
   const open = currentUnit(state);

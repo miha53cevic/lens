@@ -1,4 +1,4 @@
-import { ChevronRight, ChevronsDown, ChevronsUp } from 'lucide-react';
+import { ChevronsDown, ChevronsUp } from 'lucide-react';
 import type { ReactNode } from 'react';
 import clsx from 'clsx';
 import type { CodeItem } from '../../rows.ts';
@@ -38,10 +38,6 @@ export function Context({ item, context, children }: ContextProps) {
         </span>
         <span className={clsx('mark', changed && 'changed')} />
         <span className='context-label'>
-          <span className='context-side'>
-            <ChevronRight className={clsx('caret', item.open && 'open')} size={12} strokeWidth={2.5} />
-            {item.side === 'above' ? 'Above' : 'Below'}
-          </span>
           {item.names.length > 0 && (
             <span className='context-names'>
               {item.names.slice(0, NAMES_SHOWN).join(', ')}

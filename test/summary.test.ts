@@ -337,6 +337,35 @@ test("submit finds a bundle whose key ends in .json", async () => {
   }
 });
 
+test("a submit that asks for fixes keeps the run shown until one that asks for nothing", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "lens-submit-"));
+  const git = (...args: string[]) => execFileSync("git", args, { cwd: dir, encoding: "utf8" });
+  const log = console.log;
+  console.log = () => {};
+  try {
+    git("init", "-q", "-b", "main");
+    writeFileSync(join(dir, "package.json"), "{}\n");
+    git("add", "-A");
+    await runSummary(["prepare", "--staged"], dir);
+    const key = "diff-staged@main";
+    const folder = join(dir, ".lens/summary", key);
+    const read = buildProgressReader(dir, key);
+    const unit = { headline: "Adds an empty package.json", gist: "new file", needsLook: false, changes: [], breaks: [] };
+    const overview = { what: "Adds a package.json." };
+    // the unit and the overview are in, so nothing on disk is missing, but a flow was rejected
+    writeFileSync(join(folder, "result.json"), JSON.stringify({ units: { "package.json#(file)": unit }, overview, flows: [{ title: "x" }] }));
+    await runSummary(["submit", folder], dir);
+    assert.deepEqual(read(), { done: 1, total: 1, finalPass: true }, "the agent was told to fix and submit again");
+
+    writeFileSync(join(folder, "result.json"), JSON.stringify({ units: {}, overview }));
+    await runSummary(["submit", folder], dir);
+    assert.equal(read(), null, "a clean submit: done");
+  } finally {
+    console.log = log;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("summaryKey is readable and filesystem-safe", () => {
   assert.equal(summaryKey("diff", []), "diff");
   assert.equal(summaryKey("diff", ["--staged"]), "diff-staged");

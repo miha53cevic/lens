@@ -44,7 +44,7 @@ test("a note on removed lines looks among the lines the diff removes, by their o
   assert.equal(placeNote(note(16, 17, text, "old"), () => undefined, 0), null);
 });
 
-// ---- the store: one file per repository, its paths from the root ----
+// ---- the store: one file per review, its paths from the root ----
 
 function tempRoot(): string {
   // realpath: on Windows tmpdir() can be an 8.3 short path
@@ -55,39 +55,66 @@ const NOTE: Omit<ReaderNote, "file"> = {
   id: "n1", side: "new", start: 2, end: 2, lines: ["b"], kind: "risk", text: "what if b is empty?", at: "2026-10-23T00:00:00Z",
 };
 
-test("notes are kept with paths from the repository's root, and shown with paths from where lens runs", () => {
+test("notes are kept per review, with paths from the repository's root, shown with paths from where lens runs", () => {
   const root = tempRoot();
   try {
     const cwd = join(root, "app");
     mkdirSync(cwd);
-    changeNotes({ root, cwd }, (notes) => [...notes, { ...NOTE, file: "src/a.ts" }]);
-    assert.equal(readStoredNotes(root)[0].file, "app/src/a.ts", "stored from the root");
-    assert.deepEqual(notesFor({ root, cwd }, ["src/a.ts"]).map((shown) => shown.file), ["src/a.ts"]);
-    assert.deepEqual(notesFor({ root, cwd: root }, ["app/src/a.ts"]).map((shown) => shown.file), ["app/src/a.ts"]);
-    assert.deepEqual(notesFor({ root, cwd }, ["src/b.ts"]), [], "only the review's files' notes");
+    const review = "diff@feature-a";
+    changeNotes({ root, cwd, review }, (notes) => [...notes, { ...NOTE, file: "src/a.ts" }]);
+    assert.equal(readStoredNotes(root, review)[0].file, "app/src/a.ts", "stored from the root");
+    assert.ok(existsSync(join(root, ".lens", "notes", "diff@feature-a.json")), "in the review's own file");
+    assert.deepEqual(notesFor({ root, cwd, review }, ["src/a.ts"]).map((shown) => shown.file), ["src/a.ts"]);
+    assert.deepEqual(notesFor({ root, cwd: root, review }, ["app/src/a.ts"]).map((shown) => shown.file), ["app/src/a.ts"]);
+    assert.deepEqual(notesFor({ root, cwd, review }, ["src/b.ts"]), [], "only the review's files' notes");
+    assert.deepEqual(notesFor({ root, cwd, review: "diff@feature-b" }, ["src/a.ts"]), [], "another branch's review has none");
     assert.ok(readFileSync(join(root, ".lens", ".gitignore"), "utf8").includes("*"), "in lens's ignored folder");
     // another version, or a broken file: none
-    writeFileSync(join(root, ".lens", "notes.json"), JSON.stringify({ version: 2, notes: [{ ...NOTE, file: "x" }] }));
-    assert.deepEqual(readStoredNotes(root), []);
-    writeFileSync(join(root, ".lens", "notes.json"), "{ not json");
-    assert.deepEqual(readStoredNotes(root), []);
+    const file = join(root, ".lens", "notes", "diff@feature-a.json");
+    writeFileSync(file, JSON.stringify({ version: 2, notes: [{ ...NOTE, file: "x" }] }));
+    assert.deepEqual(readStoredNotes(root, review), []);
+    writeFileSync(file, "{ not json");
+    assert.deepEqual(readStoredNotes(root, review), []);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 });
 
-test("Clear saved data: the notes are one kind, for the whole repository", () => {
+test("the notes every review shared before are never shown, and Clear lists them under all", () => {
   const root = tempRoot();
   try {
-    assert.deepEqual(describeKinds({ root, key: null }).find((kind) => kind.id === "notes")!.plans, {
+    mkdirSync(join(root, ".lens"));
+    writeFileSync(join(root, ".lens", "notes.json"), JSON.stringify({ version: 1, notes: [{ ...NOTE, file: "a.ts" }] }));
+    assert.deepEqual(notesFor({ root, cwd: root, review: "diff@main" }, ["a.ts"]), []);
+    const at = { root, key: "diff@main", review: "diff@main" };
+    assert.deepEqual(describeKinds(at).find((kind) => kind.id === "notes")!.plans, {
+      this: { count: 0, paths: [] },
+      all: { count: 1, paths: [".lens/notes.json"] },
+    });
+    clearKinds(at, { notes: "all" });
+    assert.ok(!existsSync(join(root, ".lens", "notes.json")));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("Clear saved data: this review's notes, or every review's", () => {
+  const root = tempRoot();
+  try {
+    assert.deepEqual(describeKinds({ root, key: null, review: null }).find((kind) => kind.id === "notes")!.plans, {
       all: { count: 0, paths: [] },
     });
-    changeNotes({ root, cwd: root }, () => [{ ...NOTE, file: "a.ts" }, { ...NOTE, id: "n2", file: "b.ts" }]);
-    const notes = describeKinds({ root, key: "diff@main" }).find((kind) => kind.id === "notes")!;
-    assert.deepEqual(notes.plans, { all: { count: 2, paths: [".lens/notes.json"] } });
-    assert.throws(() => clearKinds({ root, key: "diff@main" }, { notes: "this" }), /can't be cleared/);
-    assert.deepEqual(clearKinds({ root, key: "diff@main" }, { notes: "all" }).notes, { count: 2, paths: [".lens/notes.json"] });
-    assert.ok(!existsSync(join(root, ".lens", "notes.json")));
+    changeNotes({ root, cwd: root, review: "diff@main" }, () => [{ ...NOTE, file: "a.ts" }, { ...NOTE, id: "n2", file: "b.ts" }]);
+    changeNotes({ root, cwd: root, review: "pr-87" }, () => [{ ...NOTE, file: "a.ts" }]);
+    const at = { root, key: "diff@main", review: "diff@main" };
+    assert.deepEqual(describeKinds(at).find((kind) => kind.id === "notes")!.plans, {
+      this: { count: 2, paths: [".lens/notes/diff@main.json"] },
+      all: { count: 3, paths: [".lens/notes/diff@main.json", ".lens/notes/pr-87.json"] },
+    });
+    assert.deepEqual(clearKinds(at, { notes: "this" }).notes, { count: 2, paths: [".lens/notes/diff@main.json"] });
+    assert.deepEqual(readStoredNotes(root, "pr-87").length, 1, "another review's stay");
+    assert.deepEqual(clearKinds(at, { notes: "all" }).notes, { count: 1, paths: [".lens/notes/pr-87.json"] });
+    assert.deepEqual(readStoredNotes(root, "pr-87"), []);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -98,7 +125,7 @@ test("Clear saved data: the notes are one kind, for the whole repository", () =>
 test("/api/notes: a note is checked, kept, edited and resolved, and each answer is the review's notes", async () => {
   const root = tempRoot();
   let changes = 0;
-  const input = { root, cwd: root, files: [{ file: "src/a.ts" }] } as unknown as ViewerInput;
+  const input = { root, cwd: root, review: "diff@main", files: [{ file: "src/a.ts" }] } as unknown as ViewerInput;
   const routes = createNoteRoutes(() => input, () => changes++);
   const server = createServer(async (req, res) => {
     if (!(await routes.handle(req, res, new URL(req.url ?? "/", "http://x")))) {
@@ -139,7 +166,7 @@ test("/api/notes: a note is checked, kept, edited and resolved, and each answer 
 
     const resolved: NotesResponse = await (await send("/api/notes/" + kept.id, "DELETE")).json();
     assert.deepEqual(resolved.notes, []);
-    assert.deepEqual(readStoredNotes(root), []);
+    assert.deepEqual(readStoredNotes(root, "diff@main"), []);
     assert.equal(changes, 3, "the server hears of each change: its held page has the old notes");
     assert.equal((await send("/api/notes", "GET")).status, 404);
   } finally {

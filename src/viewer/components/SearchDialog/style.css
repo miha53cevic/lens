@@ -22,9 +22,9 @@ dialog.palette {
   overflow-y: auto;
   padding: var(--space-1) 0;
 }
-.search-empty {
+/* base.css's .no-match, in line with the hits */
+.search-results .no-match {
   padding: var(--space-3) var(--space-4);
-  color: var(--muted);
 }
 .search-file {
   padding: var(--space-2) var(--space-4) var(--space-1);

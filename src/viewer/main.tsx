@@ -19,6 +19,7 @@ import { dropForeignSelection, onSelectionChange } from './ask/selection.ts';
 import { onKeyDown } from './keys.ts';
 import { onPreviewMessage } from './actions/previews.ts';
 import { onContextMenu } from './actions/codeMenu.ts';
+import { forgetOldMarks } from './actions/marks.ts';
 import { check, watch } from '../ui/poll.ts';
 import { motionReady } from '../ui/motion.ts';
 
@@ -58,6 +59,8 @@ subscribe(syncDocument);
 
 openFirstTreeFile();
 syncDocument(getState(), null);
+// the marks this browser kept before the server kept them per review: they were for no review in particular
+forgetOldMarks();
 const { data } = getState();
 // what the page watches by asking again (poll.ts): the chat, while it is open or a question waits,
 // and whether the summary or the code moved on

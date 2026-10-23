@@ -7,7 +7,7 @@
 import type { FileFoldModel, FoldRegion } from '../cli-app/model.ts';
 import type { ViewUnit } from '../cli-app/summary/view.ts';
 
-/** Lines of context around each change in hunks-only mode (code view and summary) */
+/** Lines of context around each change in hunks-only mode (the code view; the summary shows its units whole) */
 export const HUNK_CONTEXT = 3;
 
 /** A stretch of new-side lines: shown, or (with `gap`, its expand key) hidden behind a ⋯ row. */
@@ -140,7 +140,7 @@ function hasAnchors(file: FileFoldModel): boolean {
 /** Hunks only: the stretches within HUNK_CONTEXT of a change or a removal anchor, merged, folds whole. */
 function hunkWindows(file: FileFoldModel): CodeSpan[] {
   const around = (file.changedLines || []).map((line) => ({ start: line - HUNK_CONTEXT, end: line + HUNK_CONTEXT }));
-  // a removed block shows after its anchor line: HUNK_CONTEXT lines on each side, as in the Summary
+  // a removed block shows after its anchor line: HUNK_CONTEXT lines on each side
   for (const block of file.removals || []) {
     around.push({ start: block.afterLine - HUNK_CONTEXT + 1, end: block.afterLine + HUNK_CONTEXT });
   }
@@ -199,27 +199,16 @@ function withGaps(
 
 /**
  * Full units: the rest of the unit's file, above its first line and below its last, each keyed
- * ("unit:<id>:above" / ":below") for the bar that opens it. Inside, the lines follow hunks only as
- * the Code view does (gaps keyed "unit:<id>:start"). Null when the unit has no lines in the file.
+ * ("unit:<id>:above" / ":below") for the bar that opens it, and shown whole once open: the Summary
+ * tab doesn't follow hunks only. Null when the unit has no lines in the file.
  */
-export function contextSpans(
-  unit: ViewUnit,
-  file: FileFoldModel,
-  hunksOnly: boolean,
-  expanded: ReadonlySet<string>,
-): { above: UnitContext; below: UnitContext } | null {
+export function contextSpans(unit: ViewUnit, file: FileFoldModel): { above: UnitContext; below: UnitContext } | null {
   if (unit.ranges.length === 0) return null;
   const first = Math.min(...unit.ranges.map((range) => range.start));
   const last = Math.max(...unit.ranges.map((range) => range.end));
   const stretch = (side: 'above' | 'below', start: number, end: number): UnitContext => {
     const key = 'unit:' + unit.id + ':' + side;
-    if (start > end) return { key, start, end, spans: [] };
-    const range = [{ start, end }];
-    const spans =
-      !hunksOnly || !hasAnchors(file)
-        ? range
-        : withGaps(hunkWindows(file), range, (gapStart) => 'unit:' + unit.id + ':' + gapStart, expanded);
-    return { key, start, end, spans };
+    return { key, start, end, spans: start > end ? [] : [{ start, end }] };
   };
   return { above: stretch('above', 1, first - 1), below: stretch('below', last + 1, file.lineCount) };
 }
@@ -242,63 +231,11 @@ export function declaredIn(file: FileFoldModel, start: number, end: number): str
 }
 
 /**
- * The Summary tab's spans for a unit: its ranges. Hunks only: the lines within HUNK_CONTEXT of a
- * change or a removed block, as in the code view, and the lines the summary cites; the stretches
- * in between are hidden unless `expanded` has their key ("unit:<id>:start").
+ * The Summary tab's spans for a unit: its ranges, whole. Hunks only is the Code view's: a unit is
+ * already the code around its change, and cutting it up hides what the summary talks about.
  */
-export function unitSpans(
-  unit: ViewUnit,
-  regions: FoldRegion[],
-  hunksOnly: boolean,
-  expanded: ReadonlySet<string>,
-): CodeSpan[] {
-  if (!hunksOnly) return unit.ranges.map((range) => ({ start: range.start, end: range.end }));
-  const near = new Set<number>();
-  const keepAround = (from: number, to: number) => {
-    for (let line = from; line <= to; line++) near.add(line);
-  };
-  for (const line of unit.changedLines) keepAround(line - HUNK_CONTEXT, line + HUNK_CONTEXT);
-  // a removed block shows after its anchor line: keep the lines on both sides
-  for (const block of unit.removals) keepAround(block.anchor - HUNK_CONTEXT + 1, block.anchor + HUNK_CONTEXT);
-  // lines the summary points at stay in view — a concern's note hangs off its line
-  const summary = unit.summary;
-  for (const cited of summary ? [...summary.concerns, ...summary.changes] : []) {
-    if (cited.line.startsWith('N')) {
-      const line = Number(cited.line.slice(1));
-      keepAround(line - 1, line + 1);
-    }
-  }
-  // as in the code view, a fold region is never cut by a hidden stretch
-  for (const region of regions) {
-    for (let line = region.startLine; line <= region.endLine; line++) {
-      if (near.has(line)) {
-        keepAround(region.startLine, region.endLine);
-        break;
-      }
-    }
-  }
-  // runs of hidden lines within each of the unit's ranges; an expanded one shows again
-  const gaps: CodeSpan[] = [];
-  for (const range of unit.ranges) {
-    for (let line = range.start; line <= range.end; line++) {
-      if (near.has(line)) continue;
-      const last = gaps[gaps.length - 1];
-      if (last && last.end === line - 1) last.end = line;
-      else gaps.push({ start: line, end: line });
-    }
-  }
-  for (const gap of gaps) gap.gap = 'unit:' + unit.id + ':' + gap.start;
-  const hidden = gaps.filter((gap) => !expanded.has(gap.gap!));
-  const shown: CodeSpan[] = [];
-  for (const range of unit.ranges) {
-    for (let line = range.start; line <= range.end; line++) {
-      if (hidden.some((gap) => line >= gap.start && line <= gap.end)) continue;
-      const last = shown[shown.length - 1];
-      if (last && last.end === line - 1) last.end = line;
-      else shown.push({ start: line, end: line });
-    }
-  }
-  return [...shown, ...hidden].sort(byStart);
+export function unitSpans(unit: ViewUnit): CodeSpan[] {
+  return unit.ranges.map((range) => ({ start: range.start, end: range.end }));
 }
 
 // Side by side: the same plan, drawn as rows of old · new.
@@ -309,9 +246,34 @@ export type SplitItem =
   | { kind: 'same'; line: number; old: number }
   /** a removed line beside the changed line in its place; either side may have none */
   | { kind: 'pair'; removed: RemovedLine | null; line: number | null }
-  | { kind: 'region'; region: FoldRegion; body: SplitItem[] }
-  | Extract<CodeItem, { kind: 'gap' } | { kind: 'break' }>
+  /** old: the old side's lines the fold hides, so its left half can say so (null when it has none) */
+  | { kind: 'region'; region: FoldRegion; body: SplitItem[]; old: OldStretch | null }
+  /** a gap's unchanged lines, numbered on the old side too */
+  | (Extract<CodeItem, { kind: 'gap' }> & { oldStart: number; oldEnd: number })
+  | Extract<CodeItem, { kind: 'break' }>
   | (Omit<Extract<CodeItem, { kind: 'context' }>, 'body'> & { body: SplitItem[] });
+
+/** The old side of a fold, side by side: its first and last old line, and how many of them were removed. */
+export interface OldStretch {
+  start: number;
+  end: number;
+  removed: number;
+}
+
+/** The old lines a fold's paired body holds: its unchanged lines' old numbers and its removed lines. */
+export function oldStretch(body: SplitItem[]): OldStretch | null {
+  const lines: number[] = [];
+  let removed = 0;
+  for (const item of body) {
+    if (item.kind === 'same') lines.push(item.old);
+    else if (item.kind === 'pair' && item.removed) {
+      lines.push(item.removed.old);
+      removed++;
+    }
+  }
+  if (lines.length === 0) return null;
+  return { start: Math.min(...lines), end: Math.max(...lines), removed };
+}
 
 /**
  * The side-by-side rows for a plan. A run of removed lines and the run of changed lines after it
@@ -344,8 +306,14 @@ export function pairRows(items: CodeItem[], changed: ReadonlySet<number>, oldLin
       case 'line':
         rows.push({ kind: 'same', line: item.line, old: oldLines[item.line] ?? item.line });
         break;
-      case 'region':
-        rows.push({ kind: 'region', region: item.region, body: pairRows(item.body, changed, oldLines) });
+      case 'region': {
+        const body = pairRows(item.body, changed, oldLines);
+        rows.push({ kind: 'region', region: item.region, body, old: oldStretch(body) });
+        break;
+      }
+      case 'gap':
+        // a gap is unchanged lines only: each has an old number
+        rows.push({ ...item, oldStart: oldLines[item.start] ?? item.start, oldEnd: oldLines[item.end] ?? item.end });
         break;
       case 'context':
         rows.push({ ...item, body: pairRows(item.body, changed, oldLines) });

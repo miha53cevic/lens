@@ -29,7 +29,7 @@ function NotesForAgent() {
   return (
     <span className='legend notes-for-agent'>
       {plural(handoff.notes.length, 'note')} for your agent
-      <Button variant='ghost' size='sm' id='notes-copy' onClick={() => void copyForAgent(handoff)}>
+      <Button variant='ghost' size='xs' id='notes-copy' onClick={() => void copyForAgent(handoff)}>
         <Copy size={11} /> Copy
       </Button>
     </span>

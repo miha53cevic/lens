@@ -25,7 +25,7 @@ function savedData(): string {
 test("summaries: this review's folder, or every review's, and what each would remove", () => {
   const root = savedData();
   try {
-    const [summaries] = describeKinds({ root, key: "diff@main" });
+    const [summaries] = describeKinds({ root, key: "diff@main", review: "diff@main" });
     assert.equal(summaries.id, "summaries");
     assert.deepEqual(summaries.plans, {
       this: { count: 1, paths: [".lens/summary/diff@main/"] },
@@ -36,7 +36,7 @@ test("summaries: this review's folder, or every review's, and what each would re
     });
     assert.equal(summaries.warning, null);
     // no review open (paths mode): only "all" is offered
-    assert.deepEqual(Object.keys(describeKinds({ root, key: null })[0].plans), ["all"]);
+    assert.deepEqual(Object.keys(describeKinds({ root, key: null, review: null })[0].plans), ["all"]);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -45,16 +45,16 @@ test("summaries: this review's folder, or every review's, and what each would re
 test("clearing this review's summary leaves the others, the settings and the server's file", () => {
   const root = savedData();
   try {
-    const cleared = clearKinds({ root, key: "diff@main" }, { summaries: "this" });
+    const cleared = clearKinds({ root, key: "diff@main", review: "diff@main" }, { summaries: "this" });
     assert.deepEqual(cleared, { summaries: { count: 1, paths: [".lens/summary/diff@main/"] } });
     assert.ok(!existsSync(join(root, ".lens", "summary", "diff@main")));
     assert.ok(existsSync(join(root, ".lens", "summary", "pr-87", "summary.json")));
     assert.ok(existsSync(join(root, ".lens", "settings.json")));
     assert.ok(existsSync(join(root, ".lens", "server.json")));
 
-    clearKinds({ root, key: "diff@main" }, { summaries: "all" });
+    clearKinds({ root, key: "diff@main", review: "diff@main" }, { summaries: "all" });
     assert.ok(existsSync(join(root, ".lens", "summary")), "the folder itself stays");
-    assert.equal(describeKinds({ root, key: "diff@main" })[0].plans.all!.count, 0);
+    assert.equal(describeKinds({ root, key: "diff@main", review: "diff@main" })[0].plans.all!.count, 0);
     assert.ok(existsSync(join(root, ".lens", "settings.json")));
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -64,9 +64,9 @@ test("clearing this review's summary leaves the others, the settings and the ser
 test("an unknown kind, or a scope the kind doesn't offer, removes nothing", () => {
   const root = savedData();
   try {
-    assert.throws(() => clearKinds({ root, key: "diff@main" }, { summaries: "all", settings: "all" }), /nothing called "settings"/);
-    assert.throws(() => clearKinds({ root, key: null }, { summaries: "this" }), /can't be cleared for "this"/);
-    assert.equal(describeKinds({ root, key: null })[0].plans.all!.count, 3);
+    assert.throws(() => clearKinds({ root, key: "diff@main", review: "diff@main" }, { summaries: "all", settings: "all" }), /nothing called "settings"/);
+    assert.throws(() => clearKinds({ root, key: null, review: null }, { summaries: "this" }), /can't be cleared for "this"/);
+    assert.equal(describeKinds({ root, key: null, review: null })[0].plans.all!.count, 3);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -77,8 +77,8 @@ test("an agent's run on this review is said beside its summaries, not refused", 
   try {
     const bundle = { version: 1, units: [{ id: "a.ts#f", hash: "h1" }, { id: "a.ts#g", hash: "h2" }] };
     writeFileSync(join(root, ".lens", "summary", "diff@main", "bundle.json"), JSON.stringify(bundle));
-    assert.match(describeKinds({ root, key: "diff@main" })[0].warning ?? "", /under way \(0 of 2 changes\)/);
-    assert.equal(describeKinds({ root, key: "pr-87" })[0].warning, null, "another review's run isn't this one's");
+    assert.match(describeKinds({ root, key: "diff@main", review: "diff@main" })[0].warning ?? "", /under way \(0 of 2 changes\)/);
+    assert.equal(describeKinds({ root, key: "pr-87", review: "pr-87" })[0].warning, null, "another review's run isn't this one's");
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

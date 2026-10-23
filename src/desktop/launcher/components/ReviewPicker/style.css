@@ -45,10 +45,3 @@
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-/* a keycap on the accent: its own colors would vanish into it */
-.picker-foot .btn-primary kbd {
-  border-color: color-mix(in oklab, var(--accent-fg) 35%, transparent);
-  box-shadow: none;
-  background: transparent;
-  color: var(--accent-fg);
-}

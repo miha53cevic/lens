@@ -18,7 +18,7 @@ export function Concerns({ unit }: { unit: Unit }) {
           return (
             <div key={finding.key} className={clsx('concern', 'k-' + concern.kind, mark)}>
               <div className='concern-top'>
-                <span className='kind'>
+                <span className='kind eyebrow'>
                   <SignalIcon signal={concern.kind} /> {concernLabel(concern, mark)}
                 </span>
                 <Cite label={concern.line} />

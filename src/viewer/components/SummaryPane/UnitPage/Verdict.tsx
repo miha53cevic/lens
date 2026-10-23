@@ -8,14 +8,16 @@ import { Button } from '../../../../ui/Button.tsx';
 interface VerdictProps {
   finding: Finding;
   mark: ConcernMark | null;
+  /** sm beside a finding in the unit's list, xs in a note under its line */
+  size?: 'sm' | 'xs';
 }
 
 /** The reader's call on one finding: real, or dismiss (which hides it from the counts and the code). */
-export function Verdict({ finding, mark }: VerdictProps) {
+export function Verdict({ finding, mark, size = 'sm' }: VerdictProps) {
   const button = (value: ConcernMark, icon: ReactNode, label: string, tip: string) => (
     <Button
       variant={value === 'dismissed' ? 'ghost' : 'default'}
-      size='sm'
+      size={size}
       className={'vbtn v-' + value}
       data-mark={value}
       aria-pressed={mark === value}

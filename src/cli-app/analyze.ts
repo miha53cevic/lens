@@ -86,9 +86,11 @@ export async function analyze(
     }
   }
 
+  const root = diff ? diff.root : cwd;
   return {
-    root: diff ? diff.root : cwd,
+    root,
     cwd,
+    review: reviewKey(root, command, args),
     threshold: config.threshold,
     files,
     deleted: diff ? diff.deleted.map(shown) : [],
@@ -97,7 +99,7 @@ export async function analyze(
     binary: diff ? diff.binary.map((b) => ({ file: shown(b.file), status: b.status })) : [],
     config,
     configSource: findConfigPath(cwd),
-    buildPreviews: buildPreviewsOn(diff ? diff.root : cwd, config),
+    buildPreviews: buildPreviewsOn(root, config),
     label: diff ? diff.label : null,
     guessedBase: diff ? diff.guessedBase : null,
     summary,

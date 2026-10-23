@@ -4,6 +4,7 @@
 import MarkdownIt from 'markdown-it';
 import type { AskCite } from '../../cli-app/ask/session.ts';
 import { escapeHtml, plural } from '../shared.ts';
+import { disclosureSummaryHtml } from '../../ui/Disclosure.tsx';
 
 // a type, not an interface: markdown-it takes it as its untyped env, which an interface is not assignable to
 /** What a render is given: the cites that become markers, and the ones drawn so far. */
@@ -58,9 +59,9 @@ function citeSources(used: AskCite[]): string {
     (cite) => '<li><button class="cite ask-cite" ' + citeData(cite) + '>' + escapeHtml(cite.ref) + '</button></li>',
   );
   return (
-    '<details class="ask-sources"><summary>' +
-    plural(used.length, 'source') +
-    '</summary><ol>' +
+    '<details class="ask-sources">' +
+    disclosureSummaryHtml(plural(used.length, 'source')) +
+    '<ol>' +
     items.join('') +
     '</ol></details>'
   );
@@ -83,7 +84,7 @@ function flowLane(content: string, env: AskEnv): string | null {
   // a layer is named once over its run of steps, so a hop to another one stands out
   steps.forEach((step, index) => {
     if (index === 0 || steps[index - 1].layer !== step.layer) {
-      html += '<li class="ask-flow-layer">' + escapeHtml(step.layer) + '</li>';
+      html += '<li class="ask-flow-layer eyebrow sm">' + escapeHtml(step.layer) + '</li>';
     }
     html += '<li class="ask-flow-step">' + linkCites(escapeHtml(step.text), env) + '</li>';
   });
