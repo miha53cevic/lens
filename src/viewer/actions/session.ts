@@ -82,6 +82,10 @@ export function refresh(theme = getState().data.theme): Promise<boolean> {
       return {
         data,
         notes: data.notes,
+        // another branch checked out is another review, with its own marks
+        viewedFiles: new Set(data.marks.files),
+        viewedUnits: new Set(data.marks.units),
+        concernMarks: new Map(Object.entries(data.marks.concerns)),
         noteDraft: null, // its lines are numbers, which an edit moves
         tabs,
         active,

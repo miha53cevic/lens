@@ -92,6 +92,18 @@ interface Page {
   notes: ReaderNote[];
 }
 
+/** The payload, with these of the review's marks kept (.lens/marks/<review>.json) */
+function withMarks(marks: Partial<ViewerPayload['marks']>): ViewerPayload {
+  return { ...payload, marks: { files: [], units: [], concerns: {}, ...marks } };
+}
+
+const findOrdersId = () => payload.summary!.units.find((unit) => unit.name === 'findOrders')!.id;
+
+/** The mark changes the page posted, in order */
+function postedMarks(page: Page): unknown[] {
+  return page.requests.filter((request) => request.path === '/api/marks').map((request) => request.body);
+}
+
 /** Opens the viewer on the payload (or `data`), with these localStorage entries (and this cookie) already there. */
 async function open(prefs: Record<string, string> = {}, hash = '', cookie = '', data = payload): Promise<Page> {
   // a preview's frame isn't loaded, and says nothing about it: there is no server, and what it shows is the agent's, not the page's
@@ -137,6 +149,8 @@ async function open(prefs: Record<string, string> = {}, hash = '', cookie = '', 
       return reply({ notes: page.notes });
     }
     switch (method + ' ' + url.pathname) {
+      case 'POST /api/marks':
+        return reply({ ok: true });
       case 'GET /api/ask':
         return reply(page.ask);
       case 'POST /api/ask':
@@ -158,12 +172,20 @@ async function open(prefs: Record<string, string> = {}, hash = '', cookie = '', 
       case 'GET /api/clear':
         return reply(page.clearInfo);
       case 'POST /api/clear': {
+        const picks = body.picks as Record<string, 'this' | 'all'>;
+        const cleared = Object.fromEntries(
+          Object.entries(picks).map(([id, scope]) => [
+            id,
+            page.clearInfo.kinds.find((kind) => kind.id === id)!.plans[scope]!,
+          ]),
+        );
         // the summary as the server makes it again once summary.json is gone: no unit summarized
         const summary = payload.summary!;
-        const scope = body.picks.summaries as 'this' | 'all';
         const answer: ClearResponse = {
-          cleared: { summaries: page.clearInfo.kinds[0].plans[scope]! },
-          summary: { ...summary, stamp: null, units: summary.units.map((unit) => ({ ...unit, summary: null })) },
+          cleared,
+          summary: picks.summaries
+            ? { ...summary, stamp: null, units: summary.units.map((unit) => ({ ...unit, summary: null })) }
+            : summary,
         };
         return reply(answer);
       }
@@ -224,9 +246,16 @@ function treeFiles(): string[] {
 }
 
 /** A test on a freshly opened page. */
-function pageTest(name: string, run: (page: Page) => Promise<void>, prefs?: Record<string, string>, hash?: string) {
+function pageTest(
+  name: string,
+  run: (page: Page) => Promise<void>,
+  prefs?: Record<string, string>,
+  hash?: string,
+  /** The payload to open on, made once the analysis is there */
+  data?: () => ViewerPayload,
+) {
   test(name, async () => {
-    const page = await open(prefs, hash);
+    const page = await open(prefs, hash, '', data?.());
     try {
       await run(page);
     } finally {
@@ -600,21 +629,52 @@ pageTest('hide tests: t shows the test file, and hiding it again leaves it', asy
   assert.equal($('.tab.active .tab-name').textContent, 'orders.ts', 'the open test file gives way');
 });
 
-test('a viewed mark sticks, and survives a reload', async () => {
-  await open();
+test('a viewed mark is kept by the server, and comes back with the review', async () => {
+  const page = await open();
   let saved = '';
   try {
     await key('m');
     assert.ok($('#tree .file').classList.contains('viewed'));
     assert.equal($('#nav .progress-count').textContent, '1 of 1');
-    saved = localStorage.getItem('lens.viewedFiles')!;
-    assert.match(saved, /src\/orders\.ts@/);
+    const [tick] = postedMarks(page) as { list: string; key: string; on: boolean }[];
+    assert.equal(tick.list, 'files');
+    assert.match(tick.key, /^src\/orders\.ts@/);
+    assert.equal(tick.on, true);
+    saved = tick.key;
+    assert.equal(localStorage.getItem('lens.viewedFiles'), null, 'not in the browser');
+
+    await key('m');
+    assert.deepEqual(postedMarks(page).at(-1), { list: 'files', key: saved, on: false });
   } finally {
     await close();
   }
-  await open({ 'lens.viewedFiles': saved });
+  await open({}, '', '', withMarks({ files: [saved] }));
   try {
     assert.ok($('#tree .file').classList.contains('viewed'));
+  } finally {
+    await close();
+  }
+});
+
+test('↻ takes the marks the review has now: another branch is another review', async () => {
+  await open();
+  try {
+    await key('m');
+    assert.ok($('#tree .file').classList.contains('viewed'));
+    // the refresh's payload has no marks: the review checked out now has none
+    await click($('#refresh'));
+    assert.ok(!$('#tree .file').classList.contains('viewed'));
+  } finally {
+    await close();
+  }
+});
+
+test('marks an older lens kept in the browser are dropped: they were for no review in particular', async () => {
+  await open({ 'lens.viewedFiles': '["src/orders.ts@x"]', 'lens.concernMarks': '{}' });
+  try {
+    assert.ok(!$('#tree .file').classList.contains('viewed'));
+    assert.equal(localStorage.getItem('lens.viewedFiles'), null);
+    assert.equal(localStorage.getItem('lens.concernMarks'), null);
   } finally {
     await close();
   }
@@ -634,21 +694,17 @@ pageTest(
     assert.equal(box().getAttribute('aria-checked'), 'true');
     assert.ok(!box().classList.contains('changed'));
     assert.equal($$('#nav .legend.changed').length, 0);
-    assert.deepEqual(
-      JSON.parse(localStorage.getItem('lens.viewedFiles')!).filter((key: string) => key.startsWith('src/orders.ts@')),
-      [JSON.parse(localStorage.getItem('lens.viewedFiles')!).at(-1)],
-      'the old mark gives way to the new one',
-    );
-
     await key('m');
     assert.ok(!box().classList.contains('changed'), 'unticked now: never viewed, as far as it shows');
   },
-  { 'lens.viewedFiles': '["src/orders.ts@old"]' },
+  {},
+  '',
+  () => withMarks({ files: ['src/orders.ts@old'] }),
 );
 
 test('a change reviewed before its code changed says so in the Summary list', async () => {
   const unit = payload.summary!.units.find((candidate) => candidate.name === 'findOrders')!;
-  await open({ 'lens.viewedUnits': JSON.stringify([unit.id + '@old']) });
+  await open({}, '', '', withMarks({ units: [unit.id + '@old'] }));
   try {
     await key('v');
     const item = $$('.sum-item').find((candidate) => candidate.querySelector('.name')!.textContent === 'findOrders')!;
@@ -1438,12 +1494,12 @@ pageTest("a unit's code has the Code view's folds and toolbar keys, but shows wh
   await key('e');
   assert.equal($$(code + ' .region.open').length, 2);
   await key('h');
-  assert.deepEqual(rows(code), ['5', 'R6', '−9', 'R9', '10', '11', '12']);
+  assert.deepEqual(rows(code), ['5', 'R6', '−9', 'R9', '10', '11', '12'], 'h changes nothing here');
   await key('x');
   assert.deepEqual(rows(code), ['5', 'R6', 'R9', '10', '11', '12']);
 });
 
-pageTest("a concern sits under its line; dismissing it drops the note and the unit's flag", async () => {
+pageTest("a concern sits under its line; dismissing it drops the note and the unit's flag", async (page) => {
   await key('v');
   await key('j');
   const line = $('.unit-code .row[data-line="10"]');
@@ -1456,7 +1512,11 @@ pageTest("a concern sits under its line; dismissing it drops the note and the un
   assert.ok($('.concern').classList.contains('dismissed'));
   assert.equal($('.progress .legend').textContent, '1 flagged');
   assert.equal($$('.sum-item.active .sig').length, 0);
-  assert.match(localStorage.getItem('lens.concernMarks')!, /dismissed/);
+  assert.deepEqual(
+    postedMarks(page).map((change) => (change as { mark: string }).mark),
+    ['dismissed'],
+    'kept by the server',
+  );
 });
 
 pageTest("a verdict doesn't move the list: the order stays, and a signal filter keeps the open unit", async () => {
@@ -2082,11 +2142,11 @@ test('the copied concerns name a removed line as one, in the order of the summar
         unit.summary!.concerns.map((concern) => [
           // the line counted from the unit's anchor (model/signals.ts)
           `${unit.id}@${unit.hash}#${concern.kind}:${concern.line[0]}${Number(concern.line.slice(1)) - (concern.line[0] === 'O' ? unit.anchor.o : unit.anchor.n)}:${concern.text}`,
-          'real',
+          'real' as const,
         ]),
       ),
   );
-  await open({ 'lens.concernMarks': JSON.stringify(marks) }, '#summary');
+  await open({}, '#summary', '', withMarks({ concerns: marks }));
   try {
     assert.equal($('.ov-real-count').textContent, '2 confirmed concerns in 2 changes');
     await click($('.ov-real-copy'));
@@ -2111,8 +2171,8 @@ test("a confirmed concern on code that changed since is counted, not copied: its
       candidate === unit ? { ...candidate, stale: true, staleHash: 'oldhash', summary: null } : candidate,
     ),
   };
-  const marks = { [`${unit.id}@oldhash#bug:N3:deleted is a string column`]: 'real' };
-  await open({ 'lens.concernMarks': JSON.stringify(marks) }, '#summary');
+  const marks = { [`${unit.id}@oldhash#bug:N3:deleted is a string column`]: 'real' as const };
+  await open({}, '#summary', '', withMarks({ concerns: marks }));
   try {
     assert.equal($('.ov-real-count').textContent, '1 confirmed finding on code that changed since');
     assert.equal($$('.ov-real-copy').length, 0, 'nothing to copy: its lines may point elsewhere now');
@@ -2128,7 +2188,19 @@ pageTest(
     await key('v');
     await click($('.sum-item'));
     assert.equal($('.sum-headline').textContent, 'findOrders skips deleted orders');
+    const changedSince = () => $$('.sum-item .viewed-box.changed').length;
+    assert.equal(changedSince(), 1, 'reviewed before its code changed');
 
+    page.clearInfo.kinds.push({
+      id: 'marks',
+      label: 'Viewed and concern marks',
+      unit: ['mark', 'marks'],
+      plans: {
+        this: { count: 1, paths: ['.lens/marks/diff@main.json'] },
+        all: { count: 1, paths: ['.lens/marks/diff@main.json'] },
+      },
+      warning: null,
+    });
     await click($('#clear-data'));
     assert.ok(($('#clear-modal') as HTMLDialogElement).open);
     assert.ok(($('#clear-confirm') as HTMLButtonElement).disabled, 'nothing ticked: nothing to clear');
@@ -2137,7 +2209,7 @@ pageTest(
       'this',
       'the scope is in sight from the start',
     );
-    assert.equal($('.choice[data-kind="marks"] .choice-sub').textContent, '1 mark · in this browser');
+    assert.equal($('.choice[data-kind="marks"] .choice-sub').textContent, '1 mark');
     assert.ok(!$('.choice[data-kind="summaries"]').classList.contains('checked'));
 
     await click($('.choice[data-kind="summaries"]'));
@@ -2155,7 +2227,7 @@ pageTest(
     await click($('#clear-marks'));
     assert.deepEqual(
       $$('.clear-gone li').map((item) => item.textContent),
-      ['.lens/summary/diff@main/', '.lens/summary/pr-87/', '1 mark in this browser'],
+      ['.lens/summary/diff@main/', '.lens/summary/pr-87/', '.lens/marks/diff@main.json'],
     );
 
     await click($('#clear-confirm'));
@@ -2164,8 +2236,8 @@ pageTest(
       page.requests
         .filter((request) => request.path === '/api/clear')
         .map((request) => request.method + ' ' + JSON.stringify(request.body)),
-      ['GET null', 'POST {"picks":{"summaries":"all"}}'],
-      "the marks are the browser's own: the server hears only of the summaries",
+      ['GET null', 'POST {"picks":{"summaries":"all","marks":"this"}}'],
+      "the marks are this review's, kept by the server",
     );
     assert.ok(!($('#clear-modal') as HTMLDialogElement).open);
     assert.equal(
@@ -2173,13 +2245,15 @@ pageTest(
       'Cleared summaries (2 reviews) and viewed and concern marks (1 mark)',
     );
     assert.ok(!$('#root').textContent!.includes('skips deleted orders'), 'no summary is shown any more');
-    assert.equal(localStorage.getItem('lens.viewedFiles'), '[]');
+    assert.equal(changedSince(), 0, 'the page drops them too');
 
     // opened again, nothing is ticked
     await click($('#clear-data'));
     assert.ok(($('#clear-confirm') as HTMLButtonElement).disabled);
   },
-  { 'lens.viewedFiles': '["src/orders.ts@x"]' },
+  {},
+  '',
+  () => withMarks({ units: [findOrdersId() + '@old'] }),
 );
 
 test('a summary cleared from elsewhere (another viewer, `lens clear`) leaves this page too, once it looks', async () => {

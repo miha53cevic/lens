@@ -7,11 +7,15 @@ import { removeServerInfo, writeServerInfo } from "../../ask/discovery.ts";
 import { createAskRoutes } from "../../ask/routes.ts";
 import { createNoteRoutes } from "../../notes/routes.ts";
 import { notesFor, type ReaderNote } from "../../notes/store.ts";
+import { createMarkRoutes } from "../../marks/routes.ts";
+import { marksFor, type ReviewMarks } from "../../marks/store.ts";
 import { isLocalRequest, readBody, readCookie, sendJson } from "./http.ts";
 import { previewResponse } from "../../summary/previews.ts";
 import { writeSettings } from "../../summary/settings.ts";
 import { buildProgressReader, type BuildProgress } from "../../summary/progress.ts";
-import { clearKinds, describeKinds, type ClearKindInfo, type ClearPlan, type ClearScope } from "../../clear.ts";
+import {
+  clearKinds, describeKinds, type ClearContext, type ClearKindInfo, type ClearPlan, type ClearScope,
+} from "../../clear.ts";
 import { escapeHtml } from "../../text.ts";
 import { isLightColor, THEME_COOKIE } from "../../theme.ts";
 import { bundleViewer } from "./bundle.ts";
@@ -39,6 +43,8 @@ export interface ViewerInput {
   root: string;
   /** Where lens runs: file paths are relative to it */
   cwd: string;
+  /** The review's key (reviewKey): the reader's marks and notes are kept under it, and the summary in diff/PR mode */
+  review: string;
   threshold: number;
   files: ViewerFile[];
   deleted: string[];
@@ -91,8 +97,10 @@ export type ViewerPayload = Omit<ViewerInput, "root" | "cwd" | "files" | "latest
   canRefresh: boolean;
   /** Which analysis the files are from: tokens fetched later are applied only when theirs is the same */
   analysis: string;
-  /** The reader's notes on the review's files (.lens/notes.json) */
+  /** The reader's notes on the review's files (.lens/notes/<review>.json) */
   notes: ReaderNote[];
+  /** The reader's viewed marks and verdicts in this review (.lens/marks/<review>.json) */
+  marks: ReviewMarks;
 };
 
 export interface ThemeTokens {
@@ -173,7 +181,7 @@ export async function highlightFiles(
 /** The page's payload: the analysis, made serializable, with one theme's tokens. */
 export function viewerPayload(
   input: ViewerInput, t: ThemeTokens, themes: ThemeSwatch[],
-  opts: { themePinned: boolean; canRefresh: boolean; analysis: string; notes?: ReaderNote[] },
+  opts: { themePinned: boolean; canRefresh: boolean; analysis: string; notes?: ReaderNote[]; marks?: ReviewMarks },
 ): ViewerPayload {
   const { root: _root, cwd: _cwd, latestSummary: _latest, latestChange: _change, ...data } = input;
   return {
@@ -186,6 +194,7 @@ export function viewerPayload(
     files: input.files.map((f, i) => ({ ...f, tokens: t.tokens[i] })),
     ...opts,
     notes: opts.notes ?? [],
+    marks: opts.marks ?? { files: [], units: [], concerns: {} },
   };
 }
 
@@ -217,9 +226,10 @@ export async function serveViewer(
 ): Promise<void> {
   let current = input;
   const ask = createAskRoutes(() => current, opts.port);
-  // the page carries the notes: once they change, the page held for a reload has the old ones
-  let notesVersion = 0;
-  const notes = createNoteRoutes(() => current, () => notesVersion++);
+  // the page carries the notes and the marks: once they change, the page held for a reload has the old ones
+  let savedVersion = 0;
+  const notes = createNoteRoutes(() => current, () => savedVersion++);
+  const marks = createMarkRoutes(() => current, () => savedVersion++);
   // the root of the analysis that wrote server.json — a refresh can't move it
   const infoRoot = input.root;
   const stop = () => {
@@ -242,7 +252,7 @@ export async function serveViewer(
   // another theme or a ↻ refresh replaces them instead of adding to them. The promise is what's
   // kept, so requests that arrive while it tokenizes wait for the same work.
   let heldTokens: { files: ViewerFile[]; theme: string; tokens: Promise<ThemeTokens> } | null = null;
-  let heldPage: { input: ViewerInput; theme: string; notes: number; html: string } | null = null;
+  let heldPage: { input: ViewerInput; theme: string; saved: number; html: string } | null = null;
 
   function tokensFor(files: ViewerFile[], theme: string): Promise<ThemeTokens> {
     if (heldTokens && heldTokens.files === files && heldTokens.theme === theme) return heldTokens.tokens;
@@ -270,6 +280,7 @@ export async function serveViewer(
     return viewerPayload(input, t, themes, {
       themePinned: opts.themePinned, canRefresh: reanalyze !== undefined, analysis: analysisOf(input.files),
       notes: notesFor(input, input.files.map((file) => file.file)),
+      marks: marksFor(input),
     });
   }
 
@@ -302,17 +313,22 @@ export async function serveViewer(
     return (pendingChange ??= latest().catch(() => null).finally(() => { pendingChange = null; }));
   }
 
+  /** What Clear saved data clears in: the summary under its key as it is now, the marks and notes the page shows */
+  function clearContext(): ClearContext {
+    return { root: current.root, key: current.summary?.key ?? null, review: current.review };
+  }
+
   async function htmlFor(theme: string): Promise<string> {
     // the page opens with the summary as it is now, not as it was when the server started
     syncSummary();
     const input = current;
     // stringifying an MBs payload on every reload is waste
-    if (heldPage && heldPage.input === input && heldPage.theme === theme && heldPage.notes === notesVersion) {
+    if (heldPage && heldPage.input === input && heldPage.theme === theme && heldPage.saved === savedVersion) {
       return heldPage.html;
     }
-    const version = notesVersion;
+    const version = savedVersion;
     const html = renderPage(template, await payloadFor(input, theme));
-    heldPage = { input, theme, notes: version, html };
+    heldPage = { input, theme, saved: version, html };
     return html;
   }
 
@@ -379,9 +395,9 @@ export async function serveViewer(
         current = { ...current, buildPreviews: body.buildPreviews };
         sendJson(res, 200, { buildPreviews: body.buildPreviews });
       } else if (url.pathname === "/api/clear" && req.method === "GET") {
-        // the review's key as it is now: it names the branch checked out
+        // the summary's key as it is now: it names the branch checked out
         syncSummary();
-        const info: ClearInfoResponse = { kinds: describeKinds({ root: current.root, key: current.summary?.key ?? null }) };
+        const info: ClearInfoResponse = { kinds: describeKinds(clearContext()) };
         sendJson(res, 200, info);
       } else if (url.pathname === "/api/clear" && req.method === "POST") {
         const body = JSON.parse(await readBody(req)) as Partial<ClearRequest> | null;
@@ -393,14 +409,14 @@ export async function serveViewer(
         let cleared: Record<string, ClearPlan>;
         syncSummary();
         try {
-          cleared = clearKinds({ root: current.root, key: current.summary?.key ?? null }, picks);
+          cleared = clearKinds(clearContext(), picks);
         } catch (err) {
           sendJson(res, 400, { error: (err as Error).message });
           return;
         }
         // the stored summary is gone: the view is made again, with no unit summarized
         syncSummary();
-        if (cleared.notes) notesVersion++;
+        if (cleared.notes || cleared.marks) savedVersion++;
         const answer: ClearResponse = { cleared, summary: current.summary };
         sendJson(res, 200, answer);
       } else if (url.pathname === "/api/shutdown" && req.method === "POST") {
@@ -411,6 +427,7 @@ export async function serveViewer(
           server.closeAllConnections();
         });
       } else if (!(url.pathname.startsWith("/api/notes") && await notes.handle(req, res, url)) &&
+        !(url.pathname === "/api/marks" && await marks.handle(req, res, url)) &&
         !(url.pathname.startsWith("/api/ask") && await ask.handle(req, res, url))) {
         sendJson(res, 404, { error: "not found" });
       }

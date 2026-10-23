@@ -1,11 +1,12 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { lensDir } from "../summary/store.ts";
 import { relPath } from "../paths.ts";
 
-// The reader's own notes on lines of code, written in the viewer: .lens/notes.json, in lens's
-// ignored folder. They are the reader's, not the agent's: lens shows them and copies the ones
-// with a kind for the agent, and never sends them anywhere itself.
+// The reader's own notes on lines of code, written in the viewer: .lens/notes/<review>.json, in
+// lens's ignored folder, one file per review (reviewKey), so a note written in one branch's review
+// never shows in another's. They are the reader's, not the agent's: lens shows them and copies the
+// ones with a kind for the agent, and never sends them anywhere itself.
 
 export const NOTE_KINDS = ["note", "bug", "risk", "question"] as const;
 /** "note" is the reader's own; a bug, risk or question goes along when they copy the review for the agent */
@@ -34,10 +35,13 @@ interface StoredNotes {
   notes: ReaderNote[];
 }
 
-export const NOTES_PATH = ".lens/notes.json";
+/** Each review's notes are a file in here, named by its key */
+export const NOTES_DIR = ".lens/notes";
+/** Where every review's notes were kept before they were kept per review: Clear lists it, nothing reads it */
+export const OLD_NOTES_PATH = ".lens/notes.json";
 
-function notesFile(root: string): string {
-  return join(root, ".lens", "notes.json");
+function notesFile(root: string, review: string): string {
+  return join(root, NOTES_DIR, review + ".json");
 }
 
 function isNote(raw: unknown): raw is ReaderNote {
@@ -50,9 +54,9 @@ function isNote(raw: unknown): raw is ReaderNote {
   );
 }
 
-/** Every note kept in the repository, its files relative to the root. Another version, or a broken file, is none. */
-export function readStoredNotes(root: string): ReaderNote[] {
-  const path = notesFile(root);
+/** Every note kept for a review, its files relative to the root. Another version, or a broken file, is none. */
+export function readStoredNotes(root: string, review: string): ReaderNote[] {
+  const path = notesFile(root, review);
   if (!existsSync(path)) return [];
   try {
     const raw = JSON.parse(readFileSync(path, "utf8")) as StoredNotes;
@@ -62,16 +66,17 @@ export function readStoredNotes(root: string): ReaderNote[] {
   }
 }
 
-export function writeStoredNotes(root: string, notes: ReaderNote[]): void {
-  lensDir(root);
+export function writeStoredNotes(root: string, review: string, notes: ReaderNote[]): void {
+  mkdirSync(join(lensDir(root), "notes"), { recursive: true });
   const stored: StoredNotes = { version: 1, notes };
-  writeFileSync(notesFile(root), JSON.stringify(stored, null, 2) + "\n");
+  writeFileSync(notesFile(root, review), JSON.stringify(stored, null, 2) + "\n");
 }
 
-/** Where the notes of a review are: the repository's root, and the folder its paths are relative to. */
+/** Where the notes of a review are: the repository's root, the folder its paths are relative to, and its key. */
 export interface NotesPlace {
   root: string;
   cwd: string;
+  review: string;
 }
 
 const fromRoot = (place: NotesPlace, file: string) => relPath(place.cwd, resolve(place.root, file));
@@ -80,13 +85,13 @@ const toRoot = (place: NotesPlace, file: string) => relPath(place.root, resolve(
 /** The notes on the review's files, with their paths as the viewer shows them. */
 export function notesFor(place: NotesPlace, files: readonly string[]): ReaderNote[] {
   const shown = new Set(files);
-  return readStoredNotes(place.root)
+  return readStoredNotes(place.root, place.review)
     .map((note) => ({ ...note, file: fromRoot(place, note.file) }))
     .filter((note) => shown.has(note.file));
 }
 
 /** Changes the stored notes: `change` gets them with the viewer's paths, and gives back the new list. */
 export function changeNotes(place: NotesPlace, change: (notes: ReaderNote[]) => ReaderNote[]): void {
-  const notes = readStoredNotes(place.root).map((note) => ({ ...note, file: fromRoot(place, note.file) }));
-  writeStoredNotes(place.root, change(notes).map((note) => ({ ...note, file: toRoot(place, note.file) })));
+  const notes = readStoredNotes(place.root, place.review).map((note) => ({ ...note, file: fromRoot(place, note.file) }));
+  writeStoredNotes(place.root, place.review, change(notes).map((note) => ({ ...note, file: toRoot(place, note.file) })));
 }

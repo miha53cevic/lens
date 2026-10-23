@@ -12,11 +12,12 @@ import type { AskSelection, AskState } from '../cli-app/ask/session.ts';
 import type { BuildProgress } from '../cli-app/summary/progress.ts';
 import type { ConcernKind } from '../cli-app/summary/store.ts';
 import type { ReaderNote } from '../cli-app/notes/store.ts';
+import type { ConcernMark } from '../cli-app/marks/store.ts';
 import { INITIAL_DATA, readPref } from './shared.ts';
 import { CODE_SIZE_DEFAULT, savedCodeSize } from './codeSize.ts';
 
 export type View = 'code' | 'summary';
-export type ConcernMark = 'real' | 'dismissed';
+export type { ConcernMark };
 export type SignalId = ConcernKind | 'breaks';
 /** What the list's chips filter by: a signal, any of them, or the concerns the reader dismissed */
 export type SignalFilter = SignalId | 'any' | 'dismissed' | null;
@@ -115,7 +116,7 @@ export interface LensState {
   /** Flow title -> open, once the reader toggled it */
   flowOpen: ReadonlyMap<string, boolean>;
   concernMarks: ReadonlyMap<string, ConcernMark>;
-  /** The reader's notes on the review's files, as the server keeps them (.lens/notes.json) */
+  /** The reader's notes on the review's files, as the server keeps them (.lens/notes/<review>.json) */
   notes: readonly ReaderNote[];
   noteDraft: NoteDraft | null;
   /** Where the last jump landed: that row stays marked until the next jump */
@@ -135,27 +136,8 @@ export interface LensState {
   };
 }
 
-export const VIEWED_CAP = 2000;
-export const VIEWED_PREF = { files: 'lens.viewedFiles', units: 'lens.viewedUnits' } as const;
-export const CONCERN_PREF = 'lens.concernMarks';
 /** The fold level the reader picked, with the one it was picked over: `{ level, base }` */
 export const THRESHOLD_PREF = 'lens.threshold';
-
-function loadSet(key: string): Set<string> {
-  try {
-    return new Set(JSON.parse(readPref(key) || '[]'));
-  } catch {
-    return new Set();
-  }
-}
-
-function loadMarks(): Map<string, ConcernMark> {
-  try {
-    return new Map(Object.entries(JSON.parse(readPref(CONCERN_PREF) || '{}')));
-  } catch {
-    return new Map();
-  }
-}
 
 /** The reader's fold level, while the config's (or --threshold's) is still the one they picked it over. */
 function loadThreshold(): number {
@@ -207,8 +189,9 @@ const initialState: LensState = {
   navWidth: savedWidth('lens.navWidth', 160, 600, 0),
   navQuery: '',
   closedDirs: new Set(),
-  viewedFiles: loadSet(VIEWED_PREF.files),
-  viewedUnits: loadSet(VIEWED_PREF.units),
+  // the review's marks, as the server keeps them (.lens/marks/<review>.json)
+  viewedFiles: new Set(INITIAL_DATA.marks.files),
+  viewedUnits: new Set(INITIAL_DATA.marks.units),
   search: { query: '', word: false, matchCase: false, pinOrigin: false, selected: 0 },
   summaryUnit: null,
   summaryDot: false,
@@ -218,7 +201,7 @@ const initialState: LensState = {
   sumQuery: '',
   sumSignal: null,
   flowOpen: new Map(),
-  concernMarks: loadMarks(),
+  concernMarks: new Map(Object.entries(INITIAL_DATA.marks.concerns)),
   notes: INITIAL_DATA.notes,
   noteDraft: null,
   landed: null,
