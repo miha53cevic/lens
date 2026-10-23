@@ -76,7 +76,7 @@ export interface LensState {
   openCats: ReadonlySet<string>;
   /** Regions the reader opened or closed one by one (regionKey in model/plans.ts); overrides openCats */
   foldOverrides: ReadonlyMap<string, boolean>;
-  /** Hidden stretches the reader expanded: "path:start" (code view), "unit:<id>:start" (summary) */
+  /** Hidden stretches the reader expanded: "path:start" (code view), "unit:<id>:above" / ":below" (summary, full units) */
   expandedGaps: ReadonlySet<string>;
   showRemoved: boolean;
   hideTests: boolean;

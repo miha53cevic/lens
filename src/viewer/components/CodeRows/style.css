@@ -220,14 +220,11 @@
 .context.above > .context-bar {
   margin-bottom: var(--space-1);
 }
-/* the caret points at the code it opened: up for Above, down for Below */
-.context.above > .context-bar .caret.open {
-  transform: rotate(-90deg);
-}
 .context.below:not(.open) > .context-bar {
   margin-top: var(--space-1);
 }
-/* the gutter keeps its width (the padded number) and shows which way the code is: ⇡ or ⇣ */
+/* the gutter keeps its width (the padded number) and shows which way a click moves the code: closed,
+   ⇡ or ⇣ to where the code is; open, the other way, back into the bar */
 .row.context-bar .num {
   position: relative;
   color: var(--muted);
@@ -238,6 +235,10 @@
   top: 50%;
   right: 0;
   translate: 0 -50%;
+  transition: rotate var(--motion);
+}
+.context.open > .context-bar .context-arrow {
+  rotate: 180deg;
 }
 .row.context-bar:hover .context-arrow {
   color: var(--accent);
@@ -255,23 +256,7 @@
   gap: var(--space-2);
   min-width: 0;
 }
-/* the side, as a tag on the band */
-.context-side {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  height: var(--control-h-xs);
-  padding: 0 var(--space-2);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-full);
-  background: var(--surface);
-  font-weight: 600;
-}
-.context-side .caret {
-  color: var(--accent);
-}
 /* the accent is picked for the code, not for small marks on a light band: darken it there */
-:root[data-appearance='light'] .context-side .caret,
 :root[data-appearance='light'] .row.context-bar:hover .context-arrow {
   color: color-mix(in oklab, var(--accent) 80%, var(--text));
 }

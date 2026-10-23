@@ -147,11 +147,11 @@ notes/            the reader's notes: .lens/notes.json (store.ts), /api/notes (r
 
 ## Viewer: the Summary view extends the Code view
 
-The Summary tab shows the same code snippets as the Code view, with the agent's summary on top. Anything added to or changed in the Code view that affects how code is shown must also work on the Summary tab's unit code, in the same change. That covers folds, fold chips, the fold level, expand/collapse, hunks only, removed lines, hide tests, and their keyboard shortcuts.
+The Summary tab shows the same code snippets as the Code view, with the agent's summary on top. Anything added to or changed in the Code view that affects how code is shown must also work on the Summary tab's unit code, in the same change. That covers folds, fold chips, the fold level, expand/collapse, removed lines, hide tests, and their keyboard shortcuts. Hunks only is the one exception: a unit is already the code around its change, so the Summary tab shows it whole (`unitSpans`), and the Above / Below stretches of full units too.
 
 - The view settings in the header's ⋯ menu, the fold chips in the code card's header and the review pill work on the Summary tab too. They change state, and both views render from that state: `foldScope` (`actions/folds.ts`) and `foldCategories` (`model/plans.ts`) pick the open file's or the open unit's folds.
 - Both views get their rows from `src/viewer/rows.ts`: `fileSpans` / `unitSpans` pick the shown lines and hidden stretches, and `planCode` turns them into lines, folds, removed lines and gaps. Both views render the plan with `CodeRows`, and each passes in its own row marks (cited lines, concern notes, the Ask selection). Change how code is shown there, and both views follow. `rows.ts` has no DOM, so `test/viewer.test.ts` tests it in node. So does `wordDiff.ts`, which pairs replaced lines and marks the words they changed (`codeLines` in `shared.ts` hands both views the marked lines).
-- A new control should change state both views read (e.g. `openCats` for the fold chips) or get a Summary branch (e.g. `unitSpans` for hunks only, `listModel` for hide tests).
+- A new control should change state both views read (e.g. `openCats` for the fold chips) or get a Summary branch (e.g. `listModel` for hide tests).
 - Share constants between the views instead of duplicating them (e.g. `HUNK_CONTEXT` in `src/viewer/rows.ts`).
 - New keys go in `src/viewer/keys.ts` (and its `SUMMARY_KEYS` when they act on a unit), and in the `?` help: the Global, Code or Summary tab of `KEY_TABS` (`components/KeysDialog/const.ts`).
 

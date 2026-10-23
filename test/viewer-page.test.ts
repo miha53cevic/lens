@@ -1398,7 +1398,7 @@ test("a flow's steps are headings where each starts; a unit in two flows is list
   }
 });
 
-pageTest("a unit's code has the Code view's folds, hunks and toolbar keys", async () => {
+pageTest("a unit's code has the Code view's folds and toolbar keys, but shows whole", async () => {
   await key('v');
   await key('j');
   assert.equal($('.sum-headline').textContent, 'findOrders skips deleted orders');
@@ -1406,8 +1406,8 @@ pageTest("a unit's code has the Code view's folds, hunks and toolbar keys", asyn
   assert.equal($$('.sum-inner .kicker').length, 0);
   assert.equal($('.unit-card .code-path').textContent, 'src/orders.tsfindOrders');
   const code = '.unit-code .code';
-  // hunks only: line 5 is far from the changes and the cited line
-  assert.deepEqual(rows(code), ['⋯', 'R6', '−9', 'R9', '10', '11', '12']);
+  // hunks only is on, but the unit shows whole: line 5 is far from the changes and the cited line, and still there
+  assert.deepEqual(rows(code), ['5', 'R6', '−9', 'R9', '10', '11', '12']);
   assert.deepEqual(
     $$('#toggles .chip').map((chip) => chip.textContent),
     ['guard', 'logging'],
@@ -2181,14 +2181,14 @@ pageTest('full units: the rest of the file sits above and below the unit, each b
   const code = '.unit-code .code';
   const bar = (side: string) => $(code + ' .context.' + side + ' > .context-bar');
   const opened = (side: string) => rows(code + ' > .context.' + side + ' > .context-body');
-  const unitRows = ['⋯', 'R6', '−9', 'R9', '10', '11', '12'];
+  const unitRows = ['5', 'R6', '−9', 'R9', '10', '11', '12'];
   assert.equal($$(code + ' .context').length, 0, 'off by default: only the unit');
   await click($('#full-units'));
   assert.equal($('#full-units').getAttribute('aria-checked'), 'true');
   assert.equal(localStorage.getItem('lens.fullUnits'), '1');
   // both closed: the unit's rows are as they were, between the two bars
   assert.deepEqual(rows(code), unitRows);
-  assert.equal(bar('above').textContent!.trim(), 'Above4 lines', 'nothing declared above it, nothing changed');
+  assert.equal(bar('above').textContent!.trim(), '4 lines', 'nothing declared above it, nothing changed');
   assert.equal(bar('below').querySelector('.context-names')!.textContent, 'toOrder, formatTotal');
   assert.equal(bar('below').querySelector('.counts')!.textContent, '−4', "legacyTotal's removed lines are below");
   assert.ok(bar('below').querySelector('.mark.changed'));
@@ -2198,9 +2198,11 @@ pageTest('full units: the rest of the file sits above and below the unit, each b
   assert.ok(!$(code + ' .context.below').classList.contains('open'));
   await click($('.unit-card .ruler .tick[data-label="O17"]'));
   assert.ok($(code + ' .context.below').classList.contains('open'));
-  // open, it is the file's code, in hunks only as the Code view shows it (14 and 21–27 hidden)
-  assert.deepEqual(opened('below'), ['13', '⋯', '15', '16', '17', '−17', '−18', '−19', '−20', '18', '19', '20', '⋯']);
-  await key('h');
+  // open, it is the file's code, whole though hunks only is on
+  assert.deepEqual(opened('below'), [
+    ...['13', '14', '15', '16', '17', '−17', '−18', '−19', '−20'],
+    ...['18', '19', '20', '21', '22', '23', '24', '25', '26', '27'],
+  ]);
   await click(bar('above'));
   assert.deepEqual(opened('above'), ['R1', '4']);
   // Above opens over its bar: the bar stays on the unit's top edge
@@ -2209,15 +2211,11 @@ pageTest('full units: the rest of the file sits above and below the unit, each b
     [...above.children].map((child) => child.className),
     ['context-body', 'row context-bar'],
   );
-  assert.deepEqual(opened('below'), [
-    ...['13', '14', '15', '16', '17', '−17', '−18', '−19', '−20'],
-    ...['18', '19', '20', '21', '22', '23', '24', '25', '26', '27'],
-  ]);
   await click(bar('above'));
   assert.ok(!$(code + ' .context.above').classList.contains('open'), 'a second click closes it');
   await click($('#full-units'));
   assert.equal($$(code + ' .context').length, 0, 'off again: only the unit');
-  assert.deepEqual(rows(code), ['5', 'R6', '−9', 'R9', '10', '11', '12']);
+  assert.deepEqual(rows(code), unitRows);
 });
 
 test('full units: a unit that owns part of a removed block shows that part once, and the stretch only the rest', async () => {
@@ -2234,12 +2232,13 @@ test('full units: a unit that owns part of a removed block shows that part once,
     await key('v');
     await key('j');
     const code = '.unit-code .code';
-    assert.deepEqual(rows(code), ['⋯', 'R6', '−9', 'R9', '10', '11', '12', '−19', '−20']);
+    assert.deepEqual(rows(code), ['5', 'R6', '−9', 'R9', '10', '11', '12', '−19', '−20']);
     const below = $(code + ' .context.below > .context-bar');
     assert.equal(below.querySelector('.counts')!.textContent, '−2', 'only the lines the unit does not own');
     await click(below);
     assert.deepEqual(rows(code + ' > .context.below > .context-body'), [
-      ...['13', '⋯', '15', '16', '17', '−17', '−18', '18', '19', '20', '⋯'],
+      ...['13', '14', '15', '16', '17', '−17', '−18'],
+      ...['18', '19', '20', '21', '22', '23', '24', '25', '26', '27'],
     ]);
   } finally {
     await close();

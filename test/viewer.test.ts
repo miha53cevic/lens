@@ -175,19 +175,18 @@ test("unitSpans + planCode: a unit's ranges break with ⋯; removed lines anchor
       .filter((block) => block.anchor === after)
       .map((block) => ({ text: block.lines[0], old: block.oldStart }));
 
-  const whole = planCode(unitSpans(unit, file.regions, false, new Set()), file.regions, removedAt);
-  assert.deepEqual(show(whole), ['L1', 'R2-4[L2,L3,L4]', 'L5', '⋯', '-3', 'L12', 'L13', 'L14', 'L15']);
-
-  // hunks only: 1–5 is far from the change and the removal, so it hides (the fold inside it too)
-  const spans = unitSpans(unit, file.regions, true, new Set());
+  // whole, though 1–5 is far from the change and the removal: the Summary tab doesn't follow hunks only
+  const spans = unitSpans(unit);
   assert.deepEqual(spans, [
-    { start: 1, end: 5, gap: 'unit:src/a.ts#f:1' },
+    { start: 1, end: 5 },
     { start: 12, end: 15 },
   ]);
-  assert.deepEqual(show(planCode(spans, file.regions, removedAt)), ['gap:1-5', '⋯', '-3', 'L12', 'L13', 'L14', 'L15']);
+  assert.deepEqual(show(planCode(spans, file.regions, removedAt)), [
+    ...['L1', 'R2-4[L2,L3,L4]', 'L5', '⋯', '-3', 'L12', 'L13', 'L14', 'L15'],
+  ]);
 });
 
-test("contextSpans: the file above the unit's first line and below its last, which follow hunks only", () => {
+test("contextSpans: the file above the unit's first line and below its last, whole", () => {
   const unit = {
     id: 'src/a.ts#f',
     ranges: [
@@ -198,20 +197,13 @@ test("contextSpans: the file above the unit's first line and below its last, whi
     removals: [{ anchor: 10, afterLine: 10, oldStart: 12, lines: ['old b'] }],
     summary: null,
   } as unknown as ViewUnit;
-  assert.deepEqual(contextSpans(unit, file, false, new Set()), {
+  assert.deepEqual(contextSpans(unit, file), {
     above: { key: 'unit:src/a.ts#f:above', start: 1, end: 7, spans: [{ start: 1, end: 7 }] },
     below: { key: 'unit:src/a.ts#f:below', start: 13, end: 20, spans: [{ start: 13, end: 20 }] },
   });
-  // hunks only: the file's windows (1–13, from its change and both removals) cut at the unit's edges
-  const gap = 'unit:src/a.ts#f:14';
-  assert.deepEqual(contextSpans(unit, file, true, new Set())!.below.spans, [
-    { start: 13, end: 13 },
-    { start: 14, end: 20, gap },
-  ]);
-  assert.deepEqual(contextSpans(unit, file, true, new Set([gap]))!.below.spans, [{ start: 13, end: 20 }]);
-  const atTop = contextSpans({ ...unit, ranges: [{ start: 1, end: 12 }] }, file, false, new Set())!;
+  const atTop = contextSpans({ ...unit, ranges: [{ start: 1, end: 12 }] }, file)!;
   assert.deepEqual(atTop.above.spans, [], 'a unit on the first line has nothing above it');
-  assert.equal(contextSpans({ ...unit, ranges: [] }, file, true, new Set()), null, 'a deleted unit has no place');
+  assert.equal(contextSpans({ ...unit, ranges: [] }, file), null, 'a deleted unit has no place');
 });
 
 test("declaredIn: a stretch's top-level names, in order, without a class's members", () => {
