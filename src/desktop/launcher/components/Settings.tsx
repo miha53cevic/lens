@@ -65,7 +65,7 @@ export function Settings() {
           <span className='spacer' />
           <span className='settings-version'>lens {version}</span>
         </div>
-        <h2 className='section-title'>Agent</h2>
+        <h2 className='section-title eyebrow'>Agent</h2>
         <ul className='setup'>
           <SetupRow
             part='cli'
@@ -116,7 +116,7 @@ export function Settings() {
           Uninstall removes only what the app installed. A <code>lens</code> command or a skill folder that came from
           somewhere else is never touched.
         </p>
-        <h2 className='section-title'>Design system</h2>
+        <h2 className='section-title eyebrow'>Design system</h2>
         <ul className='setup'>
           <li className='setup-item' id='setup-sandbox'>
             <Shapes size={16} />

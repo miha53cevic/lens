@@ -72,6 +72,12 @@
   /* how much of a color a tinted background takes: a badge or a note, and a stronger one */
   --tint: 12%;
   --tint-strong: 22%;
+  /* how much of a color a tinted border takes: a tone's edge, and a hovered or pressed one */
+  --tint-line: 45%;
+  --tint-line-strong: 70%;
+
+  /* the letter-spacing of a label in capitals (.eyebrow in base.css) */
+  --tracking-caps: 0.08em;
 
   /* layers inside the page (menus and dialogs are the browser's top layer) */
   --z-sticky: 5;

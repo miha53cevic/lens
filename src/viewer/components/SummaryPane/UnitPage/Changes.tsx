@@ -12,7 +12,7 @@ interface ChangesProps {
 export function Changes({ changes, onHover }: ChangesProps) {
   return (
     <div className='chg'>
-      <div className='section-label'>What behaves differently</div>
+      <div className='section-label eyebrow'>What behaves differently</div>
       {changes.map((change, changeIndex) => (
         <p
           key={changeIndex}
@@ -27,7 +27,7 @@ export function Changes({ changes, onHover }: ChangesProps) {
               <del>{change.before}</del> <ArrowRight size={12} className='to' />{' '}
             </>
           ) : (
-            <span className='new-b' title="behavior that didn't exist before">
+            <span className='new-b eyebrow sm' title="behavior that didn't exist before">
               new
             </span>
           )}

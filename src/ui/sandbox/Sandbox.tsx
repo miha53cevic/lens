@@ -17,6 +17,7 @@ import { Choice, ChoiceList } from '../Choice.tsx';
 import { Chip } from '../Chip.tsx';
 import { CopyCommand } from '../CopyCommand.tsx';
 import { CrashPanel } from '../ErrorBoundary.tsx';
+import { Disclosure } from '../Disclosure.tsx';
 import { Field } from '../Field.tsx';
 import { StatusBadge, StatusLetter, type FileStatus } from '../FileStatus.tsx';
 import { IconButton } from '../IconButton.tsx';
@@ -54,7 +55,7 @@ const SURFACES = ['bg', 'surface', 'surface-2', 'raised', 'selected-bg', 'accent
 function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
     <section className='sandbox-section' id={id}>
-      <h2>{title}</h2>
+      <h2 className='eyebrow'>{title}</h2>
       <div className='sandbox-row'>{children}</div>
     </section>
   );
@@ -81,6 +82,7 @@ export function Sandbox() {
   const [pressed, setPressed] = useState(true);
   const [wordDiff, setWordDiff] = useState(true);
   const [query, setQuery] = useState('orders');
+  const [disclosed, setDisclosed] = useState(true);
 
   return (
     <main className='sandbox'>
@@ -100,6 +102,7 @@ export function Sandbox() {
         <Button size='sm' aria-pressed={pressed} onClick={() => setPressed(!pressed)}>
           Pressed
         </Button>
+        <Button size='xs'>Extra small</Button>
         <Button shortcut='r' tip='Refresh' tipSide='start'>
           With a key
         </Button>
@@ -255,6 +258,18 @@ export function Sandbox() {
         </div>
       </Section>
 
+      <Section id='g-disclosure' title='Disclosure'>
+        <div className='sandbox-rows'>
+          <Disclosure open={disclosed} onClick={() => setDisclosed(!disclosed)}>
+            src/orders.ts:42
+          </Disclosure>
+          {disclosed && <div className='sandbox-note'>what it shows, under it</div>}
+          <Disclosure open={false} disabled>
+            dismissed: it stays shut
+          </Disclosure>
+        </div>
+      </Section>
+
       <Section id='g-select' title='Select'>
         <Select label='branch' value={branch} options={['main', 'develop', 'release/2.0']} onChange={setBranch} />
         <Select label='disabled' value='main' options={['main']} onChange={() => {}} disabled />
@@ -318,6 +333,10 @@ export function Sandbox() {
         <Kbd combo='⌘P' />
         <Kbd combo='Ctrl P' />
         <Kbd combo='⌥ click' />
+        <Kbd combo='⌘ ↵' size='sm' />
+        <Button variant='primary' size='sm'>
+          Open <Kbd combo='⌘ ↵' />
+        </Button>
         <CopyCommand command='/lens-review' />
         <ProgressRing done={3} total={8} label='files viewed' />
         <Spinner />
@@ -325,7 +344,7 @@ export function Sandbox() {
       </Section>
 
       <section className='sandbox-section' id='g-bars'>
-        <h2>TopBar, Brand, Swatch, StatusBar</h2>
+        <h2 className='eyebrow'>TopBar, Brand, Swatch, StatusBar</h2>
         <div className='sandbox-bars'>
           <TopBar>
             <Brand />
@@ -363,14 +382,14 @@ export function Sandbox() {
       </Section>
 
       <section className='sandbox-section' id='g-review-skeleton'>
-        <h2>ReviewSkeleton</h2>
+        <h2 className='eyebrow'>ReviewSkeleton</h2>
         <div className='sandbox-review-skeleton'>
           <ReviewSkeleton />
         </div>
       </section>
 
       <section className='sandbox-section' id='g-error-boundary'>
-        <h2>ErrorBoundary</h2>
+        <h2 className='eyebrow'>ErrorBoundary</h2>
         <div className='sandbox-crash'>
           <CrashPanel
             what='the review'

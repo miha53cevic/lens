@@ -4,6 +4,7 @@ import { ModalHead } from '../ModalHead.tsx';
 import { Kbd } from '../../../ui/Kbd.tsx';
 import { Segmented } from '../../../ui/Segmented.tsx';
 import { KEY_TABS, type KeyTab } from './const.ts';
+import '../SettingsRows.css';
 import './style.css';
 
 /** The ? help: every keyboard shortcut, in tabs: Global, Code, Summary (with a summary only). */

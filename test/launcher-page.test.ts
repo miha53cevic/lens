@@ -520,8 +520,12 @@ pageTest(
     const count = (selector: string) => $$(selector).length;
     assert.equal(text('.sandbox h1'), 'Sandbox');
     assert.equal(count('.settings, .start'), 0, 'the screen is its own');
-    assert.equal(count('#g-button .btn'), 8);
+    assert.equal(count('#g-button .btn'), 9);
     assert.equal(count('#g-button .btn-primary'), 1);
+    assert.equal(count('#g-button .btn-xs'), 1, 'the size a card row uses');
+    assert.equal(count('#g-kbd .kbd-sm'), 1, 'a keycap for a hint');
+    assert.equal(count('#g-disclosure .disclosure[aria-expanded="true"]'), 1);
+    assert.equal(count('#g-disclosure .disclosure:disabled'), 1);
     assert.equal(count('#g-button .btn .tip.tip-start kbd'), 1, 'a button with a key teaches it');
     assert.equal(count('#g-icon-button .icon-btn'), 4);
     assert.equal(count('#g-icon-button .icon-btn-sm'), 1);
@@ -557,7 +561,8 @@ pageTest(
     assert.equal(count('#g-menu .theme-menu .theme-check'), 1, 'the theme the menu is given is checked');
     assert.equal(count('#g-status .status-letter'), 5);
     assert.equal(count('#g-status .status-badge'), 5);
-    assert.equal(count('#g-kbd .kbd-combo'), 3);
+    assert.equal(count('#g-kbd .kbd-combo'), 5);
+    assert.equal(count('#g-kbd .btn-primary kbd'), 2, 'keycaps on a primary button');
     assert.equal(count('#g-kbd .copy-cmd'), 1);
     assert.equal(count('#g-kbd .progress'), 1);
     assert.equal(count('#g-skeleton .skeleton'), 8);

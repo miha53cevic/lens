@@ -49,23 +49,3 @@
   background: var(--mod);
   transform: none;
 }
-
-/* in the summary list: a dot, filled once reviewed, ringed for the open change */
-.sum-item .viewed-box {
-  width: 10px;
-  height: 10px;
-  justify-self: center;
-  border-radius: var(--radius-full);
-}
-.sum-item .viewed-box::after {
-  content: none;
-}
-.sum-item .viewed-box.changed::after {
-  content: '';
-  width: 4px;
-  height: 4px;
-}
-.sum-item.active .viewed-box:not([aria-checked='true']) {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--selected-ring);
-}

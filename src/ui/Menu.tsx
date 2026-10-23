@@ -152,7 +152,7 @@ export function MenuSwitch({ id, shortcut, title, disabled, checked, onChange, c
 export function MenuSection({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className='menu-section' role='group' aria-label={title}>
-      <div className='menu-title'>{title}</div>
+      <div className='menu-title eyebrow'>{title}</div>
       {children}
     </div>
   );

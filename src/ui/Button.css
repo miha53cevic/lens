@@ -25,6 +25,11 @@
 .btn-sm {
   height: var(--control-h-sm);
 }
+.btn-xs {
+  height: var(--control-h-xs);
+  padding: 0 var(--space-2);
+  font-size: var(--text-xs);
+}
 .btn-ghost {
   border-color: transparent;
   background: transparent;

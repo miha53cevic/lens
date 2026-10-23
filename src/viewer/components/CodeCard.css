@@ -92,7 +92,7 @@
   gap: var(--space-2);
   padding: var(--space-2) var(--space-4);
   border-bottom: 1px solid var(--line);
-  background: color-mix(in oklab, var(--risk) 8%, var(--surface));
+  background: color-mix(in oklab, var(--risk) var(--tint), var(--surface));
   color: var(--risk);
   font-size: var(--text-sm);
 }

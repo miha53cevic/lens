@@ -5,3 +5,16 @@
   vertical-align: middle;
   white-space: nowrap;
 }
+/* in a line of small text: a hint under a field */
+.kbd-sm kbd {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 var(--space-1);
+}
+/* on a primary button: its own colors would vanish into the accent */
+.btn-primary kbd {
+  border-color: color-mix(in oklab, var(--accent-fg) var(--tint-line), transparent);
+  box-shadow: none;
+  background: transparent;
+  color: var(--accent-fg);
+}

@@ -28,9 +28,9 @@ export function NoteComposer({ draft }: { draft: NoteDraft }) {
     if (!blocked) void saveNote(kind, text);
   };
   return (
-    <div className={clsx('reader-note', 'composer', 'k-' + kind)} id='note-composer'>
+    <div className={clsx('line-note', 'reader-note', 'composer', 'k-' + kind)} id='note-composer'>
       <div className='rn-top'>
-        <b>{draft.editing ? 'edit note' : 'your note'}</b>
+        <b className='rn-kind eyebrow sm'>{draft.editing ? 'edit note' : 'your note'}</b>
         <span className='rn-meta'>{draftPlace(draft)}</span>
         <span className='rn-acts' role='group' aria-label='Kind'>
           {NOTE_KINDS.map((option) => (
@@ -69,13 +69,13 @@ export function NoteComposer({ draft }: { draft: NoteDraft }) {
       <div className='rn-row'>
         <span className='rn-hint'>
           <span>
-            <Kbd combo='↵' /> save
+            <Kbd size='sm' combo='↵' /> save
           </span>
           <span>
-            <Kbd combo='⇧ ↵' /> newline
+            <Kbd size='sm' combo='⇧ ↵' /> newline
           </span>
           <span>
-            <Kbd combo='Esc' /> cancel
+            <Kbd size='sm' combo='Esc' /> cancel
           </span>
         </span>
         <Button variant='ghost' size='sm' onClick={cancelNote}>

@@ -13,8 +13,8 @@
 }
 /* inside another control: a tab's close, a field's clear */
 .icon-btn-sm {
-  width: 20px;
-  height: 20px;
+  width: var(--control-h-xs);
+  height: var(--control-h-xs);
 }
 .icon-btn:hover:not(:disabled) {
   background: var(--hover-bg);

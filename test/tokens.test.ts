@@ -109,6 +109,21 @@ test("layers and lifts come from the tokens", () => {
   );
 });
 
+test("a label in capitals is spaced by the token", () => {
+  // a display title may be drawn tighter (a negative spacing); anything spaced out is .eyebrow's
+  assert.deepEqual(
+    broken(({ property, value }) => property === "letter-spacing" && !value.startsWith("-") && value !== "var(--tracking-caps)"),
+    [],
+  );
+});
+
+test("a tinted border takes its strength from the tokens", () => {
+  assert.deepEqual(
+    broken(({ property, value }) => /^border(?:-[a-z]+)*$/.test(property) && /color-mix\([^)]*\) [0-9.]+%/.test(value)),
+    [],
+  );
+});
+
 test("the viewer's default code size is the token's", () => {
   assert.match(readFileSync(join(ROOT, TOKENS), "utf8"), new RegExp(`--text-code: ${CODE_SIZE_DEFAULT}px;`));
 });

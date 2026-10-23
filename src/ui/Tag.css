@@ -32,7 +32,7 @@
 }
 /* with a tone: its color on the border and under it */
 .tag-toned {
-  border-color: color-mix(in oklab, var(--tag) 50%, transparent);
+  border-color: color-mix(in oklab, var(--tag) var(--tint-line), transparent);
   background: color-mix(in oklab, var(--tag) var(--tint), transparent);
   color: var(--text);
 }
@@ -46,7 +46,7 @@
   color: var(--text);
 }
 .tag-button.tag-toned:hover {
-  border-color: color-mix(in oklab, var(--tag) 70%, var(--line));
+  border-color: color-mix(in oklab, var(--tag) var(--tint-line-strong), var(--line));
   background: color-mix(in oklab, var(--tag) var(--tint), transparent);
 }
 /* on: the selected look, or, with a tone, its color stronger */
@@ -56,6 +56,6 @@
   color: var(--text);
 }
 .tag-button.tag-toned[aria-pressed='true'] {
-  border-color: color-mix(in oklab, var(--tag) 70%, transparent);
+  border-color: color-mix(in oklab, var(--tag) var(--tint-line-strong), transparent);
   background: color-mix(in oklab, var(--tag) var(--tint-strong), transparent);
 }

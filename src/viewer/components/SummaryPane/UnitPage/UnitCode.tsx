@@ -50,14 +50,16 @@ export function UnitCode({ unit, hoveredCite }: { unit: Unit; hoveredCite: strin
     if (mark === 'dismissed') continue;
     addClass(concern.line, 'flagged k-' + concern.kind);
     const note = (
-      <div key={finding.key} className={clsx('inline-note', 'k-' + concern.kind, mark)}>
-        <div className='n-top'>
-          <b>
+      <div key={finding.key} className={clsx('line-note', 'inline-note', 'k-' + concern.kind, mark)}>
+        <div className='rn-top'>
+          <b className='rn-kind eyebrow sm'>
             <SignalIcon signal={concern.kind} /> {concernLabel(concern, mark)}
           </b>
-          <Verdict finding={finding} mark={mark} />
+          <span className='rn-acts'>
+            <Verdict finding={finding} mark={mark} size='xs' />
+          </span>
         </div>
-        <div className='n-text'>{concern.text}</div>
+        <div className='rn-text'>{concern.text}</div>
       </div>
     );
     notes.set(concern.line, [...(notes.get(concern.line) ?? []), note]);

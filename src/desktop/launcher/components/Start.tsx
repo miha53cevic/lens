@@ -24,7 +24,7 @@ export function Start() {
         </div>
         {recents.length > 0 && (
           <section aria-label='Recent repositories'>
-            <h2 className='section-title'>Recent</h2>
+            <h2 className='section-title eyebrow'>Recent</h2>
             <ul className='recents'>
               {recents.map((recent) => (
                 <li key={recent.root} className={listRowClass(false, 'recent')}>
@@ -39,11 +39,12 @@ export function Start() {
                     </span>
                   </button>
                   <IconButton
+                    size='sm'
                     label={'Forget ' + recent.name}
                     className='recent-forget'
                     onClick={() => launcher.forgetRecent(recent.root)}
                   >
-                    <X size={13} />
+                    <X size={12} />
                   </IconButton>
                 </li>
               ))}

@@ -1952,10 +1952,10 @@ pageTest("an answer's flow block is a lane of steps under their layers, and its 
   assert.deepEqual(
     [...lane.children].map((item) => item.className + ' ' + item.textContent),
     [
-      'ask-flow-layer API',
+      'ask-flow-layer eyebrow sm API',
       'ask-flow-step checks the body  1',
       'ask-flow-step then the user',
-      'ask-flow-layer db',
+      'ask-flow-layer eyebrow sm db',
       'ask-flow-step inserts the row  2',
     ],
   );
