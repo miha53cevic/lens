@@ -111,18 +111,35 @@ export interface ThemeTokens {
   accent: string;
   /** tokens[fileIndex] — aligned with the files array */
   tokens: ViewerToken[][][];
-  /** removed[fileIndex][block][line]: each removed block tokenized as a snippet of its own */
+  /** removed[fileIndex][block][line]: the removed lines' tokens, colored in the old file around them */
   removed: ViewerToken[][][][];
+}
+
+/**
+ * The old side of a file, up to its last removed line, rebuilt from the new side: the diff has no
+ * context lines, so every line that isn't added was there before, in the same order, and the
+ * removed lines fill the rest. No blob is read for it.
+ */
+export function oldSideLines(file: Pick<ViewerFile, 'source' | 'changedLines' | 'removals'>): string[] {
+  const old: (string | undefined)[] = [];
+  for (const block of file.removals ?? []) {
+    block.lines.forEach((text, lineIndex) => (old[block.oldStart - 1 + lineIndex] = text));
+  }
+  const added = new Set(file.changedLines ?? []);
+  const kept = file.source.split('\n').filter((_, index) => !added.has(index + 1));
+  let next = 0;
+  for (let index = 0; index < old.length; index++) old[index] ??= kept[next++] ?? '';
+  return old as string[];
 }
 
 /**
  * Every file's Shiki tokens in one theme, and its removed lines' tokens. `previous` is the last
  * analysis in the same theme (a ↻ refresh): a file whose path, language, text and removed lines
- * are all the same takes its tokens over, so only the files that changed are tokenized again. The
+ * are all the same (its added lines too) takes its tokens over, so only the files that changed are tokenized again. The
  * text is compared whole, not by a hash.
  *
- * A removed block is tokenized alone, without the old file around it: reading the old side's blobs
- * isn't worth it for colors. A block that starts inside a comment or a string is colored as code.
+ * Removed lines are colored as the old file colors them (`oldSideLines`): alone, a block that
+ * starts inside a comment, a string, JSX or a type is colored as code of another kind.
  */
 export async function highlightFiles(
   files: ViewerFile[],
@@ -135,8 +152,10 @@ export async function highlightFiles(
       reusable.set(file.file, { file, tokens: previous.tokens.tokens[index], removed: previous.tokens.removed[index] }),
     );
   }
+  // the removed lines' colors come from the old side, which the added lines place too
   const sameRemovals = (a: ViewerFile, b: ViewerFile) =>
-    JSON.stringify(a.removals ?? []) === JSON.stringify(b.removals ?? []);
+    JSON.stringify([a.removals ?? [], a.changedLines ?? []]) ===
+    JSON.stringify([b.removals ?? [], b.changedLines ?? []]);
   const results = await Promise.all(
     files.map(async (f) => {
       const same = reusable.get(f.file);
@@ -144,11 +163,17 @@ export async function highlightFiles(
         return { tokens: same.tokens, removed: same.removed, fg: previous!.tokens.fg, bg: previous!.tokens.bg };
       }
       const language = f.language ?? shikiLangForFile(f.file);
-      const [result, ...removed] = await Promise.all([
+      const removals = f.removals ?? [];
+      const [result, old] = await Promise.all([
         highlightSource(f.source, language, theme),
-        ...(f.removals ?? []).map((block) => highlightSource(block.lines.join('\n'), language, theme)),
+        removals.length > 0 ? highlightSource(oldSideLines(f).join('\n'), language, theme) : null,
       ]);
-      return { ...result, removed: removed.map((block) => block.tokens) };
+      const removed = removals.map((block) =>
+        block.lines.map(
+          (text, lineIndex) => old?.tokens[block.oldStart - 1 + lineIndex] ?? [[text, null] as ViewerToken],
+        ),
+      );
+      return { ...result, removed };
     }),
   );
   // the theme's own colors, not a file's: with no files, the page still follows the theme

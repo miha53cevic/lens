@@ -5,7 +5,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { highlightSource, isBundledTheme, SUGGESTED_THEMES, themeAccent } from '../src/cli-app/render/highlight.ts';
 import { DEFAULT_CONFIG } from '../src/cli-app/config.ts';
-import { highlightFiles } from '../src/cli-app/render/web/server.ts';
+import { highlightFiles, oldSideLines } from '../src/cli-app/render/web/server.ts';
 
 const DEFAULT_THEME = DEFAULT_CONFIG.theme;
 
@@ -88,14 +88,15 @@ test('a refresh re-tokenizes only the files whose text changed', async () => {
 test('removed lines get their own tokens, block by block, and a refresh keeps them only while they stay the same', async () => {
   const removals = [
     { afterLine: 0, oldStart: 1, lines: ['const old = "a";', 'const gone = 2;'] },
-    { afterLine: 1, oldStart: 4, lines: ['old();'] },
+    { afterLine: 2, oldStart: 4, lines: ['old();'] },
   ];
   const file = (lines = removals) => ({
     file: 'a.ts',
     language: 'typescript' as const,
-    lineCount: 1,
+    lineCount: 2,
     regions: [],
-    source: "const now = 'a';\n",
+    source: "const now = 'a';\nkeep();\n",
+    changedLines: [1],
     removals: lines,
   });
   const first = await highlightFiles([file()], 'github-dark');
@@ -115,6 +116,23 @@ test('removed lines get their own tokens, block by block, and a refresh keeps th
   assert.equal(same.removed[0], first.removed[0], 'kept');
   const fewer = await highlightFiles([file(removals.slice(0, 1))], 'github-dark', { files: [file()], tokens: first });
   assert.equal(fewer.removed[0].length, 1, 'other removed lines, the same text: tokenized again');
+});
+
+test('the old side is rebuilt from the new one, and removed lines are colored in it', async () => {
+  // old: /**, " * old doc", " */", "f();" — new: /**, " * new doc", " */", "f();"
+  const file = {
+    file: 'a.ts',
+    language: 'typescript' as const,
+    lineCount: 4,
+    regions: [],
+    source: '/**\n * new doc\n */\nf();\n',
+    changedLines: [2],
+    removals: [{ afterLine: 1, oldStart: 2, lines: [' * old doc'] }],
+  };
+  assert.deepEqual(oldSideLines(file), ['/**', ' * old doc']);
+  const { removed, tokens } = await highlightFiles([file], 'github-dark');
+  const colors = (line: [string, string | null][]) => [...new Set(line.map(([, color]) => color))];
+  assert.deepEqual(colors(removed[0][0][0]), colors(tokens[0][1]), "a comment's line, colored as the comment");
 });
 
 test('non-classified languages: shiki colors when known, plain when not', async () => {
