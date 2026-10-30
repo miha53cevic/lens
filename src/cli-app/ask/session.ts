@@ -2,12 +2,12 @@
 // questions, `lens ask listen` takes them one at a time, `lens ask reply`
 // answers them. Lens never answers anything itself.
 
-import type { Break, Concern } from "../summary/store.ts";
+import type { Break, Concern } from '../summary/store.ts';
 
 /** One selected row: new-side rows carry their line number, removed rows their old-side one when known. */
 export interface AskLine {
   n: number | null;
-  side: "new" | "old";
+  side: 'new' | 'old';
   text: string;
 }
 
@@ -55,7 +55,10 @@ export interface AskState {
   questions: AskQuestion[];
 }
 
-export type NewQuestion = Pick<AskQuestion, "text" | "file" | "unitId" | "label" | "hash" | "selection" | "concerns" | "breaks">;
+export type NewQuestion = Pick<
+  AskQuestion,
+  'text' | 'file' | 'unitId' | 'label' | 'hash' | 'selection' | 'concerns' | 'breaks'
+>;
 
 /**
  * A question handed out this long ago without an answer goes to the next listener (its agent likely died).
@@ -97,7 +100,7 @@ export function createAskSession(now: () => number = Date.now): AskSession {
     add(q) {
       const question: AskQuestion = {
         ...q,
-        id: "q" + (questions.length + 1),
+        id: 'q' + (questions.length + 1),
         askedAt: now(),
         handedAt: null,
         answer: null,

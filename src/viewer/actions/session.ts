@@ -1,20 +1,19 @@
 // The session: the theme, reload, end.
 
-import type { TokensResponse, ViewerPayload } from '../../cli-app/render/web/server.ts';
+import type { ViewerPayload } from '../../cli-app/render/web/server.ts';
 import { THEME_COOKIE } from '../../cli-app/theme.ts';
 import { commit, getState, update } from '../store.ts';
 import { crossFade } from '../../ui/motion.ts';
 import { fileViewKey } from '../shared.ts';
 import { changeNote } from '../model/status.ts';
 import { firstTreeFile } from '../model/tree.ts';
-import { noteDone, request, tracked } from './status.ts';
+import { api, noteDone, tracked } from './status.ts';
 import { withTab } from './tabs.ts';
 
 export async function switchTheme(theme: string): Promise<boolean> {
   let switched = false;
   await tracked({ id: 'theme', label: 'Applying ' + theme + '…', failed: "Couldn't switch to " + theme }, async () => {
-    const response = await request('/api/tokens?theme=' + encodeURIComponent(theme));
-    const entry: TokensResponse = await response.json();
+    const entry = await api('GET /api/tokens', { query: { theme } });
     // The code is drawn from the tokens' text, so tokens of another analysis (a refresh in another
     // tab, a restarted server) would show its code under this page's files. Take that analysis
     // whole instead, in the new theme.
@@ -65,8 +64,7 @@ export function refresh(theme = getState().data.theme): Promise<boolean> {
   // PR mode fetches the PR again first
   const label = getState().data.label ? 'Fetching the PR and re-running the analysis…' : 'Re-running the analysis…';
   return tracked({ id: 'refresh', label, failed: 'Refresh failed' }, async () => {
-    const response = await request('/api/refresh?theme=' + encodeURIComponent(theme));
-    const data: ViewerPayload = await response.json();
+    const data = await api('GET /api/refresh', { query: { theme } });
     const before = contentKeys(getState().data);
     update((state) => {
       const activePath = state.data.files[state.active]?.file;

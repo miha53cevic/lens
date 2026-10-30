@@ -1,6 +1,6 @@
-import { join } from "node:path";
-import { relPath, resolveLineRef } from "../paths.ts";
-import type { AskCite } from "./session.ts";
+import { join } from 'node:path';
+import { relPath, resolveLineRef } from '../paths.ts';
+import type { AskCite } from './session.ts';
 
 // `path:line` references in an agent's answer. The ones that point at a real
 // line become links in the rail; the rest stay plain text, and `lens ask reply`
@@ -29,8 +29,8 @@ export function findCites(markdown: string, root: string, cwd: string): FoundCit
     const ref = m[0];
     if (seen.has(ref)) continue;
     seen.add(ref);
-    const resolved = resolveLineRef(root, m[1] + ":" + m[2], cache);
-    if ("error" in resolved) unresolved.push(`${ref} ${resolved.error}`);
+    const resolved = resolveLineRef(root, m[1] + ':' + m[2], cache);
+    if ('error' in resolved) unresolved.push(`${ref} ${resolved.error}`);
     else cites.push({ ref, file: relPath(cwd, join(root, resolved.file)), line: resolved.line });
   }
   return { cites, unresolved };

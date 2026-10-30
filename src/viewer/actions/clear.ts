@@ -2,12 +2,12 @@
 // lens keeps on disk; the kinds below are what this browser keeps. The dialog lists both, so
 // a new kind is one more entry in one of the two lists.
 
-import type { ClearInfoResponse, ClearRequest, ClearResponse } from '../../cli-app/render/web/server.ts';
+import type { ClearRequest } from '../../cli-app/api/contract.ts';
 import type { ClearScope } from '../../cli-app/clear.ts';
 import { commit, getState, type LensState, update } from '../store.ts';
 import { countText } from '../../cli-app/text.ts';
 import { dialog } from './dialogs.ts';
-import { noteDone, request, tracked } from './status.ts';
+import { api, noteDone, tracked } from './status.ts';
 
 /** Something this browser keeps that the reader can clear */
 export interface ViewerKind {
@@ -34,7 +34,7 @@ export async function openClearData(): Promise<void> {
   await tracked(
     { id: 'clear-info', label: 'Reading what lens keeps…', failed: "Couldn't read what lens keeps" },
     async () => {
-      const info: ClearInfoResponse = await (await request('/api/clear')).json();
+      const info = await api('GET /api/clear');
       commit({ clearInfo: { ...info, opened: Date.now() } });
       const element = dialog('clear-modal');
       if (element && !element.open) element.showModal();
@@ -49,12 +49,7 @@ export async function clearData(picks: ClearPicks): Promise<void> {
     const said: string[] = [];
     if (serverIds.length > 0) {
       const body: ClearRequest = { picks: picks.server };
-      const response = await request('/api/clear', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      const answer: ClearResponse = await response.json();
+      const answer = await api('POST /api/clear', { body });
       update((state) => ({
         summaryDot: false,
         data: answer.summary ? { ...state.data, summary: answer.summary } : state.data,

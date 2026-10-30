@@ -1,14 +1,14 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
-import { lensDir } from "../summary/store.ts";
-import { relPath } from "../paths.ts";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { lensDir } from '../summary/store.ts';
+import { relPath } from '../paths.ts';
 
 // The reader's own notes on lines of code, written in the viewer: .lens/notes/<review>.json, in
 // lens's ignored folder, one file per review (reviewKey), so a note written in one branch's review
 // never shows in another's. They are the reader's, not the agent's: lens shows them and copies the
 // ones with a kind for the agent, and never sends them anywhere itself.
 
-export const NOTE_KINDS = ["note", "bug", "risk", "question"] as const;
+export const NOTE_KINDS = ['note', 'bug', 'risk', 'question'] as const;
 /** "note" is the reader's own; a bug, risk or question goes along when they copy the review for the agent */
 export type NoteKind = (typeof NOTE_KINDS)[number];
 
@@ -17,7 +17,7 @@ export interface ReaderNote {
   /** "/"-separated, as the viewer shows it (relative to where lens runs) */
   file: string;
   /** The new code's lines, or lines the diff removed (by their old numbers) */
-  side: "new" | "old";
+  side: 'new' | 'old';
   /** The first and last line it's on, on its side */
   start: number;
   end: number;
@@ -36,21 +36,29 @@ interface StoredNotes {
 }
 
 /** Each review's notes are a file in here, named by its key */
-export const NOTES_DIR = ".lens/notes";
+export const NOTES_DIR = '.lens/notes';
 /** Where every review's notes were kept before they were kept per review: Clear lists it, nothing reads it */
-export const OLD_NOTES_PATH = ".lens/notes.json";
+export const OLD_NOTES_PATH = '.lens/notes.json';
 
 function notesFile(root: string, review: string): string {
-  return join(root, NOTES_DIR, review + ".json");
+  return join(root, NOTES_DIR, review + '.json');
 }
 
 function isNote(raw: unknown): raw is ReaderNote {
   const note = raw as ReaderNote;
   return (
-    !!note && typeof note === "object" && typeof note.id === "string" && typeof note.file === "string" &&
-    (note.side === "new" || note.side === "old") && Number.isInteger(note.start) && Number.isInteger(note.end) &&
-    Array.isArray(note.lines) && note.lines.every((line) => typeof line === "string") &&
-    (NOTE_KINDS as readonly string[]).includes(note.kind) && typeof note.text === "string" && typeof note.at === "string"
+    !!note &&
+    typeof note === 'object' &&
+    typeof note.id === 'string' &&
+    typeof note.file === 'string' &&
+    (note.side === 'new' || note.side === 'old') &&
+    Number.isInteger(note.start) &&
+    Number.isInteger(note.end) &&
+    Array.isArray(note.lines) &&
+    note.lines.every((line) => typeof line === 'string') &&
+    (NOTE_KINDS as readonly string[]).includes(note.kind) &&
+    typeof note.text === 'string' &&
+    typeof note.at === 'string'
   );
 }
 
@@ -59,7 +67,7 @@ export function readStoredNotes(root: string, review: string): ReaderNote[] {
   const path = notesFile(root, review);
   if (!existsSync(path)) return [];
   try {
-    const raw = JSON.parse(readFileSync(path, "utf8")) as StoredNotes;
+    const raw = JSON.parse(readFileSync(path, 'utf8')) as StoredNotes;
     return raw?.version === 1 && Array.isArray(raw.notes) ? raw.notes.filter(isNote) : [];
   } catch {
     return [];
@@ -67,9 +75,9 @@ export function readStoredNotes(root: string, review: string): ReaderNote[] {
 }
 
 export function writeStoredNotes(root: string, review: string, notes: ReaderNote[]): void {
-  mkdirSync(join(lensDir(root), "notes"), { recursive: true });
+  mkdirSync(join(lensDir(root), 'notes'), { recursive: true });
   const stored: StoredNotes = { version: 1, notes };
-  writeFileSync(notesFile(root, review), JSON.stringify(stored, null, 2) + "\n");
+  writeFileSync(notesFile(root, review), JSON.stringify(stored, null, 2) + '\n');
 }
 
 /** Where the notes of a review are: the repository's root, the folder its paths are relative to, and its key. */
@@ -92,6 +100,13 @@ export function notesFor(place: NotesPlace, files: readonly string[]): ReaderNot
 
 /** Changes the stored notes: `change` gets them with the viewer's paths, and gives back the new list. */
 export function changeNotes(place: NotesPlace, change: (notes: ReaderNote[]) => ReaderNote[]): void {
-  const notes = readStoredNotes(place.root, place.review).map((note) => ({ ...note, file: fromRoot(place, note.file) }));
-  writeStoredNotes(place.root, place.review, change(notes).map((note) => ({ ...note, file: toRoot(place, note.file) })));
+  const notes = readStoredNotes(place.root, place.review).map((note) => ({
+    ...note,
+    file: fromRoot(place, note.file),
+  }));
+  writeStoredNotes(
+    place.root,
+    place.review,
+    change(notes).map((note) => ({ ...note, file: toRoot(place, note.file) })),
+  );
 }

@@ -5,9 +5,9 @@
  */
 export type FoldCategory = string;
 
-export type LanguageId = "typescript" | "tsx" | "javascript";
+export type LanguageId = 'typescript' | 'tsx' | 'javascript';
 
-export type DiffStatus = "added" | "modified";
+export type DiffStatus = 'added' | 'modified';
 
 export interface FoldRegion {
   /** 1-based, inclusive */
@@ -40,15 +40,7 @@ export interface FileFoldModel {
   declarations?: Declaration[];
 }
 
-export type DeclarationKind =
-  | "function"
-  | "class"
-  | "method"
-  | "property"
-  | "variable"
-  | "type"
-  | "enum"
-  | "namespace";
+export type DeclarationKind = 'function' | 'class' | 'method' | 'property' | 'variable' | 'type' | 'enum' | 'namespace';
 
 export interface Declaration {
   name: string;

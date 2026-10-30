@@ -1,9 +1,9 @@
-import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
-import { basename, join } from "node:path";
-import { buildProgressReader } from "./summary/progress.ts";
-import { NOTES_DIR, OLD_NOTES_PATH, readStoredNotes } from "./notes/store.ts";
-import { countMarks, MARKS_DIR, readStoredMarks } from "./marks/store.ts";
-import { countText } from "./text.ts";
+import { existsSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { basename, join } from 'node:path';
+import { buildProgressReader } from './summary/progress.ts';
+import { NOTES_DIR, OLD_NOTES_PATH, readStoredNotes } from './notes/store.ts';
+import { countMarks, MARKS_DIR, readStoredMarks } from './marks/store.ts';
+import { countText } from './text.ts';
 
 // What lens keeps on disk that the reader can clear: one entry per kind in CLEAR_KINDS. The
 // viewer's dialog and `lens clear` both list them, so a new kind is one more entry here and
@@ -11,7 +11,7 @@ import { countText } from "./text.ts";
 // (src/viewer/actions/clear.ts). Settings aren't data: nothing here touches them.
 
 /** This review's data, or every review's in the repository */
-export type ClearScope = "this" | "all";
+export type ClearScope = 'this' | 'all';
 
 export interface ClearContext {
   /** The repository: .lens/ is here */
@@ -52,11 +52,11 @@ export interface ClearKindInfo {
   warning: string | null;
 }
 
-const SUMMARY_DIR = join(".lens", "summary");
+const SUMMARY_DIR = join('.lens', 'summary');
 
 /** A folder name readdir gave, or a key lens made: never a path that leaves .lens/summary */
 function isFolderName(name: string): boolean {
-  return name !== "" && name !== "." && name !== ".." && basename(name) === name && !name.includes("\\");
+  return name !== '' && name !== '.' && name !== '..' && basename(name) === name && !name.includes('\\');
 }
 
 function summaryFolders(at: ClearContext, scope: ClearScope): string[] {
@@ -66,24 +66,25 @@ function summaryFolders(at: ClearContext, scope: ClearScope): string[] {
     .filter((entry) => entry.isDirectory() && isFolderName(entry.name))
     .map((entry) => entry.name)
     .sort();
-  return scope === "all" ? folders : folders.filter((name) => name === at.key);
+  return scope === 'all' ? folders : folders.filter((name) => name === at.key);
 }
 
 function planOf(folders: string[]): ClearPlan {
-  return { count: folders.length, paths: folders.map((name) => ".lens/summary/" + name + "/") };
+  return { count: folders.length, paths: folders.map((name) => '.lens/summary/' + name + '/') };
 }
 
 /** Each review's summary, its previews and the agent's task bundle: all of .lens/summary/<key>/. */
 const summaries: ClearKind = {
-  id: "summaries",
-  label: "Summaries",
-  unit: ["review", "reviews"],
-  scopes: (at) => (at.key ? ["this", "all"] : ["all"]),
+  id: 'summaries',
+  label: 'Summaries',
+  unit: ['review', 'reviews'],
+  scopes: (at) => (at.key ? ['this', 'all'] : ['all']),
   describe: (at, scope) => planOf(summaryFolders(at, scope)),
   clear(at, scope) {
     const folders = summaryFolders(at, scope);
     // a preview being served can hold its file open for a moment on Windows
-    for (const name of folders) rmSync(join(at.root, SUMMARY_DIR, name), { recursive: true, force: true, maxRetries: 3 });
+    for (const name of folders)
+      rmSync(join(at.root, SUMMARY_DIR, name), { recursive: true, force: true, maxRetries: 3 });
     return planOf(folders);
   },
   // an agent that left its run unfinished still shows as running: clearing is how to drop it, so it's said, not refused
@@ -99,16 +100,16 @@ function reviewFiles(at: ClearContext, scope: ClearScope, dir: string): string[]
   const folder = join(at.root, dir);
   if (!existsSync(folder)) return [];
   const reviews = readdirSync(folder, { withFileTypes: true })
-    .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
-    .map((entry) => entry.name.slice(0, -".json".length))
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.json'))
+    .map((entry) => entry.name.slice(0, -'.json'.length))
     .filter(isFolderName)
     .sort();
-  return scope === "all" ? reviews : reviews.filter((review) => review === at.review);
+  return scope === 'all' ? reviews : reviews.filter((review) => review === at.review);
 }
 
 /** A kind kept in one file per review: "this" is the open review's, "all" every review's (and `old`, where it was kept before). */
 function perReview(
-  base: Pick<ClearKind, "id" | "label" | "unit">,
+  base: Pick<ClearKind, 'id' | 'label' | 'unit'>,
   dir: string,
   count: (root: string, review: string) => number,
   old?: { path: string; count: (root: string) => number },
@@ -117,9 +118,9 @@ function perReview(
     const reviews = reviewFiles(at, scope, dir);
     const plan: ClearPlan = {
       count: reviews.reduce((sum, review) => sum + count(at.root, review), 0),
-      paths: reviews.map((review) => dir + "/" + review + ".json"),
+      paths: reviews.map((review) => dir + '/' + review + '.json'),
     };
-    if (scope === "all" && old && existsSync(join(at.root, old.path))) {
+    if (scope === 'all' && old && existsSync(join(at.root, old.path))) {
       plan.count += old.count(at.root);
       plan.paths.push(old.path);
     }
@@ -127,7 +128,7 @@ function perReview(
   }
   return {
     ...base,
-    scopes: (at) => (at.review ? ["this", "all"] : ["all"]),
+    scopes: (at) => (at.review ? ['this', 'all'] : ['all']),
     describe: plan,
     clear(at, scope) {
       const cleared = plan(at, scope);
@@ -140,7 +141,7 @@ function perReview(
 /** How many notes the file every review's notes were once kept in holds */
 function oldNotesCount(root: string): number {
   try {
-    const raw = JSON.parse(readFileSync(join(root, OLD_NOTES_PATH), "utf8"));
+    const raw = JSON.parse(readFileSync(join(root, OLD_NOTES_PATH), 'utf8'));
     return Array.isArray(raw?.notes) ? raw.notes.length : 0;
   } catch {
     return 0;
@@ -149,7 +150,7 @@ function oldNotesCount(root: string): number {
 
 /** The reader's notes on the code, one file per review. */
 const notes = perReview(
-  { id: "notes", label: "Notes", unit: ["note", "notes"] },
+  { id: 'notes', label: 'Notes', unit: ['note', 'notes'] },
   NOTES_DIR,
   (root, review) => readStoredNotes(root, review).length,
   { path: OLD_NOTES_PATH, count: oldNotesCount },
@@ -157,7 +158,7 @@ const notes = perReview(
 
 /** The reader's viewed marks and verdicts on the agent's findings, one file per review. */
 const marks = perReview(
-  { id: "marks", label: "Viewed and concern marks", unit: ["mark", "marks"] },
+  { id: 'marks', label: 'Viewed and concern marks', unit: ['mark', 'marks'] },
   MARKS_DIR,
   (root, review) => countMarks(readStoredMarks(root, review)),
 );
@@ -187,7 +188,8 @@ export function clearKinds(at: ClearContext, picks: Record<string, ClearScope>):
   const chosen = Object.entries(picks).map(([id, scope]) => {
     const kind = clearKind(id);
     if (!kind) throw new Error(`nothing called "${id}" to clear`);
-    if (!kind.scopes(at).includes(scope)) throw new Error(`${kind.label.toLowerCase()} can't be cleared for "${scope}" here`);
+    if (!kind.scopes(at).includes(scope))
+      throw new Error(`${kind.label.toLowerCase()} can't be cleared for "${scope}" here`);
     return { kind, scope };
   });
   return Object.fromEntries(chosen.map(({ kind, scope }) => [kind.id, kind.clear(at, scope)]));
@@ -198,15 +200,15 @@ export function clearKinds(at: ClearContext, picks: Record<string, ClearScope>):
  * `lens clear <kind> <key>` one review's (the keys `lens clear` lists).
  */
 export function runClear(rest: string[], root: string): void {
-  const all = rest.includes("--all");
-  const [id, key, ...extra] = rest.filter((arg) => arg !== "--all");
+  const all = rest.includes('--all');
+  const [id, key, ...extra] = rest.filter((arg) => arg !== '--all');
   if (!id) {
     for (const kind of CLEAR_KINDS) {
-      const plan = kind.describe({ root, key: null, review: null }, "all");
+      const plan = kind.describe({ root, key: null, review: null }, 'all');
       console.log(`${kind.id}  ${countText(kind.unit, plan.count)}`);
       for (const path of plan.paths) console.log(`  ${path}`);
     }
-    console.log("\nlens clear <kind> --all       clear all of it");
+    console.log('\nlens clear <kind> --all       clear all of it');
     console.log("lens clear <kind> <key>       clear one review's (the name of its folder or file)");
     return;
   }
@@ -217,8 +219,9 @@ export function runClear(rest: string[], root: string): void {
   }
   if (key && !isFolderName(key)) throw new Error(`"${key}" is not a review's key`);
   const at: ClearContext = { root, key: key ?? null, review: key ?? null };
-  if (key && kind.describe(at, "this").paths.length === 0) throw new Error(`no ${kind.label.toLowerCase()} saved for "${key}"`);
-  const plan = clearKinds(at, { [kind.id]: all ? "all" : "this" })[kind.id];
+  if (key && kind.describe(at, 'this').paths.length === 0)
+    throw new Error(`no ${kind.label.toLowerCase()} saved for "${key}"`);
+  const plan = clearKinds(at, { [kind.id]: all ? 'all' : 'this' })[kind.id];
   console.log(`lens: cleared ${countText(kind.unit, plan.count)}`);
   for (const path of plan.paths) console.log(`  - ${path}`);
 }

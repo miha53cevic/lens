@@ -1,4 +1,4 @@
-import type { ReaderNote } from "./store.ts";
+import type { ReaderNote } from './store.ts';
 
 // Where a note sits on the code as it is now. The code moves under a note: the agent fixes what
 // it says, or an edit above shifts it. So it looks for its lines by their text, nearest first,
@@ -19,12 +19,12 @@ export interface PlacedNote {
  * null: neither its lines nor its place are there anymore (it's outdated).
  */
 export function placeNote(
-  note: Pick<ReaderNote, "side" | "start" | "end" | "lines">,
+  note: Pick<ReaderNote, 'side' | 'start' | 'end' | 'lines'>,
   textAt: (line: number) => string | undefined,
   lastLine: number,
 ): PlacedNote | null {
   const span = note.end - note.start;
-  const prefix = note.side === "new" ? "N" : "O";
+  const prefix = note.side === 'new' ? 'N' : 'O';
   const placed = (start: number, changed: boolean): PlacedNote => ({
     label: prefix + (start + span),
     start,

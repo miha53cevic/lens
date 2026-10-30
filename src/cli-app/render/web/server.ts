@@ -1,27 +1,27 @@
-import { createServer } from "node:http";
-import { randomUUID } from "node:crypto";
-import { spawn } from "node:child_process";
-import type { FileFoldModel, LensConfig } from "../../model.ts";
-import type { SummaryView } from "../../summary/view.ts";
-import { removeServerInfo, writeServerInfo } from "../../ask/discovery.ts";
-import { createAskRoutes } from "../../ask/routes.ts";
-import { createNoteRoutes } from "../../notes/routes.ts";
-import { notesFor, type ReaderNote } from "../../notes/store.ts";
-import { createMarkRoutes } from "../../marks/routes.ts";
-import { marksFor, type ReviewMarks } from "../../marks/store.ts";
-import { isLocalRequest, readBody, readCookie, sendJson } from "./http.ts";
-import { previewResponse } from "../../summary/previews.ts";
-import { writeSettings } from "../../summary/settings.ts";
-import { buildProgressReader, type BuildProgress } from "../../summary/progress.ts";
-import {
-  clearKinds, describeKinds, type ClearContext, type ClearKindInfo, type ClearPlan, type ClearScope,
-} from "../../clear.ts";
-import { escapeHtml } from "../../text.ts";
-import { isLightColor, THEME_COOKIE } from "../../theme.ts";
-import { bundleViewer } from "./bundle.ts";
+import { createServer } from 'node:http';
+import { randomUUID } from 'node:crypto';
+import { spawn } from 'node:child_process';
+import type { FileFoldModel, LensConfig } from '../../model.ts';
+import type { SummaryView } from '../../summary/view.ts';
+import { removeServerInfo, writeServerInfo } from '../../ask/discovery.ts';
+import { createAskRoutes } from '../../ask/routes.ts';
+import { createNoteRoutes } from '../../notes/routes.ts';
+import { notesFor, type ReaderNote } from '../../notes/store.ts';
+import { createMarkRoutes } from '../../marks/routes.ts';
+import { marksFor, type ReviewMarks } from '../../marks/store.ts';
+import { isLocalRequest, readCookie, sendJson } from './http.ts';
+import type { ClearRequest, SettingsRequest, StampResponse, TokensResponse } from '../../api/contract.ts';
+import { createRouter, HttpError, noBody, type RouteContext } from '../../api/router.ts';
+import { previewResponse } from '../../summary/previews.ts';
+import { writeSettings } from '../../summary/settings.ts';
+import { buildProgressReader, type BuildProgress } from '../../summary/progress.ts';
+import { clearKinds, describeKinds, type ClearContext, type ClearPlan } from '../../clear.ts';
+import { escapeHtml } from '../../text.ts';
+import { isLightColor, THEME_COOKIE } from '../../theme.ts';
+import { bundleViewer } from './bundle.ts';
 // Imported as text, so the compiled `lens` carries it. bun-types types every .html import as an
 // HTML bundle (what Bun.serve takes), which an import as text isn't.
-import viewerTemplate from "./viewer.html" with { type: "text" };
+import viewerTemplate from './viewer.html' with { type: 'text' };
 import {
   highlightSource,
   themeSwatch,
@@ -30,7 +30,7 @@ import {
   shikiLangForFile,
   SUGGESTED_THEMES,
   type ViewerToken,
-} from "../highlight.ts";
+} from '../highlight.ts';
 
 export type ViewerFile = FileFoldModel & {
   source: string;
@@ -53,7 +53,7 @@ export interface ViewerInput {
   /** Pure renames — listed, nothing to analyze */
   renamed: { from: string; to: string }[];
   /** Changed binary files (an image, a font) — listed with their status, nothing of theirs to show */
-  binary: { file: string; status: "added" | "modified" | "deleted" }[];
+  binary: { file: string; status: 'added' | 'modified' | 'deleted' }[];
   /** The effective merged config, shown in the viewer's settings modal */
   config: LensConfig;
   configSource: string | null;
@@ -84,7 +84,7 @@ export interface ViewerOptions {
 }
 
 /** What the page gets as DATA (client/shared.ts): ViewerInput made serializable, plus one theme's tokens. */
-export type ViewerPayload = Omit<ViewerInput, "root" | "cwd" | "files" | "latestSummary" | "latestChange"> & {
+export type ViewerPayload = Omit<ViewerInput, 'root' | 'cwd' | 'files' | 'latestSummary' | 'latestChange'> & {
   theme: string;
   /** The theme menu's themes, each with its colors */
   themes: ThemeSwatch[];
@@ -111,38 +111,6 @@ export interface ThemeTokens {
   /** tokens[fileIndex] — aligned with the files array */
   tokens: ViewerToken[][][];
 }
-
-/**
- * What /api/stamp answers, everything the page watches for in one request: the stored summary's
- * stamp and the key it's read under (another branch checked out moves it), the change's
- * fingerprint as it is on disk now (null when this review has none), and the agent's summary run
- * while one is going.
- */
-export interface StampResponse {
-  summary: number | null;
-  key: string | null;
-  change: string | null;
-  building: BuildProgress | null;
-}
-
-/** What GET /api/clear answers: what each kind would remove */
-export interface ClearInfoResponse {
-  kinds: ClearKindInfo[];
-}
-
-/** What POST /api/clear takes: each kind to clear, with its scope */
-export interface ClearRequest {
-  picks: Record<string, ClearScope>;
-}
-
-/** What POST /api/clear answers: what it removed, and the summary as it is now */
-export interface ClearResponse {
-  cleared: Record<string, ClearPlan>;
-  summary: SummaryView | null;
-}
-
-/** What /api/tokens answers: a theme's tokens, and the analysis whose files they are. */
-export type TokensResponse = ThemeTokens & { analysis: string };
 
 /**
  * Every file's Shiki tokens in one theme. `previous` is the last analysis in the same theme (a ↻
@@ -180,7 +148,9 @@ export async function highlightFiles(
 
 /** The page's payload: the analysis, made serializable, with one theme's tokens. */
 export function viewerPayload(
-  input: ViewerInput, t: ThemeTokens, themes: ThemeSwatch[],
+  input: ViewerInput,
+  t: ThemeTokens,
+  themes: ThemeSwatch[],
   opts: { themePinned: boolean; canRefresh: boolean; analysis: string; notes?: ReaderNote[]; marks?: ReviewMarks },
 ): ViewerPayload {
   const { root: _root, cwd: _cwd, latestSummary: _latest, latestChange: _change, ...data } = input;
@@ -204,10 +174,10 @@ export function viewerPayload(
  */
 export function renderPage(template: string, payload: ViewerPayload): string {
   const colors = `--code-fg:${payload.fg};--code-bg:${payload.bg};--theme-accent:${payload.accent}`;
-  const root = ` data-appearance="${isLightColor(payload.bg) ? "light" : "dark"}" style="${escapeHtml(colors)}"`;
-  const data = JSON.stringify(payload).replace(/</g, "\\u003c");
+  const root = ` data-appearance="${isLightColor(payload.bg) ? 'light' : 'dark'}" style="${escapeHtml(colors)}"`;
+  const data = JSON.stringify(payload).replace(/</g, '\\u003c');
   // Function replacements: plain strings would expand $-sequences in the payload.
-  return template.replace("/*__LENS_ROOT__*/", () => root).replace("/*__LENS_DATA__*/", () => data);
+  return template.replace('/*__LENS_ROOT__*/', () => root).replace('/*__LENS_DATA__*/', () => data);
 }
 
 /** viewer.html with the bundled viewer's stylesheet and script inlined: one self-contained page. */
@@ -215,8 +185,8 @@ async function loadTemplate(): Promise<string> {
   const { script, css } = await bundleViewer();
   // Function replacements: plain strings would expand $-sequences in the code.
   return (viewerTemplate as unknown as string)
-    .replace("/*__LENS_CSS__*/", () => css)
-    .replace("/*__LENS_JS__*/", () => script);
+    .replace('/*__LENS_CSS__*/', () => css)
+    .replace('/*__LENS_JS__*/', () => script);
 }
 
 export async function serveViewer(
@@ -228,8 +198,14 @@ export async function serveViewer(
   const ask = createAskRoutes(() => current, opts.port);
   // the page carries the notes and the marks: once they change, the page held for a reload has the old ones
   let savedVersion = 0;
-  const notes = createNoteRoutes(() => current, () => savedVersion++);
-  const marks = createMarkRoutes(() => current, () => savedVersion++);
+  const notes = createNoteRoutes(
+    () => current,
+    () => savedVersion++,
+  );
+  const marks = createMarkRoutes(
+    () => current,
+    () => savedVersion++,
+  );
   // the root of the analysis that wrote server.json — a refresh can't move it
   const infoRoot = input.root;
   const stop = () => {
@@ -244,7 +220,7 @@ export async function serveViewer(
   let analysisCount = 0;
   const analysisOf = (files: ViewerFile[]): string => {
     let id = analysisIds.get(files);
-    if (!id) analysisIds.set(files, (id = run + ":" + ++analysisCount));
+    if (!id) analysisIds.set(files, (id = run + ':' + ++analysisCount));
     return id;
   };
 
@@ -259,15 +235,21 @@ export async function serveViewer(
     const previous = heldTokens;
     const tokens = (async () => {
       // a ↻ refresh in the same theme: the files that didn't change keep their tokens
-      const reuse = previous && previous.theme === theme
-        ? await previous.tokens.then((done) => ({ files: previous.files, tokens: done }), () => undefined)
-        : undefined;
+      const reuse =
+        previous && previous.theme === theme
+          ? await previous.tokens.then(
+              (done) => ({ files: previous.files, tokens: done }),
+              () => undefined,
+            )
+          : undefined;
       return highlightFiles(files, theme, reuse);
     })();
     const entry = { files, theme, tokens };
     heldTokens = entry;
     // a failure isn't kept: the next request tries again
-    tokens.catch(() => { if (heldTokens === entry) heldTokens = null; });
+    tokens.catch(() => {
+      if (heldTokens === entry) heldTokens = null;
+    });
     return tokens;
   }
 
@@ -278,8 +260,13 @@ export async function serveViewer(
   async function payloadFor(input: ViewerInput, theme: string): Promise<ViewerPayload> {
     const t = await tokensFor(input.files, theme);
     return viewerPayload(input, t, themes, {
-      themePinned: opts.themePinned, canRefresh: reanalyze !== undefined, analysis: analysisOf(input.files),
-      notes: notesFor(input, input.files.map((file) => file.file)),
+      themePinned: opts.themePinned,
+      canRefresh: reanalyze !== undefined,
+      analysis: analysisOf(input.files),
+      notes: notesFor(
+        input,
+        input.files.map((file) => file.file),
+      ),
       marks: marksFor(input),
     });
   }
@@ -293,7 +280,7 @@ export async function serveViewer(
   function buildingNow(): BuildProgress | null {
     const key = current.summary?.key;
     if (!key) return null;
-    const at = current.root + "\n" + key;
+    const at = current.root + '\n' + key;
     if (progress?.at !== at) progress = { at, read: buildProgressReader(current.root, key) };
     return progress.read();
   }
@@ -310,7 +297,11 @@ export async function serveViewer(
   function changeNow(): Promise<string | null> {
     const latest = current.latestChange;
     if (!latest) return Promise.resolve(null);
-    return (pendingChange ??= latest().catch(() => null).finally(() => { pendingChange = null; }));
+    return (pendingChange ??= latest()
+      .catch(() => null)
+      .finally(() => {
+        pendingChange = null;
+      }));
   }
 
   /** What Clear saved data clears in: the summary under its key as it is now, the marks and notes the page shows */
@@ -332,133 +323,151 @@ export async function serveViewer(
     return html;
   }
 
+  /** The theme a request asks for (`?theme=`), else this run's */
+  const themeOf = (url: URL): string => {
+    const asked = url.searchParams.get('theme');
+    return asked && isBundledTheme(asked) ? asked : opts.theme;
+  };
+
+  const page = async ({ req, res, url }: RouteContext) => {
+    // the theme the reader picked (the viewer keeps it in a cookie), unless --theme pinned this run's
+    const picked = url.searchParams.get('theme') || opts.themePinned ? null : readCookie(req, THEME_COOKIE);
+    // the page first: once the headers are out, a failure can't be answered with a 500
+    const html = await htmlFor(picked && isBundledTheme(picked) ? picked : themeOf(url));
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+    res.end(html);
+  };
+
+  const router = createRouter()
+    .raw('* /', page)
+    .raw('* /index.html', page)
+    .json('GET /api/tokens', noBody, async (_, { url }) => {
+      const asked = url.searchParams.get('theme');
+      if (asked && !isBundledTheme(asked)) throw new HttpError(400, `unknown theme "${asked}"`);
+      // the files as they are now, named: tokens made for them must not land on another analysis's
+      const { files } = current;
+      const tokens: TokensResponse = { ...(await tokensFor(files, themeOf(url))), analysis: analysisOf(files) };
+      return tokens;
+    })
+    .json('GET /api/refresh', noBody, async (_, { url }) => {
+      if (!reanalyze) throw new HttpError(404, 'refresh not available');
+      const input = await reanalyze();
+      current = input;
+      ask.refresh();
+      return payloadFor(input, themeOf(url));
+    })
+    .json('GET /api/summary', noBody, () => {
+      // A submit since the page loaded: take the stored summary (↻ refresh recomputes the units).
+      syncSummary();
+      return current.summary;
+    })
+    .json('GET /api/stamp', noBody, async () => {
+      syncSummary();
+      const stamp: StampResponse = {
+        summary: current.summary?.stamp ?? null,
+        key: current.summary?.key ?? null,
+        change: await changeNow(),
+        building: buildingNow(),
+      };
+      return stamp;
+    })
+    .raw('GET /api/preview/*', ({ res, params }) => {
+      // a preview the agent drew, alone in its sandboxed frame (summary/previews.ts)
+      const preview = previewResponse(current.root, current.summary?.key ?? null, params['*']);
+      res.writeHead(preview.status, preview.headers);
+      res.end(preview.body);
+    })
+    .json('POST /api/settings', parseSettings, (settings) => {
+      writeSettings(current.root, settings);
+      current = { ...current, buildPreviews: settings.buildPreviews };
+      return settings;
+    })
+    .json('GET /api/clear', noBody, () => {
+      // the summary's key as it is now: it names the branch checked out
+      syncSummary();
+      return { kinds: describeKinds(clearContext()) };
+    })
+    .json('POST /api/clear', parseClear, ({ picks }) => {
+      let cleared: Record<string, ClearPlan>;
+      syncSummary();
+      try {
+        cleared = clearKinds(clearContext(), picks);
+      } catch (err) {
+        throw new HttpError(400, (err as Error).message);
+      }
+      // the stored summary is gone: the view is made again, with no unit summarized
+      syncSummary();
+      if (cleared.notes || cleared.marks) savedVersion++;
+      return { cleared, summary: current.summary };
+    })
+    .raw('POST /api/shutdown', ({ res }) => {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }), () => {
+        console.log('lens viewer stopped from the viewer');
+        server.close(stop);
+        server.closeAllConnections();
+      });
+    })
+    .use(notes)
+    .use(marks)
+    .use(ask);
+
   const server = createServer(async (req, res) => {
     try {
       if (!isLocalRequest(req, opts.port)) {
-        sendJson(res, 403, { error: "lens only answers its own viewer page" });
+        sendJson(res, 403, { error: 'lens only answers its own viewer page' });
         return;
       }
-      const url = new URL(req.url ?? "/", "http://localhost");
-      const themeParam = url.searchParams.get("theme");
-      const theme = themeParam && isBundledTheme(themeParam) ? themeParam : opts.theme;
-
-      if (url.pathname === "/" || url.pathname === "/index.html") {
-        // the theme the reader picked (the viewer keeps it in a cookie), unless --theme pinned this run's
-        const picked = themeParam || opts.themePinned ? null : readCookie(req, THEME_COOKIE);
-        // the page first: once the headers are out, a failure can't be answered with a 500
-        const html = await htmlFor(picked && isBundledTheme(picked) ? picked : theme);
-        res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-        res.end(html);
-      } else if (url.pathname === "/api/tokens") {
-        if (themeParam && !isBundledTheme(themeParam)) {
-          sendJson(res, 400, { error: `unknown theme "${themeParam}"` });
-          return;
-        }
-        // the files as they are now, named: tokens made for them must not land on another analysis's
-        const { files } = current;
-        const tokens: TokensResponse = { ...(await tokensFor(files, theme)), analysis: analysisOf(files) };
-        sendJson(res, 200, tokens);
-      } else if (url.pathname === "/api/refresh") {
-        if (!reanalyze) {
-          sendJson(res, 404, { error: "refresh not available" });
-          return;
-        }
-        const input = await reanalyze();
-        current = input;
-        ask.refresh();
-        sendJson(res, 200, await payloadFor(input, theme));
-      } else if (url.pathname === "/api/summary") {
-        // A submit since the page loaded: take the stored summary (↻ refresh recomputes the units).
-        syncSummary();
-        sendJson(res, 200, current.summary);
-      } else if (url.pathname === "/api/stamp") {
-        syncSummary();
-        const stamp: StampResponse = {
-          summary: current.summary?.stamp ?? null,
-          key: current.summary?.key ?? null,
-          change: await changeNow(),
-          building: buildingNow(),
-        };
-        sendJson(res, 200, stamp);
-      } else if (url.pathname.startsWith("/api/preview/")) {
-        // a preview the agent drew, alone in its sandboxed frame (summary/previews.ts)
-        const preview = previewResponse(current.root, current.summary?.key ?? null, url.pathname.slice("/api/preview/".length));
-        res.writeHead(preview.status, preview.headers);
-        res.end(preview.body);
-      } else if (url.pathname === "/api/settings" && req.method === "POST") {
-        const body = JSON.parse(await readBody(req)) as { buildPreviews?: unknown };
-        if (typeof body?.buildPreviews !== "boolean") {
-          sendJson(res, 400, { error: "buildPreviews must be true or false" });
-          return;
-        }
-        writeSettings(current.root, { buildPreviews: body.buildPreviews });
-        current = { ...current, buildPreviews: body.buildPreviews };
-        sendJson(res, 200, { buildPreviews: body.buildPreviews });
-      } else if (url.pathname === "/api/clear" && req.method === "GET") {
-        // the summary's key as it is now: it names the branch checked out
-        syncSummary();
-        const info: ClearInfoResponse = { kinds: describeKinds(clearContext()) };
-        sendJson(res, 200, info);
-      } else if (url.pathname === "/api/clear" && req.method === "POST") {
-        const body = JSON.parse(await readBody(req)) as Partial<ClearRequest> | null;
-        const picks = body?.picks;
-        if (typeof picks !== "object" || picks === null || Object.keys(picks).length === 0) {
-          sendJson(res, 400, { error: "pick something to clear" });
-          return;
-        }
-        let cleared: Record<string, ClearPlan>;
-        syncSummary();
-        try {
-          cleared = clearKinds(clearContext(), picks);
-        } catch (err) {
-          sendJson(res, 400, { error: (err as Error).message });
-          return;
-        }
-        // the stored summary is gone: the view is made again, with no unit summarized
-        syncSummary();
-        if (cleared.notes || cleared.marks) savedVersion++;
-        const answer: ClearResponse = { cleared, summary: current.summary };
-        sendJson(res, 200, answer);
-      } else if (url.pathname === "/api/shutdown" && req.method === "POST") {
-        res.writeHead(200, { "content-type": "application/json" });
-        res.end(JSON.stringify({ ok: true }), () => {
-          console.log("lens viewer stopped from the viewer");
-          server.close(stop);
-          server.closeAllConnections();
-        });
-      } else if (!(url.pathname.startsWith("/api/notes") && await notes.handle(req, res, url)) &&
-        !(url.pathname === "/api/marks" && await marks.handle(req, res, url)) &&
-        !(url.pathname.startsWith("/api/ask") && await ask.handle(req, res, url))) {
-        sendJson(res, 404, { error: "not found" });
-      }
+      const url = new URL(req.url ?? '/', 'http://localhost');
+      if (!(await router.handle(req, res, url))) sendJson(res, 404, { error: 'not found' });
     } catch (err) {
       sendJson(res, 500, { error: (err as Error).message });
     }
   });
 
-  server.on("error", (err: NodeJS.ErrnoException) => {
-    if (err.code === "EADDRINUSE") {
-      console.error(`lens: port ${opts.port} is in use — a lens viewer is probably already running ` +
-        `(refresh it with ↻), or pick another port with --port`);
+  server.on('error', (err: NodeJS.ErrnoException) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(
+        `lens: port ${opts.port} is in use — a lens viewer is probably already running ` +
+          `(refresh it with ↻), or pick another port with --port`,
+      );
       process.exit(1);
     }
     throw err;
   });
-  server.listen(opts.port, "127.0.0.1", () => {
+  server.listen(opts.port, '127.0.0.1', () => {
     const url = `http://127.0.0.1:${opts.port}/`;
     writeServerInfo(infoRoot, opts.port); // before the banner: whoever waits for it can `lens ask` right away
     console.log(`lens viewer on ${url}  (ctrl-c to stop)`);
-    process.on("SIGINT", stop);
-    process.on("SIGTERM", stop);
+    process.on('SIGINT', stop);
+    process.on('SIGTERM', stop);
     if (opts.open) {
-      const target = url + (opts.openSummary ? "#summary" : "");
+      const target = url + (opts.openSummary ? '#summary' : '');
       // `start` is a cmd builtin, not a program; its first quoted argument is a window title
-      const [opener, args] = process.platform === "darwin" ? ["open", [target]]
-        : process.platform === "win32" ? ["cmd", ["/c", "start", "", target]] : ["xdg-open", [target]];
-      const child = spawn(opener, args, { stdio: "ignore", detached: true, windowsHide: true });
+      const [opener, args] =
+        process.platform === 'darwin'
+          ? ['open', [target]]
+          : process.platform === 'win32'
+            ? ['cmd', ['/c', 'start', '', target]]
+            : ['xdg-open', [target]];
+      const child = spawn(opener, args, { stdio: 'ignore', detached: true, windowsHide: true });
       // no browser opener (e.g. a headless box): the URL is printed above, keep serving
-      child.on("error", () => console.log(`lens: couldn't open a browser — open ${target} yourself`));
+      child.on('error', () => console.log(`lens: couldn't open a browser — open ${target} yourself`));
       child.unref();
     }
   });
+}
+
+function parseSettings(raw: unknown): SettingsRequest | { error: string } {
+  const { buildPreviews } = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  if (typeof buildPreviews !== 'boolean') return { error: 'buildPreviews must be true or false' };
+  return { buildPreviews };
+}
+
+function parseClear(raw: unknown): ClearRequest | { error: string } {
+  const { picks } = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  if (typeof picks !== 'object' || picks === null || Object.keys(picks).length === 0) {
+    return { error: 'pick something to clear' };
+  }
+  return { picks: picks as ClearRequest['picks'] };
 }

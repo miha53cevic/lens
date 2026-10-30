@@ -1,7 +1,7 @@
-import { createHash } from "node:crypto";
-import { createServer } from "node:net";
-import { runningServer } from "./ask/discovery.ts";
-import { toPosix } from "./paths.ts";
+import { createHash } from 'node:crypto';
+import { createServer } from 'node:net';
+import { runningServer } from './ask/discovery.ts';
+import { toPosix } from './paths.ts';
 
 // The viewer's port when --port isn't given: each repository has its own, the same on every run.
 // Two reviews then run side by side, and a repository's page keeps what the browser files under
@@ -18,15 +18,15 @@ const PORT_TRIES = 50;
  * repository's root: on Windows a path from the shell has `\` instead, and would get another port.
  */
 export function repoPort(root: string): number {
-  return FIRST_PORT + (createHash("sha256").update(toPosix(root)).digest().readUInt32BE(0) % PORT_COUNT);
+  return FIRST_PORT + (createHash('sha256').update(toPosix(root)).digest().readUInt32BE(0) % PORT_COUNT);
 }
 
 /** Whether nothing listens on `port` right now. */
 function isFree(port: number): Promise<boolean> {
   return new Promise((resolve) => {
     const probe = createServer();
-    probe.once("error", () => resolve(false));
-    probe.listen(port, "127.0.0.1", () => probe.close(() => resolve(true)));
+    probe.once('error', () => resolve(false));
+    probe.listen(port, '127.0.0.1', () => probe.close(() => resolve(true)));
   });
 }
 
@@ -37,8 +37,10 @@ function isFree(port: number): Promise<boolean> {
 export async function pickPort(root: string): Promise<number> {
   const running = runningServer(root);
   if (running) {
-    throw new Error(`this repository is already open on http://127.0.0.1:${running.port}/ ` +
-      `(refresh it with ↻), or pick another port with --port`);
+    throw new Error(
+      `this repository is already open on http://127.0.0.1:${running.port}/ ` +
+        `(refresh it with ↻), or pick another port with --port`,
+    );
   }
   const first = repoPort(root);
   for (let port = first; port < first + PORT_TRIES; port++) {

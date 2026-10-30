@@ -1,7 +1,6 @@
 // The Code view and the Summary tab: switching between them, jumping to a line.
 
-import type { StampResponse } from '../../cli-app/render/web/server.ts';
-import type { SummaryView } from '../../cli-app/summary/view.ts';
+import type { StampResponse } from '../../cli-app/api/contract.ts';
 import { commit, getState, type LensState, toggled, update, type View } from '../store.ts';
 import { flashRow } from '../shared.ts';
 import { fileSpans } from '../rows.ts';
@@ -9,7 +8,7 @@ import { revealIfTest, visibleActive, withTab } from './tabs.ts';
 import { openFoldAround } from './folds.ts';
 import { isBusy } from '../model/status.ts';
 import type { Watcher } from '../../ui/poll.ts';
-import { noteDone, reach, request, tracked } from './status.ts';
+import { api, noteDone, reach, tracked } from './status.ts';
 
 function viewChange(state: LensState, view: View): Partial<LensState> {
   if (view === state.view) return {};
@@ -31,8 +30,7 @@ async function loadSummary(branch = false): Promise<void> {
   await tracked(
     { id: 'summary', label: 'Loading the new summary…', failed: "Couldn't load the new summary" },
     async () => {
-      const response = await request('/api/summary');
-      const summary: SummaryView | null = await response.json();
+      const summary = await api('GET /api/summary');
       // only once it's loaded: a failed load is tried again
       update((state) => ({ summaryDot: false, data: summary ? { ...state.data, summary } : state.data }));
       if (branch) noteDone('Another branch is checked out: the summary is read for it');

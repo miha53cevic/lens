@@ -7,6 +7,10 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, realpathSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { analyze } from '../../src/cli-app/analyze.ts';
+import { loadConfig } from '../../src/cli-app/config.ts';
+import type { ViewerInput } from '../../src/cli-app/render/web/server.ts';
+import { writeStored, type StoredSummary } from '../../src/cli-app/summary/store.ts';
 
 export const OLD_ORDERS = `import { db } from "./db";
 import { log } from "./log";
@@ -81,4 +85,42 @@ export function makeViewerRepo(): string {
   writeFileSync(join(dir, 'src/orders.ts'), NEW_ORDERS);
   writeFileSync(join(dir, 'src/orders.test.ts'), NEW_TEST);
   return dir;
+}
+
+/** `lens diff` on the repo, with a summary of two of its units stored: what the viewer is opened on. */
+export async function analyzeViewerRepo(repo: string): Promise<ViewerInput> {
+  const input = await analyze('diff', [], repo, loadConfig(repo));
+  const unit = (name: string) => input.summary!.units.find((candidate) => candidate.name === name)!;
+  const findOrders = unit('findOrders'),
+    legacy = unit('legacyTotal');
+  const stored: StoredSummary = {
+    version: 1,
+    updatedAt: '',
+    flows: [],
+    units: {
+      [findOrders.id]: {
+        hash: findOrders.hash,
+        anchor: findOrders.anchor,
+        headline: 'findOrders skips deleted orders',
+        gist: 'skips deleted orders',
+        needsLook: true,
+        changes: [{ when: 'an order is deleted', before: 'it was returned', now: "it's skipped", line: 'N10' }],
+        breaks: [],
+        concerns: [{ kind: 'bug', text: 'deleted is a string column', line: 'N10' }],
+      },
+      [legacy.id]: {
+        hash: legacy.hash,
+        anchor: legacy.anchor,
+        headline: 'legacyTotal is gone',
+        gist: 'removed',
+        needsLook: false,
+        changes: [],
+        breaks: [{ summary: 'callers of legacyTotal no longer compile', callers: ['src/report.ts:3'] }],
+        concerns: [{ kind: 'question', text: 'did anything still call it?', line: 'O17' }],
+      },
+    },
+  };
+  writeStored(repo, 'diff@main', stored);
+  input.summary = input.latestSummary!();
+  return input;
 }

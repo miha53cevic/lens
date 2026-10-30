@@ -1,4 +1,4 @@
-import { runGit } from "./git.ts";
+import { runGit } from './git.ts';
 
 // A GitHub pull request reference: parsed from a URL, or a bare number
 // (owner/repo then comes from the origin remote).
@@ -20,8 +20,8 @@ export interface ResolvedPr {
   guessedBase: string | null;
 }
 
-const OWNER = "[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?";
-const REPO = "[A-Za-z0-9._-]+";
+const OWNER = '[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?';
+const REPO = '[A-Za-z0-9._-]+';
 
 /**
  * Parses a PR reference. Accepted forms:
@@ -29,17 +29,17 @@ const REPO = "[A-Za-z0-9._-]+";
  *   123                                      (returned with empty owner/repo)
  */
 export function parsePrRef(arg: string): PrRef | null {
-  const url = new RegExp(
-    `^(?:https?://)?(?:www\\.)?github\\.com/(${OWNER})/(${REPO})/pull/(\\d+)(?:[/?#]|$)`,
-  ).exec(arg.trim());
+  const url = new RegExp(`^(?:https?://)?(?:www\\.)?github\\.com/(${OWNER})/(${REPO})/pull/(\\d+)(?:[/?#]|$)`).exec(
+    arg.trim(),
+  );
   if (url) return { owner: url[1], repo: stripGit(url[2]), number: Number(url[3]) };
 
-  if (/^\d+$/.test(arg.trim())) return { owner: "", repo: "", number: Number(arg.trim()) };
+  if (/^\d+$/.test(arg.trim())) return { owner: '', repo: '', number: Number(arg.trim()) };
   return null;
 }
 
 function stripGit(repo: string): string {
-  return repo.endsWith(".git") ? repo.slice(0, -4) : repo;
+  return repo.endsWith('.git') ? repo.slice(0, -4) : repo;
 }
 
 /**
@@ -59,25 +59,20 @@ export function githubRepoFromRemoteUrl(url: string): { owner: string; repo: str
  * ^remote\..*\.url$` output. Empty owner means "whatever origin points at";
  * the returned ref then carries origin's owner/repo.
  */
-export function matchRemote(
-  configOutput: string,
-  ref: PrRef,
-): { remote: string; ref: PrRef } | null {
+export function matchRemote(configOutput: string, ref: PrRef): { remote: string; ref: PrRef } | null {
   const remotes: { name: string; owner: string; repo: string }[] = [];
-  for (const line of configOutput.split("\n")) {
+  for (const line of configOutput.split('\n')) {
     const m = /^remote\.(.+)\.url (.+)$/.exec(line.trim());
     if (!m) continue;
     const gh = githubRepoFromRemoteUrl(m[2]);
     if (gh) remotes.push({ name: m[1], ...gh });
   }
-  if (ref.owner === "") {
+  if (ref.owner === '') {
     // no origin: a lone GitHub remote is the one; among several, which is a guess
-    const origin = remotes.find((r) => r.name === "origin") ?? (remotes.length === 1 ? remotes[0] : undefined);
-    return origin
-      ? { remote: origin.name, ref: { ...ref, owner: origin.owner, repo: origin.repo } }
-      : null;
+    const origin = remotes.find((r) => r.name === 'origin') ?? (remotes.length === 1 ? remotes[0] : undefined);
+    return origin ? { remote: origin.name, ref: { ...ref, owner: origin.owner, repo: origin.repo } } : null;
   }
-  const same = (a: string, b: string) => a.localeCompare(b, undefined, { sensitivity: "accent" }) === 0;
+  const same = (a: string, b: string) => a.localeCompare(b, undefined, { sensitivity: 'accent' }) === 0;
   const hit = remotes.find((r) => same(r.owner, ref.owner) && same(r.repo, ref.repo));
   return hit ? { remote: hit.name, ref } : null;
 }
@@ -95,11 +90,11 @@ export interface RemoteRefs {
 /** Parses `git ls-remote --symref <remote> HEAD refs/pull/N/head refs/pull/N/merge`. */
 export function parseRemoteRefs(output: string, prNumber: number): RemoteRefs {
   const refs: RemoteRefs = { headSha: null, mergeSha: null, defaultRef: null, defaultSha: null };
-  for (const line of output.split("\n")) {
-    const [left, name] = line.split("\t");
+  for (const line of output.split('\n')) {
+    const [left, name] = line.split('\t');
     if (!left || !name) continue;
-    if (left.startsWith("ref: ") && name === "HEAD") refs.defaultRef = left.slice(5);
-    else if (name === "HEAD") refs.defaultSha = left;
+    if (left.startsWith('ref: ') && name === 'HEAD') refs.defaultRef = left.slice(5);
+    else if (name === 'HEAD') refs.defaultSha = left;
     else if (name === `refs/pull/${prNumber}/head`) refs.headSha = left;
     else if (name === `refs/pull/${prNumber}/merge`) refs.mergeSha = left;
   }
@@ -113,7 +108,7 @@ export function parseRemoteRefs(output: string, prNumber: number): RemoteRefs {
 export function pickBase(refs: RemoteRefs, prNumber: number): { baseRef: string; guessedBase: string | null } | null {
   if (refs.mergeSha) return { baseRef: `refs/pull/${prNumber}/merge`, guessedBase: null };
   if (!refs.defaultRef) return null;
-  return { baseRef: refs.defaultRef, guessedBase: refs.defaultRef.replace(/^refs\/heads\//, "") };
+  return { baseRef: refs.defaultRef, guessedBase: refs.defaultRef.replace(/^refs\/heads\//, '') };
 }
 
 /**
@@ -135,15 +130,15 @@ export async function resolvePr(arg: string, cwd: string): Promise<ResolvedPr> {
   }
   let remotesOutput: string;
   try {
-    remotesOutput = runGit(["config", "--get-regexp", "^remote\\..*\\.url$"], cwd);
+    remotesOutput = runGit(['config', '--get-regexp', '^remote\\..*\\.url$'], cwd);
   } catch {
     throw new Error("lens pr needs to run inside a git clone of the PR's repository");
   }
   const match = matchRemote(remotesOutput, parsed);
   if (!match) {
     throw new Error(
-      parsed.owner === ""
-        ? "no origin GitHub remote here — pass the full PR URL from inside a clone of its repository"
+      parsed.owner === ''
+        ? 'no origin GitHub remote here — pass the full PR URL from inside a clone of its repository'
         : `no remote for ${parsed.owner}/${parsed.repo} found here — cd into a clone of it`,
     );
   }
@@ -152,7 +147,7 @@ export async function resolvePr(arg: string, cwd: string): Promise<ResolvedPr> {
 
   // One remote round-trip: PR head + test-merge commit + default branch symref.
   const listing = runGit(
-    ["ls-remote", "--symref", remote, "HEAD", `refs/pull/${ref.number}/head`, `refs/pull/${ref.number}/merge`],
+    ['ls-remote', '--symref', remote, 'HEAD', `refs/pull/${ref.number}/head`, `refs/pull/${ref.number}/merge`],
     cwd,
   );
   const refs = parseRemoteRefs(listing, ref.number);
@@ -163,18 +158,16 @@ export async function resolvePr(arg: string, cwd: string): Promise<ResolvedPr> {
   const base = pickBase(refs, ref.number);
   if (!base) throw new Error(`remote "${remote}" has no default branch to diff against`);
   const { baseRef, guessedBase } = base;
-  runGit(["fetch", remote, `refs/pull/${ref.number}/head`, baseRef], cwd);
-  const baseTip = refs.mergeSha
-    ? runGit(["rev-parse", `${refs.mergeSha}^1`], cwd).trim()
-    : refs.defaultSha!;
+  runGit(['fetch', remote, `refs/pull/${ref.number}/head`, baseRef], cwd);
+  const baseTip = refs.mergeSha ? runGit(['rev-parse', `${refs.mergeSha}^1`], cwd).trim() : refs.defaultSha!;
 
   let mergeBase: string;
   try {
-    mergeBase = runGit(["merge-base", baseTip, refs.headSha], cwd).trim();
+    mergeBase = runGit(['merge-base', baseTip, refs.headSha], cwd).trim();
   } catch {
     throw new Error(
       `no merge base between ${baseRef} and the PR head — ` +
-      `a shallow clone may lack the shared history (try \`git fetch --unshallow ${remote}\`)`,
+        `a shallow clone may lack the shared history (try \`git fetch --unshallow ${remote}\`)`,
     );
   }
   return { diffArgs: [mergeBase, refs.headSha], label, guessedBase };

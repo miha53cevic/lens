@@ -1,8 +1,8 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
-import { lensDir } from "../summary/store.ts";
-import { relPath } from "../paths.ts";
-import type { NotesPlace } from "../notes/store.ts";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { lensDir } from '../summary/store.ts';
+import { relPath } from '../paths.ts';
+import type { NotesPlace } from '../notes/store.ts';
 
 // The reader's marks in the viewer: the files and changes ticked viewed, and their verdict on each
 // of the agent's findings. Kept per review, as the notes are: .lens/marks/<review>.json, so a branch
@@ -10,7 +10,7 @@ import type { NotesPlace } from "../notes/store.ts";
 // key is the viewer's (fileViewKey, unitViewKey, a finding's key): it carries a hash of the code,
 // so what changes after it was marked comes back unmarked.
 
-export const CONCERN_MARKS = ["real", "dismissed"] as const;
+export const CONCERN_MARKS = ['real', 'dismissed'] as const;
 /** The reader's verdict on a finding: "real", or "dismissed" */
 export type ConcernMark = (typeof CONCERN_MARKS)[number];
 
@@ -26,27 +26,30 @@ export interface ReviewMarks {
 
 /** One mark the reader changed, as POST /api/marks takes it */
 export type MarkChange =
-  | { list: "files" | "units"; key: string; on: boolean }
-  | { list: "concerns"; key: string; mark: ConcernMark | null };
+  { list: 'files' | 'units'; key: string; on: boolean } | { list: 'concerns'; key: string; mark: ConcernMark | null };
 
 /** How many of each list are kept: the oldest go first */
 export const MARKS_CAP = 2000;
 /** Each review's marks are a file in here, named by its key */
-export const MARKS_DIR = ".lens/marks";
+export const MARKS_DIR = '.lens/marks';
 
 interface StoredMarks extends ReviewMarks {
   version: 1;
 }
 
 function marksFile(root: string, review: string): string {
-  return join(root, MARKS_DIR, review + ".json");
+  return join(root, MARKS_DIR, review + '.json');
 }
 
-const isKeys = (raw: unknown): raw is string[] => Array.isArray(raw) && raw.every((key) => typeof key === "string");
+const isKeys = (raw: unknown): raw is string[] => Array.isArray(raw) && raw.every((key) => typeof key === 'string');
 
 function isConcerns(raw: unknown): raw is Record<string, ConcernMark> {
-  return !!raw && typeof raw === "object" && !Array.isArray(raw) &&
-    Object.values(raw).every((mark) => (CONCERN_MARKS as readonly unknown[]).includes(mark));
+  return (
+    !!raw &&
+    typeof raw === 'object' &&
+    !Array.isArray(raw) &&
+    Object.values(raw).every((mark) => (CONCERN_MARKS as readonly unknown[]).includes(mark))
+  );
 }
 
 const NO_MARKS: ReviewMarks = { files: [], units: [], concerns: {} };
@@ -56,7 +59,7 @@ export function readStoredMarks(root: string, review: string): ReviewMarks {
   const path = marksFile(root, review);
   if (!existsSync(path)) return NO_MARKS;
   try {
-    const raw = JSON.parse(readFileSync(path, "utf8")) as StoredMarks;
+    const raw = JSON.parse(readFileSync(path, 'utf8')) as StoredMarks;
     if (raw?.version !== 1 || !isKeys(raw.files) || !isKeys(raw.units) || !isConcerns(raw.concerns)) return NO_MARKS;
     return { files: raw.files, units: raw.units, concerns: raw.concerns };
   } catch {
@@ -65,9 +68,9 @@ export function readStoredMarks(root: string, review: string): ReviewMarks {
 }
 
 function writeStoredMarks(root: string, review: string, marks: ReviewMarks): void {
-  mkdirSync(join(lensDir(root), "marks"), { recursive: true });
+  mkdirSync(join(lensDir(root), 'marks'), { recursive: true });
   const stored: StoredMarks = { version: 1, ...marks };
-  writeFileSync(marksFile(root, review), JSON.stringify(stored, null, 2) + "\n");
+  writeFileSync(marksFile(root, review), JSON.stringify(stored, null, 2) + '\n');
 }
 
 /** How many marks a review's file holds */
@@ -77,13 +80,13 @@ export function countMarks(marks: ReviewMarks): number {
 
 /** What a viewed mark is of: `src/a.ts@1x9` → `src/a.ts`. A path may hold an @, the hash never does. */
 function markSubject(key: string): string {
-  return key.slice(0, key.lastIndexOf("@"));
+  return key.slice(0, key.lastIndexOf('@'));
 }
 
 // A file's mark carries its path as the viewer shows it: kept from the root, so lens run from
 // another folder finds it. A unit's id is already from the root.
 function rebase(key: string, move: (path: string) => string): string {
-  const at = key.lastIndexOf("@");
+  const at = key.lastIndexOf('@');
   return move(key.slice(0, at)) + key.slice(at);
 }
 
@@ -104,13 +107,13 @@ function toggledKeys(viewed: string[], key: string, on: boolean): string[] {
 /** One mark changed, in the review's file. */
 export function changeMark(place: NotesPlace, change: MarkChange): void {
   const marks = readStoredMarks(place.root, place.review);
-  if (change.list === "concerns") {
+  if (change.list === 'concerns') {
     // taken out and put back: the oldest verdicts drop first
     const { [change.key]: _old, ...rest } = marks.concerns;
     const entries = Object.entries(rest);
     if (change.mark) entries.push([change.key, change.mark]);
     writeStoredMarks(place.root, place.review, { ...marks, concerns: Object.fromEntries(entries.slice(-MARKS_CAP)) });
-  } else if (change.list === "files") {
+  } else if (change.list === 'files') {
     const key = rebase(change.key, (path) => relPath(place.root, resolve(place.cwd, path)));
     writeStoredMarks(place.root, place.review, { ...marks, files: toggledKeys(marks.files, key, change.on) });
   } else {

@@ -13,22 +13,12 @@ import {
   type IpcMainEvent,
   type IpcMainInvokeEvent,
 } from 'electron';
-import {
-  LAUNCHER_CALLS,
-  MENU_CALLS,
-  STRIP_CALLS,
-  type LauncherCall,
-  type LauncherState,
-  type MenuCall,
-  type MenuState,
-  type SetupPart,
-  type StripCall,
-  type StripState,
-} from '../shared/api.ts';
-import { parseChoice } from '../shared/choice.ts';
+import type { LauncherApi, LauncherState, MenuApi, MenuState, SetupPart, StripApi, StripState } from '../shared/api.ts';
+import { LAUNCHER_ARGS, LAUNCHER_CALLS, MENU_ARGS, MENU_CALLS, STRIP_ARGS, STRIP_CALLS } from '../shared/ipc.ts';
 import { MIN_SIZE, placeWindow } from './bounds.ts';
 import type { LensCli } from './cli.ts';
 import { tildePath } from './display.ts';
+import { dispatch, type Handlers } from './ipc.ts';
 import { APP_ORIGIN, allowOrigin, appPagePreferences, isAppPage, viewerPreferences } from './security.ts';
 import { install, setupState, uninstall, type SetupEnv } from './setup.ts';
 import type { Session, Store } from './store.ts';
@@ -452,7 +442,7 @@ export class AppWindow implements TabHost {
     ipcMain.handle('menu:state', (event) => (this.isMenu(event) ? this.menuState() : null));
     for (const call of MENU_CALLS) {
       ipcMain.on('menu:' + call, (event, ...args: unknown[]) => {
-        if (this.isMenu(event)) this.menuCall(call, args);
+        if (this.isMenu(event)) void dispatch(MENU_ARGS, this.menuCalls(), call, args);
       });
     }
     ipcMain.handle('launcher:state', (event) => {
@@ -461,110 +451,93 @@ export class AppWindow implements TabHost {
     });
     for (const call of STRIP_CALLS) {
       ipcMain.on('strip:' + call, (event, ...args: unknown[]) => {
-        if (this.isStrip(event)) this.stripCall(call, args);
+        if (this.isStrip(event)) void dispatch(STRIP_ARGS, this.stripCalls(), call, args);
       });
     }
     for (const call of LAUNCHER_CALLS) {
       ipcMain.on('launcher:' + call, (event, ...args: unknown[]) => {
         const tab = this.tabOf(event);
-        if (tab) void this.launcherCall(tab, call, args);
+        if (tab) void dispatch(LAUNCHER_ARGS, this.launcherCalls(tab), call, args);
       });
     }
   }
 
-  private stripCall(call: StripCall, [first, second]: unknown[]): void {
-    const id = typeof first === 'number' ? first : -1;
-    switch (call) {
-      case 'select':
-        return this.selectTab(id);
-      case 'close':
-        return void this.closeTab(id);
-      case 'add':
-        return void this.addTab('start');
-      case 'change':
+  // what each call does, once shared/ipc.ts has its arguments typed; what they may name is checked here
+
+  private stripCalls(): Handlers<StripApi> {
+    return {
+      select: (id) => this.selectTab(id),
+      close: (id) => void this.closeTab(id),
+      add: () => void this.addTab('start'),
+      change: (id) => {
         this.selectTab(id);
-        return this.tabs.get(id)?.change();
-      case 'settings':
-        return this.openSettings();
-      case 'themeMenu':
-        if (typeof first === 'number' && typeof second === 'number') this.toggleMenu(first, second);
-        return;
-      case 'chrome':
-        if (!isHexColor(first) || !isHexColor(second)) return;
-        this.pageBackground = first;
+        this.tabs.get(id)?.change();
+      },
+      settings: () => this.openSettings(),
+      themeMenu: (right, bottom) => this.toggleMenu(right, bottom),
+      chrome: (color, symbolColor) => {
+        this.pageBackground = color;
         this.paintBackgrounds();
         // Windows draws its buttons over the strip in these colors; macOS has its own lights
         if (process.platform !== 'darwin') {
-          this.win.setTitleBarOverlay({ color: first, symbolColor: second, height: STRIP_HEIGHT });
+          this.win.setTitleBarOverlay({ color, symbolColor, height: STRIP_HEIGHT });
         }
-        return;
-    }
+      },
+    };
   }
 
-  private menuCall(call: MenuCall, [first]: unknown[]): void {
+  private menuCalls(): Handlers<MenuApi> {
     const { themes } = this.deps;
-    switch (call) {
-      case 'pick':
+    return {
+      pick: (name) => {
         // only a theme the menu was given: a page can't name another
-        if (typeof first === 'string' && themes.all.some((theme) => theme.name === first)) void themes.pick(first);
-        return this.closeMenu();
-      case 'close':
-        return this.closeMenu();
-    }
+        if (themes.all.some((theme) => theme.name === name)) void themes.pick(name);
+        this.closeMenu();
+      },
+      close: () => this.closeMenu(),
+    };
   }
 
-  private async launcherCall(tab: Tab, call: LauncherCall, [first]: unknown[]): Promise<void> {
+  private launcherCalls(tab: Tab): Handlers<LauncherApi> {
     const { store } = this.deps;
-    switch (call) {
-      case 'openRepository': {
+    return {
+      openRepository: async () => {
         const picked = await dialog.showOpenDialog(this.win, {
           title: 'Open repository',
           properties: ['openDirectory'],
         });
         if (!picked.canceled && picked.filePaths[0]) await tab.openFolder(picked.filePaths[0]);
-        return;
-      }
-      case 'openRecent':
+      },
+      openRecent: async (root) => {
         // only a folder the app itself listed: a page can't name an arbitrary one
-        if (typeof first === 'string' && store.recents().includes(first)) await tab.openFolder(first);
-        return;
-      case 'forgetRecent':
-        if (typeof first === 'string') store.forget(first);
-        return this.sendLauncher(tab);
-      case 'setBase': {
+        if (store.recents().includes(root)) await tab.openFolder(root);
+      },
+      forgetRecent: (root) => {
+        store.forget(root);
+        this.sendLauncher(tab);
+      },
+      setBase: async (base) => {
         const known = tab.repo ? [...tab.repo.branches, tab.repo.base] : [];
-        if (typeof first === 'string' && known.includes(first)) await tab.refresh(first);
-        return;
-      }
-      case 'refresh':
+        if (known.includes(base)) await tab.refresh(base);
+      },
+      refresh: async () => {
         // only the page in sight: a tab behind another, or one showing its review, has no picker to keep current
         if (tab === this.tabs.active && tab.showing === 'launcher') await tab.poll();
-        return;
-      case 'open': {
-        const choice = parseChoice(first);
-        if (choice) await tab.open(choice);
-        return;
-      }
-      case 'cancel':
-        return tab.cancel();
-      case 'dismiss':
-        return tab.dismiss();
-      case 'back':
-        return tab.back();
-      case 'showRunning':
-        return tab.showRunning();
-      case 'recheck':
+      },
+      open: (choice) => tab.open(choice),
+      cancel: () => tab.cancel(),
+      dismiss: () => tab.dismiss(),
+      back: () => tab.back(),
+      showRunning: () => tab.showRunning(),
+      recheck: async () => {
         await this.deps.themes.load().catch(() => {});
-        return this.show();
-      case 'settings':
-        return this.openSettings();
-      case 'sandbox':
-        return this.openSandbox();
-      case 'install':
-      case 'uninstall':
-        if (first === 'cli' || first === 'skills') await this.setup(tab, call, first);
-        return;
-    }
+        this.show();
+      },
+      settings: () => this.openSettings(),
+      sandbox: () => this.openSandbox(),
+      install: (part) => this.setup(tab, 'install', part),
+      uninstall: (part) => this.setup(tab, 'uninstall', part),
+    };
   }
 
   private async setup(tab: Tab, action: 'install' | 'uninstall', part: SetupPart): Promise<void> {
@@ -583,8 +556,4 @@ export class AppWindow implements TabHost {
     const active = this.tabs.active;
     return active ? (this.views.get(active.id) ?? null) : null;
   }
-}
-
-function isHexColor(value: unknown): value is string {
-  return typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value);
 }

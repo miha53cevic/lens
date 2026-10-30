@@ -1,6 +1,6 @@
-import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { readStored, summaryPath, wholeDiffLeft, type Bundle } from "./store.ts";
+import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { readStored, summaryPath, wholeDiffLeft, type Bundle } from './store.ts';
 
 // How far the agent's summary run has got, from what it leaves on disk: the bundle `prepare`
 // wrote, the summary its submits merged into, and whether the last submit asked for another.
@@ -20,12 +20,12 @@ interface SubmitRecord {
   again: boolean;
 }
 
-const SUBMIT_FILE = "submit.json";
+const SUBMIT_FILE = 'submit.json';
 
 /** Kept next to the bundle, so a later prepare's bundle (another createdAt) leaves it behind. */
 export function recordSubmit(dir: string, bundle: { createdAt: string }, again: boolean): void {
   const record: SubmitRecord = { bundle: bundle.createdAt, again };
-  writeFileSync(join(dir, SUBMIT_FILE), JSON.stringify(record) + "\n");
+  writeFileSync(join(dir, SUBMIT_FILE), JSON.stringify(record) + '\n');
 }
 
 /**
@@ -35,12 +35,12 @@ export function recordSubmit(dir: string, bundle: { createdAt: string }, again: 
  */
 export function buildProgressReader(root: string, key: string): () => BuildProgress | null {
   const dir = dirname(summaryPath(root, key));
-  const bundlePath = join(dir, "bundle.json");
+  const bundlePath = join(dir, 'bundle.json');
   const submitPath = join(dir, SUBMIT_FILE);
   let held: { stamps: string; progress: BuildProgress | null } | null = null;
   return () => {
     if (!existsSync(bundlePath)) return null;
-    const stamps = [bundlePath, summaryPath(root, key), submitPath].map(fileStamp).join("|");
+    const stamps = [bundlePath, summaryPath(root, key), submitPath].map(fileStamp).join('|');
     if (held?.stamps !== stamps) held = { stamps, progress: progressOf(bundlePath, submitPath, root, key) };
     return held.progress;
   };
@@ -49,13 +49,13 @@ export function buildProgressReader(root: string, key: string): () => BuildProgr
 /** A file's time and size: two writes in one tick of the clock still tell apart, unless they're the same size */
 function fileStamp(path: string): string {
   const stats = statSync(path, { throwIfNoEntry: false });
-  return stats ? stats.mtimeMs + ":" + stats.size : "none";
+  return stats ? stats.mtimeMs + ':' + stats.size : 'none';
 }
 
 function progressOf(bundlePath: string, submitPath: string, root: string, key: string): BuildProgress | null {
   let bundle: Bundle;
   try {
-    bundle = JSON.parse(readFileSync(bundlePath, "utf8"));
+    bundle = JSON.parse(readFileSync(bundlePath, 'utf8'));
   } catch {
     return null;
   }
@@ -71,7 +71,7 @@ function progressOf(bundlePath: string, submitPath: string, root: string, key: s
 
 function askedAgain(submitPath: string, bundle: Bundle): boolean {
   try {
-    const record: Partial<SubmitRecord> = JSON.parse(readFileSync(submitPath, "utf8"));
+    const record: Partial<SubmitRecord> = JSON.parse(readFileSync(submitPath, 'utf8'));
     return record.bundle === bundle.createdAt && record.again === true;
   } catch {
     return false;

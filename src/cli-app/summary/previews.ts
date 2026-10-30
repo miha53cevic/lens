@@ -1,7 +1,7 @@
-import { createHash, randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { ASSETS_DIR, bundleDir, type StoredSummary } from "./store.ts";
+import { createHash, randomBytes } from 'node:crypto';
+import { existsSync, mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { ASSETS_DIR, bundleDir, type StoredSummary } from './store.ts';
 
 // A preview is HTML the agent wrote: a sketch of a screen the change affects, in the reviewed
 // project's own design system. lens checks it on submit, keeps it by content hash, and serves it
@@ -10,21 +10,21 @@ import { ASSETS_DIR, bundleDir, type StoredSummary } from "./store.ts";
 /** The biggest preview file lens keeps */
 export const PREVIEW_MAX_BYTES = 300_000;
 
-export const CHANGE_MARKS = ["added", "changed", "removed"] as const;
+export const CHANGE_MARKS = ['added', 'changed', 'removed'] as const;
 
 /** An accepted preview file's name in the assets folder */
 const ASSET_NAME = /^[0-9a-f]{16}\.html$/;
 
 /** What a preview may not hold, each with the reason the agent gets */
 const FORBIDDEN: [RegExp, string][] = [
-  [/<script\b/i, "has a <script>: previews are static, lens adds the only script"],
-  [/<(iframe|frame|object|embed|portal)\b/i, "embeds another document"],
-  [/<(link|base)\b/i, "has a <link> or <base>: inline the CSS it needs"],
-  [/<meta\b[^>]*http-equiv/i, "has a <meta http-equiv>"],
-  [/<form\b/i, "has a <form>: draw the fields without one"],
-  [/<[^>]*\son[a-z]+\s*=/i, "has an inline event handler (on…=)"],
-  [/javascript:/i, "has a javascript: URL"],
-  [/@import\b/i, "has a CSS @import: inline the CSS it needs"],
+  [/<script\b/i, 'has a <script>: previews are static, lens adds the only script'],
+  [/<(iframe|frame|object|embed|portal)\b/i, 'embeds another document'],
+  [/<(link|base)\b/i, 'has a <link> or <base>: inline the CSS it needs'],
+  [/<meta\b[^>]*http-equiv/i, 'has a <meta http-equiv>'],
+  [/<form\b/i, 'has a <form>: draw the fields without one'],
+  [/<[^>]*\son[a-z]+\s*=/i, 'has an inline event handler (on…=)'],
+  [/javascript:/i, 'has a javascript: URL'],
+  [/@import\b/i, 'has a CSS @import: inline the CSS it needs'],
 ];
 
 /** src / href / srcset / poster / action values, and CSS url()s: only data: and #fragments may stay */
@@ -33,7 +33,7 @@ const CSS_URL = /url\(\s*(?:"([^"]*)"|'([^']*)'|([^)]*))\s*\)/gi;
 
 function external(value: string): boolean {
   const v = value.trim();
-  return v !== "" && !v.startsWith("#") && !/^data:/i.test(v);
+  return v !== '' && !v.startsWith('#') && !/^data:/i.test(v);
 }
 
 /** Why a preview can't be kept, or [] when it can. `units` are the ids the entry lists. */
@@ -42,7 +42,7 @@ export function previewProblems(html: string, units: Set<string>): string[] {
   for (const [pattern, reason] of FORBIDDEN) if (pattern.test(html)) problems.push(reason);
   for (const pattern of [URL_ATTRIBUTE, CSS_URL]) {
     for (const match of html.matchAll(pattern)) {
-      const value = match[1] ?? match[2] ?? match[3] ?? "";
+      const value = match[1] ?? match[2] ?? match[3] ?? '';
       if (external(value)) {
         problems.push(`loads ${JSON.stringify(value.slice(0, 60))}: only data: URLs, nothing from outside`);
         break;
@@ -50,13 +50,13 @@ export function previewProblems(html: string, units: Set<string>): string[] {
     }
   }
   for (const match of html.matchAll(/data-lens-unit\s*=\s*(?:"([^"]*)"|'([^']*)')/gi)) {
-    const id = match[1] ?? match[2] ?? "";
+    const id = match[1] ?? match[2] ?? '';
     if (!units.has(id)) problems.push(`marks data-lens-unit="${id}", which isn't one of the entry's units`);
   }
   for (const match of html.matchAll(/data-lens-change\s*=\s*(?:"([^"]*)"|'([^']*)')/gi)) {
-    const mark = match[1] ?? match[2] ?? "";
+    const mark = match[1] ?? match[2] ?? '';
     if (!(CHANGE_MARKS as readonly string[]).includes(mark)) {
-      problems.push(`data-lens-change="${mark}" must be one of ${CHANGE_MARKS.join(", ")}`);
+      problems.push(`data-lens-change="${mark}" must be one of ${CHANGE_MARKS.join(', ')}`);
     }
   }
   return [...new Set(problems)];
@@ -64,7 +64,7 @@ export function previewProblems(html: string, units: Set<string>): string[] {
 
 /** The name an accepted preview is kept under: its content's hash. */
 export function assetName(html: string): string {
-  return createHash("sha256").update(html).digest("hex").slice(0, 16) + ".html";
+  return createHash('sha256').update(html).digest('hex').slice(0, 16) + '.html';
 }
 
 /** Keeps the accepted previews' files, and drops the ones no stored preview names any more. */
@@ -72,7 +72,9 @@ export function writeAssets(root: string, key: string, stored: StoredSummary, as
   const dir = join(bundleDir(root, key), ASSETS_DIR);
   mkdirSync(dir, { recursive: true });
   for (const [name, html] of assets) writeFileSync(join(dir, name), html);
-  const kept = new Set((stored.previews ?? []).flatMap((preview) => [preview.now, ...(preview.before ? [preview.before] : [])]));
+  const kept = new Set(
+    (stored.previews ?? []).flatMap((preview) => [preview.now, ...(preview.before ? [preview.before] : [])]),
+  );
   for (const name of readdirSync(dir)) if (ASSET_NAME.test(name) && !kept.has(name)) unlinkSync(join(dir, name));
 }
 
@@ -124,24 +126,31 @@ export interface PreviewResponse {
 
 /** GET /api/preview/<asset>: the preview, with lens's marks and script, under a CSP that lets nothing else in. */
 export function previewResponse(root: string, key: string | null, asset: string): PreviewResponse {
-  const path = key && ASSET_NAME.test(asset) ? join(root, ".lens", "summary", key, ASSETS_DIR, asset) : null;
+  const path = key && ASSET_NAME.test(asset) ? join(root, '.lens', 'summary', key, ASSETS_DIR, asset) : null;
   if (!path || !existsSync(path)) {
-    return { status: 404, headers: { "content-type": "text/plain; charset=utf-8" }, body: "no such preview" };
+    return { status: 404, headers: { 'content-type': 'text/plain; charset=utf-8' }, body: 'no such preview' };
   }
-  const nonce = randomBytes(16).toString("base64");
-  const html = readFileSync(path, "utf8");
-  const page = (/^\s*<!doctype/i.test(html) ? "" : "<!doctype html>\n") + html +
+  const nonce = randomBytes(16).toString('base64');
+  const html = readFileSync(path, 'utf8');
+  const page =
+    (/^\s*<!doctype/i.test(html) ? '' : '<!doctype html>\n') +
+    html +
     `\n<style>${MARKS_CSS}</style>\n<script nonce="${nonce}">${BRIDGE}</script>\n`;
   return {
     status: 200,
     headers: {
-      "content-type": "text/html; charset=utf-8",
-      "content-security-policy": [
-        "default-src 'none'", "style-src 'unsafe-inline'", "img-src data:", "font-src data:",
-        `script-src 'nonce-${nonce}'`, "base-uri 'none'", "form-action 'none'",
-      ].join("; "),
-      "x-content-type-options": "nosniff",
-      "cache-control": "no-store",
+      'content-type': 'text/html; charset=utf-8',
+      'content-security-policy': [
+        "default-src 'none'",
+        "style-src 'unsafe-inline'",
+        'img-src data:',
+        'font-src data:',
+        `script-src 'nonce-${nonce}'`,
+        "base-uri 'none'",
+        "form-action 'none'",
+      ].join('; '),
+      'x-content-type-options': 'nosniff',
+      'cache-control': 'no-store',
     },
     body: page,
   };

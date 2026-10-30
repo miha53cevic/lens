@@ -11,15 +11,13 @@ import { GlobalRegistrator } from '@happy-dom/global-registrator';
 import { fireEvent } from '@testing-library/dom';
 import { bundlePage } from '../src/cli-app/render/web/bundle.ts';
 import {
-  LAUNCHER_CALLS,
-  MENU_CALLS,
-  STRIP_CALLS,
   type LauncherState,
   type MenuState,
   type RepoInfo,
   type StripState,
   type ThemeSwatch,
 } from '../src/desktop/shared/api.ts';
+import { LAUNCHER_CALLS, MENU_CALLS, STRIP_CALLS } from '../src/desktop/shared/ipc.ts';
 import { themeAttributes } from '../src/desktop/shared/page.ts';
 
 const app = join(import.meta.dirname, '..', 'src', 'desktop');

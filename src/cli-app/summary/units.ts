@@ -1,8 +1,8 @@
-import { createHash } from "node:crypto";
-import type { Node } from "@vscode/tree-sitter-wasm";
-import { parseSource, languageForFile } from "../parse/parser.ts";
-import type { LanguageId, RemovedBlock } from "../model.ts";
-import { truncate } from "../text.ts";
+import { createHash } from 'node:crypto';
+import type { Node } from '@vscode/tree-sitter-wasm';
+import { parseSource, languageForFile } from '../parse/parser.ts';
+import type { LanguageId, RemovedBlock } from '../model.ts';
+import { truncate } from '../text.ts';
 
 // A "unit" is the thing summary mode summarizes: one changed declaration
 // (function, component, hook, method, class, type, constant, top-level call),
@@ -10,10 +10,21 @@ import { truncate } from "../text.ts";
 // and removed line of the diff belongs to exactly one unit.
 
 export type UnitKind =
-  | "function" | "component" | "hook" | "method" | "property" | "class" | "type"
-  | "constant" | "call" | "namespace" | "statement" | "module" | "file";
+  | 'function'
+  | 'component'
+  | 'hook'
+  | 'method'
+  | 'property'
+  | 'class'
+  | 'type'
+  | 'constant'
+  | 'call'
+  | 'namespace'
+  | 'statement'
+  | 'module'
+  | 'file';
 
-export type UnitStatus = "new" | "modified" | "deleted";
+export type UnitStatus = 'new' | 'modified' | 'deleted';
 
 export interface LineRange {
   /** 1-based, inclusive */
@@ -73,8 +84,8 @@ export interface UnitFileInput {
   isTest: boolean;
 }
 
-export const MODULE_NAME = "(module)";
-export const FILE_NAME = "(file)";
+export const MODULE_NAME = '(module)';
+export const FILE_NAME = '(file)';
 
 /** Leaf declarations longer than this show only the changed windows. */
 const MAX_FULL_UNIT_LINES = 200;
@@ -91,35 +102,45 @@ interface Decl {
 
 export async function extractUnits(input: UnitFileInput): Promise<Unit[]> {
   const { file, newSource, oldSource } = input;
-  const newLines = newSource === null ? [] : newSource.split("\n");
+  const newLines = newSource === null ? [] : newSource.split('\n');
 
   if (newSource === null) {
-    const removals = oldSource === null ? [] : [{ afterLine: 0, oldStart: 1, lines: oldSource.split("\n") }];
-    return [finish(fileUnit(input, "deleted", [], removals), newLines)];
+    const removals = oldSource === null ? [] : [{ afterLine: 0, oldStart: 1, lines: oldSource.split('\n') }];
+    return [finish(fileUnit(input, 'deleted', [], removals), newLines)];
   }
-  const wholeFile = () =>
-    [finish(fileUnit(input, oldSource === null ? "new" : "modified", input.changedLines, input.removals), newLines)];
+  const wholeFile = () => [
+    finish(fileUnit(input, oldSource === null ? 'new' : 'modified', input.changedLines, input.removals), newLines),
+  ];
   const lang = languageForFile(file);
   if (!lang || input.isTest) return wholeFile();
 
   const newSide = await indexSource(newSource, lang);
-  const oldSide = oldSource === null ? { decls: new Map<string, Decl>(), imports: [] } : await indexSource(oldSource, lang);
+  const oldSide =
+    oldSource === null ? { decls: new Map<string, Decl>(), imports: [] } : await indexSource(oldSource, lang);
   // A side that doesn't parse cleanly can't be split reliably.
   if (newSide === null || oldSide === null) return wholeFile();
   const newIndex = newSide.decls;
   const oldIndex = oldSide.decls;
 
-  const oldLines = oldSource === null ? [] : oldSource.split("\n");
+  const oldLines = oldSource === null ? [] : oldSource.split('\n');
   // Owners for one hunk's consecutive lines. A blank line between declarations
   // joins a neighbour instead of making a "module-level" unit of its own: one
   // in the same hunk first (removing `b` and the blank after it mustn't touch
   // an unchanged `c`), else the declaration right below or above.
   const ownersOf = (run: number[], lookup: (line: number) => string | null, lines: string[]): string[] => {
-    const own = run.map((l) => lookup(l) ?? ((lines[l - 1] ?? "").trim() === "" ? null : MODULE_NAME));
-    return own.map((o, i) => o
-      ?? own.slice(0, i).reverse().find((x) => x !== null)
-      ?? own.slice(i + 1).find((x) => x !== null)
-      ?? lookup(run[i] + 1) ?? lookup(run[i] - 1) ?? MODULE_NAME);
+    const own = run.map((l) => lookup(l) ?? ((lines[l - 1] ?? '').trim() === '' ? null : MODULE_NAME));
+    return own.map(
+      (o, i) =>
+        o ??
+        own
+          .slice(0, i)
+          .reverse()
+          .find((x) => x !== null) ??
+        own.slice(i + 1).find((x) => x !== null) ??
+        lookup(run[i] + 1) ??
+        lookup(run[i] - 1) ??
+        MODULE_NAME,
+    );
   };
   const lookupNew = ownerLookup(newIndex);
   const lookupOld = ownerLookup(oldIndex);
@@ -141,9 +162,13 @@ export async function extractUnits(input: UnitFileInput): Promise<Unit[]> {
   for (const block of input.removals) {
     // A removed block can span several old declarations: split it so each
     // piece goes to the declaration it was removed from.
-    const owners = ownersOf(block.lines.map((_, i) => block.oldStart + i), lookupOld, oldLines);
+    const owners = ownersOf(
+      block.lines.map((_, i) => block.oldStart + i),
+      lookupOld,
+      oldLines,
+    );
     let piece: RemovedBlock | null = null;
-    let pieceOwner = "";
+    let pieceOwner = '';
     for (let i = 0; i < block.lines.length; i++) {
       const owner = owners[i];
       if (!piece || owner !== pieceOwner) {
@@ -160,12 +185,19 @@ export async function extractUnits(input: UnitFileInput): Promise<Unit[]> {
   for (const [name, t] of touched) {
     const newDecl = name === MODULE_NAME ? undefined : newIndex.get(name);
     const oldDecl = name === MODULE_NAME ? undefined : oldIndex.get(name);
-    const status: UnitStatus = name === MODULE_NAME
-      ? (oldSource === null ? "new" : "modified")
-      : newDecl && oldDecl ? "modified" : newDecl ? "new" : "deleted";
+    const status: UnitStatus =
+      name === MODULE_NAME
+        ? oldSource === null
+          ? 'new'
+          : 'modified'
+        : newDecl && oldDecl
+          ? 'modified'
+          : newDecl
+            ? 'new'
+            : 'deleted';
     const decl = newDecl ?? oldDecl;
     let ranges: LineRange[];
-    if (status === "deleted") ranges = [];
+    if (status === 'deleted') ranges = [];
     else if (!newDecl || newDecl.container || span(newDecl.ranges) > MAX_FULL_UNIT_LINES) {
       ranges = windowsAround(t.changed, t.removals, lineCount);
     } else {
@@ -176,33 +208,34 @@ export async function extractUnits(input: UnitFileInput): Promise<Unit[]> {
       id: `${file}#${name}`,
       file,
       name,
-      kind: decl?.kind ?? "module",
+      kind: decl?.kind ?? 'module',
       status,
       ranges,
       changedLines: t.changed.sort((a, b) => a - b),
       removals: t.removals,
-      hash: "",
+      hash: '',
       anchor: { n: 0, o: 0 },
     };
     if (newDecl && oldDecl && squash(newDecl.text) === squash(oldDecl.text)) unit.formattingOnly = true;
-    if (name === MODULE_NAME && onlyImports(t, newSide.imports, oldSide.imports, newLines, oldLines)) unit.importsOnly = true;
+    if (name === MODULE_NAME && onlyImports(t, newSide.imports, oldSide.imports, newLines, oldLines))
+      unit.importsOnly = true;
     units.push(finish(unit, newLines));
   }
   return units.sort((a, b) => firstLine(a) - firstLine(b));
 }
 
 function fileUnit(input: UnitFileInput, status: UnitStatus, changed: number[], removals: RemovedBlock[]): Unit {
-  const lineCount = input.newSource === null ? 0 : input.newSource.split("\n").length;
+  const lineCount = input.newSource === null ? 0 : input.newSource.split('\n').length;
   return {
     id: `${input.file}#${FILE_NAME}`,
     file: input.file,
     name: FILE_NAME,
-    kind: "file",
+    kind: 'file',
     status,
-    ranges: status === "deleted" ? [] : windowsAround(changed, removals, lineCount),
+    ranges: status === 'deleted' ? [] : windowsAround(changed, removals, lineCount),
     changedLines: [...changed].sort((a, b) => a - b),
     removals,
-    hash: "",
+    hash: '',
     anchor: { n: 0, o: 0 },
   };
 }
@@ -215,9 +248,9 @@ function finish(unit: Unit, newLines: string[]): Unit {
   const shown = unit.ranges.map((r) => [r.start - n, newLines.slice(r.start - 1, r.end)]);
   const changed = unit.changedLines.map((line) => line - n);
   const removals = unit.removals.map((b) => [b.afterLine - n, b.oldStart - o, b.lines]);
-  unit.hash = createHash("sha256")
+  unit.hash = createHash('sha256')
     .update(JSON.stringify([unit.kind, unit.status, shown, changed, removals]))
-    .digest("hex")
+    .digest('hex')
     .slice(0, 16);
   return unit;
 }
@@ -227,7 +260,7 @@ function firstLine(u: Unit): number {
 }
 
 function squash(text: string): string {
-  return text.replace(/\s+/g, "");
+  return text.replace(/\s+/g, '');
 }
 
 /** Every changed and removed line that isn't blank sits in an import statement of its side. */
@@ -239,12 +272,14 @@ function onlyImports(
   oldLines: string[],
 ): boolean {
   const inside = (ranges: LineRange[], line: number) => ranges.some((r) => line >= r.start && line <= r.end);
-  const blank = (lines: string[], line: number) => (lines[line - 1] ?? "").trim() === "";
+  const blank = (lines: string[], line: number) => (lines[line - 1] ?? '').trim() === '';
   const removed = t.removals.flatMap((b) => b.lines.map((_, i) => b.oldStart + i));
   const lines = [...t.changed.filter((l) => !blank(newLines, l)), ...removed.filter((l) => !blank(oldLines, l))];
-  return lines.length > 0 &&
+  return (
+    lines.length > 0 &&
     t.changed.every((l) => blank(newLines, l) || inside(newImports, l)) &&
-    removed.every((l) => blank(oldLines, l) || inside(oldImports, l));
+    removed.every((l) => blank(oldLines, l) || inside(oldImports, l))
+  );
 }
 
 function span(ranges: LineRange[]): number {
@@ -267,10 +302,12 @@ function windowsAround(changed: number[], removals: RemovedBlock[], lineCount: n
   if (lineCount === 0) return [];
   const anchors = [...changed];
   for (const b of removals) anchors.push(Math.max(1, b.afterLine), Math.min(lineCount, b.afterLine + 1));
-  return mergeRanges(anchors.map((l) => ({
-    start: Math.max(1, l - CONTEXT),
-    end: Math.min(lineCount, l + CONTEXT),
-  })));
+  return mergeRanges(
+    anchors.map((l) => ({
+      start: Math.max(1, l - CONTEXT),
+      end: Math.min(lineCount, l + CONTEXT),
+    })),
+  );
 }
 
 /** Line → owning declaration name; the smallest (most specific) range wins. */
@@ -301,23 +338,24 @@ async function indexSource(source: string, lang: LanguageId): Promise<SourceInde
   try {
     if (tree.rootNode.hasError) return null;
     const index = new Map<string, Decl>();
-    const lines = source.split("\n");
+    const lines = source.split('\n');
     const add = (name: string, kind: UnitKind, start: number, node: Node, container = false) => {
       const range = { start, end: node.endPosition.row + 1 };
       // Source lines, not node.text: the range includes attached doc comments.
-      const text = lines.slice(range.start - 1, range.end).join("\n");
+      const text = lines.slice(range.start - 1, range.end).join('\n');
       const existing = index.get(name);
       // Same name twice (overloads, getter + setter): one unit, several ranges.
       if (existing) {
         existing.ranges.push(range);
-        existing.text += "\n" + text;
+        existing.text += '\n' + text;
       } else {
         index.set(name, { name, kind, ranges: [range], container, text });
       }
     };
     const imports: LineRange[] = [];
     forEachWithComments(tree.rootNode, (stmt, start) => {
-      if (stmt.type === "import_statement") imports.push({ start: stmt.startPosition.row + 1, end: stmt.endPosition.row + 1 });
+      if (stmt.type === 'import_statement')
+        imports.push({ start: stmt.startPosition.row + 1, end: stmt.endPosition.row + 1 });
       indexTopLevel(stmt, start, lang, add);
     });
     return { decls: index, imports };
@@ -341,7 +379,7 @@ function forEachWithComments(parent: Node, fn: (node: Node, start: number) => vo
   let previousEnd = -1; // row where the last non-comment child ended
   for (const child of parent.namedChildren) {
     if (!child) continue;
-    if (child.type === "comment" || child.type === "decorator") {
+    if (child.type === 'comment' || child.type === 'decorator') {
       if (child.startPosition.row !== previousEnd) comments.push(child);
       continue;
     }
@@ -358,66 +396,68 @@ function forEachWithComments(parent: Node, fn: (node: Node, start: number) => vo
 
 function indexTopLevel(stmt: Node, start: number, lang: LanguageId, add: AddDecl): void {
   let node = stmt;
-  if (node.type === "export_statement") {
-    const declaration = node.childForFieldName("declaration");
-    const value = node.childForFieldName("value");
+  if (node.type === 'export_statement') {
+    const declaration = node.childForFieldName('declaration');
+    const value = node.childForFieldName('value');
     if (declaration) node = declaration;
-    else if (value) { add("default", valueKind("default", value, lang), start, stmt); return; }
-    else return; // export { a } / export * from — module-level
+    else if (value) {
+      add('default', valueKind('default', value, lang), start, stmt);
+      return;
+    } else return; // export { a } / export * from — module-level
   }
-  if (node.type === "ambient_declaration") node = node.namedChildren.find((c) => c !== null) ?? node;
-  if (node.type === "expression_statement") {
+  if (node.type === 'ambient_declaration') node = node.namedChildren.find((c) => c !== null) ?? node;
+  if (node.type === 'expression_statement') {
     const inner = node.namedChildren[0];
-    if (inner?.type === "internal_module") node = inner;
+    if (inner?.type === 'internal_module') node = inner;
   }
 
   switch (node.type) {
-    case "function_declaration":
-    case "generator_function_declaration":
-    case "function_signature": {
-      const name = node.childForFieldName("name")?.text ?? "default";
+    case 'function_declaration':
+    case 'generator_function_declaration':
+    case 'function_signature': {
+      const name = node.childForFieldName('name')?.text ?? 'default';
       add(name, functionKind(name, lang), start, stmt);
       return;
     }
-    case "class_declaration":
-    case "abstract_class_declaration": {
-      const name = node.childForFieldName("name")?.text ?? "default";
-      add(name, "class", start, stmt, true);
-      const body = node.childForFieldName("body");
+    case 'class_declaration':
+    case 'abstract_class_declaration': {
+      const name = node.childForFieldName('name')?.text ?? 'default';
+      add(name, 'class', start, stmt, true);
+      const body = node.childForFieldName('body');
       if (body) forEachWithComments(body, (member, memberStart) => indexMember(name, member, memberStart, add));
       return;
     }
-    case "lexical_declaration":
-    case "variable_declaration": {
-      const declarators = node.namedChildren.filter((c): c is Node => c?.type === "variable_declarator");
+    case 'lexical_declaration':
+    case 'variable_declaration': {
+      const declarators = node.namedChildren.filter((c): c is Node => c?.type === 'variable_declarator');
       if (declarators.length === 0) return;
-      const names = declarators.map((d) => truncate(d.childForFieldName("name")?.text ?? "?", 40));
-      const name = names.join(", ");
-      const value = declarators.length === 1 ? declarators[0].childForFieldName("value") : null;
-      add(name, value ? valueKind(name, value, lang) : "constant", start, stmt);
+      const names = declarators.map((d) => truncate(d.childForFieldName('name')?.text ?? '?', 40));
+      const name = names.join(', ');
+      const value = declarators.length === 1 ? declarators[0].childForFieldName('value') : null;
+      add(name, value ? valueKind(name, value, lang) : 'constant', start, stmt);
       return;
     }
-    case "interface_declaration":
-    case "type_alias_declaration":
-    case "enum_declaration": {
-      const name = node.childForFieldName("name")?.text;
-      if (name) add(name, "type", start, stmt);
+    case 'interface_declaration':
+    case 'type_alias_declaration':
+    case 'enum_declaration': {
+      const name = node.childForFieldName('name')?.text;
+      if (name) add(name, 'type', start, stmt);
       return;
     }
-    case "internal_module":
-    case "module": {
-      const name = node.childForFieldName("name")?.text;
-      if (name) add(truncate(name, 60), "namespace", start, stmt, true);
+    case 'internal_module':
+    case 'module': {
+      const name = node.childForFieldName('name')?.text;
+      if (name) add(truncate(name, 60), 'namespace', start, stmt, true);
       return;
     }
-    case "expression_statement": {
+    case 'expression_statement': {
       let expr = node.namedChildren[0];
-      if (expr?.type === "await_expression") expr = expr.namedChildren[0];
-      if (expr?.type === "call_expression") {
-        add(callName(expr), "call", start, stmt);
-      } else if (expr?.type === "assignment_expression") {
-        const left = expr.childForFieldName("left");
-        if (left) add(truncate(left.text, 60), "statement", start, stmt);
+      if (expr?.type === 'await_expression') expr = expr.namedChildren[0];
+      if (expr?.type === 'call_expression') {
+        add(callName(expr), 'call', start, stmt);
+      } else if (expr?.type === 'assignment_expression') {
+        const left = expr.childForFieldName('left');
+        if (left) add(truncate(left.text, 60), 'statement', start, stmt);
       }
       return;
     }
@@ -428,51 +468,52 @@ function indexTopLevel(stmt: Node, start: number, lang: LanguageId, add: AddDecl
 
 function indexMember(className: string, member: Node, start: number, add: AddDecl): void {
   const MEMBER_KINDS: Record<string, UnitKind> = {
-    method_definition: "method",
-    abstract_method_signature: "method",
-    method_signature: "method",
-    public_field_definition: "property",
-    property_signature: "property",
-    index_signature: "property",
+    method_definition: 'method',
+    abstract_method_signature: 'method',
+    method_signature: 'method',
+    public_field_definition: 'property',
+    property_signature: 'property',
+    index_signature: 'property',
   };
   const kind = MEMBER_KINDS[member.type];
   if (!kind) return;
-  let name = member.childForFieldName("name")?.text ?? "?";
-  if (member.type === "index_signature") name = `[${name}]`;
-  const value = member.childForFieldName("value");
-  const isFunction = value?.type === "arrow_function" || value?.type === "function_expression";
-  add(`${className}.${name}`, isFunction ? "method" : kind, start, member);
+  let name = member.childForFieldName('name')?.text ?? '?';
+  if (member.type === 'index_signature') name = `[${name}]`;
+  const value = member.childForFieldName('value');
+  const isFunction = value?.type === 'arrow_function' || value?.type === 'function_expression';
+  add(`${className}.${name}`, isFunction ? 'method' : kind, start, member);
 }
 
 /** `router.get("/orders")`, `describe("parser")`, `app.listen()` */
 function callName(call: Node): string {
-  const callee = truncate(call.childForFieldName("function")?.text ?? "call", 40);
-  const first = call.childForFieldName("arguments")?.namedChildren[0];
-  const literal = first && (first.type === "string" || first.type === "template_string") ? truncate(first.text, 40) : "";
+  const callee = truncate(call.childForFieldName('function')?.text ?? 'call', 40);
+  const first = call.childForFieldName('arguments')?.namedChildren[0];
+  const literal =
+    first && (first.type === 'string' || first.type === 'template_string') ? truncate(first.text, 40) : '';
   return `${callee}(${literal})`;
 }
 
 const COMPONENT_WRAPPERS = /^(React\.)?(memo|forwardRef|lazy)$|^observer$|^styled\b/;
 
 function valueKind(name: string, value: Node, lang: LanguageId): UnitKind {
-  if (value.type === "arrow_function" || value.type === "function_expression" || value.type === "function") {
+  if (value.type === 'arrow_function' || value.type === 'function_expression' || value.type === 'function') {
     return functionKind(name, lang);
   }
-  if (value.type === "class") return "class";
-  if (value.type === "call_expression") {
-    const callee = value.childForFieldName("function")?.text ?? "";
-    if (COMPONENT_WRAPPERS.test(callee) && /^[A-Z]/.test(name)) return "component";
-    if (/^use[A-Z0-9]/.test(name)) return "hook";
+  if (value.type === 'class') return 'class';
+  if (value.type === 'call_expression') {
+    const callee = value.childForFieldName('function')?.text ?? '';
+    if (COMPONENT_WRAPPERS.test(callee) && /^[A-Z]/.test(name)) return 'component';
+    if (/^use[A-Z0-9]/.test(name)) return 'hook';
   }
-  return "constant";
+  return 'constant';
 }
 
 function functionKind(name: string, lang: LanguageId): UnitKind {
-  if (/^use[A-Z0-9]/.test(name)) return "hook";
+  if (/^use[A-Z0-9]/.test(name)) return 'hook';
   // Capitalized functions are components in JSX-capable files; in .ts they're
   // usually factories or constructors-by-convention.
-  if (/^[A-Z]/.test(name) && lang !== "typescript") return "component";
-  return "function";
+  if (/^[A-Z]/.test(name) && lang !== 'typescript') return 'component';
+  return 'function';
 }
 
 // ---------- invariant + labels ----------
@@ -487,7 +528,8 @@ export function checkCoverage(input: UnitFileInput, units: Unit[]): string[] {
   const removed = new Map<number, number>();
   for (const u of units) {
     for (const l of u.changedLines) changed.set(l, (changed.get(l) ?? 0) + 1);
-    for (const b of u.removals) b.lines.forEach((_, i) => removed.set(b.oldStart + i, (removed.get(b.oldStart + i) ?? 0) + 1));
+    for (const b of u.removals)
+      b.lines.forEach((_, i) => removed.set(b.oldStart + i, (removed.get(b.oldStart + i) ?? 0) + 1));
   }
   for (const l of input.changedLines) {
     const n = changed.get(l) ?? 0;
@@ -514,8 +556,8 @@ export function citeableLabels(unit: Unit): Set<string> {
  * snapped into the shown ranges — before the first range when anchored above
  * it, after the last shown line at or before the anchor otherwise.
  */
-export function removalAnchors(unit: Unit): Map<number, Unit["removals"]> {
-  const at = new Map<number, Unit["removals"]>();
+export function removalAnchors(unit: Unit): Map<number, Unit['removals']> {
+  const at = new Map<number, Unit['removals']>();
   const shown: number[] = [];
   for (const r of unit.ranges) for (let l = r.start; l <= r.end; l++) shown.push(l);
   for (const b of unit.removals) {

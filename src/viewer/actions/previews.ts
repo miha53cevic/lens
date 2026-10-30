@@ -1,7 +1,7 @@
 // Build previews: the reader's switch, and what the preview frames tell the page.
 
 import { commit, update } from '../store.ts';
-import { noteDone, request, tracked } from './status.ts';
+import { api, noteDone, tracked } from './status.ts';
 
 /** How tall a preview's frame may grow to fit its screen */
 const FRAME_MIN = 120;
@@ -12,11 +12,7 @@ export function setBuildPreviews(on: boolean): Promise<boolean> {
   return tracked(
     { id: 'build-previews', label: 'Saving Build previews…', failed: "Couldn't save Build previews" },
     async () => {
-      await request('/api/settings', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ buildPreviews: on }),
-      });
+      await api('POST /api/settings', { body: { buildPreviews: on } });
       update((state) => ({ data: { ...state.data, buildPreviews: on } }));
       noteDone(
         on ? 'Build previews on' : 'Build previews off',

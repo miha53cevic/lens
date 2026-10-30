@@ -1,7 +1,7 @@
-import { test } from "bun:test";
-import assert from "node:assert/strict";
-import { analyzeSource } from "../src/cli-app/classify/index.ts";
-import { DEFAULT_CONFIG } from "../src/cli-app/config.ts";
+import { test } from 'bun:test';
+import assert from 'node:assert/strict';
+import { analyzeSource } from '../src/cli-app/classify/index.ts';
+import { DEFAULT_CONFIG } from '../src/cli-app/config.ts';
 
 /** "name:line kind" for each declaration */
 async function declared(file: string, source: string): Promise<string[]> {
@@ -28,23 +28,30 @@ enum Status { Open }
 declare function legacy(): void;
 namespace Util {}
 `;
-  assert.deepEqual(await declared("orders.ts", source), [
-    "findOrders:2 function",
-    "LIMIT:6 variable",
-    "OFFSET:6 variable",
-    "OrderStore:8 class",
-    "cache:9 property",
-    "get:11 method",
-    "Order:13 type",
-    "Id:14 type",
-    "Status:15 enum",
-    "legacy:16 function",
-    "Util:17 namespace",
-  ], "a function's locals and destructured names aren't listed");
+  assert.deepEqual(
+    await declared('orders.ts', source),
+    [
+      'findOrders:2 function',
+      'LIMIT:6 variable',
+      'OFFSET:6 variable',
+      'OrderStore:8 class',
+      'cache:9 property',
+      'get:11 method',
+      'Order:13 type',
+      'Id:14 type',
+      'Status:15 enum',
+      'legacy:16 function',
+      'Util:17 namespace',
+    ],
+    "a function's locals and destructured names aren't listed",
+  );
 });
 
-test("declarations: js and tsx files have them too; a file with syntax errors has none", async () => {
-  assert.deepEqual(await declared("a.js", "function run() {}\nexport const x = 1;\n"), ["run:1 function", "x:2 variable"]);
-  assert.deepEqual(await declared("Card.tsx", "export function Card() { return <div />; }\n"), ["Card:1 function"]);
-  assert.deepEqual(await declared("broken.ts", "function run( {\n"), []);
+test('declarations: js and tsx files have them too; a file with syntax errors has none', async () => {
+  assert.deepEqual(await declared('a.js', 'function run() {}\nexport const x = 1;\n'), [
+    'run:1 function',
+    'x:2 variable',
+  ]);
+  assert.deepEqual(await declared('Card.tsx', 'export function Card() { return <div />; }\n'), ['Card:1 function']);
+  assert.deepEqual(await declared('broken.ts', 'function run( {\n'), []);
 });
