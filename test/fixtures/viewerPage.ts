@@ -8,16 +8,13 @@ import assert from 'node:assert/strict';
 import { rmSync } from 'node:fs';
 import { GlobalRegistrator } from '@happy-dom/global-registrator';
 import { fireEvent } from '@testing-library/dom';
-import { analyze } from '../../src/cli-app/analyze.ts';
-import { loadConfig } from '../../src/cli-app/config.ts';
 import { bundleViewer } from '../../src/cli-app/render/web/bundle.ts';
 import { highlightFiles, viewerPayload, type ViewerPayload } from '../../src/cli-app/render/web/server.ts';
 import type { ClearInfoResponse, ClearResponse } from '../../src/cli-app/api/contract.ts';
 import { themeSwatch } from '../../src/cli-app/render/highlight.ts';
-import { writeStored, type StoredSummary } from '../../src/cli-app/summary/store.ts';
 import type { AskState } from '../../src/cli-app/ask/session.ts';
 import type { ReaderNote } from '../../src/cli-app/notes/store.ts';
-import { makeViewerRepo } from './viewerRepo.ts';
+import { analyzeViewerRepo, makeViewerRepo } from './viewerRepo.ts';
 
 export let repo = '';
 export let bundle = '';
@@ -322,39 +319,7 @@ export function usePage(): void {
   beforeAll(async () => {
     repo = makeViewerRepo();
     bundle = (await bundleViewer()).script;
-    const input = await analyze('diff', [], repo, loadConfig(repo));
-    const unit = (name: string) => input.summary!.units.find((candidate) => candidate.name === name)!;
-    const findOrders = unit('findOrders'),
-      legacy = unit('legacyTotal');
-    const stored: StoredSummary = {
-      version: 1,
-      updatedAt: '',
-      flows: [],
-      units: {
-        [findOrders.id]: {
-          hash: findOrders.hash,
-          anchor: findOrders.anchor,
-          headline: 'findOrders skips deleted orders',
-          gist: 'skips deleted orders',
-          needsLook: true,
-          changes: [{ when: 'an order is deleted', before: 'it was returned', now: "it's skipped", line: 'N10' }],
-          breaks: [],
-          concerns: [{ kind: 'bug', text: 'deleted is a string column', line: 'N10' }],
-        },
-        [legacy.id]: {
-          hash: legacy.hash,
-          anchor: legacy.anchor,
-          headline: 'legacyTotal is gone',
-          gist: 'removed',
-          needsLook: false,
-          changes: [],
-          breaks: [{ summary: 'callers of legacyTotal no longer compile', callers: ['src/report.ts:3'] }],
-          concerns: [{ kind: 'question', text: 'did anything still call it?', line: 'O17' }],
-        },
-      },
-    };
-    writeStored(repo, 'diff@main', stored);
-    input.summary = input.latestSummary!();
+    const input = await analyzeViewerRepo(repo);
     const themes = await Promise.all(['github-dark', 'github-light'].map(themeSwatch));
     payload = viewerPayload(input, await highlightFiles(input.files, 'github-dark'), themes, {
       themePinned: true,
