@@ -11,14 +11,8 @@ import { fireEvent, within } from '@testing-library/dom';
 import { analyze } from '../src/cli-app/analyze.ts';
 import { loadConfig } from '../src/cli-app/config.ts';
 import { bundleViewer } from '../src/cli-app/render/web/bundle.ts';
-import {
-  highlightFiles,
-  renderPage,
-  viewerPayload,
-  type ClearInfoResponse,
-  type ClearResponse,
-  type ViewerPayload,
-} from '../src/cli-app/render/web/server.ts';
+import { highlightFiles, renderPage, viewerPayload, type ViewerPayload } from '../src/cli-app/render/web/server.ts';
+import type { ClearInfoResponse, ClearResponse } from '../src/cli-app/api/contract.ts';
 import { themeSwatch } from '../src/cli-app/render/highlight.ts';
 import { writeStored, type StoredSummary } from '../src/cli-app/summary/store.ts';
 import type { AskQuestion, AskState } from '../src/cli-app/ask/session.ts';

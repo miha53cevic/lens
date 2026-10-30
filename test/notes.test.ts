@@ -7,7 +7,8 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { placeNote } from '../src/cli-app/notes/place.ts';
 import { changeNotes, notesFor, readStoredNotes, type ReaderNote } from '../src/cli-app/notes/store.ts';
-import { createNoteRoutes, type NotesResponse } from '../src/cli-app/notes/routes.ts';
+import type { NotesResponse } from '../src/cli-app/api/contract.ts';
+import { createNoteRoutes } from '../src/cli-app/notes/routes.ts';
 import { clearKinds, describeKinds } from '../src/cli-app/clear.ts';
 import type { ViewerInput } from '../src/cli-app/render/web/server.ts';
 

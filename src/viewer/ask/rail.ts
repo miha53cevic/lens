@@ -6,7 +6,8 @@ import { askContext, askFindings, askSelection } from '../model/askContext.ts';
 import { isBreak, isConcern } from '../model/signals.ts';
 import { waitingQuestion } from '../model/status.ts';
 import { writePref } from '../shared.ts';
-import { endActivity, noteDone, noteFailure, reach, request, ServerGone, startActivity } from '../actions/status.ts';
+import type { AskRequest } from '../../cli-app/api/contract.ts';
+import { api, endActivity, noteDone, noteFailure, reach, ServerGone, startActivity } from '../actions/status.ts';
 import { check, type Watcher } from '../../ui/poll.ts';
 import { slideIn } from '../../ui/motion.ts';
 
@@ -97,7 +98,7 @@ export async function askSend(text: string): Promise<'sent' | 'copied' | null> {
   if (!context) return null;
   const selection = askSelection(state);
   const findings = askFindings(state);
-  const body = JSON.stringify({
+  const body: AskRequest = {
     text,
     file: context.file,
     unitId: context.unitId,
@@ -106,17 +107,17 @@ export async function askSend(text: string): Promise<'sent' | 'copied' | null> {
     concerns: findings.filter(isConcern).map((finding) => finding.concern),
     // named by what they say: the server sends the unit's own along
     breaks: findings.filter(isBreak).map((finding) => finding.text),
-  });
+  };
   let result: 'sent' | 'copied' | null = null;
   startActivity('ask-send', 'Sending your question…');
   try {
     if (state.ask.data.listening) {
-      await request('/api/ask', { method: 'POST', body });
+      await api('POST /api/ask', { body });
       setAsk({ error: null, selection: null });
       result = 'sent';
     } else {
-      const response = await request('/api/ask/prompt', { method: 'POST', body });
-      await navigator.clipboard.writeText((await response.json()).text);
+      const { text: prompt } = await api('POST /api/ask/prompt', { body });
+      await navigator.clipboard.writeText(prompt);
       result = 'copied';
     }
   } catch (error) {

@@ -9,18 +9,13 @@ import { createNoteRoutes } from '../../notes/routes.ts';
 import { notesFor, type ReaderNote } from '../../notes/store.ts';
 import { createMarkRoutes } from '../../marks/routes.ts';
 import { marksFor, type ReviewMarks } from '../../marks/store.ts';
-import { isLocalRequest, readBody, readCookie, sendJson } from './http.ts';
+import { isLocalRequest, readCookie, sendJson } from './http.ts';
+import type { ClearRequest, SettingsRequest, StampResponse, TokensResponse } from '../../api/contract.ts';
+import { createRouter, HttpError, noBody, type RouteContext } from '../../api/router.ts';
 import { previewResponse } from '../../summary/previews.ts';
 import { writeSettings } from '../../summary/settings.ts';
 import { buildProgressReader, type BuildProgress } from '../../summary/progress.ts';
-import {
-  clearKinds,
-  describeKinds,
-  type ClearContext,
-  type ClearKindInfo,
-  type ClearPlan,
-  type ClearScope,
-} from '../../clear.ts';
+import { clearKinds, describeKinds, type ClearContext, type ClearPlan } from '../../clear.ts';
 import { escapeHtml } from '../../text.ts';
 import { isLightColor, THEME_COOKIE } from '../../theme.ts';
 import { bundleViewer } from './bundle.ts';
@@ -116,38 +111,6 @@ export interface ThemeTokens {
   /** tokens[fileIndex] — aligned with the files array */
   tokens: ViewerToken[][][];
 }
-
-/**
- * What /api/stamp answers, everything the page watches for in one request: the stored summary's
- * stamp and the key it's read under (another branch checked out moves it), the change's
- * fingerprint as it is on disk now (null when this review has none), and the agent's summary run
- * while one is going.
- */
-export interface StampResponse {
-  summary: number | null;
-  key: string | null;
-  change: string | null;
-  building: BuildProgress | null;
-}
-
-/** What GET /api/clear answers: what each kind would remove */
-export interface ClearInfoResponse {
-  kinds: ClearKindInfo[];
-}
-
-/** What POST /api/clear takes: each kind to clear, with its scope */
-export interface ClearRequest {
-  picks: Record<string, ClearScope>;
-}
-
-/** What POST /api/clear answers: what it removed, and the summary as it is now */
-export interface ClearResponse {
-  cleared: Record<string, ClearPlan>;
-  summary: SummaryView | null;
-}
-
-/** What /api/tokens answers: a theme's tokens, and the analysis whose files they are. */
-export type TokensResponse = ThemeTokens & { analysis: string };
 
 /**
  * Every file's Shiki tokens in one theme. `previous` is the last analysis in the same theme (a ↻
@@ -360,6 +323,95 @@ export async function serveViewer(
     return html;
   }
 
+  /** The theme a request asks for (`?theme=`), else this run's */
+  const themeOf = (url: URL): string => {
+    const asked = url.searchParams.get('theme');
+    return asked && isBundledTheme(asked) ? asked : opts.theme;
+  };
+
+  const page = async ({ req, res, url }: RouteContext) => {
+    // the theme the reader picked (the viewer keeps it in a cookie), unless --theme pinned this run's
+    const picked = url.searchParams.get('theme') || opts.themePinned ? null : readCookie(req, THEME_COOKIE);
+    // the page first: once the headers are out, a failure can't be answered with a 500
+    const html = await htmlFor(picked && isBundledTheme(picked) ? picked : themeOf(url));
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+    res.end(html);
+  };
+
+  const router = createRouter()
+    .raw('* /', page)
+    .raw('* /index.html', page)
+    .json('GET /api/tokens', noBody, async (_, { url }) => {
+      const asked = url.searchParams.get('theme');
+      if (asked && !isBundledTheme(asked)) throw new HttpError(400, `unknown theme "${asked}"`);
+      // the files as they are now, named: tokens made for them must not land on another analysis's
+      const { files } = current;
+      const tokens: TokensResponse = { ...(await tokensFor(files, themeOf(url))), analysis: analysisOf(files) };
+      return tokens;
+    })
+    .json('GET /api/refresh', noBody, async (_, { url }) => {
+      if (!reanalyze) throw new HttpError(404, 'refresh not available');
+      const input = await reanalyze();
+      current = input;
+      ask.refresh();
+      return payloadFor(input, themeOf(url));
+    })
+    .json('GET /api/summary', noBody, () => {
+      // A submit since the page loaded: take the stored summary (↻ refresh recomputes the units).
+      syncSummary();
+      return current.summary;
+    })
+    .json('GET /api/stamp', noBody, async () => {
+      syncSummary();
+      const stamp: StampResponse = {
+        summary: current.summary?.stamp ?? null,
+        key: current.summary?.key ?? null,
+        change: await changeNow(),
+        building: buildingNow(),
+      };
+      return stamp;
+    })
+    .raw('GET /api/preview/*', ({ res, params }) => {
+      // a preview the agent drew, alone in its sandboxed frame (summary/previews.ts)
+      const preview = previewResponse(current.root, current.summary?.key ?? null, params['*']);
+      res.writeHead(preview.status, preview.headers);
+      res.end(preview.body);
+    })
+    .json('POST /api/settings', parseSettings, (settings) => {
+      writeSettings(current.root, settings);
+      current = { ...current, buildPreviews: settings.buildPreviews };
+      return settings;
+    })
+    .json('GET /api/clear', noBody, () => {
+      // the summary's key as it is now: it names the branch checked out
+      syncSummary();
+      return { kinds: describeKinds(clearContext()) };
+    })
+    .json('POST /api/clear', parseClear, ({ picks }) => {
+      let cleared: Record<string, ClearPlan>;
+      syncSummary();
+      try {
+        cleared = clearKinds(clearContext(), picks);
+      } catch (err) {
+        throw new HttpError(400, (err as Error).message);
+      }
+      // the stored summary is gone: the view is made again, with no unit summarized
+      syncSummary();
+      if (cleared.notes || cleared.marks) savedVersion++;
+      return { cleared, summary: current.summary };
+    })
+    .raw('POST /api/shutdown', ({ res }) => {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }), () => {
+        console.log('lens viewer stopped from the viewer');
+        server.close(stop);
+        server.closeAllConnections();
+      });
+    })
+    .use(notes)
+    .use(marks)
+    .use(ask);
+
   const server = createServer(async (req, res) => {
     try {
       if (!isLocalRequest(req, opts.port)) {
@@ -367,104 +419,7 @@ export async function serveViewer(
         return;
       }
       const url = new URL(req.url ?? '/', 'http://localhost');
-      const themeParam = url.searchParams.get('theme');
-      const theme = themeParam && isBundledTheme(themeParam) ? themeParam : opts.theme;
-
-      if (url.pathname === '/' || url.pathname === '/index.html') {
-        // the theme the reader picked (the viewer keeps it in a cookie), unless --theme pinned this run's
-        const picked = themeParam || opts.themePinned ? null : readCookie(req, THEME_COOKIE);
-        // the page first: once the headers are out, a failure can't be answered with a 500
-        const html = await htmlFor(picked && isBundledTheme(picked) ? picked : theme);
-        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-        res.end(html);
-      } else if (url.pathname === '/api/tokens') {
-        if (themeParam && !isBundledTheme(themeParam)) {
-          sendJson(res, 400, { error: `unknown theme "${themeParam}"` });
-          return;
-        }
-        // the files as they are now, named: tokens made for them must not land on another analysis's
-        const { files } = current;
-        const tokens: TokensResponse = { ...(await tokensFor(files, theme)), analysis: analysisOf(files) };
-        sendJson(res, 200, tokens);
-      } else if (url.pathname === '/api/refresh') {
-        if (!reanalyze) {
-          sendJson(res, 404, { error: 'refresh not available' });
-          return;
-        }
-        const input = await reanalyze();
-        current = input;
-        ask.refresh();
-        sendJson(res, 200, await payloadFor(input, theme));
-      } else if (url.pathname === '/api/summary') {
-        // A submit since the page loaded: take the stored summary (↻ refresh recomputes the units).
-        syncSummary();
-        sendJson(res, 200, current.summary);
-      } else if (url.pathname === '/api/stamp') {
-        syncSummary();
-        const stamp: StampResponse = {
-          summary: current.summary?.stamp ?? null,
-          key: current.summary?.key ?? null,
-          change: await changeNow(),
-          building: buildingNow(),
-        };
-        sendJson(res, 200, stamp);
-      } else if (url.pathname.startsWith('/api/preview/')) {
-        // a preview the agent drew, alone in its sandboxed frame (summary/previews.ts)
-        const preview = previewResponse(
-          current.root,
-          current.summary?.key ?? null,
-          url.pathname.slice('/api/preview/'.length),
-        );
-        res.writeHead(preview.status, preview.headers);
-        res.end(preview.body);
-      } else if (url.pathname === '/api/settings' && req.method === 'POST') {
-        const body = JSON.parse(await readBody(req)) as { buildPreviews?: unknown };
-        if (typeof body?.buildPreviews !== 'boolean') {
-          sendJson(res, 400, { error: 'buildPreviews must be true or false' });
-          return;
-        }
-        writeSettings(current.root, { buildPreviews: body.buildPreviews });
-        current = { ...current, buildPreviews: body.buildPreviews };
-        sendJson(res, 200, { buildPreviews: body.buildPreviews });
-      } else if (url.pathname === '/api/clear' && req.method === 'GET') {
-        // the summary's key as it is now: it names the branch checked out
-        syncSummary();
-        const info: ClearInfoResponse = { kinds: describeKinds(clearContext()) };
-        sendJson(res, 200, info);
-      } else if (url.pathname === '/api/clear' && req.method === 'POST') {
-        const body = JSON.parse(await readBody(req)) as Partial<ClearRequest> | null;
-        const picks = body?.picks;
-        if (typeof picks !== 'object' || picks === null || Object.keys(picks).length === 0) {
-          sendJson(res, 400, { error: 'pick something to clear' });
-          return;
-        }
-        let cleared: Record<string, ClearPlan>;
-        syncSummary();
-        try {
-          cleared = clearKinds(clearContext(), picks);
-        } catch (err) {
-          sendJson(res, 400, { error: (err as Error).message });
-          return;
-        }
-        // the stored summary is gone: the view is made again, with no unit summarized
-        syncSummary();
-        if (cleared.notes || cleared.marks) savedVersion++;
-        const answer: ClearResponse = { cleared, summary: current.summary };
-        sendJson(res, 200, answer);
-      } else if (url.pathname === '/api/shutdown' && req.method === 'POST') {
-        res.writeHead(200, { 'content-type': 'application/json' });
-        res.end(JSON.stringify({ ok: true }), () => {
-          console.log('lens viewer stopped from the viewer');
-          server.close(stop);
-          server.closeAllConnections();
-        });
-      } else if (
-        !(url.pathname.startsWith('/api/notes') && (await notes.handle(req, res, url))) &&
-        !(url.pathname === '/api/marks' && (await marks.handle(req, res, url))) &&
-        !(url.pathname.startsWith('/api/ask') && (await ask.handle(req, res, url)))
-      ) {
-        sendJson(res, 404, { error: 'not found' });
-      }
+      if (!(await router.handle(req, res, url))) sendJson(res, 404, { error: 'not found' });
     } catch (err) {
       sendJson(res, 500, { error: (err as Error).message });
     }
@@ -501,4 +456,18 @@ export async function serveViewer(
       child.unref();
     }
   });
+}
+
+function parseSettings(raw: unknown): SettingsRequest | { error: string } {
+  const { buildPreviews } = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  if (typeof buildPreviews !== 'boolean') return { error: 'buildPreviews must be true or false' };
+  return { buildPreviews };
+}
+
+function parseClear(raw: unknown): ClearRequest | { error: string } {
+  const { picks } = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  if (typeof picks !== 'object' || picks === null || Object.keys(picks).length === 0) {
+    return { error: 'pick something to clear' };
+  }
+  return { picks: picks as ClearRequest['picks'] };
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Trash2 } from 'lucide-react';
-import type { ClearInfoResponse } from '../../../cli-app/render/web/server.ts';
+import type { ClearInfoResponse } from '../../../cli-app/api/contract.ts';
 import type { ClearScope } from '../../../cli-app/clear.ts';
 import { useLens } from '../../store.ts';
 import { isBusy } from '../../model/status.ts';

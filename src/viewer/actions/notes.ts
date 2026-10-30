@@ -3,13 +3,13 @@
 // the agent when the reader asks (model/realConcerns.ts) and sends nothing anywhere itself.
 
 import type { NoteKind, ReaderNote } from '../../cli-app/notes/store.ts';
-import type { NewNote, NotesResponse } from '../../cli-app/notes/routes.ts';
+import type { NewNote } from '../../cli-app/api/contract.ts';
 import { commit, getState, update } from '../store.ts';
 import { askSelection } from '../model/askContext.ts';
 import { fileByPath, fileText, placeOn } from '../model/notes.ts';
 import { setAsk } from '../ask/rail.ts';
 import { confirmedLabel, type RealConcerns } from '../model/realConcerns.ts';
-import { noteDone, noteFailure, request, tracked } from './status.ts';
+import { api, noteDone, noteFailure, tracked } from './status.ts';
 
 const NOTE_INPUT = 'note-input';
 
@@ -65,12 +65,6 @@ export function cancelNote(): void {
   update({ noteDraft: null });
 }
 
-const json = (body: unknown): RequestInit => ({
-  method: 'POST',
-  headers: { 'content-type': 'application/json' },
-  body: JSON.stringify(body),
-});
-
 /** Keeps the draft as a note, or the edit of one. A failure leaves the composer as it was. */
 export async function saveNote(kind: NoteKind, text: string): Promise<boolean> {
   const draft = getState().noteDraft;
@@ -79,10 +73,9 @@ export async function saveNote(kind: NoteKind, text: string): Promise<boolean> {
   return tracked({ id: 'note', label: 'Saving the note…', failed: "Couldn't save the note" }, async () => {
     const { file, side, start, end, lines } = draft;
     const body: NewNote = { file, side, start, end, lines, kind, text };
-    const response = editing
-      ? await request('/api/notes/' + encodeURIComponent(editing.id), json({ kind, text }))
-      : await request('/api/notes', json(body));
-    const answer: NotesResponse = await response.json();
+    const answer = editing
+      ? await api('POST /api/notes/:id', { id: editing.id, body: { kind, text } })
+      : await api('POST /api/notes', { body });
     update({ notes: answer.notes, noteDraft: null });
     noteDone(
       editing ? 'Note saved' : 'Note added',
@@ -94,8 +87,7 @@ export async function saveNote(kind: NoteKind, text: string): Promise<boolean> {
 /** Done with it: the note goes. */
 export async function resolveNote(note: ReaderNote): Promise<void> {
   await tracked({ id: 'note', label: 'Resolving the note…', failed: "Couldn't resolve the note" }, async () => {
-    const response = await request('/api/notes/' + encodeURIComponent(note.id), { method: 'DELETE' });
-    const answer: NotesResponse = await response.json();
+    const answer = await api('DELETE /api/notes/:id', { id: note.id });
     update((state) => ({
       notes: answer.notes,
       noteDraft: state.noteDraft?.editing?.id === note.id ? null : state.noteDraft,

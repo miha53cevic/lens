@@ -1,5 +1,4 @@
-import type { IncomingMessage, ServerResponse } from 'node:http';
-import { readBody, sendJson as send } from '../render/web/http.ts';
+import { createRouter, type Router } from '../api/router.ts';
 import type { ViewerInput } from '../render/web/server.ts';
 import { changeMark, CONCERN_MARKS, type ConcernMark, type MarkChange } from './store.ts';
 
@@ -8,11 +7,6 @@ import { changeMark, CONCERN_MARKS, type ConcernMark, type MarkChange } from './
 
 /** A finding's key carries its text: a long one is still a key, a megabyte isn't */
 const MAX_KEY = 8000;
-
-export interface MarkRoutes {
-  /** true when it handled the request */
-  handle(req: IncomingMessage, res: ServerResponse, url: URL): Promise<boolean>;
-}
 
 /** The change in the viewer's request body, or why it isn't one. */
 export function parseMarkChange(raw: unknown): MarkChange | { error: string } {
@@ -34,26 +28,10 @@ export function parseMarkChange(raw: unknown): MarkChange | { error: string } {
   return { error: 'list must be "files", "units" or "concerns"' };
 }
 
-export function createMarkRoutes(current: () => ViewerInput, changed: () => void): MarkRoutes {
-  return {
-    async handle(req, res, url) {
-      if (url.pathname !== '/api/marks' || req.method !== 'POST') return false;
-      let raw: unknown;
-      try {
-        raw = JSON.parse(await readBody(req));
-      } catch {
-        send(res, 400, { error: 'not JSON' });
-        return true;
-      }
-      const change = parseMarkChange(raw);
-      if ('error' in change) {
-        send(res, 400, change);
-        return true;
-      }
-      changeMark(current(), change);
-      changed();
-      send(res, 200, { ok: true });
-      return true;
-    },
-  };
+export function createMarkRoutes(current: () => ViewerInput, changed: () => void): Router {
+  return createRouter().json('POST /api/marks', parseMarkChange, (change) => {
+    changeMark(current(), change);
+    changed();
+    return { ok: true };
+  });
 }

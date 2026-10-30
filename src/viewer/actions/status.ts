@@ -3,6 +3,7 @@
 // the server goes through here (`request` / `reach`, and `tracked` for the slow ones), so a new
 // one shows in the bar without the bar knowing about it.
 
+import type { ApiAnswer, ApiBody, ApiRoute } from '../../cli-app/api/contract.ts';
 import { getState, update } from '../store.ts';
 
 /** How long an action runs before the bar says so: a quick one doesn't blink in and out. */
@@ -47,6 +48,28 @@ export async function request(url: string, init?: RequestInit): Promise<Response
     throw new Error(reason);
   }
   return response;
+}
+
+/** What a call of a route takes: its body when it has one, its `:id`, and any `?query` */
+type ApiOptions<R extends ApiRoute> = (ApiBody<R> extends null ? { body?: undefined } : { body: ApiBody<R> }) &
+  (R extends `${string}/:id${string}` ? { id: string } : { id?: undefined }) & { query?: Record<string, string> };
+
+/**
+ * A route of the server's API (cli-app/api/contract.ts), by its name: what it takes and what it
+ * answers are typed by the contract. A `request` underneath, so it reports to the status bar the same way.
+ */
+export async function api<R extends ApiRoute>(
+  route: R,
+  ...[options]: {} extends ApiOptions<R> ? [options?: ApiOptions<R>] : [options: ApiOptions<R>]
+): Promise<ApiAnswer<R>> {
+  const [method, path] = route.split(' ');
+  const { body, id, query } = (options ?? {}) as { body?: unknown; id?: string; query?: Record<string, string> };
+  const url = path.replace(':id', encodeURIComponent(id ?? '')) + (query ? '?' + new URLSearchParams(query) : '');
+  const init: RequestInit =
+    body === undefined
+      ? { method }
+      : { method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) };
+  return (await request(url, init)).json();
 }
 
 function clearDoneTimer() {
@@ -133,7 +156,7 @@ export function retryServer(): Promise<boolean> {
   return tracked(
     { id: 'reconnect', label: 'Looking for the lens server…', failed: 'The server answered with an error' },
     async () => {
-      await request('/api/stamp');
+      await api('GET /api/stamp');
     },
   );
 }

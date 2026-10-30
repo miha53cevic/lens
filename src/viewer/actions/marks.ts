@@ -3,15 +3,11 @@
 // one change is posted, and a failure says so in the status bar.
 
 import type { MarkChange } from '../../cli-app/marks/store.ts';
-import { request, tracked } from './status.ts';
+import { api, tracked } from './status.ts';
 
 export function saveMark(change: MarkChange): Promise<boolean> {
   return tracked({ id: 'mark', label: 'Saving the mark…', failed: "Couldn't save the mark" }, async () => {
-    await request('/api/marks', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(change),
-    });
+    await api('POST /api/marks', { body: change });
   });
 }
 
