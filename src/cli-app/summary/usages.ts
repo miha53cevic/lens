@@ -1,9 +1,9 @@
-import { execFileSync } from "node:child_process";
-import { readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
-import { truncate } from "../text.ts";
-import { callerName } from "./fit.ts";
-import type { Unit } from "./units.ts";
+import { execFileSync } from 'node:child_process';
+import { readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+import { truncate } from '../text.ts';
+import { callerName } from './fit.ts';
+import type { Unit } from './units.ts';
 
 // The lines outside the diff that name each unit, so the agent reads the likely callers
 // instead of searching for them one grep at a time. A plain text match over the working tree's
@@ -51,13 +51,16 @@ export function usagesOutside(root: string, units: Unit[]): Map<string, Usages> 
   // the lines the tasks already show: a mention there is in the diff, not outside it
   const shown = new Map<string, { start: number; end: number }[]>();
   for (const unit of units) shown.set(unit.file, [...(shown.get(unit.file) ?? []), ...unit.ranges]);
-  const inDiff = (file: string, line: number) => shown.get(file)?.some((r) => line >= r.start && line <= r.end) ?? false;
+  const inDiff = (file: string, line: number) =>
+    shown.get(file)?.some((r) => line >= r.start && line <= r.end) ?? false;
 
   let files: string[];
   try {
-    files = execFileSync("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard"], {
-      cwd: root, encoding: "utf8", maxBuffer: 256 * 1024 * 1024,
-    }).split("\0");
+    files = execFileSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], {
+      cwd: root,
+      encoding: 'utf8',
+      maxBuffer: 256 * 1024 * 1024,
+    }).split('\0');
   } catch {
     return new Map(); // unsearched rather than wrongly empty
   }
@@ -65,7 +68,7 @@ export function usagesOutside(root: string, units: Unit[]): Map<string, Usages> 
     if (!file || DOC_FILE.test(file)) continue;
     const text = readText(join(root, file));
     if (text === null) continue;
-    text.split("\n").forEach((lineText, i) => {
+    text.split('\n').forEach((lineText, i) => {
       const line = i + 1;
       const names = new Set(lineText.match(/[\w$]+/g) ?? []);
       const named = [...names].flatMap((name) => unitsByName.get(name) ?? []);
@@ -85,7 +88,7 @@ function readText(path: string): string | null {
   try {
     if (statSync(path).size > MAX_FILE_BYTES) return null;
     const buffer = readFileSync(path);
-    return buffer.includes(0) ? null : buffer.toString("utf8");
+    return buffer.includes(0) ? null : buffer.toString('utf8');
   } catch {
     return null;
   }

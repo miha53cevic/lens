@@ -1,6 +1,6 @@
-import { resolveLineRef } from "../paths.ts";
-import type { StoredUnit, UnitSummary } from "./store.ts";
-import type { Anchor, LineRange } from "./units.ts";
+import { resolveLineRef } from '../paths.ts';
+import type { StoredUnit, UnitSummary } from './store.ts';
+import type { Anchor, LineRange } from './units.ts';
 
 // Whether a stored unit summary still fits the unit as it is now, and with which labels. A unit's
 // hash counts lines from its anchor, so one that only moved (lines added or removed above it)
@@ -22,7 +22,7 @@ export interface FitUnit {
 /** A label written when the unit started at `from`, for the unit starting at `to`. */
 export function moveLabel(label: string, from: Anchor, to: Anchor): string {
   const line = Number(label.slice(1));
-  return label.startsWith("O") ? `O${line - from.o + to.o}` : `N${line - from.n + to.n}`;
+  return label.startsWith('O') ? `O${line - from.o + to.o}` : `N${line - from.n + to.n}`;
 }
 
 /**
@@ -44,12 +44,13 @@ export function fitStored(
   if (changes.some((change) => !unit.labels.includes(change.line))) return null;
   if (concerns.some((concern) => !isShownLine(unit, concern.line))) return null;
   // a caller is a line of another file, which may have changed since: it must still mention the unit
-  if (summary.breaks.some((b) => b.callers.some((caller) => checkCaller(caller, unit, root, fileCache) !== null))) return null;
+  if (summary.breaks.some((b) => b.callers.some((caller) => checkCaller(caller, unit, root, fileCache) !== null)))
+    return null;
   return { ...summary, changes, concerns };
 }
 
 /** Any line the viewer shows for the unit — changed, removed, or unchanged context. */
-export function isShownLine(unit: Pick<FitUnit, "labels" | "ranges">, label: string): boolean {
+export function isShownLine(unit: Pick<FitUnit, 'labels' | 'ranges'>, label: string): boolean {
   if (unit.labels.includes(label)) return true;
   const m = /^N(\d+)$/.exec(label);
   if (!m) return false;
@@ -60,23 +61,23 @@ export function isShownLine(unit: Pick<FitUnit, "labels" | "ranges">, label: str
 /** null when the caller reference is valid, else why not. */
 export function checkCaller(
   c: unknown,
-  unit: Pick<FitUnit, "kind" | "name">,
+  unit: Pick<FitUnit, 'kind' | 'name'>,
   root: string,
   fileCache: Map<string, string[] | null>,
 ): string | null {
-  if (typeof c !== "string") return "must be a \"path:line\" string";
+  if (typeof c !== 'string') return 'must be a "path:line" string';
   const ref = resolveLineRef(root, c, fileCache);
-  if ("error" in ref) return ref.error;
+  if ('error' in ref) return ref.error;
   const name = callerName(unit);
-  if (name && !new RegExp(`(^|[^\\w$])${name.replace(/[$]/g, "\\$")}([^\\w$]|$)`).test(ref.text)) {
+  if (name && !new RegExp(`(^|[^\\w$])${name.replace(/[$]/g, '\\$')}([^\\w$]|$)`).test(ref.text)) {
     return `— that line doesn't mention ${name}`;
   }
   return null;
 }
 
 /** The name a caller's line must mention; null for units without one (a call, a statement, a module) */
-export function callerName(unit: Pick<FitUnit, "kind" | "name">): string | null {
-  if (["call", "statement", "module", "file"].includes(unit.kind) || unit.name === "default") return null;
-  const bare = unit.name.split(".").pop() ?? unit.name;
-  return /^[\w$#]+$/.test(bare) ? bare.replace(/^#/, "") : null;
+export function callerName(unit: Pick<FitUnit, 'kind' | 'name'>): string | null {
+  if (['call', 'statement', 'module', 'file'].includes(unit.kind) || unit.name === 'default') return null;
+  const bare = unit.name.split('.').pop() ?? unit.name;
+  return /^[\w$#]+$/.test(bare) ? bare.replace(/^#/, '') : null;
 }

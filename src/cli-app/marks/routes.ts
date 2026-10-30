@@ -1,7 +1,7 @@
-import type { IncomingMessage, ServerResponse } from "node:http";
-import { readBody, sendJson as send } from "../render/web/http.ts";
-import type { ViewerInput } from "../render/web/server.ts";
-import { changeMark, CONCERN_MARKS, type ConcernMark, type MarkChange } from "./store.ts";
+import type { IncomingMessage, ServerResponse } from 'node:http';
+import { readBody, sendJson as send } from '../render/web/http.ts';
+import type { ViewerInput } from '../render/web/server.ts';
+import { changeMark, CONCERN_MARKS, type ConcernMark, type MarkChange } from './store.ts';
 
 // The reader's marks on the viewer server:
 //   POST /api/marks   one mark changed (MarkChange), kept under the review the server shows now
@@ -16,18 +16,18 @@ export interface MarkRoutes {
 
 /** The change in the viewer's request body, or why it isn't one. */
 export function parseMarkChange(raw: unknown): MarkChange | { error: string } {
-  if (!raw || typeof raw !== "object") return { error: "not a mark" };
+  if (!raw || typeof raw !== 'object') return { error: 'not a mark' };
   const { list, key, on, mark } = raw as Record<string, unknown>;
-  if (typeof key !== "string" || key.length === 0 || key.length > MAX_KEY) return { error: "key must be a mark's key" };
-  if (list === "files" || list === "units") {
+  if (typeof key !== 'string' || key.length === 0 || key.length > MAX_KEY) return { error: "key must be a mark's key" };
+  if (list === 'files' || list === 'units') {
     // a viewed mark is `subject@hash`
-    if (key.lastIndexOf("@") < 1) return { error: "a viewed mark's key is what it marks, @ and its hash" };
-    if (typeof on !== "boolean") return { error: "on must be true or false" };
+    if (key.lastIndexOf('@') < 1) return { error: "a viewed mark's key is what it marks, @ and its hash" };
+    if (typeof on !== 'boolean') return { error: 'on must be true or false' };
     return { list, key, on };
   }
-  if (list === "concerns") {
+  if (list === 'concerns') {
     if (mark !== null && !(CONCERN_MARKS as readonly unknown[]).includes(mark)) {
-      return { error: "mark must be one of " + CONCERN_MARKS.join(", ") + ", or null" };
+      return { error: 'mark must be one of ' + CONCERN_MARKS.join(', ') + ', or null' };
     }
     return { list, key, mark: mark as ConcernMark | null };
   }
@@ -37,16 +37,16 @@ export function parseMarkChange(raw: unknown): MarkChange | { error: string } {
 export function createMarkRoutes(current: () => ViewerInput, changed: () => void): MarkRoutes {
   return {
     async handle(req, res, url) {
-      if (url.pathname !== "/api/marks" || req.method !== "POST") return false;
+      if (url.pathname !== '/api/marks' || req.method !== 'POST') return false;
       let raw: unknown;
       try {
         raw = JSON.parse(await readBody(req));
       } catch {
-        send(res, 400, { error: "not JSON" });
+        send(res, 400, { error: 'not JSON' });
         return true;
       }
       const change = parseMarkChange(raw);
-      if ("error" in change) {
+      if ('error' in change) {
         send(res, 400, change);
         return true;
       }

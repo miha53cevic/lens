@@ -1,5 +1,5 @@
-import type { Node } from "@vscode/tree-sitter-wasm";
-import type { Declaration, DeclarationKind } from "../model.ts";
+import type { Node } from '@vscode/tree-sitter-wasm';
+import type { Declaration, DeclarationKind } from '../model.ts';
 
 /**
  * Where a file declares its names, for the viewer's "defined at": the module's top-level
@@ -24,48 +24,52 @@ type Add = (nameNode: Node | null, kind: DeclarationKind) => void;
 
 function topLevel(statement: Node, add: Add): void {
   let node = statement;
-  if (node.type === "export_statement") node = node.childForFieldName("declaration") ?? node;
-  if (node.type === "ambient_declaration") node = node.namedChildren.find((child) => child !== null) ?? node;
+  if (node.type === 'export_statement') node = node.childForFieldName('declaration') ?? node;
+  if (node.type === 'ambient_declaration') node = node.namedChildren.find((child) => child !== null) ?? node;
   // `namespace X {}` parses as an expression statement around the module
-  if (node.type === "expression_statement" && node.namedChildren[0]?.type === "internal_module") {
+  if (node.type === 'expression_statement' && node.namedChildren[0]?.type === 'internal_module') {
     node = node.namedChildren[0];
   }
   switch (node.type) {
-    case "function_declaration":
-    case "generator_function_declaration":
-    case "function_signature":
-      add(node.childForFieldName("name"), "function");
+    case 'function_declaration':
+    case 'generator_function_declaration':
+    case 'function_signature':
+      add(node.childForFieldName('name'), 'function');
       return;
-    case "class_declaration":
-    case "abstract_class_declaration": {
-      add(node.childForFieldName("name"), "class");
-      for (const member of node.childForFieldName("body")?.namedChildren ?? []) {
+    case 'class_declaration':
+    case 'abstract_class_declaration': {
+      add(node.childForFieldName('name'), 'class');
+      for (const member of node.childForFieldName('body')?.namedChildren ?? []) {
         if (!member) continue;
-        if (member.type === "method_definition" || member.type === "abstract_method_signature" || member.type === "method_signature") {
-          add(member.childForFieldName("name"), "method");
-        } else if (member.type === "public_field_definition" || member.type === "field_definition") {
-          add(member.childForFieldName("name") ?? member.childForFieldName("property"), "property");
+        if (
+          member.type === 'method_definition' ||
+          member.type === 'abstract_method_signature' ||
+          member.type === 'method_signature'
+        ) {
+          add(member.childForFieldName('name'), 'method');
+        } else if (member.type === 'public_field_definition' || member.type === 'field_definition') {
+          add(member.childForFieldName('name') ?? member.childForFieldName('property'), 'property');
         }
       }
       return;
     }
-    case "lexical_declaration":
-    case "variable_declaration":
+    case 'lexical_declaration':
+    case 'variable_declaration':
       for (const declarator of node.namedChildren) {
         // a destructuring pattern names nothing to jump to by itself
-        if (declarator?.type === "variable_declarator") add(declarator.childForFieldName("name"), "variable");
+        if (declarator?.type === 'variable_declarator') add(declarator.childForFieldName('name'), 'variable');
       }
       return;
-    case "interface_declaration":
-    case "type_alias_declaration":
-      add(node.childForFieldName("name"), "type");
+    case 'interface_declaration':
+    case 'type_alias_declaration':
+      add(node.childForFieldName('name'), 'type');
       return;
-    case "enum_declaration":
-      add(node.childForFieldName("name"), "enum");
+    case 'enum_declaration':
+      add(node.childForFieldName('name'), 'enum');
       return;
-    case "internal_module":
-    case "module":
-      add(node.childForFieldName("name"), "namespace");
+    case 'internal_module':
+    case 'module':
+      add(node.childForFieldName('name'), 'namespace');
       return;
   }
 }

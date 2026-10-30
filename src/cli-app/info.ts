@@ -1,13 +1,13 @@
-import { execFileSync } from "node:child_process";
-import { basename } from "node:path";
-import { loadConfig } from "./config.ts";
-import { runGit, untrackedFiles } from "./git.ts";
-import { toPosix } from "./paths.ts";
-import { matchRemote } from "./pr.ts";
-import { SUGGESTED_THEMES, isBundledTheme, themeSwatch, type ThemeSwatch } from "./render/highlight.ts";
-import { plural } from "./text.ts";
+import { execFileSync } from 'node:child_process';
+import { basename } from 'node:path';
+import { loadConfig } from './config.ts';
+import { runGit, untrackedFiles } from './git.ts';
+import { toPosix } from './paths.ts';
+import { matchRemote } from './pr.ts';
+import { SUGGESTED_THEMES, isBundledTheme, themeSwatch, type ThemeSwatch } from './render/highlight.ts';
+import { plural } from './text.ts';
 // imported, so the compiled `lens` carries it
-import manifest from "../../package.json" with { type: "json" };
+import manifest from '../../package.json' with { type: 'json' };
 
 // `lens info`: what a picker needs to know before a review starts — is there git, is this a
 // repository, what could be reviewed in it. Read-only: it fetches nothing and writes nothing.
@@ -59,7 +59,7 @@ export interface InfoOptions {
 
 function gitVersion(): string | null {
   try {
-    const output = execFileSync("git", ["--version"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+    const output = execFileSync('git', ['--version'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
     return /\d+(\.\d+)+/.exec(output)?.[0] ?? output.trim();
   } catch {
     return null;
@@ -69,7 +69,7 @@ function gitVersion(): string | null {
 /** git's answer, or null when it fails (no such ref, no commits yet, no remote). */
 function tryGit(args: string[], cwd: string): string | null {
   try {
-    return execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+    return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
   } catch {
     return null;
   }
@@ -77,7 +77,7 @@ function tryGit(args: string[], cwd: string): string | null {
 
 /** How many paths a `--name-only -z` listing names. */
 function countPaths(listing: string): number {
-  return listing.split("\0").filter(Boolean).length;
+  return listing.split('\0').filter(Boolean).length;
 }
 
 /**
@@ -85,41 +85,43 @@ function countPaths(listing: string): number {
  * there is one (what you'd type), else its remote-tracking name, else a local main / master.
  */
 function defaultBase(cwd: string, branches: string[]): string | null {
-  const remoteHead = tryGit(["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"], cwd);
+  const remoteHead = tryGit(['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD'], cwd);
   if (remoteHead) {
-    const local = remoteHead.replace(/^origin\//, "");
+    const local = remoteHead.replace(/^origin\//, '');
     return branches.includes(local) ? local : remoteHead;
   }
-  return ["main", "master"].find((name) => branches.includes(name)) ?? null;
+  return ['main', 'master'].find((name) => branches.includes(name)) ?? null;
 }
 
 function repoInfo(cwd: string, wantedBase: string | undefined): RepoInfo | null {
-  const top = tryGit(["rev-parse", "--show-toplevel"], cwd);
+  const top = tryGit(['rev-parse', '--show-toplevel'], cwd);
   if (!top) return null;
   const root = toPosix(top);
-  const branches = runGit(["for-each-ref", "--format=%(refname:short)", "refs/heads"], cwd)
-    .split("\n").filter(Boolean);
-  const head = tryGit(["rev-parse", "--short", "HEAD"], cwd);
+  const branches = runGit(['for-each-ref', '--format=%(refname:short)', 'refs/heads'], cwd).split('\n').filter(Boolean);
+  const head = tryGit(['rev-parse', '--short', 'HEAD'], cwd);
 
-  if (wantedBase !== undefined && tryGit(["rev-parse", "--verify", "--quiet", `${wantedBase}^{commit}`], cwd) === null) {
+  if (
+    wantedBase !== undefined &&
+    tryGit(['rev-parse', '--verify', '--quiet', `${wantedBase}^{commit}`], cwd) === null
+  ) {
     throw new Error(`"${wantedBase}" is not a branch or commit here`);
   }
   const base = wantedBase ?? defaultBase(cwd, branches);
-  const ahead = base && head ? tryGit(["rev-list", "--count", `${base}..HEAD`], cwd) : null;
+  const ahead = base && head ? tryGit(['rev-list', '--count', `${base}..HEAD`], cwd) : null;
 
-  const remotes = tryGit(["config", "--get-regexp", "^remote\\..*\\.url$"], cwd) ?? "";
-  const github = matchRemote(remotes, { owner: "", repo: "", number: 0 });
+  const remotes = tryGit(['config', '--get-regexp', '^remote\\..*\\.url$'], cwd) ?? '';
+  const github = matchRemote(remotes, { owner: '', repo: '', number: 0 });
 
   return {
     root,
     name: basename(root),
-    branch: tryGit(["symbolic-ref", "--quiet", "--short", "HEAD"], cwd),
+    branch: tryGit(['symbolic-ref', '--quiet', '--short', 'HEAD'], cwd),
     head,
     branches,
     base,
     ahead: ahead === null ? null : Number(ahead),
-    changed: countPaths(runGit(["diff", "--name-only", "-z", "--no-relative"], cwd)) + untrackedFiles(top, cwd).length,
-    staged: countPaths(runGit(["diff", "--staged", "--name-only", "-z", "--no-relative"], cwd)),
+    changed: countPaths(runGit(['diff', '--name-only', '-z', '--no-relative'], cwd)) + untrackedFiles(top, cwd).length,
+    staged: countPaths(runGit(['diff', '--staged', '--name-only', '-z', '--no-relative'], cwd)),
     github: github ? { remote: github.remote, owner: github.ref.owner, repo: github.ref.repo } : null,
   };
 }
@@ -145,15 +147,16 @@ export async function lensInfo(cwd: string, options: InfoOptions = {}): Promise<
 }
 
 function describe(info: LensInfo): string {
-  const lines = [`lens ${info.version} · ${info.git ? "git " + info.git : "git not found"}`];
+  const lines = [`lens ${info.version} · ${info.git ? 'git ' + info.git : 'git not found'}`];
   const { repo } = info;
-  if (!repo) return lines.concat("not inside a git repository").join("\n");
+  if (!repo) return lines.concat('not inside a git repository').join('\n');
   lines.push(`repository  ${repo.root}`);
-  lines.push(`branch      ${repo.branch ?? `detached at ${repo.head ?? "no commit"}`}`);
-  lines.push(`changes     ${plural(repo.changed, "file")} changed, ${repo.staged} staged`);
-  if (repo.base !== null && repo.ahead !== null) lines.push(`ahead       ${plural(repo.ahead, "commit")} since ${repo.base}`);
+  lines.push(`branch      ${repo.branch ?? `detached at ${repo.head ?? 'no commit'}`}`);
+  lines.push(`changes     ${plural(repo.changed, 'file')} changed, ${repo.staged} staged`);
+  if (repo.base !== null && repo.ahead !== null)
+    lines.push(`ahead       ${plural(repo.ahead, 'commit')} since ${repo.base}`);
   if (repo.github) lines.push(`github      ${repo.github.remote} → ${repo.github.owner}/${repo.github.repo}`);
-  return lines.join("\n");
+  return lines.join('\n');
 }
 
 /** `lens info [--json] [--themes] [--base <ref>] [--theme <name>]` */
@@ -162,10 +165,10 @@ export async function runInfo(args: string[], cwd: string, json: boolean, theme:
   const rest = [...args];
   while (rest.length > 0) {
     const arg = rest.shift()!;
-    if (arg === "--themes") options.themes = true;
-    else if (arg === "--base") {
+    if (arg === '--themes') options.themes = true;
+    else if (arg === '--base') {
       const base = rest.shift();
-      if (!base) throw new Error("--base needs a branch or commit");
+      if (!base) throw new Error('--base needs a branch or commit');
       options.base = base;
     } else throw new Error(`lens info doesn't take "${arg}" — it reads the repository you run it in`);
   }

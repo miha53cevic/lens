@@ -1,11 +1,11 @@
-import { execFile, execFileSync } from "node:child_process";
-import { createHash } from "node:crypto";
-import { isAbsolute, join, resolve } from "node:path";
-import { closeSync, existsSync, lstatSync, openSync, readFileSync, readSync, statSync } from "node:fs";
-import { readFile, stat } from "node:fs/promises";
-import { promisify } from "node:util";
-import type { DiffStatus, RemovedBlock } from "./model.ts";
-import { toPosix } from "./paths.ts";
+import { execFile, execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { isAbsolute, join, resolve } from 'node:path';
+import { closeSync, existsSync, lstatSync, openSync, readFileSync, readSync, statSync } from 'node:fs';
+import { readFile, stat } from 'node:fs/promises';
+import { promisify } from 'node:util';
+import type { DiffStatus, RemovedBlock } from './model.ts';
+import { toPosix } from './paths.ts';
 
 export interface DiffTarget {
   /** Absolute path to the new-side file */
@@ -24,7 +24,7 @@ export interface DiffTarget {
 export interface BinaryFile {
   /** Absolute path: the new side's, or the old one's for a deletion */
   file: string;
-  status: DiffStatus | "deleted";
+  status: DiffStatus | 'deleted';
 }
 
 export interface RenamedFile {
@@ -65,7 +65,7 @@ export function parseDiff(output: string): ParsedDiff {
   let minus: string | null = null;
   let current: ParsedDiffFile | null = null;
   let hunkRemoval: RemovedBlock | null = null;
-  const strip = (p: string) => (p.startsWith("a/") || p.startsWith("b/") ? p.slice(2) : p);
+  const strip = (p: string) => (p.startsWith('a/') || p.startsWith('b/') ? p.slice(2) : p);
 
   // A pure rename block has "rename from/to" lines and NO +++ header; a rename
   // with edits reaches +++ and is captured as a modified file instead.
@@ -79,30 +79,30 @@ export function parseDiff(output: string): ParsedDiff {
 
   // Header checks require the a/-b/ prefix (or /dev/null) so removed source
   // lines that happen to start with "--" are never mistaken for headers.
-  const isMinusHeader = (l: string) => l.startsWith("--- a/") || l.startsWith("--- /dev/null");
-  const isPlusHeader = (l: string) => l.startsWith("+++ b/") || l.startsWith("+++ /dev/null");
+  const isMinusHeader = (l: string) => l.startsWith('--- a/') || l.startsWith('--- /dev/null');
+  const isPlusHeader = (l: string) => l.startsWith('+++ b/') || l.startsWith('+++ /dev/null');
 
-  for (const line of output.split("\n")) {
-    if (line.startsWith("diff --git ")) {
+  for (const line of output.split('\n')) {
+    if (line.startsWith('diff --git ')) {
       flushRename();
       current = null; // a header this parser can't read must not inherit the previous file's hunks
-    } else if (line.startsWith("rename from ")) {
-      (pendingRename ??= {}).from = line.slice("rename from ".length);
-    } else if (line.startsWith("rename to ")) {
-      (pendingRename ??= {}).to = line.slice("rename to ".length);
+    } else if (line.startsWith('rename from ')) {
+      (pendingRename ??= {}).from = line.slice('rename from '.length);
+    } else if (line.startsWith('rename to ')) {
+      (pendingRename ??= {}).to = line.slice('rename to '.length);
     } else if (isMinusHeader(line)) {
       minus = line.slice(4).trim();
       hunkRemoval = null;
     } else if (isPlusHeader(line)) {
       pendingRename = null; // rename with edits — shows as a modified file
       const plus = line.slice(4).trim();
-      if (plus === "/dev/null") {
-        if (minus && minus !== "/dev/null") deleted.push(strip(minus));
+      if (plus === '/dev/null') {
+        if (minus && minus !== '/dev/null') deleted.push(strip(minus));
         current = null;
       } else {
         current = {
           path: strip(plus),
-          status: minus === "/dev/null" ? "added" : "modified",
+          status: minus === '/dev/null' ? 'added' : 'modified',
           changedLines: [],
           removals: [],
         };
@@ -110,7 +110,7 @@ export function parseDiff(output: string): ParsedDiff {
       }
       minus = null;
       hunkRemoval = null;
-    } else if (current && line.startsWith("@@")) {
+    } else if (current && line.startsWith('@@')) {
       // "@@ -a,b +c,d @@", or "@@@ -a,b -c,d +e,f @@@" for combined (merge-conflict) diffs
       const match = /^@@+ -(\d+)(?:,\d+)?(?: -\d+(?:,\d+)?)* \+(\d+)(?:,(\d+))?/.exec(line);
       if (!match) continue;
@@ -122,7 +122,7 @@ export function parseDiff(output: string): ParsedDiff {
       // is the line BEFORE the gap; a replacement's removed lines sit before
       // its added lines.
       hunkRemoval = { afterLine: count === 0 ? start : start - 1, oldStart, lines: [] };
-    } else if (current && hunkRemoval && line.startsWith("-")) {
+    } else if (current && hunkRemoval && line.startsWith('-')) {
       hunkRemoval.lines.push(line.slice(1));
       if (hunkRemoval.lines.length === 1) current.removals.push(hunkRemoval);
     }
@@ -144,17 +144,17 @@ export interface RawEntry {
 /** Parses `git diff --raw -z --no-abbrev` output into one entry per changed path. */
 export function parseRawEntries(output: string): RawEntry[] {
   const entries: RawEntry[] = [];
-  const tokens = output.split("\0");
-  const blob = (sha: string, mode: string) => (/^0+$/.test(sha) || mode === "160000" ? null : sha);
+  const tokens = output.split('\0');
+  const blob = (sha: string, mode: string) => (/^0+$/.test(sha) || mode === '160000' ? null : sha);
   for (let i = 0; i < tokens.length; i++) {
     const token = tokens[i];
     // "::" entries are merge diffs; other non-":" tokens are pass-through
     // noise from user flags (e.g. --stat text) and never look like records.
-    if (!token.startsWith(":") || token.startsWith("::")) continue;
-    const fields = token.slice(1).split(" ");
+    if (!token.startsWith(':') || token.startsWith('::')) continue;
+    const fields = token.slice(1).split(' ');
     if (fields.length < 5) continue;
     const [srcMode, dstMode, srcSha, dstSha, status] = fields;
-    const pathCount = status.startsWith("R") || status.startsWith("C") ? 2 : 1;
+    const pathCount = status.startsWith('R') || status.startsWith('C') ? 2 : 1;
     const path = tokens[i + pathCount]; // renames/copies: the NEW path is the second one
     i += pathCount;
     if (path) entries.push({ path, oldSha: blob(srcSha, srcMode), newSha: blob(dstSha, dstMode), status });
@@ -168,23 +168,23 @@ export function parseRawEntries(output: string): RawEntry[] {
  */
 export function parseBinaryPaths(output: string): string[] {
   const paths: string[] = [];
-  const tokens = output.split("\0");
+  const tokens = output.split('\0');
   for (let i = 0; i < tokens.length; i++) {
     const match = /^(-|\d+)\t(-|\d+)\t([\s\S]*)$/.exec(tokens[i]);
     if (!match) continue;
     let path = match[3];
     // a rename or copy has no path of its own: the old and the new one follow
-    if (path === "") {
-      path = tokens[i + 2] ?? "";
+    if (path === '') {
+      path = tokens[i + 2] ?? '';
       i += 2;
     }
-    if (match[1] === "-" && match[2] === "-" && path) paths.push(path);
+    if (match[1] === '-' && match[2] === '-' && path) paths.push(path);
   }
   return paths;
 }
 
 export function runGit(args: string[], cwd: string): string {
-  return execFileSync("git", args, { cwd, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+  return execFileSync('git', args, { cwd, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
 }
 
 /** How many bytes of blob content one `git cat-file --batch` is asked for; a bigger blob goes alone. */
@@ -204,36 +204,38 @@ export function readBlobs(shas: Iterable<string>, cwd: string): Map<string, stri
     // the SHAs are fed to git on stdin, a line each
     if (!/^[0-9a-f]{40,64}$/.test(sha)) throw new Error(`not a blob SHA: "${sha}"`);
   }
-  const batch = (mode: "--batch-check" | "--batch", names: string[], maxBuffer: number): Buffer =>
-    execFileSync("git", ["cat-file", mode], { cwd, input: names.join("\n") + "\n", maxBuffer });
+  const batch = (mode: '--batch-check' | '--batch', names: string[], maxBuffer: number): Buffer =>
+    execFileSync('git', ['cat-file', mode], { cwd, input: names.join('\n') + '\n', maxBuffer });
 
   // the sizes first, so each chunk's output is bounded and known
   const sizes = new Map<string, number>();
-  const checked = batch("--batch-check", wanted, 64 * 1024 * 1024).toString("utf8").split("\n");
+  const checked = batch('--batch-check', wanted, 64 * 1024 * 1024)
+    .toString('utf8')
+    .split('\n');
   wanted.forEach((sha, index) => {
-    const [name, type, size] = (checked[index] ?? "").split(" ");
-    if (name !== sha || type !== "blob" || !/^\d+$/.test(size ?? "")) {
-      throw new Error(`git has no blob ${sha} (cat-file answered "${checked[index] ?? ""}")`);
+    const [name, type, size] = (checked[index] ?? '').split(' ');
+    if (name !== sha || type !== 'blob' || !/^\d+$/.test(size ?? '')) {
+      throw new Error(`git has no blob ${sha} (cat-file answered "${checked[index] ?? ''}")`);
     }
     sizes.set(sha, Number(size));
   });
 
   const readChunk = (chunk: string[], bytes: number) => {
     // each blob comes as "<sha> blob <size>\n", its content, "\n"
-    const output = batch("--batch", chunk, bytes + chunk.length * 128 + 1024);
+    const output = batch('--batch', chunk, bytes + chunk.length * 128 + 1024);
     let offset = 0;
     for (const sha of chunk) {
       const size = sizes.get(sha)!;
       const headerEnd = output.indexOf(10, offset);
-      const header = headerEnd === -1 ? "" : output.toString("utf8", offset, headerEnd);
+      const header = headerEnd === -1 ? '' : output.toString('utf8', offset, headerEnd);
       const end = headerEnd + 1 + size;
       if (header !== `${sha} blob ${size}` || end >= output.length || output[end] !== 10) {
         throw new Error(`git cat-file returned blob ${sha} incomplete`);
       }
-      contents.set(sha, output.toString("utf8", headerEnd + 1, end));
+      contents.set(sha, output.toString('utf8', headerEnd + 1, end));
       offset = end + 1;
     }
-    if (offset !== output.length) throw new Error("git cat-file returned more than the blobs asked for");
+    if (offset !== output.length) throw new Error('git cat-file returned more than the blobs asked for');
   };
   let chunk: string[] = [];
   let chunkBytes = 0;
@@ -255,8 +257,10 @@ export function readBlobs(shas: Iterable<string>, cwd: string): Map<string, stri
 export function currentBranch(cwd: string): string | null {
   try {
     // quiet: outside a repository (paths mode can be) "no branch" is the answer, not an error
-    const branch = execFileSync("git", ["symbolic-ref", "--short", "-q", "HEAD"], {
-      cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"],
+    const branch = execFileSync('git', ['symbolic-ref', '--short', '-q', 'HEAD'], {
+      cwd,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
     });
     return branch.trim() || null;
   } catch {
@@ -265,7 +269,7 @@ export function currentBranch(cwd: string): string | null {
 }
 
 export function gitRoot(cwd: string): string {
-  return runGit(["rev-parse", "--show-toplevel"], cwd).trim();
+  return runGit(['rev-parse', '--show-toplevel'], cwd).trim();
 }
 
 /**
@@ -274,12 +278,12 @@ export function gitRoot(cwd: string): string {
  * repository). Null when it hasn't, or when the arguments can't be read for sure.
  */
 export function worktreePathspecs(gitArgs: string[], cwd: string): string[] | null {
-  const split = gitArgs.indexOf("--");
+  const split = gitArgs.indexOf('--');
   const before = split === -1 ? gitArgs : gitArgs.slice(0, split);
   const pathspecs = split === -1 ? [] : gitArgs.slice(split + 1);
   const isCommit = (name: string) => {
     try {
-      execFileSync("git", ["rev-parse", "--verify", "--quiet", `${name}^{commit}`], { cwd, stdio: "ignore" });
+      execFileSync('git', ['rev-parse', '--verify', '--quiet', `${name}^{commit}`], { cwd, stdio: 'ignore' });
       return true;
     } catch {
       return false;
@@ -287,10 +291,10 @@ export function worktreePathspecs(gitArgs: string[], cwd: string): string[] | nu
   };
   let revisions = 0;
   for (const arg of before) {
-    if (arg === "--staged" || arg === "--cached" || arg === "--no-index") return null;
-    if (arg.startsWith("-")) continue;
+    if (arg === '--staged' || arg === '--cached' || arg === '--no-index') return null;
+    if (arg.startsWith('-')) continue;
     // A..B and A...B name two revisions (a path may hold ".." too: "../src")
-    if (arg.includes("..") && !existsSync(resolve(cwd, arg))) return null;
+    if (arg.includes('..') && !existsSync(resolve(cwd, arg))) return null;
     // git's own rule without "--": what isn't a revision is a path
     if (isCommit(arg)) revisions++;
     else pathspecs.push(arg);
@@ -304,13 +308,17 @@ export function worktreePathspecs(gitArgs: string[], cwd: string): string[] | nu
  * at the working tree, the index or HEAD, or when the arguments can't be read for sure.
  */
 export function uncheckedOutRevision(gitArgs: string[], cwd: string): string | null {
-  const split = gitArgs.indexOf("--");
+  const split = gitArgs.indexOf('--');
   const before = split === -1 ? gitArgs : gitArgs.slice(0, split);
   const commit = (name: string) => {
     try {
-      return execFileSync("git", ["rev-parse", "--verify", "--quiet", `${name}^{commit}`], {
-        cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"],
-      }).trim() || null;
+      return (
+        execFileSync('git', ['rev-parse', '--verify', '--quiet', `${name}^{commit}`], {
+          cwd,
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'ignore'],
+        }).trim() || null
+      );
     } catch {
       return null;
     }
@@ -318,11 +326,11 @@ export function uncheckedOutRevision(gitArgs: string[], cwd: string): string | n
   const revisions: string[] = [];
   for (const arg of before) {
     // -R swaps the sides
-    if (["--staged", "--cached", "--no-index", "-R"].includes(arg)) return null;
-    if (arg.startsWith("-")) continue;
+    if (['--staged', '--cached', '--no-index', '-R'].includes(arg)) return null;
+    if (arg.startsWith('-')) continue;
     const range = /^(.*?)\.\.\.?(.*)$/.exec(arg);
     // a path may hold ".." too: "../src"
-    if (range && !existsSync(resolve(cwd, arg))) revisions.push(range[1] || "HEAD", range[2] || "HEAD");
+    if (range && !existsSync(resolve(cwd, arg))) revisions.push(range[1] || 'HEAD', range[2] || 'HEAD');
     else if (commit(arg) !== null) revisions.push(arg);
   }
   if (revisions.length !== 2) return null;
@@ -330,9 +338,13 @@ export function uncheckedOutRevision(gitArgs: string[], cwd: string): string | n
   if (/^(HEAD|@)([~^@{]|$)/.test(revisions[1])) return null;
   try {
     // both in one call: a git process is ~15 ms on Windows, and the viewer asks on every analysis
-    const [end, head] = execFileSync("git", ["rev-parse", `${revisions[1]}^{commit}`, "HEAD"], {
-      cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"],
-    }).trim().split("\n");
+    const [end, head] = execFileSync('git', ['rev-parse', `${revisions[1]}^{commit}`, 'HEAD'], {
+      cwd,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+      .trim()
+      .split('\n');
     return end && head && end !== head ? revisions[1] : null;
   } catch {
     return null;
@@ -345,14 +357,14 @@ export function uncheckedOutRevision(gitArgs: string[], cwd: string): string | n
  */
 export function untrackedFiles(root: string, cwd: string, pathspecs: string[] = []): string[] {
   const { args, dir } = untrackedCommand(root, cwd, pathspecs);
-  return runGit(args, dir).split("\0").filter(Boolean);
+  return runGit(args, dir).split('\0').filter(Boolean);
 }
 
 /** The `git ls-files` that lists the untracked files, and the folder to run it in. */
 function untrackedCommand(root: string, cwd: string, pathspecs: string[]): { args: string[]; dir: string } {
   const limited = pathspecs.length > 0;
   return {
-    args: ["ls-files", "--others", "--exclude-standard", "--full-name", "-z", ...(limited ? ["--", ...pathspecs] : [])],
+    args: ['ls-files', '--others', '--exclude-standard', '--full-name', '-z', ...(limited ? ['--', ...pathspecs] : [])],
     // without a pathspec git lists only what is under the folder it runs in: run it at the root
     dir: limited ? cwd : root,
   };
@@ -361,7 +373,7 @@ function untrackedCommand(root: string, cwd: string, pathspecs: string[]): { arg
 /** git's own test for a binary file: a NUL byte in its first 8000 bytes. */
 function isBinaryFile(file: string): boolean {
   const start = Buffer.alloc(8000);
-  const fd = openSync(file, "r");
+  const fd = openSync(file, 'r');
   try {
     return start.subarray(0, readSync(fd, start, 0, start.length, 0)).includes(0);
   } finally {
@@ -374,7 +386,11 @@ function isBinaryFile(file: string): boolean {
  * `git diff` lists tracked files only, so a file that was created and not yet `git add`ed would be
  * in no review. Nothing is written: no `git add -N`, the index stays as it is.
  */
-function untrackedTargets(gitArgs: string[], cwd: string, root: string): { targets: DiffTarget[]; binary: BinaryFile[] } {
+function untrackedTargets(
+  gitArgs: string[],
+  cwd: string,
+  root: string,
+): { targets: DiffTarget[]; binary: BinaryFile[] } {
   const pathspecs = worktreePathspecs(gitArgs, cwd);
   const targets: DiffTarget[] = [];
   const binary: BinaryFile[] = [];
@@ -385,17 +401,17 @@ function untrackedTargets(gitArgs: string[], cwd: string, root: string): { targe
     if (!lstatSync(file, { throwIfNoEntry: false })?.isFile()) continue;
     // a binary has none to show: it is listed, not read
     if (isBinaryFile(file)) {
-      binary.push({ file, status: "added" });
+      binary.push({ file, status: 'added' });
       continue;
     }
-    const text = readFileSync(file, "utf8");
-    const lineCount = text === "" ? 0 : text.split("\n").length - (text.endsWith("\n") ? 1 : 0);
+    const text = readFileSync(file, 'utf8');
+    const lineCount = text === '' ? 0 : text.split('\n').length - (text.endsWith('\n') ? 1 : 0);
     // an empty file has no line to show, as git's diff of one has no hunk
     if (lineCount === 0) continue;
     targets.push({
       file,
       changedLines: Array.from({ length: lineCount }, (_, index) => index + 1),
-      status: "added",
+      status: 'added',
       removals: [],
     });
   }
@@ -412,14 +428,29 @@ export function gitDiffTargets(gitArgs: string[], cwd: string): DiffResult {
   // Fixed a/ b/ prefixes whatever diff.noprefix / diff.mnemonicPrefix say, and
   // non-ASCII paths as they are, not C-quoted: the headers parse the same everywhere.
   // Paths from the root whatever diff.relative says: in a subdirectory it would cut them short.
-  const output = runGit(["-c", "core.quotePath=false", "diff", "--unified=0", "--no-color", "--no-relative",
-    "--src-prefix=a/", "--dst-prefix=b/", ...gitArgs], cwd);
+  const output = runGit(
+    [
+      '-c',
+      'core.quotePath=false',
+      'diff',
+      '--unified=0',
+      '--no-color',
+      '--no-relative',
+      '--src-prefix=a/',
+      '--dst-prefix=b/',
+      ...gitArgs,
+    ],
+    cwd,
+  );
   // Second pass for new-side blob SHAs, so ref-to-ref diffs (qa...feature)
   // read content from git instead of the working tree — which may hold the
   // OLD side, or not hold added files at all.
-  const raw = runGit(["diff", "--raw", "-z", "--no-abbrev", "--no-color", "--no-relative", ...gitArgs], cwd);
+  const raw = runGit(['diff', '--raw', '-z', '--no-abbrev', '--no-color', '--no-relative', ...gitArgs], cwd);
   // Third pass for the binary files: their diffs carry no hunks, so the first pass has none of them.
-  const numstat = runGit(["-c", "core.quotePath=false", "diff", "--numstat", "-z", "--no-color", "--no-relative", ...gitArgs], cwd);
+  const numstat = runGit(
+    ['-c', 'core.quotePath=false', 'diff', '--numstat', '-z', '--no-color', '--no-relative', ...gitArgs],
+    cwd,
+  );
   const parsed = parseDiff(output);
   const rawEntries = parseRawEntries(raw);
   const newBlobs = new Map<string, string>();
@@ -431,36 +462,36 @@ export function gitDiffTargets(gitArgs: string[], cwd: string): DiffResult {
   const abs = (p: string) => toPosix(isAbsolute(p) ? p : join(root, p));
   const untracked = untrackedTargets(gitArgs, cwd, root);
   const rawStatus = new Map(rawEntries.map((entry) => [entry.path, entry.status]));
-  const binaryStatus = (path: string): BinaryFile["status"] => {
-    const status = rawStatus.get(path) ?? "M";
-    return status.startsWith("A") ? "added" : status.startsWith("D") ? "deleted" : "modified";
+  const binaryStatus = (path: string): BinaryFile['status'] => {
+    const status = rawStatus.get(path) ?? 'M';
+    return status.startsWith('A') ? 'added' : status.startsWith('D') ? 'deleted' : 'modified';
   };
   // Unsupported file types are kept — the viewer shows their changes without
   // folding. Binary files are listed apart: there is no text of theirs to show.
   return {
-    targets: [...parsed.files
-      .map((f) => ({
-        file: abs(f.path),
-        changedLines: f.changedLines,
-        status: f.status,
-        removals: f.removals,
-        newBlob: newBlobs.get(f.path),
-        oldBlob: oldBlobs.get(f.path),
-      }))
-      // No blob means the new side is the working tree; a file gone from disk
-      // too has nothing to show (e.g. deleted since the diff was staged), and
-      // a submodule is a directory there.
-      .filter((t) => t.newBlob !== undefined || (existsSync(t.file) && statSync(t.file).isFile())),
-      ...untracked.targets],
+    targets: [
+      ...parsed.files
+        .map((f) => ({
+          file: abs(f.path),
+          changedLines: f.changedLines,
+          status: f.status,
+          removals: f.removals,
+          newBlob: newBlobs.get(f.path),
+          oldBlob: oldBlobs.get(f.path),
+        }))
+        // No blob means the new side is the working tree; a file gone from disk
+        // too has nothing to show (e.g. deleted since the diff was staged), and
+        // a submodule is a directory there.
+        .filter((t) => t.newBlob !== undefined || (existsSync(t.file) && statSync(t.file).isFile())),
+      ...untracked.targets,
+    ],
     binary: [
       ...parseBinaryPaths(numstat).map((path) => ({ file: abs(path), status: binaryStatus(path) })),
       ...untracked.binary,
     ],
     deleted: parsed.deleted.map(abs),
     renamed: parsed.renamed.map((r) => ({ from: abs(r.from), to: abs(r.to) })),
-    deletedBlobs: new Map(parsed.deleted
-      .filter((p) => oldBlobs.has(p))
-      .map((p) => [abs(p), oldBlobs.get(p)!])),
+    deletedBlobs: new Map(parsed.deleted.filter((p) => oldBlobs.has(p)).map((p) => [abs(p), oldBlobs.get(p)!])),
   };
 }
 
@@ -475,38 +506,43 @@ const execFileAsync = promisify(execFile);
  */
 export function changeFingerprint(gitArgs: string[], cwd: string): () => Promise<string> {
   const git = async (args: string[], dir: string) =>
-    (await execFileAsync("git", args, { cwd: dir, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 })).stdout;
+    (await execFileAsync('git', args, { cwd: dir, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })).stdout;
   const digests = new Map<string, { key: string; digest: string }>();
   // what a working-tree file holds: its content, not its time (saving a file unchanged is no change)
   const fileDigest = async (file: string): Promise<string> => {
     let key: string;
     try {
       const stats = await stat(file);
-      if (!stats.isFile()) return "not a file";
+      if (!stats.isFile()) return 'not a file';
       key = `${stats.size}:${stats.mtimeMs}`;
     } catch {
-      return "gone";
+      return 'gone';
     }
     const known = digests.get(file);
     if (known?.key === key) return known.digest;
-    const digest = createHash("sha256").update(await readFile(file).catch(() => "")).digest("hex");
+    const digest = createHash('sha256')
+      .update(await readFile(file).catch(() => ''))
+      .digest('hex');
     digests.set(file, { key, digest });
     return digest;
   };
   return async () => {
-    const root = (await git(["rev-parse", "--show-toplevel"], cwd)).trim();
-    const raw = await git(["diff", "--raw", "-z", "--no-abbrev", "--no-color", "--no-relative", ...gitArgs], cwd);
-    const hash = createHash("sha256").update(raw);
+    const root = (await git(['rev-parse', '--show-toplevel'], cwd)).trim();
+    const raw = await git(['diff', '--raw', '-z', '--no-abbrev', '--no-color', '--no-relative', ...gitArgs], cwd);
+    const hash = createHash('sha256').update(raw);
     // no new-side blob: the file's content is the working tree's (deletions have none either)
-    const fromDisk = parseRawEntries(raw).filter((entry) => entry.newSha === null && !entry.status.startsWith("D"));
+    const fromDisk = parseRawEntries(raw).filter((entry) => entry.newSha === null && !entry.status.startsWith('D'));
     const pathspecs = worktreePathspecs(gitArgs, cwd);
-    const untracked = pathspecs === null ? [] : await (async () => {
-      const { args, dir } = untrackedCommand(root, cwd, pathspecs);
-      return (await git(args, dir)).split("\0").filter(Boolean);
-    })();
+    const untracked =
+      pathspecs === null
+        ? []
+        : await (async () => {
+            const { args, dir } = untrackedCommand(root, cwd, pathspecs);
+            return (await git(args, dir)).split('\0').filter(Boolean);
+          })();
     for (const path of [...fromDisk.map((entry) => entry.path), ...untracked]) {
       hash.update(`\0${path}\0${await fileDigest(join(root, path))}`);
     }
-    return hash.digest("hex");
+    return hash.digest('hex');
   };
 }

@@ -1,14 +1,25 @@
-import { existsSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
-import { relPath } from "../paths.ts";
-import { prepareCommand } from "./bundle.ts";
+import { existsSync, readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+import { relPath } from '../paths.ts';
+import { prepareCommand } from './bundle.ts';
 import {
-  checkoutFirst, HOUSEKEEPING, isHousekeeping, readStored, reviewKey, summaryArgs, summaryStamp, unitSetHash,
-  type ChangeRow, type Concern, type Flow, type SequenceStep, type StoredSummary,
-} from "./store.ts";
-import { citeableLabels, placedHash, removalAnchors, type Unit } from "./units.ts";
-import { fitStored } from "./fit.ts";
-import type { RemovedBlock } from "../model.ts";
+  checkoutFirst,
+  HOUSEKEEPING,
+  isHousekeeping,
+  readStored,
+  reviewKey,
+  summaryArgs,
+  summaryStamp,
+  unitSetHash,
+  type ChangeRow,
+  type Concern,
+  type Flow,
+  type SequenceStep,
+  type StoredSummary,
+} from './store.ts';
+import { citeableLabels, placedHash, removalAnchors, type Unit } from './units.ts';
+import { fitStored } from './fit.ts';
+import type { RemovedBlock } from '../model.ts';
 
 // What the viewer's Summary tab renders: the diff's current units, each with
 // its stored summary when one exists for its current hash.
@@ -25,7 +36,7 @@ export interface CallerPeek {
 /** A removed block plus the shown line it displays after (see removalAnchors) */
 export type AnchoredRemoval = RemovedBlock & { anchor: number };
 
-export interface ViewUnit extends Omit<Unit, "removals"> {
+export interface ViewUnit extends Omit<Unit, 'removals'> {
   removals: AnchoredRemoval[];
   /** Path as the viewer's file list shows it (relative to where lens runs) */
   displayFile: string;
@@ -86,7 +97,7 @@ export interface SummaryView {
 export function buildSummaryView(opts: {
   root: string;
   cwd: string;
-  command: "diff" | "pr";
+  command: 'diff' | 'pr';
   args: string[];
   units: Unit[];
 }): SummaryView {
@@ -103,7 +114,7 @@ export function buildSummaryView(opts: {
     const stale = !s && !!stored?.units[u.id];
     // only while the old one is still a deletion: if it's back in the code, it's a unit of its own
     const from = s?.renamedFrom ? byId.get(s.renamedFrom) : undefined;
-    const renamed = from?.status === "deleted" ? from : undefined;
+    const renamed = from?.status === 'deleted' ? from : undefined;
     if (renamed) hiddenDeleted.add(renamed.id);
     const anchored: AnchoredRemoval[] = [];
     for (const [anchor, blocks] of removalAnchors(u)) for (const b of blocks) anchored.push({ ...b, anchor });
@@ -113,22 +124,24 @@ export function buildSummaryView(opts: {
       displayFile: relPath(opts.cwd, join(opts.root, u.file)),
       stale,
       staleHash: stale ? stored!.units[u.id].hash : null,
-      summary: s ? {
-        headline: s.headline,
-        gist: s.gist,
-        changes: s.changes,
-        breaks: s.breaks.map((b) => ({ summary: b.summary, callers: b.callers.map((c) => peek(opts.root, c)) })),
-        concerns: s.concerns,
-      } : null,
+      summary: s
+        ? {
+            headline: s.headline,
+            gist: s.gist,
+            changes: s.changes,
+            breaks: s.breaks.map((b) => ({ summary: b.summary, callers: b.callers.map((c) => peek(opts.root, c)) })),
+            concerns: s.concerns,
+          }
+        : null,
       renamedFrom: renamed ? { id: renamed.id, removals: renamed.removals } : null,
     };
   });
   // a deleted file adds nothing to read: the Summary leaves it out (the Code view's tree still lists it)
-  const visible = units.filter((u) => !hiddenDeleted.has(u.id) && !(u.kind === "file" && u.status === "deleted"));
+  const visible = units.filter((u) => !hiddenDeleted.has(u.id) && !(u.kind === 'file' && u.status === 'deleted'));
   const flows = shownFlows(stored?.flows ?? [], visible);
   return {
     key,
-    command: `/lens-review${hint ? " " + hint : ""}`,
+    command: `/lens-review${hint ? ' ' + hint : ''}`,
     cli: prepareCommand(opts),
     checkout: checkoutFirst(opts.cwd, opts.command, opts.args),
     stamp: summaryStamp(opts.root, key),
@@ -143,26 +156,33 @@ export function buildSummaryView(opts: {
 
 /** The URL a preview's file is served at (server.ts) */
 export function previewUrl(asset: string): string {
-  return "/api/preview/" + asset;
+  return '/api/preview/' + asset;
 }
 
 /**
  * The stored previews and sequences over the diff as it is now: one whose units have all changed
  * since it was drawn is gone, one with some changed is stale.
  */
-function drawings(stored: StoredSummary | null, units: Unit[]): Pick<SummaryView, "previews" | "sequences"> {
+function drawings(stored: StoredSummary | null, units: Unit[]): Pick<SummaryView, 'previews' | 'sequences'> {
   // by place too: a drawing cites lines, which a unit that moved has elsewhere
   const hashes = new Map(units.map((u) => [u.id, placedHash(u)]));
   const fit = (drawn: Record<string, string>) => {
     const ids = Object.keys(drawn);
     const current = ids.filter((id) => hashes.get(id) === drawn[id]);
-    return current.length === 0 ? null : { units: ids.filter((id) => hashes.has(id)), stale: current.length < ids.length };
+    return current.length === 0
+      ? null
+      : { units: ids.filter((id) => hashes.has(id)), stale: current.length < ids.length };
   };
   const previews: PreviewView[] = [];
   for (const preview of stored?.previews ?? []) {
     const shown = fit(preview.units);
     if (!shown) continue;
-    previews.push({ title: preview.title, ...shown, now: previewUrl(preview.now), before: preview.before ? previewUrl(preview.before) : null });
+    previews.push({
+      title: preview.title,
+      ...shown,
+      now: previewUrl(preview.now),
+      before: preview.before ? previewUrl(preview.before) : null,
+    });
   }
   const sequences: SequenceView[] = [];
   for (const sequence of stored?.sequences ?? []) {
@@ -190,20 +210,20 @@ function shownFlows(stored: Flow[], visible: ViewUnit[]): Flow[] {
   // only next to the agent's flows: a diff without them lists every change as it is
   const filed = visible.filter((u) => isHousekeeping(u) && !placed.has(u.id));
   if (flows.length === 0 || filed.length === 0) return flows;
-  const units = Object.fromEntries(filed.map((u) => [u.id, ""]));
+  const units = Object.fromEntries(filed.map((u) => [u.id, '']));
   const own = flows.find((f) => f.title === HOUSEKEEPING);
   if (own) return flows.map((f) => (f === own ? { ...f, units: { ...f.units, ...units } } : f));
-  return [...flows, { title: HOUSEKEEPING, path: "", units, priority: 3, why: "Imports and formatting only" }];
+  return [...flows, { title: HOUSEKEEPING, path: '', units, priority: 3, why: 'Imports and formatting only' }];
 }
 
 function peek(root: string, caller: string): CallerPeek {
-  const at = caller.lastIndexOf(":");
+  const at = caller.lastIndexOf(':');
   const file = caller.slice(0, at);
   const line = Number(caller.slice(at + 1));
   const abs = join(root, file);
   let lines: { n: number; text: string }[] = [];
   if (existsSync(abs) && statSync(abs).isFile()) {
-    const all = readFileSync(abs, "utf8").split("\n");
+    const all = readFileSync(abs, 'utf8').split('\n');
     const from = Math.max(1, line - PEEK_CONTEXT);
     const to = Math.min(all.length, line + PEEK_CONTEXT);
     for (let n = from; n <= to; n++) lines.push({ n, text: all[n - 1] });

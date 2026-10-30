@@ -1,17 +1,17 @@
 /// <reference path="./viewer-bundle.d.ts" />
-import { fileURLToPath } from "node:url";
-import { join, dirname } from "node:path";
+import { fileURLToPath } from 'node:url';
+import { join, dirname } from 'node:path';
 
 const webDir = dirname(fileURLToPath(import.meta.url));
 /** The viewer's page: src/viewer, beside src/cli-app. */
-const entry = join(webDir, "..", "..", "..", "viewer", "main.tsx");
+const entry = join(webDir, '..', '..', '..', 'viewer', 'main.tsx');
 
 /**
  * The module the compiled `lens` (scripts/compile.ts) carries the viewer in, bundled ahead of
  * time, so the binary needs neither the viewer's sources nor a bundler run on each start. It
  * exists only in the binary: from source, the import fails and the viewer is bundled fresh.
  */
-export const VIEWER_MODULE = "lens:viewer-bundle";
+export const VIEWER_MODULE = 'lens:viewer-bundle';
 
 export interface ViewerBundle {
   /** The viewer's code, safe to inline in a <script> element */
@@ -27,20 +27,20 @@ export interface ViewerBundle {
 export async function bundlePage(entryPoint: string): Promise<ViewerBundle> {
   const result = await Bun.build({
     entrypoints: [entryPoint],
-    format: "iife",
-    target: "browser",
-    jsx: { runtime: "automatic" },
-    define: { "process.env.NODE_ENV": '"production"' },
+    format: 'iife',
+    target: 'browser',
+    jsx: { runtime: 'automatic' },
+    define: { 'process.env.NODE_ENV': '"production"' },
     throw: true,
   });
-  const output = (extension: string) => result.outputs.find((file) => file.path.endsWith(extension))?.text() ?? "";
-  const [script, css] = await Promise.all([output(".js"), output(".css")]);
+  const output = (extension: string) => result.outputs.find((file) => file.path.endsWith(extension))?.text() ?? '';
+  const [script, css] = await Promise.all([output('.js'), output('.css')]);
   return {
     // "</script" anywhere in the code would end the inline script early; "<\/" means the same in
     // strings, template literals and regexes alike
-    script: script.replace(/<\/script/gi, "<\\/script"),
+    script: script.replace(/<\/script/gi, '<\\/script'),
     // the same for the inline <style>
-    css: css.replace(/<\/style/gi, "<\\/style"),
+    css: css.replace(/<\/style/gi, '<\\/style'),
   };
 }
 
@@ -48,7 +48,7 @@ export async function bundlePage(entryPoint: string): Promise<ViewerBundle> {
 async function prebuiltViewer(): Promise<ViewerBundle | null> {
   try {
     // VIEWER_MODULE, spelled out: the bundler only follows an import it can read
-    return (await import("lens:viewer-bundle")).default;
+    return (await import('lens:viewer-bundle')).default;
   } catch {
     return null;
   }

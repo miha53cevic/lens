@@ -1,10 +1,18 @@
-import { readFileSync } from "node:fs";
-import { gitDiffTargets, gitRoot, readBlobs, runGit, type BinaryFile, type DiffTarget, type RenamedFile } from "../git.ts";
-import { resolvePr } from "../pr.ts";
-import { compilePatterns, matchesAny } from "../glob.ts";
-import { relPath } from "../paths.ts";
-import { extractUnits, checkCoverage, type Unit, type UnitFileInput } from "./units.ts";
-import type { LensConfig } from "../model.ts";
+import { readFileSync } from 'node:fs';
+import {
+  gitDiffTargets,
+  gitRoot,
+  readBlobs,
+  runGit,
+  type BinaryFile,
+  type DiffTarget,
+  type RenamedFile,
+} from '../git.ts';
+import { resolvePr } from '../pr.ts';
+import { compilePatterns, matchesAny } from '../glob.ts';
+import { relPath } from '../paths.ts';
+import { extractUnits, checkCoverage, type Unit, type UnitFileInput } from './units.ts';
+import type { LensConfig } from '../model.ts';
 
 export interface LoadedDiff {
   root: string;
@@ -34,11 +42,16 @@ export interface LoadedDiff {
  * re-running picks up new pushes. Excluded files are dropped before anything
  * reads them, but listed.
  */
-export async function loadDiff(command: "diff" | "pr", args: string[], cwd: string, config: LensConfig): Promise<LoadedDiff> {
+export async function loadDiff(
+  command: 'diff' | 'pr',
+  args: string[],
+  cwd: string,
+  config: LensConfig,
+): Promise<LoadedDiff> {
   let diffArgs = args;
   let label: string | null = null;
   let guessedBase: string | null = null;
-  if (command === "pr") {
+  if (command === 'pr') {
     const pr = await resolvePr(args[0], cwd);
     diffArgs = pr.diffArgs;
     label = pr.label;
@@ -50,20 +63,35 @@ export async function loadDiff(command: "diff" | "pr", args: string[], cwd: stri
   const excluded: string[] = [];
   const targets = result.targets.filter((t) => {
     const display = relPath(cwd, t.file);
-    if (matchesAny(display, excludeRegexes)) { excluded.push(display); return false; }
+    if (matchesAny(display, excludeRegexes)) {
+      excluded.push(display);
+      return false;
+    }
     return true;
   });
   const binary = result.binary.filter((b) => {
     const display = relPath(cwd, b.file);
-    if (matchesAny(display, excludeRegexes)) { excluded.push(display); return false; }
+    if (matchesAny(display, excludeRegexes)) {
+      excluded.push(display);
+      return false;
+    }
     return true;
   });
   // New-side content: from git for ref diffs, from disk for the working tree.
-  const newBlobs = readBlobs(targets.flatMap((t) => (t.newBlob !== undefined ? [t.newBlob] : [])), cwd);
+  const newBlobs = readBlobs(
+    targets.flatMap((t) => (t.newBlob !== undefined ? [t.newBlob] : [])),
+    cwd,
+  );
   return {
-    root, diffArgs, label, guessedBase, targets, excluded,
-    sources: new Map(targets.map((t) =>
-      [t.file, t.newBlob !== undefined ? newBlobs.get(t.newBlob)! : readFileSync(t.file, "utf8")])),
+    root,
+    diffArgs,
+    label,
+    guessedBase,
+    targets,
+    excluded,
+    sources: new Map(
+      targets.map((t) => [t.file, t.newBlob !== undefined ? newBlobs.get(t.newBlob)! : readFileSync(t.file, 'utf8')]),
+    ),
     deleted: result.deleted,
     deletedBlobs: result.deletedBlobs,
     renamed: result.renamed,
@@ -75,11 +103,7 @@ export async function loadDiff(command: "diff" | "pr", args: string[], cwd: stri
  * Units for every changed file of the diff, with repo-relative ids. Throws if
  * the one-unit-per-line invariant breaks — that's a lens bug, never silent.
  */
-export async function collectUnits(
-  diff: LoadedDiff,
-  config: LensConfig,
-  cwd: string,
-): Promise<Unit[]> {
+export async function collectUnits(diff: LoadedDiff, config: LensConfig, cwd: string): Promise<Unit[]> {
   const excludeRegexes = compilePatterns(config.exclude);
   const testRegexes = compilePatterns(config.testFilePatterns);
   const inputs: UnitFileInput[] = [];
@@ -87,10 +111,13 @@ export async function collectUnits(
   // like loadDiff's exclude check and the viewer's "hide tests".
   const shown = (abs: string) => relPath(cwd, abs);
   const deleted = diff.deleted.filter((abs) => !matchesAny(shown(abs), excludeRegexes));
-  const oldBlobs = readBlobs([
-    ...diff.targets.flatMap((t) => (t.oldBlob ? [t.oldBlob] : [])),
-    ...deleted.flatMap((abs) => diff.deletedBlobs.get(abs) ?? []),
-  ], cwd);
+  const oldBlobs = readBlobs(
+    [
+      ...diff.targets.flatMap((t) => (t.oldBlob ? [t.oldBlob] : [])),
+      ...deleted.flatMap((abs) => diff.deletedBlobs.get(abs) ?? []),
+    ],
+    cwd,
+  );
   for (const t of diff.targets) {
     const file = relPath(diff.root, t.file);
     inputs.push({
@@ -126,16 +153,18 @@ export async function collectUnits(
 
 /** Commit subjects + bodies in the diffed range, when the args name one. */
 export function commitLog(diffArgs: string[], cwd: string): string {
-  const end = diffArgs.indexOf("--");
-  const revs = (end === -1 ? diffArgs : diffArgs.slice(0, end)).filter((a) => !a.startsWith("-"));
+  const end = diffArgs.indexOf('--');
+  const revs = (end === -1 ? diffArgs : diffArgs.slice(0, end)).filter((a) => !a.startsWith('-'));
   let range: string | null = null;
   if (revs.length === 2) range = `${revs[0]}..${revs[1]}`;
-  else if (revs.length === 1 && revs[0].includes("..")) range = revs[0].replace("...", "..");
+  else if (revs.length === 1 && revs[0].includes('..')) range = revs[0].replace('...', '..');
   else if (revs.length === 1) range = `${revs[0]}..HEAD`;
-  if (!range) return "";
+  if (!range) return '';
   try {
-    return runGit(["log", "--no-merges", "--format=- %s%n%b", "--max-count=50", range], cwd).replace(/\n{3,}/g, "\n\n").trim();
+    return runGit(['log', '--no-merges', '--format=- %s%n%b', '--max-count=50', range], cwd)
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
   } catch {
-    return "";
+    return '';
   }
 }

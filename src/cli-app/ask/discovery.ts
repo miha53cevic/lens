@@ -1,6 +1,6 @@
-import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { lensDir } from "../summary/store.ts";
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { lensDir } from '../summary/store.ts';
 
 // How `lens ask` finds the running viewer: the server writes its port to
 // <root>/.lens/server.json and removes it when it stops.
@@ -11,11 +11,14 @@ export interface ServerInfo {
 }
 
 export function serverInfoPath(root: string): string {
-  return join(root, ".lens", "server.json");
+  return join(root, '.lens', 'server.json');
 }
 
 export function writeServerInfo(root: string, port: number): void {
-  writeFileSync(join(lensDir(root), "server.json"), JSON.stringify({ port, pid: process.pid } satisfies ServerInfo) + "\n");
+  writeFileSync(
+    join(lensDir(root), 'server.json'),
+    JSON.stringify({ port, pid: process.pid } satisfies ServerInfo) + '\n',
+  );
 }
 
 /** Removes the file only if this process wrote it — another lens may have taken over since. */
@@ -26,7 +29,7 @@ export function removeServerInfo(root: string): void {
 
 function readServerInfo(file: string): ServerInfo | null {
   try {
-    const info = JSON.parse(readFileSync(file, "utf8"));
+    const info = JSON.parse(readFileSync(file, 'utf8'));
     return Number.isInteger(info?.port) ? info : null;
   } catch {
     return null;
@@ -42,7 +45,7 @@ export function runningServer(root: string): ServerInfo | null {
     return info;
   } catch (err) {
     // EPERM: it is there, and someone else's
-    return (err as NodeJS.ErrnoException).code === "EPERM" ? info : null;
+    return (err as NodeJS.ErrnoException).code === 'EPERM' ? info : null;
   }
 }
 

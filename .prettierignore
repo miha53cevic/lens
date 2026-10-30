@@ -1,0 +1,4 @@
+# Read as source by test/classify.test.ts, which asserts its exact line ranges
+test/fixtures/loadConfig.ts
+# The page template the server fills in (placeholders and all)
+src/cli-app/render/web/viewer.html

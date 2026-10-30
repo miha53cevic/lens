@@ -1,21 +1,21 @@
-import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
-import { basename, join, resolve } from "node:path";
-import { analyzeSource } from "./classify/index.ts";
-import { findConfigPath } from "./config.ts";
-import { changeFingerprint, type DiffTarget } from "./git.ts";
-import { languageForFile } from "./parse/parser.ts";
-import type { ViewerInput } from "./render/web/server.ts";
-import { compilePatterns, matchesAny } from "./glob.ts";
-import { relPath } from "./paths.ts";
-import type { FileFoldModel, LensConfig } from "./model.ts";
-import { loadDiff, collectUnits, type LoadedDiff } from "./summary/collect.ts";
-import { reviewKey, summaryStamp } from "./summary/store.ts";
-import { buildSummaryView, type SummaryView } from "./summary/view.ts";
-import { buildPreviewsOn } from "./summary/settings.ts";
+import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs';
+import { basename, join, resolve } from 'node:path';
+import { analyzeSource } from './classify/index.ts';
+import { findConfigPath } from './config.ts';
+import { changeFingerprint, type DiffTarget } from './git.ts';
+import { languageForFile } from './parse/parser.ts';
+import type { ViewerInput } from './render/web/server.ts';
+import { compilePatterns, matchesAny } from './glob.ts';
+import { relPath } from './paths.ts';
+import type { FileFoldModel, LensConfig } from './model.ts';
+import { loadDiff, collectUnits, type LoadedDiff } from './summary/collect.ts';
+import { reviewKey, summaryStamp } from './summary/store.ts';
+import { buildSummaryView, type SummaryView } from './summary/view.ts';
+import { buildPreviewsOn } from './summary/settings.ts';
 
-const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "build", "out", "coverage"]);
+const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build', 'out', 'coverage']);
 
-export type AnalyzeCommand = "paths" | "diff" | "pr";
+export type AnalyzeCommand = 'paths' | 'diff' | 'pr';
 
 /**
  * Everything the viewer shows for `lens <paths>` / `lens diff` / `lens pr`.
@@ -36,10 +36,10 @@ export async function analyze(
   let diff: LoadedDiff | null = null;
   // Taken before the diff is read: an edit that lands while this analysis runs then shows as a
   // change, instead of being missed. A PR has none: it moves only when it is fetched.
-  const latestChange = command === "diff" ? changeFingerprint(args, cwd) : null;
+  const latestChange = command === 'diff' ? changeFingerprint(args, cwd) : null;
   // a diff git can't run fails below, with git's own reason
   const changeStamp = latestChange ? await latestChange().catch(() => null) : null;
-  if (command === "paths") {
+  if (command === 'paths') {
     // Directory walks skip excluded files silently; a file passed explicitly
     // on the command line is always analyzed.
     const excludeRegexes = compilePatterns(config.exclude);
@@ -53,13 +53,17 @@ export async function analyze(
     targets = diff.targets;
   }
 
-  const files: ViewerInput["files"] = [];
+  const files: ViewerInput['files'] = [];
   for (const target of targets) {
-    const source = diff ? diff.sources.get(target.file)! : readFileSync(target.file, "utf8");
+    const source = diff ? diff.sources.get(target.file)! : readFileSync(target.file, 'utf8');
     const display = shown(target.file);
     // Unsupported file types (diff mode only) are shown without folding.
-    const fileModel: FileFoldModel = await analyzeSource(display, source, config)
-      ?? { file: display, language: null, lineCount: source.split("\n").length, regions: [] };
+    const fileModel: FileFoldModel = (await analyzeSource(display, source, config)) ?? {
+      file: display,
+      language: null,
+      lineCount: source.split('\n').length,
+      regions: [],
+    };
     if (target.changedLines) fileModel.changedLines = target.changedLines;
     if (target.status) fileModel.status = target.status;
     if (target.removals?.length) fileModel.removals = target.removals;
@@ -68,7 +72,7 @@ export async function analyze(
 
   let summary: SummaryView | null = null;
   let latestSummary: (() => SummaryView) | null = null;
-  if (diff && withSummary && command !== "paths") {
+  if (diff && withSummary && command !== 'paths') {
     try {
       const units = await collectUnits(diff, config, cwd);
       const { root } = diff;
@@ -117,7 +121,7 @@ function collectFiles(paths: string[]): string[] {
     if (!stats) return; // a link to nothing
     if (stats.isDirectory()) {
       const name = basename(p);
-      if (!named && (SKIP_DIRS.has(name) || name.startsWith("."))) return;
+      if (!named && (SKIP_DIRS.has(name) || name.startsWith('.'))) return;
       for (const entry of readdirSync(p).sort()) visit(join(p, entry), false);
     } else if (languageForFile(p)) {
       files.push(p);

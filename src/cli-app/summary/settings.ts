@@ -1,7 +1,7 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import type { LensConfig } from "../model.ts";
-import { lensDir } from "./store.ts";
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import type { LensConfig } from '../model.ts';
+import { lensDir } from './store.ts';
 
 // The reader's own switches for this repository, set from the viewer: .lens/settings.json, in
 // lens's ignored folder. A switch here never edits the checked-in .lens.json; it wins over it.
@@ -11,15 +11,15 @@ export interface LocalSettings {
 }
 
 function settingsPath(root: string): string {
-  return join(root, ".lens", "settings.json");
+  return join(root, '.lens', 'settings.json');
 }
 
 export function readSettings(root: string): LocalSettings {
   const path = settingsPath(root);
   if (!existsSync(path)) return {};
   try {
-    const raw = JSON.parse(readFileSync(path, "utf8"));
-    return typeof raw?.buildPreviews === "boolean" ? { buildPreviews: raw.buildPreviews } : {};
+    const raw = JSON.parse(readFileSync(path, 'utf8'));
+    return typeof raw?.buildPreviews === 'boolean' ? { buildPreviews: raw.buildPreviews } : {};
   } catch {
     return {};
   }
@@ -28,7 +28,7 @@ export function readSettings(root: string): LocalSettings {
 export function writeSettings(root: string, patch: LocalSettings): LocalSettings {
   const next = { ...readSettings(root), ...patch };
   lensDir(root);
-  writeFileSync(settingsPath(root), JSON.stringify(next, null, 2) + "\n");
+  writeFileSync(settingsPath(root), JSON.stringify(next, null, 2) + '\n');
   return next;
 }
 

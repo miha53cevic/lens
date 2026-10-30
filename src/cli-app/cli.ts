@@ -1,16 +1,16 @@
 #!/usr/bin/env bun
-import { loadConfig, findConfigPath } from "./config.ts";
-import { isBundledTheme } from "./render/highlight.ts";
-import { serveViewer } from "./render/web/server.ts";
-import { analyze } from "./analyze.ts";
-import { runSummary } from "./summary/command.ts";
-import { runAsk } from "./ask/command.ts";
-import { runInfo } from "./info.ts";
-import { runClear } from "./clear.ts";
-import { gitRoot } from "./git.ts";
-import { pickPort } from "./port.ts";
-import type { LensConfig } from "./model.ts";
-import manifest from "../../package.json" with { type: "json" };
+import { loadConfig, findConfigPath } from './config.ts';
+import { isBundledTheme } from './render/highlight.ts';
+import { serveViewer } from './render/web/server.ts';
+import { analyze } from './analyze.ts';
+import { runSummary } from './summary/command.ts';
+import { runAsk } from './ask/command.ts';
+import { runInfo } from './info.ts';
+import { runClear } from './clear.ts';
+import { gitRoot } from './git.ts';
+import { pickPort } from './port.ts';
+import type { LensConfig } from './model.ts';
+import manifest from '../../package.json' with { type: 'json' };
 
 const HELP = `lens — a reading lens for AI-generated code (static analysis, no AI)
 
@@ -60,26 +60,41 @@ interface CliOptions {
   theme: string | null;
 }
 
-type Command = "paths" | "diff" | "pr" | "config" | "info" | "summary" | "ask" | "clear";
-const COMMANDS: string[] = ["diff", "pr", "config", "info", "summary", "ask", "clear"] satisfies Command[];
+type Command = 'paths' | 'diff' | 'pr' | 'config' | 'info' | 'summary' | 'ask' | 'clear';
+const COMMANDS: string[] = ['diff', 'pr', 'config', 'info', 'summary', 'ask', 'clear'] satisfies Command[];
 
 function parseCli(argv: string[]): { command: Command; rest: string[]; opts: CliOptions } {
-  const opts: CliOptions = { json: false, open: true, openSummary: false, port: 0, portSet: false, threshold: null, theme: null };
+  const opts: CliOptions = {
+    json: false,
+    open: true,
+    openSummary: false,
+    port: 0,
+    portSet: false,
+    threshold: null,
+    theme: null,
+  };
   const rest: string[] = [];
-  let command: Command = "paths";
+  let command: Command = 'paths';
   const args = [...argv];
   while (args.length > 0) {
     const arg = args.shift()!;
-    if (arg === "--json") opts.json = true;
-    else if (arg === "--no-open") opts.open = false;
-    else if (arg === "--summary") opts.openSummary = true;
-    else if (arg === "--port") { opts.port = Number(args.shift()); opts.portSet = true; }
-    else if (arg === "--threshold") opts.threshold = Number(args.shift());
-    else if (arg === "--theme") opts.theme = args.shift() ?? null;
-    else if (arg === "--help" || arg === "-h") { console.log(HELP); process.exit(0); }
-    else if (arg === "--version" || arg === "-v") { console.log(`lens ${manifest.version}`); process.exit(0); }
+    if (arg === '--json') opts.json = true;
+    else if (arg === '--no-open') opts.open = false;
+    else if (arg === '--summary') opts.openSummary = true;
+    else if (arg === '--port') {
+      opts.port = Number(args.shift());
+      opts.portSet = true;
+    } else if (arg === '--threshold') opts.threshold = Number(args.shift());
+    else if (arg === '--theme') opts.theme = args.shift() ?? null;
+    else if (arg === '--help' || arg === '-h') {
+      console.log(HELP);
+      process.exit(0);
+    } else if (arg === '--version' || arg === '-v') {
+      console.log(`lens ${manifest.version}`);
+      process.exit(0);
+    }
     // the command is the first word that isn't a lens flag (`lens --no-open diff` works too)
-    else if (command === "paths" && rest.length === 0 && COMMANDS.includes(arg)) command = arg as Command;
+    else if (command === 'paths' && rest.length === 0 && COMMANDS.includes(arg)) command = arg as Command;
     else rest.push(arg); // in diff mode these pass through to git diff
   }
   return { command, rest, opts };
@@ -98,27 +113,32 @@ async function main(): Promise<void> {
   const { command, rest, opts } = parseCli(process.argv.slice(2));
   const cwd = process.cwd();
 
-  if (command === "config") {
+  if (command === 'config') {
     const path = findConfigPath(cwd);
-    console.error(path
-      ? `# effective config: built-in lens.defaults.json + ${path}`
-      : "# effective config: built-in lens.defaults.json (no .lens.json found)");
+    console.error(
+      path
+        ? `# effective config: built-in lens.defaults.json + ${path}`
+        : '# effective config: built-in lens.defaults.json (no .lens.json found)',
+    );
     console.log(JSON.stringify(loadConfig(cwd), null, 2));
     return;
   }
-  if (command === "info") return runInfo(rest, cwd, opts.json, opts.theme);
-  if (command === "summary") return runSummary(rest, cwd);
-  if (command === "ask") return runAsk(rest, cwd, opts.portSet ? opts.port : null);
-  if (command === "clear") return runClear(rest, repoRootOr(cwd));
+  if (command === 'info') return runInfo(rest, cwd, opts.json, opts.theme);
+  if (command === 'summary') return runSummary(rest, cwd);
+  if (command === 'ask') return runAsk(rest, cwd, opts.portSet ? opts.port : null);
+  if (command === 'clear') return runClear(rest, repoRootOr(cwd));
 
   if (opts.portSet && (!Number.isInteger(opts.port) || opts.port < 1 || opts.port > 65535)) {
-    throw new Error("--port needs a number between 1 and 65535");
+    throw new Error('--port needs a number between 1 and 65535');
   }
   if (opts.threshold !== null && Number.isNaN(opts.threshold)) {
-    throw new Error("--threshold needs a number (-1 to 3)");
+    throw new Error('--threshold needs a number (-1 to 3)');
   }
-  if (command === "pr" && rest.length !== 1) throw new Error("pr takes exactly one argument — a PR URL or a PR number");
-  if (command === "paths" && rest.length === 0) { console.log(HELP); process.exit(1); }
+  if (command === 'pr' && rest.length !== 1) throw new Error('pr takes exactly one argument — a PR URL or a PR number');
+  if (command === 'paths' && rest.length === 0) {
+    console.log(HELP);
+    process.exit(1);
+  }
 
   // Re-resolved on every analysis so the viewer's refresh picks up .lens.json
   // edits; CLI flags stay applied on top.
@@ -135,11 +155,19 @@ async function main(): Promise<void> {
 
   const initial = await analyze(command, rest, cwd, config, !opts.json);
   const { files, deleted, excluded, renamed, binary } = initial;
-  if (files.length === 0 && deleted.length === 0 && excluded.length === 0 && renamed.length === 0 && binary.length === 0) {
+  if (
+    files.length === 0 &&
+    deleted.length === 0 &&
+    excluded.length === 0 &&
+    renamed.length === 0 &&
+    binary.length === 0
+  ) {
     throw new Error(
-      command === "diff" ? "no changed supported files in this diff"
-      : command === "pr" ? "no changed supported files in this PR"
-      : "no supported files found (ts, tsx, js, jsx, mjs, cjs)",
+      command === 'diff'
+        ? 'no changed supported files in this diff'
+        : command === 'pr'
+          ? 'no changed supported files in this PR'
+          : 'no supported files found (ts, tsx, js, jsx, mjs, cjs)',
     );
   }
 

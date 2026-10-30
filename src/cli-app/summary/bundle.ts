@@ -1,22 +1,45 @@
-import { writeFileSync, readdirSync, unlinkSync, mkdirSync, rmSync } from "node:fs";
-import { join } from "node:path";
-import { relPath } from "../paths.ts";
-import { citeableLabels, removalAnchors, type Unit } from "./units.ts";
-import { PREVIEW_MAX_BYTES } from "./previews.ts";
-import { fitStored } from "./fit.ts";
-import { MAX_USAGES, usagesOutside, type Usages } from "./usages.ts";
+import { writeFileSync, readdirSync, unlinkSync, mkdirSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { relPath } from '../paths.ts';
+import { citeableLabels, removalAnchors, type Unit } from './units.ts';
+import { PREVIEW_MAX_BYTES } from './previews.ts';
+import { fitStored } from './fit.ts';
+import { MAX_USAGES, usagesOutside, type Usages } from './usages.ts';
 import {
-  bundleDir, HOUSEKEEPING, isHousekeeping, needsFlows, PREVIEWS_DIR, readStored, summaryArgs, unitSetHash, writeStored,
-  type Bundle, type BundleUnit, type StoredSummary, type UnitSummary,
-} from "./store.ts";
+  bundleDir,
+  HOUSEKEEPING,
+  isHousekeeping,
+  needsFlows,
+  PREVIEWS_DIR,
+  readStored,
+  summaryArgs,
+  unitSetHash,
+  writeStored,
+  type Bundle,
+  type BundleUnit,
+  type StoredSummary,
+  type UnitSummary,
+} from './store.ts';
 
 // `lens summary prepare` output: a folder the user's agent reads (tasks,
 // instructions, schema) plus bundle.json, which `submit` validates against.
 
 export const LIMITS = {
-  headline: 80, gist: 40, cell: 60, breakSummary: 160, concern: 300,
-  flowTitle: 40, flowPath: 60, layer: 12, why: 100, overview: 2000,
-  previewTitle: 40, lane: 20, lanes: 6, stepLabel: 40, steps: 16,
+  headline: 80,
+  gist: 40,
+  cell: 60,
+  breakSummary: 160,
+  concern: 300,
+  flowTitle: 40,
+  flowPath: 60,
+  layer: 12,
+  why: 100,
+  overview: 2000,
+  previewTitle: 40,
+  lane: 20,
+  lanes: 6,
+  stepLabel: 40,
+  steps: 16,
 };
 
 /** The biggest preview file, as the instructions say it */
@@ -29,7 +52,7 @@ export interface PrepareInput {
   root: string;
   cwd: string;
   key: string;
-  command: "diff" | "pr";
+  command: 'diff' | 'pr';
   args: string[];
   label: string | null;
   commits: string;
@@ -45,7 +68,7 @@ const UI_FILE = /\.(css|scss|sass|less|html|vue|svelte|astro)$/i;
 
 /** A unit that changes what a screen looks like: a component, a hook, or a style or markup file. */
 export function isUiUnit(unit: { kind: string; file: string }): boolean {
-  return unit.kind === "component" || unit.kind === "hook" || UI_FILE.test(unit.file);
+  return unit.kind === 'component' || unit.kind === 'hook' || UI_FILE.test(unit.file);
 }
 
 export interface PrepareResult {
@@ -90,7 +113,7 @@ export function prepareBundle(input: PrepareInput): PrepareResult {
   const housekeeping = bundleUnits.filter(isHousekeeping).length;
   let summaries = stored;
   if (filed.length > 0) {
-    summaries = stored ?? { version: 1, updatedAt: "", units: {}, flows: [] };
+    summaries = stored ?? { version: 1, updatedAt: '', units: {}, flows: [] };
     for (const u of filed) {
       summaries.units[u.id] = { ...housekeepingSummary(u), hash: u.hash, anchor: u.anchor };
       u.done = true;
@@ -110,7 +133,7 @@ export function prepareBundle(input: PrepareInput): PrepareResult {
 
   // Stale task files from a bigger earlier diff must not linger, nor an earlier pass's preview files.
   for (const f of readdirSync(dir)) {
-    if (/^tasks(-\d+)?\.md$/.test(f) || f === "result.json") unlinkSync(join(dir, f));
+    if (/^tasks(-\d+)?\.md$/.test(f) || f === 'result.json') unlinkSync(join(dir, f));
   }
   rmSync(join(dir, PREVIEWS_DIR), { recursive: true, force: true });
   if (input.drawings) mkdirSync(join(dir, PREVIEWS_DIR));
@@ -122,8 +145,11 @@ export function prepareBundle(input: PrepareInput): PrepareResult {
   let used = 0;
   for (const unit of todo) {
     const rendered = renderUnit(unit, input.sources.get(unit.file), usages.get(unit.id));
-    const size = rendered.split("\n").length;
-    if (used > 0 && used + size > TASK_FILE_BUDGET) { chunks.push([]); used = 0; }
+    const size = rendered.split('\n').length;
+    if (used > 0 && used + size > TASK_FILE_BUDGET) {
+      chunks.push([]);
+      used = 0;
+    }
     chunks[chunks.length - 1].push(rendered);
     used += size;
   }
@@ -132,43 +158,46 @@ export function prepareBundle(input: PrepareInput): PrepareResult {
   // the final pass — flows and the overview, from every unit's stored summary.
   // A diff split into parts gets its flows here, where one context sees all units.
   // the whole-diff work is done once the overview fits this diff and flows exist (a flow needs 2+ units)
-  const storyDone = summaries?.overview?.hash === unitSetHash(bundleUnits) &&
-    (summaries.flows.length > 0 || !needsFlows(bundleUnits));
+  const storyDone =
+    summaries?.overview?.hash === unitSetHash(bundleUnits) && (summaries.flows.length > 0 || !needsFlows(bundleUnits));
   // with Build previews on, the whole-diff pass also draws: done once a pass that asked was submitted for this diff
   const drawingsDone = !input.drawings || summaries?.drawn === unitSetHash(bundleUnits);
   const wholeDone = storyDone && drawingsDone;
   const finalPass = todo.length === 0 && summaries !== null && !wholeDone;
   if (finalPass && summaries) {
-    const name = join(dir, "tasks.md");
-    writeFileSync(name, `# lens summary tasks (final pass: flows and overview)\n\n${header}\n${renderHeadlines(input.units, summaries, input.sources)}`);
+    const name = join(dir, 'tasks.md');
+    writeFileSync(
+      name,
+      `# lens summary tasks (final pass: flows and overview)\n\n${header}\n${renderHeadlines(input.units, summaries, input.sources)}`,
+    );
     taskFiles.push(name);
   }
   if (todo.length > 0) {
     chunks.forEach((chunk, i) => {
-      const name = chunks.length === 1 ? "tasks.md" : `tasks-${i + 1}.md`;
-      const part = chunks.length === 1 ? "" : ` (part ${i + 1} of ${chunks.length})`;
-      writeFileSync(join(dir, name), `# lens summary tasks${part}\n\n${header}\n${chunk.join("\n")}`);
+      const name = chunks.length === 1 ? 'tasks.md' : `tasks-${i + 1}.md`;
+      const part = chunks.length === 1 ? '' : ` (part ${i + 1} of ${chunks.length})`;
+      writeFileSync(join(dir, name), `# lens summary tasks${part}\n\n${header}\n${chunk.join('\n')}`);
       taskFiles.push(join(dir, name));
     });
   }
 
   // a fresh run in one part sees every unit: the ones lens filed itself don't need seeing
   if (finalPass || (prior === 0 && taskFiles.length === 1)) bundle.wholeDiff = true;
-  writeFileSync(join(dir, "bundle.json"), JSON.stringify(bundle, null, 2) + "\n");
-  writeFileSync(join(dir, "schema.json"), JSON.stringify(RESULT_SCHEMA, null, 2) + "\n");
+  writeFileSync(join(dir, 'bundle.json'), JSON.stringify(bundle, null, 2) + '\n');
+  writeFileSync(join(dir, 'schema.json'), JSON.stringify(RESULT_SCHEMA, null, 2) + '\n');
   const doneCount = bundleUnits.filter((u) => u.done).length;
   const instructions = finalPass
     ? renderFinalPassInstructions(input, dir, taskFiles[0], storyDone)
     : renderInstructions(input, dir, taskFiles, todo.length, prior, housekeeping, wholeDone);
-  writeFileSync(join(dir, "instructions.md"), instructions);
+  writeFileSync(join(dir, 'instructions.md'), instructions);
   return { dir, taskFiles, todo: todo.length, done: doneCount, instructions };
 }
 
 /** The summary lens writes for a unit it files under Housekeeping. */
 export function housekeepingSummary(unit: { importsOnly?: boolean }): UnitSummary {
   const [headline, gist] = unit.importsOnly
-    ? ["Changes only its imports", "imports only"]
-    : ["Changes only whitespace", "formatting only"];
+    ? ['Changes only its imports', 'imports only']
+    : ['Changes only whitespace', 'formatting only'];
   return { headline, gist, needsLook: false, changes: [], breaks: [], concerns: [] };
 }
 
@@ -187,21 +216,25 @@ function renderHeadlines(units: Unit[], stored: StoredSummary, sources: Map<stri
     for (const u of fileUnits) {
       const s = stored.units[u.id];
       const removed = u.removals.reduce((n, b) => n + b.lines.length, 0);
-      const size = [u.changedLines.length > 0 ? `+${u.changedLines.length}` : "", removed > 0 ? `−${removed}` : ""].filter(Boolean).join(" ");
-      const marks = [u.kind, u.status, size, ...(s?.breaks.length ? ["may break callers"] : [])].filter(Boolean);
-      out.push(`- \`${u.id}\` (${marks.join(", ")}): ${s ? `${s.headline} — ${s.gist}` : "no summary"}`);
+      const size = [u.changedLines.length > 0 ? `+${u.changedLines.length}` : '', removed > 0 ? `−${removed}` : '']
+        .filter(Boolean)
+        .join(' ');
+      const marks = [u.kind, u.status, size, ...(s?.breaks.length ? ['may break callers'] : [])].filter(Boolean);
+      out.push(`- \`${u.id}\` (${marks.join(', ')}): ${s ? `${s.headline} — ${s.gist}` : 'no summary'}`);
       const names = mentions.get(u.id) ?? [];
-      if (names.length > 0) out.push(`  names: ${names.map((id) => `\`${id}\``).join(", ")}`);
+      if (names.length > 0) out.push(`  names: ${names.map((id) => `\`${id}\``).join(', ')}`);
       for (const c of s?.concerns ?? []) out.push(`  - ${c.kind}: ${c.text}`);
     }
-    out.push("");
+    out.push('');
   }
   const filed = units.filter(isHousekeeping);
   if (filed.length > 0) {
-    out.push(`Lens files these under "${HOUSEKEEPING}" itself (import-only or formatting-only): leave them out of your flows.`);
-    out.push(...filed.map((u) => `- \`${u.id}\``), "");
+    out.push(
+      `Lens files these under "${HOUSEKEEPING}" itself (import-only or formatting-only): leave them out of your flows.`,
+    );
+    out.push(...filed.map((u) => `- \`${u.id}\``), '');
   }
-  return out.join("\n");
+  return out.join('\n');
 }
 
 /** Most names listed per unit: past that, the list stops helping */
@@ -210,30 +243,28 @@ const MAX_MENTIONS = 6;
 /** For each unit, the other changed units whose name appears in its shown or removed code. */
 function mentionsOf(units: Unit[], sources: Map<string, string>): Map<string, string[]> {
   const named = units
-    .map((u) => ({ id: u.id, name: u.name.split(".").pop() ?? u.name }))
+    .map((u) => ({ id: u.id, name: u.name.split('.').pop() ?? u.name }))
     .filter((u) => /^[A-Za-z_$][\w$]{2,}$/.test(u.name))
-    .map((u) => ({ id: u.id, pattern: new RegExp(`(^|[^\\w$])${u.name.replace(/\$/g, "\\$")}([^\\w$]|$)`) }));
+    .map((u) => ({ id: u.id, pattern: new RegExp(`(^|[^\\w$])${u.name.replace(/\$/g, '\\$')}([^\\w$]|$)`) }));
   const fileLines = new Map<string, string[]>();
   const out = new Map<string, string[]>();
   for (const u of units) {
     let lines = fileLines.get(u.file);
-    if (!lines) fileLines.set(u.file, (lines = sources.get(u.file)?.split("\n") ?? []));
+    if (!lines) fileLines.set(u.file, (lines = sources.get(u.file)?.split('\n') ?? []));
     const code = [
       ...u.ranges.flatMap((r) => lines.slice(r.start - 1, r.end)),
       ...u.removals.flatMap((b) => b.lines),
-    ].join("\n");
-    const found = named
-      .filter((other) => other.id !== u.id && other.pattern.test(code))
-      .map((other) => other.id);
+    ].join('\n');
+    const found = named.filter((other) => other.id !== u.id && other.pattern.test(code)).map((other) => other.id);
     if (found.length > 0) out.set(u.id, found.slice(0, MAX_MENTIONS));
   }
   return out;
 }
 
 function contextHeader(input: PrepareInput): string {
-  const parts = [`Diff: \`lens ${input.command} ${input.args.join(" ")}\`${input.label ? ` (${input.label})` : ""}`];
+  const parts = [`Diff: \`lens ${input.command} ${input.args.join(' ')}\`${input.label ? ` (${input.label})` : ''}`];
   if (input.commits) parts.push(`Commits:\n${input.commits}`);
-  return parts.join("\n\n") + "\n";
+  return parts.join('\n\n') + '\n';
 }
 
 /**
@@ -241,24 +272,27 @@ function contextHeader(input: PrepareInput): string {
  * `O16 - code` for removed old lines (citeable), `  15   code` for context.
  */
 export function renderUnit(unit: Unit, source: string | undefined, usages?: Usages): string {
-  const lines = source?.split("\n") ?? [];
-  const width = Math.max(4, ...unit.ranges.map((r) => String(r.end).length + 1),
-    ...unit.removals.map((b) => String(b.oldStart + b.lines.length).length + 1));
+  const lines = source?.split('\n') ?? [];
+  const width = Math.max(
+    4,
+    ...unit.ranges.map((r) => String(r.end).length + 1),
+    ...unit.removals.map((b) => String(b.oldStart + b.lines.length).length + 1),
+  );
   const changed = new Set(unit.changedLines);
   const out: string[] = [];
   const removedAt = removalAnchors(unit);
   const emitRemovals = (after: number) => {
     for (const b of removedAt.get(after) ?? []) {
-      b.lines.forEach((text, i) => out.push(`${("O" + (b.oldStart + i)).padStart(width)} - ${text}`));
+      b.lines.forEach((text, i) => out.push(`${('O' + (b.oldStart + i)).padStart(width)} - ${text}`));
     }
   };
   if (unit.ranges.length === 0) emitRemovals(0);
   unit.ranges.forEach((r, ri) => {
-    if (ri > 0) out.push(`${"".padStart(width)}   ⋯`);
+    if (ri > 0) out.push(`${''.padStart(width)}   ⋯`);
     emitRemovals(r.start - 1);
     for (let l = r.start; l <= r.end; l++) {
-      const text = lines[l - 1] ?? "";
-      out.push(changed.has(l) ? `${("N" + l).padStart(width)} + ${text}` : `${String(l).padStart(width)}   ${text}`);
+      const text = lines[l - 1] ?? '';
+      out.push(changed.has(l) ? `${('N' + l).padStart(width)} + ${text}` : `${String(l).padStart(width)}   ${text}`);
       emitRemovals(l);
     }
   });
@@ -266,29 +300,38 @@ export function renderUnit(unit: Unit, source: string | undefined, usages?: Usag
   const meta: string[] = [unit.kind, unit.status];
   if (unit.formattingOnly) meta.push(`formatting only (whitespace): lens files it under "${HOUSEKEEPING}"`);
   if (unit.importsOnly) meta.push(`imports only: lens files it under "${HOUSEKEEPING}"`);
-  const where = unit.ranges.length > 0 ? ` · lines ${unit.ranges[0].start}–${unit.ranges[unit.ranges.length - 1].end}` : "";
-  const code = out.join("\n");
+  const where =
+    unit.ranges.length > 0 ? ` · lines ${unit.ranges[0].start}–${unit.ranges[unit.ranges.length - 1].end}` : '';
+  const code = out.join('\n');
   // a fence longer than any run of backticks in the code: a changed README's own fences don't end it
-  const fence = "`".repeat(Math.max(3, ...[...code.matchAll(/`+/g)].map((run) => run[0].length + 1)));
-  return `## ${unit.id}\n${meta.join(" · ")}${where}\n\n${fence}\n${code}\n${fence}\n${usages ? renderUsages(usages) : ""}`;
+  const fence = '`'.repeat(Math.max(3, ...[...code.matchAll(/`+/g)].map((run) => run[0].length + 1)));
+  return `## ${unit.id}\n${meta.join(' · ')}${where}\n\n${fence}\n${code}\n${fence}\n${usages ? renderUsages(usages) : ''}`;
 }
 
 /** The lines outside the diff that name the unit, under its code. */
 function renderUsages(usages: Usages): string {
   if (usages.lines.length === 0) return `\nOutside the diff, no line names \`${usages.name}\`.\n`;
   const more = usages.more > 0 ? [`- … and ${usages.more} more: \`git grep -nw ${usages.name}\``] : [];
-  return `\nOutside the diff, \`${usages.name}\` is named at:\n${[...usages.lines.map((line) => `- ${line}`), ...more].join("\n")}\n`;
+  return `\nOutside the diff, \`${usages.name}\` is named at:\n${[...usages.lines.map((line) => `- ${line}`), ...more].join('\n')}\n`;
 }
 
 function renderInstructions(
-  input: PrepareInput, dir: string, taskFiles: string[], todo: number, done: number, filed: number, wholeDone: boolean,
+  input: PrepareInput,
+  dir: string,
+  taskFiles: string[],
+  todo: number,
+  done: number,
+  filed: number,
+  wholeDone: boolean,
 ): string {
   const rel = (p: string) => relPath(input.cwd, p);
-  const resultPath = rel(join(dir, "result.json"));
-  const files = taskFiles.map((f) => `\`${rel(f)}\``).join(", ");
+  const resultPath = rel(join(dir, 'result.json'));
+  const files = taskFiles.map((f) => `\`${rel(f)}\``).join(', ');
   if (todo === 0) {
-    return `# lens summary\n\nNothing to do: all ${done + filed} units already have a summary for their current code.\n` +
-      `Tell the user to open the Summary tab in the lens viewer (refresh with ↻).\n`;
+    return (
+      `# lens summary\n\nNothing to do: all ${done + filed} units already have a summary for their current code.\n` +
+      `Tell the user to open the Summary tab in the lens viewer (refresh with ↻).\n`
+    );
   }
   // flows need every unit in view: split or partial runs leave them to the final pass —
   // unless this diff's flows and overview are already written (units left over from a rejected submit)
@@ -296,7 +339,7 @@ function renderInstructions(
   return `# lens summary — instructions for the agent
 
 You are writing a review summary of a code diff for the lens viewer. Lens split the
-diff into ${todo} units (functions, components, hooks, methods, types, …)${done > 0 ? `; ${done} more are already summarized and skipped` : ""}${filed > 0 ? `; lens summarizes the ${filed} import-only or formatting-only ${filed === 1 ? "one" : "ones"} itself` : ""}.
+diff into ${todo} units (functions, components, hooks, methods, types, …)${done > 0 ? `; ${done} more are already summarized and skipped` : ''}${filed > 0 ? `; lens summarizes the ${filed} import-only or formatting-only ${filed === 1 ? 'one' : 'ones'} itself` : ''}.
 Tasks: ${files}
 
 If you can, do this in a fresh context or a subagent, not in the session that wrote
@@ -312,13 +355,17 @@ spawn a subagent per part, per unit or per search.
    plain text match over the working tree, up to ${MAX_USAGES}): those are its likely callers. Read
    them rather than searching again. Search yourself only when the list is cut off, or the
    unit is reached another way (an alias, a re-export under another name, a string key).
-3. Write \`${resultPath}\` following \`${rel(join(dir, "schema.json"))}\`.
+3. Write \`${resultPath}\` following \`${rel(join(dir, 'schema.json'))}\`.
 4. Run \`lens summary submit ${rel(dir)}\`. It prints what it rejected and why: fix those
    entries and submit once more. Submits merge, so for multi-part tasks you may submit
    after each part.
-${deferred ? `5. Once every unit is submitted, run \`${prepareCommand(input)}\` again: it writes the final
+${
+  deferred
+    ? `5. Once every unit is submitted, run \`${prepareCommand(input)}\` again: it writes the final
    pass — flows and the overview, from all units at once.
-` : ""}
+`
+    : ''
+}
 ## Per unit
 - \`headline\` (≤${LIMITS.headline} chars): what the unit does now, in plain words.
 - \`gist\` (≤${LIMITS.gist} chars): the key change, e.g. "returns max 50 by default".
@@ -354,20 +401,22 @@ ${deferred ? `5. Once every unit is submitted, run \`${prepareCommand(input)}\` 
   - Don't mention the breaks you dropped.
 - \`renamedFrom\`: for a new unit that is a renamed/moved deleted unit, the deleted unit's id.
 
-${wholeDone
+${
+  wholeDone
     ? `## Flows and overview
 Already written for this diff — leave them out.
 `
     : deferred
-    ? `## Flows and overview
+      ? `## Flows and overview
 Not in this pass — the final pass (step 5) asks for them, once every unit is summarized.
 `
-    : `## Flows
+      : `## Flows
 ${FLOWS_RULE}
 
 ## Overview
 ${OVERVIEW_RULE}
-${drawingRules(input, dir)}`}
+${drawingRules(input, dir)}`
+}
 Keep everything terse: the viewer shows it in a small table next to the code.
 `;
 }
@@ -402,24 +451,30 @@ not files; don't repeat unit headlines or walk through the diff file by file.`;
 function renderFinalPassInstructions(input: PrepareInput, dir: string, tasks: string, storyDone: boolean): string {
   const rel = (p: string) => relPath(input.cwd, p);
   const asked = [...(storyDone ? [] : ['"flows": [ … ]', '"overview": {"what": "…"}']), ...drawingFields(input)];
-  const what = storyDone ? "the drawings of the whole diff (its flows and overview are written)" : "the flows and\nthe overview of the whole diff";
+  const what = storyDone
+    ? 'the drawings of the whole diff (its flows and overview are written)'
+    : 'the flows and\nthe overview of the whole diff';
   return `# lens summary — instructions for the agent
 
 Every unit of this diff already has a summary. This is the final pass: ${what}. Tasks: \`${rel(tasks)}\` lists each unit with its headline,
 gist, and any concerns, by file.
 
 1. Read the task file. Look at the diff itself if the headlines aren't enough.
-2. Write \`${rel(join(dir, "result.json"))}\` as
-   \`{"units": {}, ${asked.join(", ")}}\`, following \`${rel(join(dir, "schema.json"))}\`.
+2. Write \`${rel(join(dir, 'result.json'))}\` as
+   \`{"units": {}, ${asked.join(', ')}}\`, following \`${rel(join(dir, 'schema.json'))}\`.
 3. Run \`lens summary submit ${rel(dir)}\`. It names the units your flows leave out and the
    flows that look split up: fix those and submit again.
-${storyDone ? "" : `
+${
+  storyDone
+    ? ''
+    : `
 ## Flows
 ${FLOWS_RULE}
 
 ## Overview
 ${OVERVIEW_RULE}
-`}${drawingRules(input, dir)}`;
+`
+}${drawingRules(input, dir)}`;
 }
 
 /** The result fields the drawings add, for the final pass's one-line shape */
@@ -430,11 +485,18 @@ function drawingFields(input: PrepareInput): string[] {
 
 /** Previews of changed screens (a diff with UI units) and sequence diagrams, while Build previews is on. */
 function drawingRules(input: PrepareInput, dir: string): string {
-  if (!input.drawings) return "";
+  if (!input.drawings) return '';
   const ui = input.units.filter(isUiUnit);
   const folder = relPath(input.cwd, join(dir, PREVIEWS_DIR));
-  const names = ui.slice(0, 8).map((u) => `\`${u.id}\``).join(", ") + (ui.length > 8 ? ", …" : "");
-  const previews = ui.length === 0 ? "" : `
+  const names =
+    ui
+      .slice(0, 8)
+      .map((u) => `\`${u.id}\``)
+      .join(', ') + (ui.length > 8 ? ', …' : '');
+  const previews =
+    ui.length === 0
+      ? ''
+      : `
 ## Previews
 This diff changes UI (${names}). Draw the screens it changes, so the reviewer sees what the
 change looks like without running the app.
@@ -477,109 +539,114 @@ event walking through the code.
 }
 
 /** The prepare command for this diff, as the agent runs it. */
-export function prepareCommand(input: { command: "diff" | "pr"; args: string[] }): string {
+export function prepareCommand(input: { command: 'diff' | 'pr'; args: string[] }): string {
   const args = summaryArgs(input.command, input.args);
-  return "lens summary prepare" + (args ? " " + args : "");
+  return 'lens summary prepare' + (args ? ' ' + args : '');
 }
 
 export const RESULT_SCHEMA = {
-  $schema: "https://json-schema.org/draft/2020-12/schema",
-  title: "lens summary result",
-  type: "object",
-  required: ["units"],
+  $schema: 'https://json-schema.org/draft/2020-12/schema',
+  title: 'lens summary result',
+  type: 'object',
+  required: ['units'],
   properties: {
     units: {
-      type: "object",
-      description: "unit id (from the tasks) → summary",
+      type: 'object',
+      description: 'unit id (from the tasks) → summary',
       additionalProperties: {
-        type: "object",
-        required: ["headline", "gist", "changes", "breaks", "concerns"],
+        type: 'object',
+        required: ['headline', 'gist', 'changes', 'breaks', 'concerns'],
         properties: {
-          headline: { type: "string", maxLength: LIMITS.headline },
-          gist: { type: "string", maxLength: LIMITS.gist },
+          headline: { type: 'string', maxLength: LIMITS.headline },
+          gist: { type: 'string', maxLength: LIMITS.gist },
           changes: {
-            type: "array",
+            type: 'array',
             items: {
-              type: "object",
-              required: ["when", "before", "now", "line"],
+              type: 'object',
+              required: ['when', 'before', 'now', 'line'],
               properties: {
-                when: { type: "string", maxLength: LIMITS.cell },
-                before: { type: ["string", "null"], maxLength: LIMITS.cell },
-                now: { type: "string", maxLength: LIMITS.cell },
-                line: { type: "string", pattern: "^[NO][0-9]+$" },
+                when: { type: 'string', maxLength: LIMITS.cell },
+                before: { type: ['string', 'null'], maxLength: LIMITS.cell },
+                now: { type: 'string', maxLength: LIMITS.cell },
+                line: { type: 'string', pattern: '^[NO][0-9]+$' },
               },
             },
           },
           breaks: {
-            type: "array",
+            type: 'array',
             items: {
-              type: "object",
-              required: ["summary", "callers"],
+              type: 'object',
+              required: ['summary', 'callers'],
               properties: {
-                summary: { type: "string", maxLength: LIMITS.breakSummary },
-                callers: { type: "array", items: { type: "string", pattern: "^.+:[0-9]+$" }, minItems: 1 },
+                summary: { type: 'string', maxLength: LIMITS.breakSummary },
+                callers: { type: 'array', items: { type: 'string', pattern: '^.+:[0-9]+$' }, minItems: 1 },
               },
             },
           },
           concerns: {
-            type: "array",
+            type: 'array',
             items: {
-              type: "object",
-              required: ["kind", "text", "line"],
+              type: 'object',
+              required: ['kind', 'text', 'line'],
               properties: {
-                kind: { enum: ["bug", "risk", "question"] },
-                text: { type: "string", maxLength: LIMITS.concern },
-                line: { type: "string", pattern: "^[NO][0-9]+$" },
+                kind: { enum: ['bug', 'risk', 'question'] },
+                text: { type: 'string', maxLength: LIMITS.concern },
+                line: { type: 'string', pattern: '^[NO][0-9]+$' },
               },
             },
           },
-          renamedFrom: { type: "string" },
+          renamedFrom: { type: 'string' },
         },
       },
     },
     overview: {
-      type: "object",
-      required: ["what"],
-      properties: { what: { type: "string", maxLength: LIMITS.overview } },
+      type: 'object',
+      required: ['what'],
+      properties: { what: { type: 'string', maxLength: LIMITS.overview } },
     },
     previews: {
-      type: "array",
-      description: "only while the instructions ask for previews",
+      type: 'array',
+      description: 'only while the instructions ask for previews',
       items: {
-        type: "object",
-        required: ["title", "units", "now"],
+        type: 'object',
+        required: ['title', 'units', 'now'],
         properties: {
-          title: { type: "string", maxLength: LIMITS.previewTitle },
-          units: { type: "array", items: { type: "string" }, minItems: 1 },
-          now: { type: "string", pattern: `^${PREVIEWS_DIR}/[\\w.-]+\\.html$` },
-          before: { type: "string", pattern: `^${PREVIEWS_DIR}/[\\w.-]+\\.html$` },
+          title: { type: 'string', maxLength: LIMITS.previewTitle },
+          units: { type: 'array', items: { type: 'string' }, minItems: 1 },
+          now: { type: 'string', pattern: `^${PREVIEWS_DIR}/[\\w.-]+\\.html$` },
+          before: { type: 'string', pattern: `^${PREVIEWS_DIR}/[\\w.-]+\\.html$` },
         },
       },
     },
     sequences: {
-      type: "array",
-      description: "only while the instructions ask for sequences",
+      type: 'array',
+      description: 'only while the instructions ask for sequences',
       items: {
-        type: "object",
-        required: ["title", "lanes", "steps"],
+        type: 'object',
+        required: ['title', 'lanes', 'steps'],
         properties: {
-          title: { type: "string", maxLength: LIMITS.previewTitle },
-          lanes: { type: "array", items: { type: "string", maxLength: LIMITS.lane }, minItems: 2, maxItems: LIMITS.lanes },
+          title: { type: 'string', maxLength: LIMITS.previewTitle },
+          lanes: {
+            type: 'array',
+            items: { type: 'string', maxLength: LIMITS.lane },
+            minItems: 2,
+            maxItems: LIMITS.lanes,
+          },
           steps: {
-            type: "array",
+            type: 'array',
             minItems: 1,
             maxItems: LIMITS.steps,
             items: {
-              type: "object",
-              required: ["from", "to", "label"],
+              type: 'object',
+              required: ['from', 'to', 'label'],
               properties: {
-                from: { type: "string" },
-                to: { type: "string" },
-                label: { type: "string", maxLength: LIMITS.stepLabel },
-                change: { enum: ["added", "changed", "removed"] },
-                was: { type: "string", maxLength: LIMITS.stepLabel },
-                unit: { type: "string" },
-                line: { type: "string", pattern: "^[NO][0-9]+$" },
+                from: { type: 'string' },
+                to: { type: 'string' },
+                label: { type: 'string', maxLength: LIMITS.stepLabel },
+                change: { enum: ['added', 'changed', 'removed'] },
+                was: { type: 'string', maxLength: LIMITS.stepLabel },
+                unit: { type: 'string' },
+                line: { type: 'string', pattern: '^[NO][0-9]+$' },
               },
             },
           },
@@ -587,20 +654,20 @@ export const RESULT_SCHEMA = {
       },
     },
     flows: {
-      type: "array",
+      type: 'array',
       items: {
-        type: "object",
-        required: ["title", "path", "units", "priority", "why"],
+        type: 'object',
+        required: ['title', 'path', 'units', 'priority', 'why'],
         properties: {
-          title: { type: "string", maxLength: LIMITS.flowTitle },
-          path: { type: "string", maxLength: LIMITS.flowPath },
+          title: { type: 'string', maxLength: LIMITS.flowTitle },
+          path: { type: 'string', maxLength: LIMITS.flowPath },
           units: {
-            type: "object",
-            description: "unit id → its step in path, in reading order; a unit goes in one flow only",
-            additionalProperties: { type: "string", maxLength: LIMITS.layer },
+            type: 'object',
+            description: 'unit id → its step in path, in reading order; a unit goes in one flow only',
+            additionalProperties: { type: 'string', maxLength: LIMITS.layer },
           },
           priority: { enum: [1, 2, 3] },
-          why: { type: "string", maxLength: LIMITS.why },
+          why: { type: 'string', maxLength: LIMITS.why },
         },
       },
     },

@@ -2,28 +2,28 @@
 // Forge wants an .icns (macOS) and an .ico (Windows) ready-made. macOS only (sips and iconutil
 // ship with it); the results are checked in, so this runs when the icon changes.
 
-import { execFileSync } from "node:child_process";
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { execFileSync } from 'node:child_process';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 
 /** The sizes an icon is drawn at: Finder and Explorer pick the nearest. */
 const ICON_SIZES = [16, 32, 48, 64, 128, 256, 512, 1024];
 
-if (process.platform !== "darwin") throw new Error("the icons are made on macOS (sips, iconutil)");
-const icons = resolve(import.meta.dirname, "..", "src", "desktop", "icons");
-const source = join(icons, "icon.png");
-const work = mkdtempSync(join(tmpdir(), "lens-icons-"));
-const iconset = join(work, "icon.iconset");
+if (process.platform !== 'darwin') throw new Error('the icons are made on macOS (sips, iconutil)');
+const icons = resolve(import.meta.dirname, '..', 'src', 'desktop', 'icons');
+const source = join(icons, 'icon.png');
+const work = mkdtempSync(join(tmpdir(), 'lens-icons-'));
+const iconset = join(work, 'icon.iconset');
 mkdirSync(iconset);
 const sized = (size: number) => join(work, `${size}.png`);
-for (const size of ICON_SIZES) execFileSync("sips", ["-z", `${size}`, `${size}`, source, "--out", sized(size)]);
+for (const size of ICON_SIZES) execFileSync('sips', ['-z', `${size}`, `${size}`, source, '--out', sized(size)]);
 // an iconset names each size, and its double-density twin
 for (const size of [16, 32, 128, 256, 512]) {
   cpSync(sized(size), join(iconset, `icon_${size}x${size}.png`));
   cpSync(sized(size * 2), join(iconset, `icon_${size}x${size}@2x.png`));
 }
-execFileSync("iconutil", ["--convert", "icns", iconset, "--output", join(icons, "icon.icns")]);
+execFileSync('iconutil', ['--convert', 'icns', iconset, '--output', join(icons, 'icon.icns')]);
 
 // an .ico is a directory of images, which may be PNGs: 6 bytes, 16 per image, then the files
 const images = [16, 32, 48, 64, 256].map((size) => ({ size, png: readFileSync(sized(size)) }));
@@ -41,6 +41,6 @@ images.forEach(({ size, png }, index) => {
   header.writeUInt32LE(offset, entry + 12);
   offset += png.length;
 });
-writeFileSync(join(icons, "icon.ico"), Buffer.concat([header, ...images.map((image) => image.png)]));
+writeFileSync(join(icons, 'icon.ico'), Buffer.concat([header, ...images.map((image) => image.png)]));
 rmSync(work, { recursive: true, force: true });
-console.log(`made ${join(icons, "icon.icns")} and icon.ico`);
+console.log(`made ${join(icons, 'icon.icns')} and icon.ico`);

@@ -5,8 +5,8 @@ import {
   type Highlighter,
   type BundledTheme,
   type BundledLanguage,
-} from "shiki";
-import { extname } from "node:path";
+} from 'shiki';
+import { extname } from 'node:path';
 
 // One token as shipped to the viewer: [text, color]. Color is a hex string or
 // null for the theme's default foreground.
@@ -15,16 +15,16 @@ export type ViewerToken = [string, string | null];
 // Shown in the viewer's theme dropdown; any bundled Shiki theme also works
 // via --theme or .lens.json (https://shiki.style/themes).
 export const SUGGESTED_THEMES = [
-  "vesper",
-  "github-dark",
-  "github-light",
-  "one-dark-pro",
-  "dracula",
-  "nord",
-  "catppuccin-mocha",
-  "solarized-light",
-  "monokai",
-  "min-light",
+  'vesper',
+  'github-dark',
+  'github-light',
+  'one-dark-pro',
+  'dracula',
+  'nord',
+  'catppuccin-mocha',
+  'solarized-light',
+  'monokai',
+  'min-light',
 ];
 
 export function isBundledTheme(name: string): name is BundledTheme {
@@ -43,7 +43,7 @@ let highlighterPromise: Promise<Highlighter> | null = null;
 function getHighlighter(): Promise<Highlighter> {
   highlighterPromise ??= createHighlighter({
     themes: [],
-    langs: ["typescript", "tsx", "javascript"],
+    langs: ['typescript', 'tsx', 'javascript'],
   });
   return highlighterPromise;
 }
@@ -67,18 +67,39 @@ async function withTheme(theme: string) {
 export function shikiLangForFile(file: string): string | null {
   const ext = extname(file).toLowerCase().slice(1);
   const byExtension: Record<string, string> = {
-    json: "json", jsonc: "jsonc", md: "markdown", mdx: "mdx",
-    yml: "yaml", yaml: "yaml", toml: "toml", xml: "xml",
-    css: "css", scss: "scss", less: "less", html: "html", vue: "vue", svelte: "svelte",
-    sh: "shellscript", bash: "shellscript", zsh: "shellscript",
-    sql: "sql", graphql: "graphql", gql: "graphql", prisma: "prisma",
-    py: "python", rb: "ruby", go: "go", rs: "rust", java: "java", php: "php",
+    json: 'json',
+    jsonc: 'jsonc',
+    md: 'markdown',
+    mdx: 'mdx',
+    yml: 'yaml',
+    yaml: 'yaml',
+    toml: 'toml',
+    xml: 'xml',
+    css: 'css',
+    scss: 'scss',
+    less: 'less',
+    html: 'html',
+    vue: 'vue',
+    svelte: 'svelte',
+    sh: 'shellscript',
+    bash: 'shellscript',
+    zsh: 'shellscript',
+    sql: 'sql',
+    graphql: 'graphql',
+    gql: 'graphql',
+    prisma: 'prisma',
+    py: 'python',
+    rb: 'ruby',
+    go: 'go',
+    rs: 'rust',
+    java: 'java',
+    php: 'php',
   };
   return byExtension[ext] ?? null;
 }
 
 /** The scopes whose color the viewer takes as its accent, best first. */
-const ACCENT_SCOPES = ["entity.name.function", "support.function", "entity.name.type", "keyword"];
+const ACCENT_SCOPES = ['entity.name.function', 'support.function', 'entity.name.type', 'keyword'];
 
 /**
  * The theme's accent for the viewer's chrome: the color it gives function names, so the
@@ -93,10 +114,10 @@ export async function themeAccent(theme: string): Promise<string> {
     for (const rule of loaded.settings) {
       const color = rule.settings?.foreground;
       if (!color) continue;
-      const scopes = typeof rule.scope === "string" ? rule.scope.split(",") : (rule.scope ?? []);
+      const scopes = typeof rule.scope === 'string' ? rule.scope.split(',') : (rule.scope ?? []);
       for (const scope of scopes.map((candidate) => candidate.trim())) {
-        const covers = wanted === scope || wanted.startsWith(scope + ".");
-        if (covers && !scope.includes(" ") && (!best || scope.length > best.length)) {
+        const covers = wanted === scope || wanted.startsWith(scope + '.');
+        if (covers && !scope.includes(' ') && (!best || scope.length > best.length)) {
           best = { length: scope.length, color };
         }
       }
@@ -134,7 +155,7 @@ export async function highlightSource(
 
   if (language === null || !(language in bundledLanguages)) {
     return {
-      tokens: source.split("\n").map((line) => [[line, null] as ViewerToken]),
+      tokens: source.split('\n').map((line) => [[line, null] as ViewerToken]),
       fg: loaded.fg,
       bg: loaded.bg,
     };

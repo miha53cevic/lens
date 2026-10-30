@@ -1,13 +1,9 @@
-import { parseSource, languageForFile } from "../parse/parser.ts";
-import { classify } from "./typescript.ts";
-import { declarationsOf } from "../parse/declarations.ts";
-import type { FileFoldModel, LensConfig } from "../model.ts";
+import { parseSource, languageForFile } from '../parse/parser.ts';
+import { classify } from './typescript.ts';
+import { declarationsOf } from '../parse/declarations.ts';
+import type { FileFoldModel, LensConfig } from '../model.ts';
 
-export async function analyzeSource(
-  file: string,
-  source: string,
-  config: LensConfig,
-): Promise<FileFoldModel | null> {
+export async function analyzeSource(file: string, source: string, config: LensConfig): Promise<FileFoldModel | null> {
   const language = languageForFile(file);
   if (!language) return null;
   const tree = await parseSource(source, language);
@@ -18,7 +14,7 @@ export async function analyzeSource(
     return {
       file,
       language,
-      lineCount: source.split("\n").length,
+      lineCount: source.split('\n').length,
       regions: parseError ? [] : classify(tree.rootNode, source, config),
       ...(parseError ? { parseError } : { declarations: declarationsOf(tree.rootNode) }),
     };

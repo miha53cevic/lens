@@ -10,12 +10,16 @@ export function compilePatterns(patterns: string[]): RegExp[] {
     const body = pattern
       .split(/(\*\*\/|\*\*|\*)/)
       .map((part) =>
-        part === "**/" ? "(?:.*/)?"
-        : part === "**" ? ".*"
-        : part === "*" ? "[^/]*"
-        : part.replace(/[.+?^${}()|[\]\\]/g, "\\$&"))
-      .join("");
-    return new RegExp("(^|/)" + body + "$");
+        part === '**/'
+          ? '(?:.*/)?'
+          : part === '**'
+            ? '.*'
+            : part === '*'
+              ? '[^/]*'
+              : part.replace(/[.+?^${}()|[\]\\]/g, '\\$&'),
+      )
+      .join('');
+    return new RegExp('(^|/)' + body + '$');
   });
 }
 
