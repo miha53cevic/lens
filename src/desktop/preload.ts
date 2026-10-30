@@ -2,7 +2,8 @@
 // from Node or Electron itself. The viewer is loaded without this script.
 
 import { contextBridge, ipcRenderer } from 'electron';
-import { LAUNCHER_CALLS, MENU_CALLS, STRIP_CALLS, type LensAppApi } from './shared/api.ts';
+import type { LensAppApi } from './shared/api.ts';
+import { LAUNCHER_CALLS, MENU_CALLS, STRIP_CALLS } from './shared/ipc.ts';
 
 function area<Api>(name: 'strip' | 'launcher' | 'menu', calls: readonly string[]): Api {
   const api: Record<string, unknown> = {

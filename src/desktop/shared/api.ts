@@ -148,29 +148,3 @@ export interface LensAppApi {
   launcher: LauncherApi;
   menu: MenuApi;
 }
-
-/** The calls a page may make: the preload forwards these names and nothing else. */
-export const STRIP_CALLS = ['select', 'close', 'add', 'change', 'themeMenu', 'settings', 'chrome'] as const;
-export const LAUNCHER_CALLS = [
-  'openRepository',
-  'openRecent',
-  'forgetRecent',
-  'setBase',
-  'refresh',
-  'open',
-  'cancel',
-  'dismiss',
-  'back',
-  'showRunning',
-  'recheck',
-  'settings',
-  'sandbox',
-  'install',
-  'uninstall',
-] as const;
-
-export const MENU_CALLS = ['pick', 'close'] as const;
-
-export type StripCall = (typeof STRIP_CALLS)[number];
-export type MenuCall = (typeof MENU_CALLS)[number];
-export type LauncherCall = (typeof LAUNCHER_CALLS)[number];
