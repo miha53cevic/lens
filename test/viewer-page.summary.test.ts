@@ -1,0 +1,643 @@
+/// <reference types="bun" />
+// The viewer page: the Summary tab: the overview, flows, units, previews.
+// The harness is test/fixtures/viewerPage.ts.
+
+import { test } from 'bun:test';
+import assert from 'node:assert/strict';
+import { fireEvent } from '@testing-library/dom';
+import {
+  payload,
+  withMarks,
+  postedMarks,
+  open,
+  close,
+  settle,
+  key,
+  click,
+  $,
+  $$,
+  rows,
+  pageTest,
+  ticks,
+  status,
+  usePage,
+} from './fixtures/viewerPage.ts';
+
+usePage();
+
+pageTest(
+  'the Summary tab lists the changes, flagged first, and opens on the overview',
+  async () => {
+    assert.equal($('#summary-pane').style.display, '');
+    assert.deepEqual(
+      $$('.sum-item .name').map((name) => name.textContent),
+      ['findOrders', 'legacyTotal'],
+      "the test file's unit hides with the tests",
+    );
+    assert.equal($('.progress .legend').textContent, '2 flagged');
+    assert.ok($('.sum-overview-item').classList.contains('active'));
+    assert.deepEqual(
+      $$('.ov-stat').map((stat) => stat.textContent),
+      ['1 possible bug', '1 question', '1 may break callers'],
+    );
+  },
+  {},
+  '#summary',
+);
+
+test('with nothing summarized, the Summary tab opens on the overview: what to run, the list and the pill', async () => {
+  const fresh = payload.summary!;
+  payload.summary = { ...fresh, units: fresh.units.map((unit) => ({ ...unit, summary: null })) };
+  try {
+    await open();
+    await key('v');
+    await settle();
+    assert.equal($('#summary-pane .sum-headline').textContent, 'The changes');
+    const how = $('#no-summary');
+    assert.equal(how.querySelector('.ov-what-label')!.textContent, 'Agent summary');
+    assert.deepEqual(
+      [...how.querySelectorAll('.copy-cmd-text')].map((command) => command.textContent),
+      [fresh.command, fresh.cli],
+      'the skill, and the same for an agent without it',
+    );
+    // the changes can be read without a summary, right away
+    assert.equal($('#review-next').textContent!.trim(), 'Start review');
+    await click($('#review-next'));
+    assert.ok($('#summary-pane').dataset.unit, 'a change is open');
+    await key('g');
+    assert.ok($('#no-summary'), 'back on the overview, the same page');
+  } finally {
+    payload.summary = fresh;
+    await close();
+  }
+});
+
+test('a diff that ends at a branch not checked out says to check it out, instead of what to run', async () => {
+  const fresh = payload.summary!;
+  payload.summary = { ...fresh, checkout: 'feature', units: fresh.units.map((unit) => ({ ...unit, summary: null })) };
+  try {
+    await open();
+    await key('v');
+    await settle();
+    const how = $('#no-summary');
+    assert.match(how.textContent!, /this diff ends at feature\. Check it out first/);
+    assert.deepEqual(
+      [...how.querySelectorAll('.copy-cmd-text')].map((command) => command.textContent),
+      ['git checkout feature'],
+    );
+    await click($('#review-next'));
+    const note = $('#summary-pane .sum-note');
+    assert.match(note.textContent!, /^Not summarized yet\. A summary is written from the checked-out code/);
+    assert.deepEqual(
+      [...note.querySelectorAll('.copy-cmd-text')].map((command) => command.textContent),
+      ['git checkout feature'],
+    );
+
+    // the reader checks it out: the server reads the summary under that branch's key, and the page follows
+    const unsummarized = payload.summary;
+    payload.summary = { ...unsummarized, key: unsummarized.key + '-feature', checkout: null };
+    window.dispatchEvent(new Event('focus'));
+    await settle();
+    const after = $('#summary-pane .sum-note');
+    assert.match(after.textContent!, /^Not summarized yet\. Run .* in your agent\./);
+    assert.deepEqual(
+      [...after.querySelectorAll('.copy-cmd-text')].map((command) => command.textContent),
+      [fresh.command],
+    );
+    assert.deepEqual(status(), {
+      kind: 'done',
+      label: 'Another branch is checked out: the summary is read for it',
+      detail: '',
+    });
+    assert.equal(document.querySelector('#summary-dot'), null, 'nothing new is waiting');
+  } finally {
+    payload.summary = fresh;
+    await close();
+  }
+});
+
+test('a summary submitted after the page loaded: the overview doesn\'t say "not written yet" while it fetches it', async () => {
+  const fresh = payload.summary!;
+  // the page loaded before the agent's submit: no unit summarized yet
+  payload.summary = { ...fresh, stamp: 1, units: fresh.units.map((unit) => ({ ...unit, summary: null })) };
+  try {
+    await open();
+    payload.summary = { ...fresh, stamp: 2 }; // the server now has the submit
+    const realFetch = globalThis.fetch;
+    let release = () => {};
+    const held = new Promise<void>((resolve) => (release = resolve));
+    globalThis.fetch = (async (input: string | URL, init?: RequestInit) => {
+      if (String(input).includes('/api/stamp')) await held;
+      return realFetch(input, init);
+    }) as typeof fetch;
+    await key('v');
+    assert.equal($('#summary-pane .sum-headline').textContent, 'The changes', 'the overview is there already');
+    assert.equal($$('#no-summary').length, 0, 'no "not written yet" while the stamp is checked');
+    release();
+    await settle();
+    assert.equal($$('#no-summary').length, 0);
+    assert.equal($('#summary-pane .sum-headline').textContent, 'The changes', 'the overview, with the new summary');
+  } finally {
+    payload.summary = fresh;
+    await close();
+  }
+});
+
+pageTest('on the Summary tab the pill starts the review, and marks each change reviewed on the way', async () => {
+  const pill = () => $('#review-next').textContent!.trim();
+  await key('v');
+  assert.equal(pill(), 'Start review');
+  await click($('#review-next'));
+  assert.equal($('.sum-headline').textContent, 'findOrders skips deleted orders');
+  assert.equal(pill(), 'Reviewed · next change');
+  await click($('#review-next'));
+  assert.equal($('.sum-item.active .name').textContent, 'legacyTotal');
+  assert.equal($('#nav .progress-count').textContent, '1 of 2');
+  assert.equal($('.sum-item:not(.active) .viewed-box').getAttribute('aria-checked'), 'true');
+});
+
+test("the agent's previews and sequences: all on the overview, a unit's own on its page, each step opening its unit", async () => {
+  const summary = payload.summary!;
+  const id = (name: string) => summary.units.find((unit) => unit.name === name)!.id;
+  const find = id('findOrders'),
+    legacy = id('legacyTotal');
+  summary.previews = [
+    {
+      title: 'Orders page',
+      units: [find, legacy],
+      now: '/api/preview/0123456789abcdef.html',
+      before: null,
+      stale: false,
+    },
+  ];
+  summary.sequences = [
+    {
+      title: 'List orders',
+      lanes: ['route', 'repo'],
+      units: [find, legacy],
+      stale: true,
+      steps: [
+        {
+          from: 'route',
+          to: 'repo',
+          label: 'findOrders(user)',
+          was: 'findOrders(all)',
+          change: 'changed',
+          unit: find,
+          line: 'N10',
+        },
+        { from: 'repo', to: 'route', label: 'legacyTotal()', change: 'removed', unit: legacy, line: 'O17' },
+        { from: 'repo', to: 'repo', label: 'skip deleted', change: 'added', unit: find, line: 'N10' },
+        { from: 'repo', to: 'route', label: 'orders' },
+      ],
+    },
+  ];
+  const steps = () => $$('.sequence-card .seq-step text').map((label) => label.textContent);
+  try {
+    const page = await open();
+    await key('v');
+    // the overview: every drawing, and the list marks the units they show
+    assert.equal($$('#drawings .preview-card').length, 1);
+    const frame = $('.preview-card iframe') as HTMLIFrameElement;
+    assert.equal(frame.getAttribute('src'), '/api/preview/0123456789abcdef.html');
+    // a unit's chip outlines it in the preview, and the overview stays; again, and it's off
+    const chip = (unitId: string) =>
+      $$('.preview-card .drawing-unit').find((button) =>
+        button.textContent!.includes(unitId === find ? 'findOrders' : 'legacyTotal'),
+      )!;
+    await click(chip(legacy));
+    assert.equal($('#summary-pane').dataset.unit, undefined, 'still the overview');
+    assert.equal(frame.getAttribute('src'), '/api/preview/0123456789abcdef.html#' + encodeURIComponent(legacy));
+    assert.equal(chip(legacy).getAttribute('aria-pressed'), 'true');
+    await click(chip(legacy));
+    assert.equal(frame.getAttribute('src'), '/api/preview/0123456789abcdef.html');
+    assert.equal(frame.getAttribute('sandbox'), 'allow-scripts', 'scripts, but never its own origin');
+    assert.equal($$('.preview-card .seg').length, 0, 'a new screen: no Before');
+    assert.deepEqual(steps(), ['findOrders(user)', 'skip deleted', 'orders'], 'now: every step but the removed one');
+    assert.equal($('.sequence-card .drawing-stale').textContent, 'code changed since');
+    assert.deepEqual(
+      $$('.sequence-card .step-kind').map((kind) => kind.textContent),
+      ['added', 'changed', 'removed'],
+    );
+    assert.equal($$('.sum-item .drawn').length, 2);
+
+    await click($('.sequence-card [data-value="before"]'));
+    assert.deepEqual(
+      steps(),
+      ['findOrders(all)', 'legacyTotal()', 'orders'],
+      'before: as it was, without the added one',
+    );
+    assert.equal($$('.seq-step.opens').length, 2, 'the plain step names no unit: it opens nothing');
+
+    // a step opens its unit; that unit's page shows the drawings that show it
+    fireEvent.click($('.seq-step.removed'));
+    await settle();
+    assert.equal($('#summary-pane').dataset.unit, legacy);
+    assert.equal($$('#drawings .preview-card').length, 1);
+    assert.equal($$('#drawings .sequence-card').length, 1);
+
+    // on a unit's page, a chip opens its unit
+    await click(chip(find));
+    assert.equal($('#summary-pane').dataset.unit, find);
+    const own = $('.preview-card iframe') as HTMLIFrameElement;
+    assert.equal(
+      own.getAttribute('src'),
+      '/api/preview/0123456789abcdef.html#' + encodeURIComponent(find),
+      'its elements outlined',
+    );
+    assert.ok($('.preview-card .drawing-unit.on'), "the page's own unit, picked");
+
+    // the frame tells the page its height, and nothing else
+    // (its frame isn't loaded here: a stand-in window is the one it posts from)
+    const frameWindow = new EventTarget() as unknown as Window;
+    const post = async (data: unknown, source: Window = frameWindow) => {
+      Object.defineProperty($('iframe.preview-frame'), 'contentWindow', { value: frameWindow, configurable: true });
+      window.dispatchEvent(new MessageEvent('message', { data, source }));
+      await settle();
+    };
+    await post({ lens: true, type: 'size', height: 5000 });
+    assert.equal(own.style.height, '900px', 'as tall as its screen, up to a limit');
+    await post({ lens: false, type: 'size', height: 200 });
+    await post({ lens: true, type: 'size', height: 200 }, new EventTarget() as unknown as Window);
+    assert.equal(own.style.height, '900px', 'another window, or not lens: not heard');
+    await post({ lens: true, type: 'open-unit', unit: legacy });
+    assert.equal($('#summary-pane').dataset.unit, find, 'a click in the frame opens nothing');
+    await click(chip(legacy));
+    assert.equal(
+      ($('.preview-card iframe') as HTMLIFrameElement).style.height,
+      '900px',
+      "the next unit's frame keeps the height, so the preview stays in place",
+    );
+
+    // the switch: off hides them all, and the server keeps it for the next summary
+    await click($('#build-previews'));
+    assert.deepEqual(
+      page.requests.filter((request) => request.path === '/api/settings'),
+      [{ method: 'POST', path: '/api/settings', body: { buildPreviews: false } }],
+    );
+    assert.equal(document.querySelector('#drawings'), null);
+    assert.equal($$('.sum-item .drawn').length, 0);
+    assert.equal($('#build-previews').getAttribute('aria-checked'), 'false');
+  } finally {
+    summary.previews = [];
+    summary.sequences = [];
+    await close();
+  }
+});
+
+test('a flow is its name and why: the priority only orders it, and a P3 flow starts folded', async () => {
+  const summary = payload.summary!;
+  const id = (name: string) => summary.units.find((unit) => unit.name === name)!.id;
+  summary.flows = [
+    {
+      title: 'Order cleanup',
+      path: 'repo',
+      priority: 3,
+      why: 'drops the old totals',
+      units: { [id('findOrders')]: 'repo', [id('legacyTotal')]: 'repo' },
+    },
+  ];
+  await open();
+  try {
+    await key('v');
+    const title = () => $('.sum-section-title.flow .t').textContent;
+    const count = () => $$('.sum-section-title.flow .sub')[0]?.textContent?.trim() ?? null;
+    assert.deepEqual([title(), count()], ['Order cleanup', '2 changes'], 'folded: the name and its count');
+    assert.equal($$('.sum-section-title .prio').length, 0, 'no P3 tag');
+    assert.equal($$('.sum-section-why').length, 0, 'folded: the why only as a tooltip');
+    assert.equal($('.sum-section-title.flow').getAttribute('title'), 'drops the old totals');
+    await click($('.sum-section-title.flow'));
+    assert.deepEqual([title(), count()], ['Order cleanup', null]);
+    assert.equal($('.sum-section-why').textContent, 'drops the old totals');
+    assert.equal($$('.sum-section:not(.folded) .sum-item').length, 2);
+    assert.equal($$('.sum-section:not(.folded) .sum-item .side').length, 0, 'no file labels');
+    assert.equal($$('.sum-step').length, 0, 'one step over every change: no heading');
+  } finally {
+    summary.flows = [];
+    await close();
+  }
+});
+
+test("a flow's steps are headings where each starts; a unit in two flows is listed under the first", async () => {
+  const summary = payload.summary!;
+  const id = (name: string) => summary.units.find((unit) => unit.name === name)!.id;
+  summary.flows = [
+    {
+      title: 'Reads',
+      path: 'repo → cleanup',
+      priority: 1,
+      units: { [id('findOrders')]: 'repo', [id('legacyTotal')]: 'cleanup' },
+    },
+    { title: 'Twice', path: 'repo', priority: 2, units: { [id('findOrders')]: 'repo', [id('legacyTotal')]: 'repo' } },
+  ];
+  await open();
+  try {
+    // the list as the reader sees it: steps as "#step", changes as "flow:name", the open one with ">"
+    const listed = () =>
+      $$('.sum-step, .sum-item').map((row) =>
+        row.classList.contains('sum-step')
+          ? '#' + row.textContent
+          : (row.classList.contains('active') ? '>' : '') +
+            row.closest('.sum-section')!.querySelector('.sum-section-title .t')!.textContent +
+            ':' +
+            row.querySelector('.name')!.textContent,
+      );
+    await key('v');
+    await click($$('.sum-item')[0]);
+    // Twice lists nothing the first flow hasn't: it isn't shown
+    assert.deepEqual(listed(), ['#repo', '>Reads:findOrders', '#cleanup', 'Reads:legacyTotal']);
+    await key('j');
+    assert.deepEqual(listed(), ['#repo', 'Reads:findOrders', '#cleanup', '>Reads:legacyTotal']);
+    await key('j');
+    assert.deepEqual(listed(), ['#repo', 'Reads:findOrders', '#cleanup', '>Reads:legacyTotal'], 'no wrapping around');
+    await key('k');
+    assert.deepEqual(listed(), ['#repo', '>Reads:findOrders', '#cleanup', 'Reads:legacyTotal']);
+  } finally {
+    summary.flows = [];
+    await close();
+  }
+});
+
+pageTest("a unit's code has the Code view's folds and toolbar keys, but shows whole", async () => {
+  await key('v');
+  await key('j');
+  assert.equal($('.sum-headline').textContent, 'findOrders skips deleted orders');
+  // the card's header says where the unit is: no path line over the headline
+  assert.equal($$('.sum-inner .kicker').length, 0);
+  assert.equal($('.unit-card .code-path').textContent, 'src/orders.tsfindOrders');
+  const code = '.unit-code .code';
+  // hunks only is on, but the unit shows whole: line 5 is far from the changes and the cited line, and still there
+  assert.deepEqual(rows(code), ['5', 'R6', '−9', 'R9', '10', '11', '12']);
+  assert.deepEqual(
+    $$('#toggles .chip').map((chip) => chip.textContent),
+    ['guard', 'logging'],
+    "the chips are the unit's folds",
+  );
+  await key('e');
+  assert.equal($$(code + ' .region.open').length, 2);
+  await key('h');
+  assert.deepEqual(rows(code), ['5', 'R6', '−9', 'R9', '10', '11', '12'], 'h changes nothing here');
+  await key('x');
+  assert.deepEqual(rows(code), ['5', 'R6', 'R9', '10', '11', '12']);
+});
+
+pageTest("a concern sits under its line; dismissing it drops the note and the unit's flag", async (page) => {
+  await key('v');
+  await key('j');
+  const line = $('.unit-code .row[data-line="10"]');
+  assert.ok(line.classList.contains('cited') && line.classList.contains('flagged') && line.classList.contains('k-bug'));
+  assert.ok(line.nextElementSibling!.classList.contains('inline-note'));
+  assert.ok($('.sum-item.active .sig-bug'));
+
+  await click($('.concern .vbtn.v-dismissed'));
+  assert.equal($$('.inline-note').length, 0);
+  assert.ok($('.concern').classList.contains('dismissed'));
+  assert.equal($('.progress .legend').textContent, '1 flagged');
+  assert.equal($$('.sum-item.active .sig').length, 0);
+  assert.deepEqual(
+    postedMarks(page).map((change) => (change as { mark: string }).mark),
+    ['dismissed'],
+    'kept by the server',
+  );
+});
+
+pageTest("a verdict doesn't move the list: the order stays, and a signal filter keeps the open unit", async () => {
+  // the list's names, the open unit marked ">"
+  const listed = () =>
+    $$('.sum-item').map(
+      (item) => (item.classList.contains('active') ? '>' : '') + item.querySelector('.name')!.textContent,
+    );
+  await key('v');
+  await key('j');
+  assert.deepEqual(listed(), ['>findOrders', 'legacyTotal']);
+  await click($('.concern .vbtn.v-dismissed'));
+  assert.deepEqual(listed(), ['>findOrders', 'legacyTotal'], 'no longer flagged, but it keeps its place');
+
+  await click($('.concern .vbtn.v-dismissed')); // restore
+  await click($('.sig-chip[data-sig="any"]'));
+  await click($('.concern .vbtn.v-dismissed'));
+  assert.equal($('.sig-chip[data-sig="any"]').getAttribute('aria-pressed'), 'true', 'legacyTotal keeps the filter on');
+  assert.deepEqual(listed(), ['>findOrders', 'legacyTotal'], 'the open unit stays listed under it');
+});
+
+pageTest('a caller it may break takes a verdict: dismissed drops the flag, real goes to the agent', async () => {
+  await key('v');
+  await key('j');
+  await key('j');
+  assert.equal($('.sig-chip[data-sig="breaks"] .n').textContent, '1');
+
+  await click($('.brk .vbtn.v-dismissed'));
+  assert.ok($('.brk').classList.contains('dismissed'));
+  assert.equal($$('.sig-chip[data-sig="breaks"]').length, 0);
+  assert.equal($('.sig-chip[data-sig="dismissed"] .n').textContent, '1');
+  assert.ok(($('.brk-head') as HTMLButtonElement).disabled, 'its callers stay shut');
+
+  await click($('.brk .vbtn.v-dismissed')); // restore
+  assert.equal($('.sig-chip[data-sig="breaks"] .n').textContent, '1');
+  await click($('.brk .vbtn.v-real'));
+  assert.ok($('.brk').classList.contains('real'));
+  await key('g');
+  assert.equal($('.ov-real-count').textContent, '1 confirmed possible break in 1 change');
+  await click($('.ov-real-copy'));
+  assert.equal($('#status .status-label').textContent, 'Copied 1 possible break');
+  assert.match(
+    await navigator.clipboard.readText(),
+    /1\. \[breaks callers\] src\/orders\.ts — legacyTotal\n {3}callers of legacyTotal no longer compile\n {3}Callers: src\/report\.ts:3\n/,
+  );
+});
+
+pageTest('a dismissed chip lists the changes whose concerns the reader dismissed', async () => {
+  await key('v');
+  await key('j');
+  assert.equal($$('.sig-chip[data-sig="dismissed"]').length, 0, 'nothing dismissed yet');
+  await click($('.concern .vbtn.v-dismissed'));
+  assert.equal($('.sig-chip[data-sig="dismissed"] .n').textContent, '1');
+  await click($('.sig-chip[data-sig="dismissed"]'));
+  assert.deepEqual(
+    $$('.sum-item .name').map((name) => name.textContent),
+    ['findOrders'],
+  );
+  await click($('.concern .vbtn.v-dismissed')); // restore: nothing is dismissed, the filter lifts
+  assert.equal($$('.sig-chip[data-sig="dismissed"]').length, 0);
+  assert.deepEqual(
+    $$('.sum-item .name').map((name) => name.textContent),
+    ['findOrders', 'legacyTotal'],
+  );
+});
+
+pageTest('hovering a When row tints the line it cites, until the pointer leaves the row or the tab', async () => {
+  await key('v');
+  await key('j');
+  const cited = () => $('.unit-code .row[data-line="10"]').classList.contains('hover-cite');
+  fireEvent.mouseOver($('.scn'));
+  await settle();
+  assert.ok(cited());
+  fireEvent.mouseOut($('.scn'));
+  await settle();
+  assert.ok(!cited());
+  fireEvent.mouseOver($('.scn'));
+  await settle();
+  await key('v');
+  await key('v');
+  assert.ok(!cited(), 'the unit page starts afresh');
+});
+
+pageTest('a deleted unit is its removed lines; o opens a unit in the code view', async () => {
+  await key('v');
+  await key('j');
+  await key('j');
+  assert.equal($('.sum-item.active .name').textContent, 'legacyTotal');
+  assert.deepEqual(rows('.unit-code .code'), ['−17', '−18', '−19', '−20']);
+  await key('k');
+  assert.equal($('#open-in-code .tip kbd').textContent, 'o', 'its button teaches the key');
+  await key('o');
+  assert.equal($('main').style.display, '', 'back on the code view');
+  assert.ok($('#code .row[data-line="9"]').classList.contains('flash'), "at the unit's first changed line");
+});
+
+pageTest('a concern marked real can be copied for the agent from the overview; none real, no block', async () => {
+  await key('v');
+  assert.equal($$('.ov-real').length, 0, 'nothing is confirmed yet');
+  await key('j');
+  await click($('.concern .vbtn.v-real'));
+  await key('g');
+  assert.equal($('.ov-real-count').textContent, '1 confirmed concern in 1 change');
+
+  await click($('.ov-real-copy'));
+  assert.equal(
+    await navigator.clipboard.readText(),
+    [
+      'Fix these review findings. Each was raised in a lens review and confirmed by the reviewer.',
+      '',
+      '1. [bug] src/orders.ts:10 — findOrders',
+      '   deleted is a string column',
+      '',
+    ].join('\n'),
+  );
+  assert.ok($('.ov-real-copy .lucide-check'));
+  assert.equal($('#status .status-label').textContent, 'Copied 1 concern');
+
+  // taking the verdict back takes the block away
+  await key('j');
+  await click($('.concern .vbtn.v-real'));
+  await key('g');
+  assert.equal($$('.ov-real').length, 0);
+});
+
+test('the copied concerns name a removed line as one, in the order of the summary', async () => {
+  const marks = Object.fromEntries(
+    payload
+      .summary!.units.filter((unit) => unit.summary)
+      .flatMap((unit) =>
+        unit.summary!.concerns.map((concern) => [
+          // the line counted from the unit's anchor (model/signals.ts)
+          `${unit.id}@${unit.hash}#${concern.kind}:${concern.line[0]}${Number(concern.line.slice(1)) - (concern.line[0] === 'O' ? unit.anchor.o : unit.anchor.n)}:${concern.text}`,
+          'real' as const,
+        ]),
+      ),
+  );
+  await open({}, '#summary', '', withMarks({ concerns: marks }));
+  try {
+    assert.equal($('.ov-real-count').textContent, '2 confirmed concerns in 2 changes');
+    await click($('.ov-real-copy'));
+    const text = await navigator.clipboard.readText();
+    assert.match(text, /\d\. \[bug\] src\/orders\.ts:10 — findOrders\n {3}deleted is a string column\n/);
+    assert.match(
+      text,
+      /\d\. \[question\] src\/orders\.ts \(removed line 17\) — legacyTotal\n {3}did anything still call it\?\n/,
+    );
+  } finally {
+    await close();
+  }
+});
+
+test("a confirmed concern on code that changed since is counted, not copied: its unit's summary is stale", async () => {
+  const fresh = payload.summary!;
+  const unit = fresh.units.find((candidate) => candidate.summary?.concerns.length)!;
+  // the code changed: the stored summary was written for another hash, the one the reader's mark has
+  payload.summary = {
+    ...fresh,
+    units: fresh.units.map((candidate) =>
+      candidate === unit ? { ...candidate, stale: true, staleHash: 'oldhash', summary: null } : candidate,
+    ),
+  };
+  const marks = { [`${unit.id}@oldhash#bug:N3:deleted is a string column`]: 'real' as const };
+  await open({}, '#summary', '', withMarks({ concerns: marks }));
+  try {
+    assert.equal($('.ov-real-count').textContent, '1 confirmed finding on code that changed since');
+    assert.equal($$('.ov-real-copy').length, 0, 'nothing to copy: its lines may point elsewhere now');
+  } finally {
+    payload.summary = fresh;
+    await close();
+  }
+});
+
+pageTest('full units: the rest of the file sits above and below the unit, each behind a bar', async () => {
+  await key('v');
+  await key('j');
+  const code = '.unit-code .code';
+  const bar = (side: string) => $(code + ' .context.' + side + ' > .context-bar');
+  const opened = (side: string) => rows(code + ' > .context.' + side + ' > .context-body');
+  const unitRows = ['5', 'R6', '−9', 'R9', '10', '11', '12'];
+  assert.equal($$(code + ' .context').length, 0, 'off by default: only the unit');
+  await click($('#full-units'));
+  assert.equal($('#full-units').getAttribute('aria-checked'), 'true');
+  assert.equal(localStorage.getItem('lens.fullUnits'), '1');
+  // both closed: the unit's rows are as they were, between the two bars
+  assert.deepEqual(rows(code), unitRows);
+  assert.equal(bar('above').textContent!.trim(), '4 lines', 'nothing declared above it, nothing changed');
+  assert.equal(bar('below').querySelector('.context-names')!.textContent, 'toOrder, formatTotal');
+  assert.equal(bar('below').querySelector('.counts')!.textContent, '−4', "legacyTotal's removed lines are below");
+  assert.ok(bar('below').querySelector('.mark.changed'));
+  assert.equal(bar('below').querySelector('.context-count')!.textContent, '15 lines');
+  // a closed stretch's change ticks the ruler at its bar; a click on the tick opens it
+  assert.deepEqual(ticks('.unit-card'), ['del O9', 'add N9', 'del O17', 'bug N10']);
+  assert.ok(!$(code + ' .context.below').classList.contains('open'));
+  await click($('.unit-card .ruler .tick[data-label="O17"]'));
+  assert.ok($(code + ' .context.below').classList.contains('open'));
+  // open, it is the file's code, whole though hunks only is on
+  assert.deepEqual(opened('below'), [
+    ...['13', '14', '15', '16', '17', '−17', '−18', '−19', '−20'],
+    ...['18', '19', '20', '21', '22', '23', '24', '25', '26', '27'],
+  ]);
+  await click(bar('above'));
+  assert.deepEqual(opened('above'), ['R1', '4']);
+  // Above opens over its bar: the bar stays on the unit's top edge
+  const above = $(code + ' > .context.above');
+  assert.deepEqual(
+    [...above.children].map((child) => child.className),
+    ['context-body', 'row context-bar'],
+  );
+  await click(bar('above'));
+  assert.ok(!$(code + ' .context.above').classList.contains('open'), 'a second click closes it');
+  await click($('#full-units'));
+  assert.equal($$(code + ' .context').length, 0, 'off again: only the unit');
+  assert.deepEqual(rows(code), unitRows);
+});
+
+test('full units: a unit that owns part of a removed block shows that part once, and the stretch only the rest', async () => {
+  // units split a removed block between the declarations it was removed from (units.ts): here
+  // findOrders owns the block's last two lines, old 19–20, shown after its line 12
+  const block = payload.files.find((file) => file.file === 'src/orders.ts')!.removals!.find((b) => b.oldStart === 17)!;
+  const units = payload.summary!.units.map((unit) =>
+    unit.id.endsWith('#findOrders')
+      ? { ...unit, removals: [...unit.removals, { ...block, anchor: 12, oldStart: 19, lines: block.lines.slice(2) }] }
+      : unit,
+  );
+  try {
+    await open({ 'lens.fullUnits': '1' }, '', '', { ...payload, summary: { ...payload.summary!, units } });
+    await key('v');
+    await key('j');
+    const code = '.unit-code .code';
+    assert.deepEqual(rows(code), ['5', 'R6', '−9', 'R9', '10', '11', '12', '−19', '−20']);
+    const below = $(code + ' .context.below > .context-bar');
+    assert.equal(below.querySelector('.counts')!.textContent, '−2', 'only the lines the unit does not own');
+    await click(below);
+    assert.deepEqual(rows(code + ' > .context.below > .context-body'), [
+      ...['13', '14', '15', '16', '17', '−17', '−18'],
+      ...['18', '19', '20', '21', '22', '23', '24', '25', '26', '27'],
+    ]);
+  } finally {
+    await close();
+  }
+});
