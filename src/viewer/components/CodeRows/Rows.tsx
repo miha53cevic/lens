@@ -5,7 +5,6 @@ import { memo } from 'react';
 import clsx from 'clsx';
 import { expandGap } from '../../actions/folds.ts';
 import { plural } from '../../../cli-app/text.ts';
-import { splitAt, type WordRange } from '../../wordDiff.ts';
 
 interface LineRowProps {
   line: number;
@@ -29,11 +28,10 @@ export const LineRow = memo(function LineRow({ line, num, html, changed, gutter,
 });
 
 interface RemovedLineRowProps {
-  text: string;
+  /** The highlighted line, as HTML (word diff's marks in it) */
+  html: string;
   /** Its old-side line: cites and the Ask rail point at it */
   oldLine: number;
-  /** The words the added line changed (word diff): marked */
-  words?: WordRange[];
   /** Side by side: the old side numbers its lines (unified marks them −) */
   numbered?: boolean;
   gutter: number;
@@ -41,9 +39,8 @@ interface RemovedLineRowProps {
 }
 
 export const RemovedLineRow = memo(function RemovedLineRow({
-  text,
+  html,
   oldLine,
-  words,
   numbered,
   gutter,
   extraClass,
@@ -52,19 +49,7 @@ export const RemovedLineRow = memo(function RemovedLineRow({
     <div className={clsx('row removed', extraClass)} data-old={oldLine}>
       <span className='num'>{(numbered ? String(oldLine) : '−').padStart(gutter)}</span>
       <span className='mark' />
-      <span>
-        {words
-          ? splitAt(text, 0, words).map((part, partIndex) =>
-              part.marked ? (
-                <span key={partIndex} className='w-del'>
-                  {part.text}
-                </span>
-              ) : (
-                part.text
-              ),
-            )
-          : text || ' '}
-      </span>
+      <span dangerouslySetInnerHTML={{ __html: html || ' ' }} />
     </div>
   );
 });

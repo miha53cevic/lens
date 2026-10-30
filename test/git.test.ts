@@ -485,3 +485,33 @@ test('changeFingerprint: it moves with an edit, a git add, a commit and a new fi
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("changeFingerprint: an index refreshed under a commit-to-working-tree diff isn't a change", async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'lens-git-'));
+  const git = (...args: string[]) => execFileSync('git', args, { cwd: dir, encoding: 'utf8' });
+  try {
+    git('init', '-q', '-b', 'main');
+    git('config', 'user.email', 't@t');
+    git('config', 'user.name', 't');
+    writeFileSync(join(dir, 'a.ts'), 'export const a = 1;\n');
+    git('add', '-A');
+    git('commit', '-qm', 'base');
+    writeFileSync(join(dir, 'a.ts'), 'export const a = 2;\n');
+    git('commit', '-qam', 'two');
+
+    const sinceBase = changeFingerprint(['HEAD~1'], dir);
+    git('update-index', '-q', '--refresh');
+    const fresh = await sinceBase();
+    // touched: git prints 0s for the new side's blob until the index is refreshed again
+    utimesSync(join(dir, 'a.ts'), new Date(), new Date(Date.now() + 5000));
+    assert.match(git('diff', '--raw', '--no-abbrev', 'HEAD~1'), / 0{40} M/);
+    assert.equal(await sinceBase(), fresh, 'a stale stat');
+    git('update-index', '-q', '--refresh');
+    assert.equal(await sinceBase(), fresh, 'the index refreshed');
+
+    writeFileSync(join(dir, 'a.ts'), 'export const a = 3;\n');
+    assert.notEqual(await sinceBase(), fresh, 'an edit still moves it');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

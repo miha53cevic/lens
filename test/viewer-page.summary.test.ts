@@ -20,6 +20,7 @@ import {
   pageTest,
   ticks,
   status,
+  type,
   usePage,
 } from './fixtures/viewerPage.ts';
 
@@ -638,6 +639,87 @@ test('full units: a unit that owns part of a removed block shows that part once,
       ...['18', '19', '20', '21', '22', '23', '24', '25', '26', '27'],
     ]);
   } finally {
+    await close();
+  }
+});
+
+pageTest(
+  'the changes in no flow sit under their file, which folds them out of the list and of j/k',
+  async () => {
+    const files = () =>
+      $$('.sum-file-title').map((title) => [
+        title.querySelector('.path')!.textContent,
+        title.querySelector('.n')!.textContent,
+        title.getAttribute('aria-expanded'),
+      ]);
+    const items = () => $$('.sum-item .name').map((name) => name.textContent);
+    await key('t'); // the test file's unit shows too
+    assert.deepEqual(files(), [['src/orders.ts', '2', 'true']], "a file with one change is that change's row");
+    assert.deepEqual(items(), ['findOrders', 'legacyTotal', 'orders.test.ts']);
+    assert.equal($$('.sum-item .side').length, 0, 'the file is the heading, not a label on each');
+    assert.equal($$('.sum-section-title').length, 0, 'no story: no "Not in a story"');
+
+    await click($('.sum-file-title'));
+    assert.equal(files()[0][2], 'false');
+    assert.deepEqual(items(), ['orders.test.ts']);
+    await key('j');
+    assert.equal($('.sum-item.active .name').textContent, 'orders.test.ts', 'j skips the folded file');
+
+    await type($('#sum-filter input'), 'legacy');
+    assert.deepEqual(items(), ['legacyTotal'], 'a filter unfolds it');
+    await type($('#sum-filter input'), '');
+    await click($('.sum-file-title'));
+    assert.deepEqual(items(), ['findOrders', 'legacyTotal', 'orders.test.ts']);
+  },
+  {},
+  '#summary',
+);
+
+test('lens\'s own Housekeeping, before the agent has written a flow, sets nothing apart as "Not in a story"', async () => {
+  const summary = payload.summary!;
+  const id = (name: string) => summary.units.find((unit) => unit.name === name)!.id;
+  summary.flows = [
+    {
+      title: 'Housekeeping',
+      path: '',
+      priority: 3,
+      why: 'Imports and formatting only',
+      units: { [id('legacyTotal')]: '' },
+    },
+  ];
+  await open();
+  try {
+    await key('v');
+    assert.equal($('.sum-section-title.flow .t').textContent, 'Housekeeping');
+    assert.ok($('.sum-section-title.flow').closest('.sum-section')!.classList.contains('folded'), 'P3: folded');
+    assert.deepEqual(
+      $$('.sum-section-title:not(.flow)').map((title) => title.textContent),
+      [],
+      'no "Not in a story" under it',
+    );
+    assert.deepEqual(
+      $$('.sum-section:not(.folded) .sum-item .name').map((name) => name.textContent),
+      ['findOrders'],
+      'the rest, by file',
+    );
+    summary.flows = [
+      ...summary.flows,
+      { title: 'Paging', path: 'repo', priority: 1, why: '', units: { [id('findOrders')]: 'repo' } },
+    ];
+  } finally {
+    await close();
+  }
+  await open();
+  try {
+    await key('v');
+    await key('t');
+    assert.deepEqual(
+      $$('.sum-section-title:not(.flow) .t').map((title) => title.textContent),
+      ['Not in a story'],
+      'beside a story it does',
+    );
+  } finally {
+    summary.flows = [];
     await close();
   }
 });

@@ -9,6 +9,7 @@ import { BreakRow, EmptyHalf, LineRow, RemovedLineRow, SplitGapRow } from './Row
 import { Region } from './Region.tsx';
 import { Context } from './Context.tsx';
 import type { RowContext } from './types.ts';
+import { escapeHtml } from '../../shared.ts';
 
 interface SplitRowsProps extends RowContext {
   items: SplitItem[];
@@ -30,7 +31,7 @@ function splitRows(items: SplitItem[], context: RowContext): ReactNode[] {
 
 /** A split row and the notes on its lines, under it across both sides. */
 function itemRows(item: SplitItem, itemIndex: number, context: RowContext): ReactNode[] {
-  const { lines, changedLines, removedWords, gutter, marks } = context;
+  const { lines, changedLines, removed: removedLines, gutter, marks } = context;
   const notesOn = (labels: string[]) => labels.flatMap((label) => marks?.notes?.get(label) ?? []);
   const lineHalf = (line: number, side: 'left' | 'right', num?: number) => (
     <LineRow
@@ -63,9 +64,8 @@ function itemRows(item: SplitItem, itemIndex: number, context: RowContext): Reac
           {removed ? (
             <RemovedLineRow
               key='left'
-              text={removed.text}
+              html={removedLines.get(removed.old) ?? escapeHtml(removed.text)}
               oldLine={removed.old}
-              words={removedWords?.get(removed.old)}
               numbered
               gutter={gutter}
               extraClass={clsx('half left', marks?.classes?.get('O' + removed.old))}

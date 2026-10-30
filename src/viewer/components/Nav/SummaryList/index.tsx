@@ -1,18 +1,20 @@
 import { Fragment } from 'react';
+import { HOUSEKEEPING } from '../../../../cli-app/summary/housekeeping.ts';
 import { FileText } from 'lucide-react';
 import clsx from 'clsx';
 import { useLens } from '../../../store.ts';
 import { listModel } from '../../../model/summaryList.ts';
 import { showOverview, toggleFlow } from '../../../actions/summary.ts';
-import { baseName, plural } from '../../../shared.ts';
+import { plural } from '../../../shared.ts';
 import { Kbd } from '../../../../ui/Kbd.tsx';
 import { SignalChips } from './SignalChips.tsx';
 import { UnitItem } from './UnitItem.tsx';
+import { FileGroupItem } from './FileGroupItem.tsx';
 import { ListRow } from '../../../../ui/ListRow.tsx';
 import { Disclosure } from '../../../../ui/Disclosure.tsx';
 import { stepHeadings } from './util.ts';
 
-/** The Summary tab's list: flows (the agent's priority orders them), then the changes in no flow. */
+/** The Summary tab's list: flows (the agent's priority orders them), then the changes in no flow, by file. */
 export function SummaryList() {
   const { list, overview } = useLens((state) => ({ list: listModel(state)!, overview: state.summaryUnit === null }));
   const isActive = (unitId: string) => !overview && unitId === list.activeId;
@@ -51,15 +53,21 @@ export function SummaryList() {
           </div>
         );
       })}
-      {list.others.length > 0 && (
+      {list.otherFiles.length > 0 && (
         <div className='sum-section'>
-          {list.sections.length > 0 && (
+          {/* Housekeeping alone is lens's own, not a story: no heading to set the rest apart from it */}
+          {list.sections.some((section) => section.flow.title !== HOUSEKEEPING) && (
             <div className='sum-section-title'>
               <span className='t'>Not in a story</span>
             </div>
           )}
-          {list.others.map((unit) => (
-            <UnitItem key={unit.id} unit={unit} side={baseName(unit.displayFile)} active={isActive(unit.id)} />
+          {list.otherFiles.map((group) => (
+            <FileGroupItem
+              key={'file:' + group.file}
+              group={group}
+              folded={list.foldedFiles.has(group.file)}
+              isActive={isActive}
+            />
           ))}
         </div>
       )}

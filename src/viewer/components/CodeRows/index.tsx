@@ -6,6 +6,7 @@ import { BreakRow, GapRow, LineRow, RemovedLineRow } from './Rows.tsx';
 import { Region } from './Region.tsx';
 import { Context } from './Context.tsx';
 import type { RowContext } from './types.ts';
+import { escapeHtml } from '../../shared.ts';
 import './style.css';
 
 export { RemovedRow } from './Rows.tsx';
@@ -25,7 +26,7 @@ export function planRows(items: CodeItem[], context: RowContext): ReactNode[] {
 }
 
 function itemRows(item: CodeItem, itemIndex: number, context: RowContext): ReactNode[] {
-  const { lines, changedLines, removedWords, gutter, marks } = context;
+  const { lines, changedLines, removed, gutter, marks } = context;
   const withNotes = (label: string, row: ReactNode) => [row, ...(marks?.notes?.get(label) ?? [])];
   switch (item.kind) {
     case 'line': {
@@ -48,9 +49,8 @@ function itemRows(item: CodeItem, itemIndex: number, context: RowContext): React
         label,
         <RemovedLineRow
           key={label}
-          text={item.text}
+          html={removed.get(item.old) ?? escapeHtml(item.text)}
           oldLine={item.old}
-          words={removedWords?.get(item.old)}
           gutter={gutter}
           extraClass={marks?.classes?.get(label)}
         />,

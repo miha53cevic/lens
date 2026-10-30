@@ -33,3 +33,17 @@
 .rp-done {
   color: var(--add);
 }
+
+/* a narrow pane (a small window, the Ask rail open): the pill keeps its icons and drops the words
+   it can do without, so it covers less of the code */
+.rp-narrow {
+  display: none;
+}
+@container editor (max-width: 800px) {
+  .review-pill .rp-wide {
+    display: none;
+  }
+  .review-pill .rp-narrow {
+    display: inline;
+  }
+}

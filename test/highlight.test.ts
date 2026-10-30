@@ -85,6 +85,38 @@ test('a refresh re-tokenizes only the files whose text changed', async () => {
   assert.notDeepEqual(light.tokens[0], first.tokens[0], "the other theme's colors");
 });
 
+test('removed lines get their own tokens, block by block, and a refresh keeps them only while they stay the same', async () => {
+  const removals = [
+    { afterLine: 0, oldStart: 1, lines: ['const old = "a";', 'const gone = 2;'] },
+    { afterLine: 1, oldStart: 4, lines: ['old();'] },
+  ];
+  const file = (lines = removals) => ({
+    file: 'a.ts',
+    language: 'typescript' as const,
+    lineCount: 1,
+    regions: [],
+    source: "const now = 'a';\n",
+    removals: lines,
+  });
+  const first = await highlightFiles([file()], 'github-dark');
+  const blocks = first.removed[0];
+  assert.deepEqual(
+    blocks.map((block) => block.map((line) => line.map(([part]) => part).join(''))),
+    removals.map((block) => block.lines),
+    'line-aligned with each block',
+  );
+  assert.ok(
+    blocks.flat(2).some(([, color]) => color !== null),
+    'colored',
+  );
+  assert.deepEqual((await highlightFiles([{ ...file(), removals: undefined }], 'github-dark')).removed, [[]]);
+
+  const same = await highlightFiles([file()], 'github-dark', { files: [file()], tokens: first });
+  assert.equal(same.removed[0], first.removed[0], 'kept');
+  const fewer = await highlightFiles([file(removals.slice(0, 1))], 'github-dark', { files: [file()], tokens: first });
+  assert.equal(fewer.removed[0].length, 1, 'other removed lines, the same text: tokenized again');
+});
+
 test('non-classified languages: shiki colors when known, plain when not', async () => {
   const { shikiLangForFile } = await import('../src/cli-app/render/highlight.ts');
   assert.equal(shikiLangForFile('config.json'), 'json');

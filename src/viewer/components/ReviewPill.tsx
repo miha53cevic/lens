@@ -58,8 +58,8 @@ export function ReviewPill() {
   }
   return (
     <div className='review-pill' id='review-pill'>
-      <Button variant='ghost' size='sm' id='review-prev' disabled={pill.atStart} onClick={prev}>
-        <ArrowLeft size={13} /> Prev
+      <Button variant='ghost' size='sm' id='review-prev' aria-label='Prev' disabled={pill.atStart} onClick={prev}>
+        <ArrowLeft size={13} /> <span className='rp-wide'>Prev</span>
       </Button>
       {pill.stage === 'all' && (
         <span ref={riseIn} className='rp-all' id='review-next'>
@@ -74,7 +74,18 @@ export function ReviewPill() {
       {(pill.stage === 'todo' || pill.stage === 'last') && (
         <Button variant='primary' size='sm' id='review-next' onClick={markAndNext}>
           <Check size={13} />
-          {pill.stage === 'todo' ? markedWord + ' · next ' + noun : 'Mark ' + markedWord.toLowerCase()}
+          {pill.stage === 'todo' ? (
+            <>
+              {/* on a narrow pane: "Viewed →" */}
+              <span>
+                {markedWord}
+                <span className='rp-wide'>{' · next ' + noun}</span>
+              </span>
+              <ArrowRight size={13} className='rp-narrow' />
+            </>
+          ) : (
+            'Mark ' + markedWord.toLowerCase()
+          )}
         </Button>
       )}
       {(pill.stage === 'done' || pill.stage === 'all') && (

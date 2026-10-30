@@ -21,6 +21,12 @@ export interface Section {
   members: Unit[];
 }
 
+/** The units in no flow from one file, under that file's name */
+export interface FileGroup {
+  file: string;
+  members: Unit[];
+}
+
 /** No verdicts: what the agent flagged */
 const AGENT_FLAGS: Marks = new Map();
 
@@ -65,8 +71,11 @@ export interface ListModel {
   /** The signal filter in effect: one whose last unit went away (dismissed) lifts */
   signal: SignalFilter;
   sections: Section[];
-  others: Unit[];
+  /** The units in no flow, by file: each file where its first unit falls in the list's order */
+  otherFiles: FileGroup[];
   folded: Set<string>;
+  /** The files of `otherFiles` the reader folded (a filter unfolds them) */
+  foldedFiles: Set<string>;
   /** Unit ids in list order, as j/k walks them: what's visible */
   order: string[];
   /** The open unit: the reader's, or the first in the list */
@@ -83,6 +92,7 @@ const buildList = memo(
     query: string,
     sumSignal: SignalFilter,
     flowOpen: ReadonlyMap<string, boolean>,
+    closedUnitFiles: ReadonlySet<string>,
     summaryUnit: string | null,
   ): ListModel => {
     const isShown = (unit: Unit) => !(hideTests && isTestFile(unit.displayFile));
@@ -122,9 +132,14 @@ const buildList = memo(
       return flowPriority(section.flow) === 3 && !holdsOpenUnit;
     };
     const folded = new Set(sections.filter(isFolded).map((section) => section.flow.title));
+    const otherFiles = byFile(others);
+    const filtering = text !== '' || signal !== null;
+    const foldedFiles = new Set(
+      filtering ? [] : otherFiles.filter((group) => closedUnitFiles.has(group.file)).map((group) => group.file),
+    );
     const order = [
       ...sections.filter((section) => !folded.has(section.flow.title)).flatMap((section) => section.members),
-      ...others,
+      ...otherFiles.filter((group) => !foldedFiles.has(group.file)).flatMap((group) => group.members),
     ].map((unit) => unit.id);
     // a unit the filter hides stays open in the pane
     const activeId = summaryUnit && unitById(summary, summaryUnit) ? summaryUnit : order[0] || null;
@@ -134,8 +149,9 @@ const buildList = memo(
       counts,
       signal,
       sections,
-      others,
+      otherFiles,
       folded,
+      foldedFiles,
       order,
       activeId,
       summarized: units.filter((unit) => unit.summary).length,
@@ -154,8 +170,20 @@ export function listModel(state: LensState): ListModel | null {
     state.sumQuery,
     state.sumSignal,
     state.flowOpen,
+    state.closedUnitFiles,
     state.summaryUnit,
   );
+}
+
+/** Units by file, in the order each file's first unit comes: a file's units then sit together. */
+function byFile(units: Unit[]): FileGroup[] {
+  const groups = new Map<string, Unit[]>();
+  for (const unit of units) {
+    const members = groups.get(unit.displayFile);
+    if (members) members.push(unit);
+    else groups.set(unit.displayFile, [unit]);
+  }
+  return [...groups].map(([file, members]) => ({ file, members }));
 }
 
 /** The open unit; null on the overview, where unit keys (o, m) do nothing. */

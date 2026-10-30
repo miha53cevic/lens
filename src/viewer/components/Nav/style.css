@@ -188,6 +188,40 @@ nav .file.binary:disabled {
   font-size: var(--text-xs);
   line-height: 1.4;
 }
+/* a file's changes in no flow: the file's name folds them */
+.sum-file-title {
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+.sum-file-title .path {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  color: var(--text);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+/* a long path keeps its file's name: the folder gives way */
+.sum-file-title .sum-file-dir {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--faint);
+  text-overflow: ellipsis;
+}
+.sum-file-title .sum-file-name {
+  flex: none;
+}
+.sum-file-title .n {
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+.sum-file + .sum-file {
+  margin-top: var(--space-1);
+}
+
 /* where a flow's next step starts: "contract", "page", "tests" */
 .sum-step {
   padding: var(--space-2) var(--space-2) var(--space-1);
