@@ -66,6 +66,11 @@ payload.files[].removals[].lines: array
 payload.files[].removals[].lines[]: string
 payload.files[].removals[].oldStart: number
 payload.files[].removals[]: object
+payload.files[].removedTokens: array
+payload.files[].removedTokens[]: array
+payload.files[].removedTokens[][]: array
+payload.files[].removedTokens[][][]: array
+payload.files[].removedTokens[][][][]: string
 payload.files[].source: string
 payload.files[].status: string
 payload.files[].tokens: array

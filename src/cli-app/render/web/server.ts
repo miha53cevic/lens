@@ -92,7 +92,8 @@ export type ViewerPayload = Omit<ViewerInput, 'root' | 'cwd' | 'files' | 'latest
   bg: string;
   /** The theme's function-name color: the viewer's accent */
   accent: string;
-  files: (ViewerFile & { tokens: ViewerToken[][] })[];
+  /** `removedTokens[block][line]`: the removed lines' tokens, by the file's `removals` */
+  files: (ViewerFile & { tokens: ViewerToken[][]; removedTokens: ViewerToken[][][] })[];
   themePinned: boolean;
   canRefresh: boolean;
   /** Which analysis the files are from: tokens fetched later are applied only when theirs is the same */
@@ -110,29 +111,44 @@ export interface ThemeTokens {
   accent: string;
   /** tokens[fileIndex] — aligned with the files array */
   tokens: ViewerToken[][][];
+  /** removed[fileIndex][block][line]: each removed block tokenized as a snippet of its own */
+  removed: ViewerToken[][][][];
 }
 
 /**
- * Every file's Shiki tokens in one theme. `previous` is the last analysis in the same theme (a ↻
- * refresh): a file whose path, language and text are all the same takes its tokens over, so only
- * the files that changed are tokenized again. The text is compared whole, not by a hash.
+ * Every file's Shiki tokens in one theme, and its removed lines' tokens. `previous` is the last
+ * analysis in the same theme (a ↻ refresh): a file whose path, language, text and removed lines
+ * are all the same takes its tokens over, so only the files that changed are tokenized again. The
+ * text is compared whole, not by a hash.
+ *
+ * A removed block is tokenized alone, without the old file around it: reading the old side's blobs
+ * isn't worth it for colors. A block that starts inside a comment or a string is colored as code.
  */
 export async function highlightFiles(
   files: ViewerFile[],
   theme: string,
   previous?: { files: ViewerFile[]; tokens: ThemeTokens },
 ): Promise<ThemeTokens> {
-  const reusable = new Map<string, { file: ViewerFile; tokens: ViewerToken[][] }>();
+  const reusable = new Map<string, { file: ViewerFile; tokens: ViewerToken[][]; removed: ViewerToken[][][] }>();
   if (previous && previous.tokens.theme === theme) {
-    previous.files.forEach((file, index) => reusable.set(file.file, { file, tokens: previous.tokens.tokens[index] }));
+    previous.files.forEach((file, index) =>
+      reusable.set(file.file, { file, tokens: previous.tokens.tokens[index], removed: previous.tokens.removed[index] }),
+    );
   }
+  const sameRemovals = (a: ViewerFile, b: ViewerFile) =>
+    JSON.stringify(a.removals ?? []) === JSON.stringify(b.removals ?? []);
   const results = await Promise.all(
-    files.map((f) => {
+    files.map(async (f) => {
       const same = reusable.get(f.file);
-      if (same && same.file.language === f.language && same.file.source === f.source) {
-        return { tokens: same.tokens, fg: previous!.tokens.fg, bg: previous!.tokens.bg };
+      if (same && same.file.language === f.language && same.file.source === f.source && sameRemovals(same.file, f)) {
+        return { tokens: same.tokens, removed: same.removed, fg: previous!.tokens.fg, bg: previous!.tokens.bg };
       }
-      return highlightSource(f.source, f.language ?? shikiLangForFile(f.file), theme);
+      const language = f.language ?? shikiLangForFile(f.file);
+      const [result, ...removed] = await Promise.all([
+        highlightSource(f.source, language, theme),
+        ...(f.removals ?? []).map((block) => highlightSource(block.lines.join('\n'), language, theme)),
+      ]);
+      return { ...result, removed: removed.map((block) => block.tokens) };
     }),
   );
   // the theme's own colors, not a file's: with no files, the page still follows the theme
@@ -143,6 +159,7 @@ export async function highlightFiles(
     fg: results[0]?.fg ?? swatch.fg,
     bg: results[0]?.bg ?? swatch.bg,
     tokens: results.map((r) => r.tokens),
+    removed: results.map((r) => r.removed),
   };
 }
 
@@ -161,7 +178,7 @@ export function viewerPayload(
     fg: t.fg,
     bg: t.bg,
     accent: t.accent,
-    files: input.files.map((f, i) => ({ ...f, tokens: t.tokens[i] })),
+    files: input.files.map((f, i) => ({ ...f, tokens: t.tokens[i], removedTokens: t.removed[i] })),
     ...opts,
     notes: opts.notes ?? [],
     marks: opts.marks ?? { files: [], units: [], concerns: {} },

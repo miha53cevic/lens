@@ -48,6 +48,10 @@
 .row.removed:hover {
   background: color-mix(in oklab, var(--del) var(--tint-strong), transparent);
 }
+/* the old code keeps its theme's colors, a step back from the new: the new side leads */
+.row.removed > span:last-child {
+  opacity: 0.8;
+}
 .row.removed .num {
   color: var(--del);
 }

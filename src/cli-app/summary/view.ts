@@ -195,7 +195,7 @@ function drawings(stored: StoredSummary | null, units: Unit[]): Pick<SummaryView
 /**
  * The stored flows over the units shown, each unit in one flow (submit keeps it so, but the
  * file is on disk: if one lists it in several, the first keeps it), and the units lens files
- * itself added to Housekeeping.
+ * itself added to Housekeeping, which is there before the agent has written any flows too.
  */
 function shownFlows(stored: Flow[], visible: ViewUnit[]): Flow[] {
   const ids = new Set(visible.map((u) => u.id));
@@ -207,9 +207,9 @@ function shownFlows(stored: Flow[], visible: ViewUnit[]): Flow[] {
       return { ...f, units };
     })
     .filter((f) => Object.keys(f.units).length >= (f.title === HOUSEKEEPING ? 1 : 2));
-  // only next to the agent's flows: a diff without them lists every change as it is
+  // with or without the agent's flows: lens knows these itself, and they'd bury the rest
   const filed = visible.filter((u) => isHousekeeping(u) && !placed.has(u.id));
-  if (flows.length === 0 || filed.length === 0) return flows;
+  if (filed.length === 0) return flows;
   const units = Object.fromEntries(filed.map((u) => [u.id, '']));
   const own = flows.find((f) => f.title === HOUSEKEEPING);
   if (own) return flows.map((f) => (f === own ? { ...f, units: { ...f.units, ...units } } : f));

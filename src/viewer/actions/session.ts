@@ -34,7 +34,11 @@ export async function switchTheme(theme: string): Promise<boolean> {
           themes: state.data.themes.some((swatch) => swatch.name === entry.theme)
             ? state.data.themes
             : [...state.data.themes, { name: entry.theme, bg: entry.bg, fg: entry.fg, accent: entry.accent }],
-          files: state.data.files.map((file, fileIndex) => ({ ...file, tokens: entry.tokens[fileIndex] })),
+          files: state.data.files.map((file, fileIndex) => ({
+            ...file,
+            tokens: entry.tokens[fileIndex],
+            removedTokens: entry.removed[fileIndex],
+          })),
         },
       })),
     );

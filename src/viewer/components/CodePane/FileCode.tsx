@@ -82,7 +82,7 @@ export function FileCode() {
   if (hiddenAsTest) {
     return <div className='empty'>Every file here is a test file. Turn off "Hide tests" in ⋯ to see them.</div>;
   }
-  const { lines, removedWords } = codeLines(file, wordDiff, showRemoved);
+  const { lines, removed } = codeLines(file, wordDiff, showRemoved);
   // side by side numbers the old side too, which may be the longer one
   const oldLineCount = file.lineCount - (file.changedLines?.length ?? 0) + removedCount(file.removals || []);
   const gutter = String(pairs ? Math.max(file.lineCount, oldLineCount) : file.lineCount).length;
@@ -118,7 +118,7 @@ export function FileCode() {
             items={pairs}
             lines={lines}
             changedLines={changedLines}
-            removedWords={removedWords}
+            removed={removed}
             gutter={gutter}
             marks={marks}
           />
@@ -128,7 +128,7 @@ export function FileCode() {
             items={plan.items}
             lines={lines}
             changedLines={changedLines}
-            removedWords={removedWords}
+            removed={removed}
             gutter={gutter}
             marks={marks}
           />

@@ -109,14 +109,19 @@ export function pairWordDiffs(removals: RemovedBlock[], changedLines: number[], 
   return { added, removed };
 }
 
-/** A line's highlighted tokens as HTML, with the `marked` ranges wrapped in `<span class="w-add">`. */
-export function lineHtml(tokens: ViewerToken[], marked: readonly WordRange[] = []): string {
+/**
+ * A line's highlighted tokens as HTML, with the `marked` ranges wrapped in `<span class="w-add">`,
+ * or in `markClass` (`w-del` on a removed line).
+ */
+export function lineHtml(tokens: ViewerToken[], marked: readonly WordRange[] = [], markClass = 'w-add'): string {
   let html = '';
   let offset = 0;
   for (const [text, color] of tokens) {
     let piece = '';
     for (const part of splitAt(text, offset, marked)) {
-      piece += part.marked ? '<span class="w-add">' + escapeHtml(part.text) + '</span>' : escapeHtml(part.text);
+      piece += part.marked
+        ? '<span class="' + markClass + '">' + escapeHtml(part.text) + '</span>'
+        : escapeHtml(part.text);
     }
     html += color ? '<span style="color:' + color + '">' + piece + '</span>' : piece;
     offset += text.length;

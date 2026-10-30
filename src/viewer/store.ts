@@ -116,6 +116,8 @@ export interface LensState {
   sumSignal: SignalFilter;
   /** Flow title -> open, once the reader toggled it */
   flowOpen: ReadonlyMap<string, boolean>;
+  /** The files the reader folded in the summary list's changes in no flow */
+  closedUnitFiles: ReadonlySet<string>;
   concernMarks: ReadonlyMap<string, ConcernMark>;
   /** The reader's notes on the review's files, as the server keeps them (.lens/notes/<review>.json) */
   notes: readonly ReaderNote[];
@@ -183,7 +185,7 @@ const initialState: LensState = {
   hideTests: readPref('lens.hideTests') !== '0', // on by default
   hunksOnly: readPref('lens.hunksOnly') !== '0', // on by default
   fullUnits: readPref('lens.fullUnits') === '1', // off by default
-  wordDiff: readPref('lens.wordDiff') === '1', // off by default
+  wordDiff: readPref('lens.wordDiff') !== '0', // on by default
   sideBySide: readPref('lens.sideBySide') === '1', // off by default
   codeSize: loadCodeSize(),
   navCollapsed: readPref('lens.navCollapsed') === '1',
@@ -202,6 +204,7 @@ const initialState: LensState = {
   sumQuery: '',
   sumSignal: null,
   flowOpen: new Map(),
+  closedUnitFiles: new Set(),
   concernMarks: new Map(Object.entries(INITIAL_DATA.marks.concerns)),
   notes: INITIAL_DATA.notes,
   noteDraft: null,

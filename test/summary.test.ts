@@ -345,7 +345,7 @@ test('the summary view puts each unit in one flow, and files import-only units u
         ['Housekeeping', ['gone', '(module)']],
       ],
     );
-    assert.deepEqual(flows([]), [], 'no flows: no Housekeeping of its own');
+    assert.deepEqual(flows([]), [['Housekeeping', ['(module)']]], 'no flows yet: Housekeeping all the same');
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

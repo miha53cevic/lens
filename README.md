@@ -91,7 +91,7 @@ shows code you didn't write.
 
 - **Folds** collapse into one-line pills that quote what they hide
   (`1 guard → return DEFAULTS + log`), one click from the real code.
-- **Diff reading**: hunks only, inline removed lines, word diff, side by side (old and new in two columns), hide tests.
+- **Diff reading**: hunks only, inline removed lines (syntax-highlighted), word diff (on by default), side by side (old and new in two columns), hide tests.
 - **Search** across loaded files (⌘P / Ctrl P), ⌥-click for usages.
 - **Viewed marks** and a progress ring, so you know what's left. A file or change whose code moved
   after you ticked it says so. They, and your real / dismissed verdicts on concerns, are kept per
@@ -115,7 +115,7 @@ what triggers it and the smallest fix), what behaves differently, and callers it
 break. You mark each concern and possible break *real* or *dismiss* it, and copy the real
 ones back to your agent. Units are grouped into **flows**: one story each, read step by step, ranked P1 to
 P3, with each unit in one flow and import-only or formatting-only changes under
-Housekeeping. An overview of the whole diff sits on top. With **Full units** on (the ⋯ menu),
+Housekeeping, even before a summary is written. The units in no flow are listed by file. An overview of the whole diff sits on top. With **Full units** on (the ⋯ menu),
 the rest of a unit's file sits above and below it, behind a bar that says what it holds.
 
 With **Build previews** on (the ⋯ menu, on by default), the agent also draws what the

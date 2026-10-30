@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, statSyn
 import { join } from 'node:path';
 import { currentBranch, uncheckedOutRevision } from '../git.ts';
 import { parsePrRef } from '../pr.ts';
+import { HOUSEKEEPING, isHousekeeping } from './housekeeping.ts';
 import { placedHash, type Anchor, type LineRange, type UnitKind, type UnitStatus } from './units.ts';
 
 // Everything summary mode writes lives in <repo root>/.lens/, which carries its
@@ -59,13 +60,7 @@ export interface Flow {
 
 export type FlowPriority = 1 | 2 | 3;
 
-/** The P3 flow for what no story needs: the agent's moves and renames, and the units lens files there itself */
-export const HOUSEKEEPING = 'Housekeeping';
-
-/** Units lens files under Housekeeping without the agent: import-only and formatting-only changes. */
-export function isHousekeeping(unit: { formattingOnly?: boolean; importsOnly?: boolean }): boolean {
-  return !!unit.formattingOnly || !!unit.importsOnly;
-}
+export { HOUSEKEEPING, isHousekeeping };
 
 /** What a step of a sequence did to the diagram: absent for a step the diff leaves alone */
 export type StepChange = 'added' | 'changed' | 'removed';

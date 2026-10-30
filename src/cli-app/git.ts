@@ -455,8 +455,11 @@ export function gitDiffTargets(gitArgs: string[], cwd: string): DiffResult {
   const rawEntries = parseRawEntries(raw);
   const newBlobs = new Map<string, string>();
   const oldBlobs = new Map<string, string>();
+  // Against the working tree the new side is read from disk, whatever git prints for it: for a
+  // file it has hashed there that can be a blob git never stored.
+  const toWorktree = worktreePathspecs(gitArgs, cwd) !== null;
   for (const e of rawEntries) {
-    if (e.newSha) newBlobs.set(e.path, e.newSha);
+    if (e.newSha && !toWorktree) newBlobs.set(e.path, e.newSha);
     if (e.oldSha) oldBlobs.set(e.path, e.oldSha);
   }
   const abs = (p: string) => toPosix(isAbsolute(p) ? p : join(root, p));
@@ -529,10 +532,15 @@ export function changeFingerprint(gitArgs: string[], cwd: string): () => Promise
   return async () => {
     const root = (await git(['rev-parse', '--show-toplevel'], cwd)).trim();
     const raw = await git(['diff', '--raw', '-z', '--no-abbrev', '--no-color', '--no-relative', ...gitArgs], cwd);
-    const hash = createHash('sha256').update(raw);
-    // no new-side blob: the file's content is the working tree's (deletions have none either)
-    const fromDisk = parseRawEntries(raw).filter((entry) => entry.newSha === null && !entry.status.startsWith('D'));
     const pathspecs = worktreePathspecs(gitArgs, cwd);
+    // Against the working tree, git prints a file's blob only while the index's record of its
+    // stat is fresh, and 0s once it isn't (a touch, a save as it was), until something such as
+    // `git status` refreshes the index. That is no change, so the new side's blob is left out,
+    // and every file the working tree holds is read instead.
+    const hash = createHash('sha256').update(pathspecs === null ? raw : withoutNewBlobs(raw));
+    const fromDisk = parseRawEntries(raw).filter(
+      (entry) => (pathspecs !== null || entry.newSha === null) && !entry.status.startsWith('D'),
+    );
     const untracked =
       pathspecs === null
         ? []
@@ -545,4 +553,17 @@ export function changeFingerprint(gitArgs: string[], cwd: string): () => Promise
     }
     return hash.digest('hex');
   };
+}
+
+/** `git diff --raw -z` output with each record's new-side blob blanked, its modes and status kept. */
+function withoutNewBlobs(raw: string): string {
+  return raw
+    .split('\0')
+    .map((token) => {
+      if (!token.startsWith(':') || token.startsWith('::')) return token;
+      const fields = token.split(' ');
+      if (fields.length >= 5) fields[3] = '';
+      return fields.join(' ');
+    })
+    .join('\0');
 }

@@ -2,6 +2,7 @@
 
 import type { CSSProperties } from 'react';
 import type { ViewerPayload } from '../cli-app/render/web/server.ts';
+import type { ViewerToken } from '../cli-app/render/highlight.ts';
 import { compilePatterns, matchesAny } from '../cli-app/glob.ts';
 import { escapeHtml } from '../cli-app/text.ts';
 import { lineHtml, pairWordDiffs, type WordDiffs } from './wordDiff.ts';
@@ -51,19 +52,41 @@ function fileWordDiffs(file: ViewFile) {
   return cached;
 }
 
+// A file's removed lines as highlighted HTML, by old-side line: plain, and with word diff's marks.
+const removedCache = new WeakMap<ViewFile, Map<number, string>>();
+const markedRemovedCache = new WeakMap<ViewFile, Map<number, string>>();
+function removedLines(file: ViewFile, marked?: WordDiffs['removed']): Map<number, string> {
+  const cache = marked ? markedRemovedCache : removedCache;
+  let lines = cache.get(file);
+  if (!lines) {
+    lines = new Map();
+    (file.removals || []).forEach((block, blockIndex) => {
+      block.lines.forEach((text, lineIndex) => {
+        const old = block.oldStart + lineIndex;
+        // no tokens (a payload from before they were sent, or one that doesn't line up): plain text
+        const tokens = file.removedTokens?.[blockIndex]?.[lineIndex];
+        const line: ViewerToken[] = tokens && tokens.map(([part]) => part).join('') === text ? tokens : [[text, null]];
+        lines!.set(old, lineHtml(line, marked?.get(old), 'w-del'));
+      });
+    });
+    cache.set(file, lines);
+  }
+  return lines;
+}
+
 /**
- * What the code rows show of a file: its highlighted lines and, with word diff on and the removed
- * lines shown, the changed words of each replaced line on both sides (removed lines hidden: no
- * pairs to mark).
+ * What the code rows show of a file: its highlighted lines and removed lines and, with word diff
+ * on and the removed lines shown, the changed words of each replaced line on both sides (removed
+ * lines hidden: no pairs to mark).
  */
 export function codeLines(
   file: ViewFile,
   wordDiff: boolean,
   showRemoved: boolean,
-): { lines: string[]; removedWords: WordDiffs['removed'] | undefined } {
-  if (!wordDiff || !showRemoved) return { lines: linesFromTokens(file), removedWords: undefined };
+): { lines: string[]; removed: ReadonlyMap<number, string> } {
+  if (!wordDiff || !showRemoved) return { lines: linesFromTokens(file), removed: removedLines(file) };
   const { diffs, lines } = fileWordDiffs(file);
-  return { lines, removedWords: diffs.removed };
+  return { lines, removed: removedLines(file, diffs.removed) };
 }
 
 // Plain-text lines per file, split lazily once (search).
@@ -150,6 +173,12 @@ export { plural } from '../cli-app/text.ts';
 
 export function baseName(path: string): string {
   return path.split('/').pop()!;
+}
+
+/** The folder a path is in, '' at the top */
+export function dirName(path: string): string {
+  const slash = path.lastIndexOf('/');
+  return slash === -1 ? '' : path.slice(0, slash);
 }
 
 /**

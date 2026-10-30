@@ -13,6 +13,9 @@ import { addNoteMarks } from '../../Notes/marks.tsx';
 import { Verdict } from './Verdict.tsx';
 import { useShownChanges } from './hooks.ts';
 
+/** A unit with no file of its own to read has no removed lines to draw */
+const NO_REMOVED: ReadonlyMap<number, string> = new Map();
+
 /**
  * The unit's code, as the Code view shows it, and what the summary adds to the rows: the
  * lines the When / Before / Now rows point at, each open concern (its row flagged, a note
@@ -74,9 +77,9 @@ export function UnitCode({ unit, hoveredCite }: { unit: Unit; hoveredCite: strin
   if (hoveredCite) addClass(hoveredCite, 'hover-cite');
   if (landed && landed.path === unit.displayFile) addClass(landed.label, 'landed');
 
-  const { lines, removedWords } = plan.file
+  const { lines, removed } = plan.file
     ? codeLines(plan.file, wordDiff, showRemoved)
-    : { lines: [], removedWords: undefined };
+    : { lines: [], removed: NO_REMOVED };
   return (
     <div className='unit-code'>
       <div className={clsx('code', pairs && 'split')} onMouseDown={pairs ? holdSelectionSide : undefined}>
@@ -86,7 +89,7 @@ export function UnitCode({ unit, hoveredCite }: { unit: Unit; hoveredCite: strin
             items={pairs}
             lines={lines}
             changedLines={changedLines}
-            removedWords={removedWords}
+            removed={removed}
             gutter={plan.gutter}
             marks={{ classes, left, notes }}
           />
@@ -96,7 +99,7 @@ export function UnitCode({ unit, hoveredCite }: { unit: Unit; hoveredCite: strin
             items={plan.items}
             lines={lines}
             changedLines={changedLines}
-            removedWords={removedWords}
+            removed={removed}
             gutter={plan.gutter}
             marks={{ classes, left, notes }}
           />
