@@ -2,7 +2,7 @@ import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 import { analyzeSource } from './classify/index.ts';
 import { findConfigPath } from './config.ts';
-import { changeFingerprint, type DiffTarget } from './git.ts';
+import { changeFingerprint, readBlobs, type DiffTarget } from './git.ts';
 import { languageForFile } from './parse/parser.ts';
 import type { ViewerInput } from './render/web/server.ts';
 import { compilePatterns, matchesAny } from './glob.ts';
@@ -69,6 +69,43 @@ export async function analyze(
     if (target.removals?.length) fileModel.removals = target.removals;
     files.push({ ...fileModel, source, ...(target.newBlob ? { blob: target.newBlob } : {}) });
   }
+  // A deleted file opens too: no lines of its own, and the whole of its old text one removed block.
+  // Not one the config excludes (its text isn't wanted), nor a binary one (it has none to show).
+  const openedDeleted = new Set<string>();
+  if (diff) {
+    const excludeRegexes = compilePatterns(config.exclude);
+    const binaries = new Set(diff.binary.map((b) => b.file));
+    const wanted = diff.deleted.filter(
+      (abs) => diff.deletedBlobs.has(abs) && !binaries.has(abs) && !matchesAny(shown(abs), excludeRegexes),
+    );
+    const oldTexts = readBlobs(
+      wanted.map((abs) => diff.deletedBlobs.get(abs)!),
+      cwd,
+    );
+    for (const abs of wanted) {
+      const text = oldTexts.get(diff.deletedBlobs.get(abs)!)!;
+      if (text.includes('\0')) continue; // a binary git didn't call one
+      const display = shown(abs);
+      const lines = text.replace(/\r?\n$/, '').split(/\r?\n/);
+      // classified as an empty file: the language for the colors, no folds
+      const fileModel: FileFoldModel = (await analyzeSource(display, '', config)) ?? {
+        file: display,
+        language: null,
+        lineCount: 0,
+        regions: [],
+      };
+      files.push({
+        ...fileModel,
+        regions: [],
+        lineCount: 0,
+        source: '',
+        status: 'deleted',
+        changedLines: [],
+        removals: [{ afterLine: 0, oldStart: 1, lines }],
+      });
+      openedDeleted.add(display);
+    }
+  }
 
   let summary: SummaryView | null = null;
   let latestSummary: (() => SummaryView) | null = null;
@@ -97,7 +134,7 @@ export async function analyze(
     review: reviewKey(root, command, args),
     threshold: config.threshold,
     files,
-    deleted: diff ? diff.deleted.map(shown) : [],
+    deleted: diff ? diff.deleted.map(shown).filter((path) => !openedDeleted.has(path)) : [],
     excluded: diff ? diff.excluded : [],
     renamed: diff ? diff.renamed.map((r) => ({ from: shown(r.from), to: shown(r.to) })) : [],
     binary: diff ? diff.binary.map((b) => ({ file: shown(b.file), status: b.status })) : [],

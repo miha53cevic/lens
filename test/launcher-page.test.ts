@@ -48,12 +48,21 @@ const REPO: RepoInfo = {
   github: { remote: 'origin', owner: 'acme', repo: 'storefront' },
 };
 
+const HOUR = 3_600_000;
+
 const START: LauncherState = {
   screen: 'start',
   canGoBack: false,
   recents: [
-    { root: '/Users/ana/repos/lens', name: 'lens', path: '~/repos/lens' },
-    { root: '/Users/ana/repos/storefront', name: 'storefront', path: '~/repos/storefront' },
+    {
+      root: '/Users/ana/repos/lens',
+      name: 'lens',
+      path: '~/repos/lens',
+      branch: 'main',
+      opened: Date.now() - 2 * HOUR,
+    },
+    // opened before the app kept when: nothing to say beside it
+    { root: '/Users/ana/repos/storefront', name: 'storefront', path: '~/repos/storefront', branch: null, opened: null },
   ],
   repo: null,
   repoPath: null,
@@ -163,17 +172,20 @@ pageTest('Start: one button, and the recent folders with none picked for you', '
   assert.equal(text('.start-tagline'), 'Code review for the agentic era.');
   assert.deepEqual(
     $$('.recent-open').map((row) => row.textContent),
-    ['lens~/repos/lens', 'storefront~/repos/storefront'],
+    ['lens~/repos/lensmain · 2h ago', 'storefront~/repos/storefront'],
   );
+  assert.equal(text('#open-repository'), 'Open repository ⌘O');
   assert.equal(text('#status'), 'Ready');
   assert.equal($$('#setup-notice').length, 0, 'the command is installed: nothing to say about it');
   assert.equal(document.documentElement.dataset.appearance, 'dark');
   assert.equal(document.documentElement.style.getPropertyValue('--theme-accent'), VESPER.accent);
 
   await click($('#open-repository'));
+  fireEvent.keyDown(document, { key: 'o', metaKey: true });
   await click($$('.recent-open')[1]);
   await click($('[aria-label="Forget lens"]'));
   assert.deepEqual(page.calls, [
+    ['openRepository'],
     ['openRepository'],
     ['openRecent', '/Users/ana/repos/storefront'],
     ['forgetRecent', '/Users/ana/repos/lens'],
@@ -236,10 +248,20 @@ pageTest(
     );
     assert.equal(text('.copy-cmd-text'), 'lens diff --staged');
 
+    // nothing in the working tree: not offered, since the CLI would find nothing to show
+    assert.ok($('.choice[data-range="worktree"]').classList.contains('disabled'));
+    assert.equal(text('.choice[data-range="worktree"] .choice-sub'), 'Nothing unstaged right now');
+
+    await page.push({ ...PICKER, repo: { ...REPO, changed: 1 } });
     await click($('.choice[data-range="worktree"] input'));
     assert.equal(text('.copy-cmd-text'), 'lens diff');
     await click($('#open-review'));
     assert.deepEqual(page.calls, [['open', { kind: 'diff', range: 'worktree' }]]);
+
+    // what was picked emptied since (committed in a terminal): it stays picked, and says why it can't open
+    await page.push({ ...PICKER, repo: { ...REPO, changed: 0 } });
+    assert.equal(text('.picker-problem'), 'Nothing unstaged to review');
+    assert.equal(($('#open-review') as HTMLButtonElement).disabled, true);
   },
 );
 
@@ -287,9 +309,10 @@ pageTest('the picker asks for its repository again when it comes back into sight
   await settle();
   assert.equal(asked(), 1);
   // the counts are what the main process says now; the picked choice is the page's own
-  await click($('.choice[data-range="worktree"]'));
   await page.push({ ...PICKER, repo: { ...REPO, changed: 3, staged: 0 } });
-  assert.equal($('.choice[data-range="worktree"] .choice-meta').textContent, '3 files');
+  await click($('.choice[data-range="worktree"]'));
+  await page.push({ ...PICKER, repo: { ...REPO, changed: 4, staged: 0 } });
+  assert.equal($('.choice[data-range="worktree"] .choice-meta').textContent, '4 files');
   assert.ok($('.choice[data-range="worktree"]').classList.contains('checked'));
 });
 

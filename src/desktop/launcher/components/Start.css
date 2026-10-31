@@ -52,11 +52,31 @@
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+.recent-visit {
+  flex: none;
+  max-width: 40%;
+  margin-left: auto;
+  overflow: hidden;
+  color: var(--faint);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
 .recent-forget {
   margin-right: var(--space-2);
   visibility: hidden;
 }
 .recent:hover .recent-forget,
-.recent:focus-within .recent-forget {
+.recent:focus-within .recent-visit {
+  flex: none;
+  max-width: 40%;
+  margin-left: auto;
+  overflow: hidden;
+  color: var(--faint);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.recent-forget {
   visibility: visible;
 }

@@ -296,6 +296,12 @@ pageTest('? opens the shortcuts in tabs: Global, Code and Summary', async () => 
     [...search.querySelectorAll('kbd')].map((cap) => cap.textContent),
     ['⌘', 'P', 'Ctrl', 'P'],
   );
+  // a capital letter is drawn with its shift
+  const nextNote = $$('#keys-modal tr').find((row) => row.textContent!.includes('next note'))!;
+  assert.deepEqual(
+    [...nextNote.querySelectorAll('kbd')].map((cap) => cap.textContent),
+    ['⇧', 'N'],
+  );
   await click($('#key-tabs [data-value="summary"]'));
   assert.deepEqual(tabs(), ['Global', 'Code', 'Summary*']);
   assert.deepEqual(keys(), ['g', 'j / k', 'o', 'm', '/']);
@@ -319,6 +325,43 @@ pageTest('search lists where a name is defined, then its usages; Enter jumps, ev
   await settle();
   assert.ok(!($('#search-modal') as HTMLDialogElement).open);
   assert.ok($('#code .row[data-line="14"]').classList.contains('flash'), 'line 14 was hidden: its stretch opened');
+});
+
+pageTest('⌘⇧P finds a file by its path, its name first; ↵ opens it, and ⌘P comes back to that mode', async () => {
+  await key('p', { ctrlKey: true, shiftKey: true });
+  assert.ok(($('#search-modal') as HTMLDialogElement).open);
+  assert.ok(($('#search-files') as HTMLInputElement).checked);
+  assert.equal($$('#search-word').length, 0, 'word and case are for the code');
+  await type($('#search-input'), 'orders');
+  assert.deepEqual(
+    $$('#search-results .search-path').map((row) => row.textContent),
+    ['Msrc/orders.ts'],
+    'hide tests leaves the test file out',
+  );
+  ($('#search-modal') as HTMLDialogElement).close();
+  await key('t');
+  await key('p', { ctrlKey: true, shiftKey: true });
+  assert.deepEqual(
+    $$('#search-results .search-path').map((row) => row.textContent),
+    ['Msrc/orders.test.ts', 'Msrc/orders.ts'],
+    "both names hold it: the files' order",
+  );
+  await type($('#search-input'), 'TEST');
+  assert.deepEqual(
+    $$('#search-results .search-path').map((row) => row.textContent),
+    ['Msrc/orders.test.ts'],
+    'any case',
+  );
+  fireEvent.keyDown($('#search-input'), { key: 'Enter' });
+  await settle();
+  assert.ok(!($('#search-modal') as HTMLDialogElement).open);
+  assert.equal($('.tab.active .tab-name').textContent, 'orders.test.ts');
+
+  await key('p', { ctrlKey: true });
+  assert.ok(($('#search-files') as HTMLInputElement).checked, 'the palette opens as it was left');
+  await click($('#search-files'));
+  assert.ok($('#search-word'), 'back to the code');
+  assert.ok($$('#search-results .search-hit').length > 0);
 });
 
 pageTest('the row a jump lands on stays marked after the flash, until the next jump', async () => {

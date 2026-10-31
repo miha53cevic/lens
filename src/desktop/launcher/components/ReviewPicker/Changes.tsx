@@ -53,15 +53,18 @@ export function Changes({ repo, range, onRange, base, onBase, custom, onCustom }
       <RangeChoice
         {...shared}
         value='worktree'
+        // an empty range can't be opened: the CLI finds nothing in it
+        disabled={repo.changed === 0}
         name='Working tree'
-        sub="Changes you haven't staged"
+        sub={repo.changed === 0 ? 'Nothing unstaged right now' : "Changes you haven't staged"}
         meta={plural(repo.changed, 'file')}
       />
       <RangeChoice
         {...shared}
         value='staged'
+        disabled={repo.staged === 0}
         name='Staged'
-        sub='What the next commit would take'
+        sub={repo.staged === 0 ? 'Nothing staged right now' : 'What the next commit would take'}
         meta={plural(repo.staged, 'file')}
       />
       <RangeChoice

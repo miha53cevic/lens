@@ -1,7 +1,8 @@
 // The dialogs (each <dialog> keeps its own open state) and the search palette.
 
 import { commit, getState, type LensState, update } from '../store.ts';
-import { jumpToLine } from './views.ts';
+import { jumpToLine, setView } from './views.ts';
+import { openFile } from './tabs.ts';
 
 export function dialog(id: string): HTMLDialogElement | null {
   return document.getElementById(id) as HTMLDialogElement | null;
@@ -15,17 +16,19 @@ export function openDialog(id: 'settings-modal' | 'keys-modal' | 'clear-modal'):
 /**
  * The search palette, put in front of the reader with the query selected. Find usages
  * (alt-click) passes the word and pins the tab being read — that search is a detour the
- * reader returns from. Plain ⌘P search keeps the preview behavior.
+ * reader returns from. Plain ⌘P search keeps the preview behavior, and the mode it was left in;
+ * `files` (⌘⇧P) opens it on the file paths and keeps the word and case options.
  */
 export function openSearch(
   query?: string,
-  options?: { word?: boolean; matchCase?: boolean; pinOrigin?: boolean },
+  options?: { word?: boolean; matchCase?: boolean; pinOrigin?: boolean; files?: boolean },
 ): void {
   commit((state) => ({
     search: {
       query: query ?? state.search.query,
-      word: options ? !!options.word : state.search.word,
-      matchCase: options ? !!options.matchCase : state.search.matchCase,
+      word: options && !options.files ? !!options.word : state.search.word,
+      matchCase: options && !options.files ? !!options.matchCase : state.search.matchCase,
+      files: options ? !!options.files : state.search.files,
       pinOrigin: !!options?.pinOrigin,
       selected: 0,
     },
@@ -38,7 +41,7 @@ export function openSearch(
 }
 
 /** A new query or option: the selection goes back to the first hit. */
-export function setSearch(patch: Partial<Pick<LensState['search'], 'query' | 'word' | 'matchCase'>>): void {
+export function setSearch(patch: Partial<Pick<LensState['search'], 'query' | 'word' | 'matchCase' | 'files'>>): void {
   update((state) => ({ search: { ...state.search, ...patch, selected: 0 } }));
 }
 
@@ -49,6 +52,13 @@ export function moveSearchSelection(delta: number, hitCount: number): void {
     search: { ...state.search, selected: (state.search.selected + delta + hitCount) % hitCount },
   }));
   document.querySelector('.search-hit.selected')?.scrollIntoView({ block: 'nearest' });
+}
+
+/** A file found by its path: the palette closes and the code view opens it. */
+export function openFoundFile(fileIndex: number): void {
+  dialog('search-modal')?.close();
+  if (getState().view !== 'code') setView('code');
+  openFile(fileIndex);
 }
 
 /** A search hit: the palette closes and the code view jumps to it. */

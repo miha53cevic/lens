@@ -225,7 +225,7 @@ export class Tab {
     this.repo = info.repo;
     this.screen = 'picker';
     this.running = runningServer(info.repo.root);
-    this.store.touch(info.repo.root);
+    this.store.touch(info.repo.root, info.repo.branch);
     this.host.changed(this);
   }
 

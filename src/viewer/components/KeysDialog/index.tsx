@@ -38,7 +38,8 @@ export function KeysDialog() {
                   {help.keys.map((key, keyIndex) => (
                     <Fragment key={key}>
                       {keyIndex > 0 && ' / '}
-                      <Kbd combo={key} />
+                      {/* a capital letter is that letter with shift: "N" reads as ⇧ N, not as n again */}
+                      <Kbd combo={/^[A-Z]$/.test(key) ? '⇧' + key : key} />
                     </Fragment>
                   ))}
                 </td>

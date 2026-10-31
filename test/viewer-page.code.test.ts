@@ -445,12 +445,22 @@ pageTest(
     assert.equal($('#nav .progress-count').textContent, '0 of 1');
     assert.equal($('#nav .legend.changed').textContent, '1 changed since viewed');
 
+    // its folder: each file viewed, one changed since: the dot, not the tick
+    const folder = () => $('#tree .dir');
+    assert.ok(folder().classList.contains('changed'));
+    assert.match(folder().getAttribute('title')!, /a file changed since you viewed it/);
+
     await key('m');
     assert.equal(box().getAttribute('aria-checked'), 'true');
     assert.ok(!box().classList.contains('changed'));
     assert.equal($$('#nav .legend.changed').length, 0);
+    assert.ok(folder().classList.contains('done'), 'every file in it viewed: the tick');
     await key('m');
     assert.ok(!box().classList.contains('changed'), 'unticked now: never viewed, as far as it shows');
+    assert.ok(!folder().classList.contains('done') && !folder().classList.contains('changed'));
+    await key('t');
+    await key('m');
+    assert.ok(!folder().classList.contains('done'), 'the test file shows now, and is not viewed');
   },
   {},
   '',

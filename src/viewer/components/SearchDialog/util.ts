@@ -4,6 +4,8 @@ import { isTestFile, memo, sourceLines } from '../../shared.ts';
 import { escapeRegExp } from '../../../cli-app/text.ts';
 
 export const SEARCH_LIMIT = 500;
+/** More files than a palette is for: the reader types more of the path */
+export const FILE_LIMIT = 50;
 
 export interface SearchHit {
   fileIndex: number;
@@ -78,3 +80,21 @@ function findDefinitions(
   });
   return hits;
 }
+
+/**
+ * The files whose path holds `query`, in any case, as the tree's filter matches them: those whose
+ * name holds it first, then the rest, each in the files' order. Up to FILE_LIMIT.
+ */
+export const findFiles = memo((query: string, files: ViewerPayload['files'], hideTests: boolean): number[] => {
+  const wanted = query.trim().toLowerCase();
+  if (wanted === '') return [];
+  const byName: number[] = [];
+  const byPath: number[] = [];
+  files.forEach((file, fileIndex) => {
+    if (hideTests && isTestFile(file.file)) return;
+    const path = file.file.toLowerCase();
+    if (!path.includes(wanted)) return;
+    (path.slice(path.lastIndexOf('/') + 1).includes(wanted) ? byName : byPath).push(fileIndex);
+  });
+  return [...byName, ...byPath].slice(0, FILE_LIMIT);
+});

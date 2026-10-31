@@ -343,7 +343,16 @@ export class AppWindow implements TabHost {
     return {
       ...tab.state(),
       repoPath: tab.repo ? tildePath(tab.repo.root, homedir()) : null,
-      recents: store.recents().map((root) => ({ root, name: basename(root), path: tildePath(root, homedir()) })),
+      recents: store.recents().map((root) => {
+        const visit = store.visit(root);
+        return {
+          root,
+          name: basename(root),
+          path: tildePath(root, homedir()),
+          branch: visit?.branch ?? null,
+          opened: visit?.at ?? null,
+        };
+      }),
       git: themes.git,
       version: themes.version,
       setup: setupState(setup),

@@ -26,7 +26,7 @@ export function startNote(): void {
   const selection = askSelection(state);
   const file = selection && fileByPath(state.data, selection.file);
   if (!selection || !file) {
-    noteDone('Select the lines to note', 'then press n, or right-click them');
+    noteDone('Select the lines to note', 'then right-click them');
     return;
   }
   const side = selection.lines.some((line) => line.side === 'new' && line.n !== null) ? 'new' : 'old';

@@ -38,9 +38,22 @@ nav .dir {
 nav .dir:hover {
   color: var(--text);
 }
+nav .dir-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* the reader is through the folder: a tick, or the "viewed, then changed" dot of a file's box */
+nav .dir-mark {
+  flex: none;
+  margin-left: auto;
+  color: var(--add);
+}
+nav .dir-mark.dot {
+  --dot: var(--mod);
+}
 nav .file {
   display: grid;
-  grid-template-columns: 14px minmax(0, 1fr) 12px;
+  grid-template-columns: 14px minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-2);
   width: 100%;
@@ -229,7 +242,7 @@ nav .file.binary:disabled {
 
 .sum-item {
   display: grid;
-  grid-template-columns: 16px minmax(0, 1fr) auto auto auto;
+  grid-template-columns: 16px minmax(0, 1fr) auto auto auto auto;
   align-items: center;
   column-gap: var(--space-2);
   width: 100%;
@@ -245,6 +258,23 @@ nav .file.binary:disabled {
   font-size: var(--text-xs);
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+/* the reader's notes on a file or a change: the accent's dot, and how many past one */
+.note-mark {
+  --dot: var(--accent);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--accent);
+  font: var(--text-2xs) var(--font-mono);
+}
+/* the tree's last cell: the note mark, then the status letter */
+nav .file .file-end {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  min-width: 12px;
 }
 /* a unit some preview or sequence shows */
 .sum-item .drawn {

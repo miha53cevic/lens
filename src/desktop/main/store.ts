@@ -30,9 +30,18 @@ export interface Session {
   active: number;
 }
 
+/** When a recent repository was last opened, and on which branch: what Start shows beside it. */
+export interface Visit {
+  /** null: detached */
+  branch: string | null;
+  /** ms since the epoch */
+  at: number;
+}
+
 interface Stored {
   /** Repository roots, most recent first */
   recents: string[];
+  visits: Record<string, Visit>;
   /**
    * The viewer's port per repository. It stays the same between runs: the viewer keeps its
    * view settings in localStorage, which the browser files under the page's port.
@@ -74,6 +83,18 @@ function readSession(raw: unknown): Session | null {
   return { tabs: kept, active: front ? (active as number) : -1 };
 }
 
+function readVisits(raw: unknown): Record<string, Visit> {
+  const visits: Record<string, Visit> = {};
+  if (typeof raw !== 'object' || raw === null) return visits;
+  for (const [root, visit] of Object.entries(raw)) {
+    const { branch, at } = (visit ?? {}) as Record<string, unknown>;
+    if ((typeof branch === 'string' || branch === null) && Number.isFinite(at)) {
+      visits[root] = { branch, at: at as number };
+    }
+  }
+  return visits;
+}
+
 function read(file: string): Stored {
   try {
     const raw = JSON.parse(readFileSync(file, 'utf8'));
@@ -82,17 +103,25 @@ function read(file: string): Stored {
     for (const [root, port] of Object.entries(raw?.ports ?? {})) {
       if (Number.isInteger(port)) ports[root] = port as number;
     }
-    return { recents, ports, window: readWindow(raw?.window), session: readSession(raw?.session) };
+    return {
+      recents,
+      visits: readVisits(raw?.visits),
+      ports,
+      window: readWindow(raw?.window),
+      session: readSession(raw?.session),
+    };
   } catch {
-    return { recents: [], ports: {}, window: null, session: null }; // no file yet, or not one the app wrote
+    return { recents: [], visits: {}, ports: {}, window: null, session: null }; // no file yet, or not one the app wrote
   }
 }
 
 export interface Store {
   /** The recent repositories that still exist, most recent first. */
   recents(): string[];
-  /** Puts a repository first in the recents. */
-  touch(root: string): void;
+  /** Puts a repository first in the recents, opened now on `branch`. */
+  touch(root: string, branch?: string | null): void;
+  /** When a recent repository was last opened, and on which branch; null for one opened before the app kept it. */
+  visit(root: string): Visit | null;
   forget(root: string): void;
   port(root: string): number | null;
   setPort(root: string, port: number): void;
@@ -116,23 +145,25 @@ export function openStore(file: string): Store {
     recents() {
       const existing = stored.recents.filter((root) => existsSync(root));
       if (existing.length !== stored.recents.length) {
-        // a folder that is gone is dropped for good, its port with it
-        const ports = Object.fromEntries(Object.entries(stored.ports).filter(([root]) => existing.includes(root)));
-        stored = { ...stored, recents: existing, ports };
+        // a folder that is gone is dropped for good, its port and its visit with it
+        const kept = <T>(record: Record<string, T>) =>
+          Object.fromEntries(Object.entries(record).filter(([root]) => existing.includes(root)));
+        stored = { ...stored, recents: existing, ports: kept(stored.ports), visits: kept(stored.visits) };
         save();
       }
       return existing;
     },
-    touch(root) {
-      stored = {
-        ...stored,
-        recents: [root, ...stored.recents.filter((other) => other !== root)].slice(0, MAX_RECENTS),
-      };
+    touch(root, branch = null) {
+      const recents = [root, ...stored.recents.filter((other) => other !== root)].slice(0, MAX_RECENTS);
+      const visits = Object.fromEntries(Object.entries(stored.visits).filter(([other]) => recents.includes(other)));
+      stored = { ...stored, recents, visits: { ...visits, [root]: { branch, at: Date.now() } } };
       save();
     },
+    visit: (root) => stored.visits[root] ?? null,
     forget(root) {
       const { [root]: _port, ...ports } = stored.ports;
-      stored = { ...stored, recents: stored.recents.filter((other) => other !== root), ports };
+      const { [root]: _visit, ...visits } = stored.visits;
+      stored = { ...stored, recents: stored.recents.filter((other) => other !== root), ports, visits };
       save();
     },
     port: (root) => stored.ports[root] ?? null,

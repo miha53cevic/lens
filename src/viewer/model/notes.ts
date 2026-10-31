@@ -78,3 +78,38 @@ export function fileNotes(notes: readonly ReaderNote[], file: ViewerFile): FileN
 export function fileByPath(data: ViewerPayload, path: string): ViewerFile | null {
   return data.files.find((file) => file.file === path) ?? null;
 }
+
+const countsCache = new WeakMap<readonly ReaderNote[], ReadonlyMap<string, number>>();
+
+/** How many of the reader's notes each file holds, by its path: the tree's note marks. */
+export function noteCounts(notes: readonly ReaderNote[]): ReadonlyMap<string, number> {
+  let counts = countsCache.get(notes);
+  if (!counts) {
+    const byPath = new Map<string, number>();
+    for (const note of notes) byPath.set(note.file, (byPath.get(note.file) ?? 0) + 1);
+    counts = byPath;
+    countsCache.set(notes, counts);
+  }
+  return counts;
+}
+
+/**
+ * How many of the reader's notes are on lines a unit shows, as its file is now: the summary list's
+ * note marks. An outdated note has no line, so it counts for its file but no unit.
+ */
+export function unitNoteCount(
+  notes: readonly ReaderNote[],
+  file: ViewerFile | null,
+  unit: { ranges: { start: number; end: number }[]; removals: { oldStart: number; lines: string[] }[] },
+): number {
+  if (!file || !noteCounts(notes).has(file.file)) return 0;
+  let count = 0;
+  for (const [label, placed] of fileNotes(notes, file).byLabel) {
+    const line = Number(label.slice(1));
+    const shown = label.startsWith('N')
+      ? unit.ranges.some((range) => line >= range.start && line <= range.end)
+      : unit.removals.some((block) => line >= block.oldStart && line < block.oldStart + block.lines.length);
+    if (shown) count += placed.length;
+  }
+  return count;
+}

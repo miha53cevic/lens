@@ -15,7 +15,7 @@ import { TopBar, TopBarDivider } from '../../../../ui/TopBar.tsx';
 import { useApp } from '../../store.ts';
 import { Changes } from './Changes.tsx';
 import { PullRequest } from './PullRequest.tsx';
-import { startingRange, type Mode, type Range } from './util.ts';
+import { emptyRange, startingRange, type Mode, type Range } from './util.ts';
 import './style.css';
 
 const MODES = [
@@ -47,7 +47,7 @@ export function ReviewPicker() {
         : range === 'custom'
           ? { kind: 'diff', range, args: custom }
           : { kind: 'diff', range };
-  const problem = choiceProblem(choice);
+  const problem = choiceProblem(choice) ?? (mode === 'changes' ? emptyRange(repo, range, base) : null);
 
   return (
     <>
