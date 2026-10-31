@@ -35,6 +35,16 @@ watch({
   when: () => useLauncher.getState().state?.screen === 'picker',
   run: () => window.lensApp.launcher.refresh(),
 });
+// ⌘O / Ctrl O on Start: Open repository, as its button says
+document.addEventListener('keydown', (event) => {
+  const state = useLauncher.getState().state;
+  if (state?.screen !== 'start' || state.status.kind === 'working') return;
+  const mod = state.platform === 'darwin' ? event.metaKey : event.ctrlKey;
+  if (mod && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'o') {
+    event.preventDefault();
+    window.lensApp.launcher.openRepository();
+  }
+});
 void window.lensApp.launcher.state().then(show);
 createRoot(document.getElementById('root')!).render(
   <ErrorBoundary what='this screen'>

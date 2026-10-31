@@ -130,9 +130,10 @@ test("the store keeps recent repositories and each one's port, and drops folders
 
     const store = openStore(file);
     assert.deepEqual(store.recents(), []);
-    store.touch(first);
-    store.touch(second);
-    store.touch(first);
+    store.touch(first, 'main');
+    store.touch(second, null);
+    const before = Date.now();
+    store.touch(first, 'feature');
     store.setPort(first, 5001);
     store.setPort(second, 5002);
     assert.deepEqual(store.recents(), [first, second], 'most recent first, each once');
@@ -140,13 +141,19 @@ test("the store keeps recent repositories and each one's port, and drops folders
     const reopened = openStore(file);
     assert.deepEqual(reopened.recents(), [first, second]);
     assert.equal(reopened.port(first), 5001);
+    // when each was last opened, and on which branch: the last time counts
+    assert.equal(reopened.visit(first)?.branch, 'feature');
+    assert.ok(reopened.visit(first)!.at >= before);
+    assert.equal(reopened.visit(second)?.branch, null);
 
     rmSync(second, { recursive: true, force: true });
     assert.deepEqual(reopened.recents(), [first]);
     assert.equal(openStore(file).port(second), null, 'its port goes with it');
+    assert.equal(openStore(file).visit(second), null, 'and its visit');
 
     reopened.forget(first);
     assert.deepEqual(openStore(file).recents(), []);
+    assert.equal(openStore(file).visit(first), null);
 
     writeFileSync(file, 'not json');
     assert.deepEqual(openStore(file).recents(), [], "a file the app didn't write is ignored");

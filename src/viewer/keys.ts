@@ -22,12 +22,12 @@ import {
   toggleUnitViewed,
 } from './actions/prefs.ts';
 import { setView } from './actions/views.ts';
+import { stepNote } from './actions/noteSteps.ts';
 import { askOpenAndFocus, askToggle } from './ask/rail.ts';
-import { startNote } from './actions/notes.ts';
 import { isDiffMode } from './shared.ts';
 
 /** The keys that also work on the Summary tab: the view settings' keys act on the open unit's code. */
-const SUMMARY_KEYS = ['?', 'x', 'd', 'l', 's', 'r', 'e', 'c', '[', ']', 'h', 't', 'a', 'n', '\\'];
+const SUMMARY_KEYS = ['?', 'x', 'd', 'l', 's', 'r', 'e', 'c', '[', ']', 'h', 't', 'a', 'N', '\\'];
 /** Every key a shortcut takes, on either tab. */
 const SHORTCUT_KEYS = [...SUMMARY_KEYS, 'v', 'j', 'k', 'w', 'm', 'o', 'g', '/'];
 
@@ -38,10 +38,10 @@ function focusFilter(selector: string) {
 }
 
 export function onKeyDown(event: KeyboardEvent): void {
-  // ⌘P / Ctrl+P opens the search palette from anywhere (and suppresses print)
-  if ((event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'p') {
+  // ⌘P / Ctrl+P opens the search palette from anywhere (and suppresses print); with ⇧, on the file paths
+  if ((event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === 'p') {
     event.preventDefault();
-    openSearch();
+    openSearch(undefined, event.shiftKey ? { files: true } : undefined);
     return;
   }
   if (event.metaKey || event.ctrlKey || event.altKey) return;
@@ -85,6 +85,9 @@ export function onKeyDown(event: KeyboardEvent): void {
     case '?':
       openDialog('keys-modal');
       event.preventDefault();
+      break;
+    case 'N':
+      stepNote(1);
       break;
     case 'j':
       stepFile(1);
@@ -145,10 +148,6 @@ export function onKeyDown(event: KeyboardEvent): void {
       if (state.ask.open) askToggle();
       else askOpenAndFocus();
       event.preventDefault(); // the "a" mustn't land in the textarea
-      break;
-    case 'n':
-      startNote();
-      event.preventDefault(); // the "n" mustn't land in the note
       break;
     case '\\':
       askToggle();

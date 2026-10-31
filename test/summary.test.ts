@@ -1,7 +1,7 @@
 import { test } from 'bun:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, rmSync, mkdirSync, readFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, rmSync, mkdirSync, readFileSync, existsSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { Window } from 'happy-dom';
@@ -303,6 +303,34 @@ test('the summary view leaves out deleted files, but keeps a function deleted fr
     assert.ok(ids.includes('src/repo.ts#findOrders'));
   } finally {
     rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('a deleted file opens in the Code view: no lines of its own, its old text one removed block', async () => {
+  const dir = realpathSync.native(mkdtempSync(join(tmpdir(), 'lens-deleted-')));
+  const git = (...args: string[]) => execFileSync('git', args, { cwd: dir, stdio: 'pipe' });
+  try {
+    git('init', '-q');
+    mkdirSync(join(dir, 'src'));
+    writeFileSync(join(dir, 'src/gone.ts'), 'export function gone() {\n  return 1;\n}\n');
+    writeFileSync(join(dir, 'src/kept.ts'), 'export const kept = 1;\n');
+    writeFileSync(join(dir, 'yarn.lock'), 'lots\n');
+    git('add', '-A');
+    git('-c', 'user.email=lens@test', '-c', 'user.name=lens', 'commit', '-q', '-m', 'base');
+    git('rm', '-q', 'src/gone.ts', 'yarn.lock');
+    writeFileSync(join(dir, 'src/kept.ts'), 'export const kept = 2;\n');
+    const input = await analyze('diff', ['HEAD'], dir, { ...DEFAULT_CONFIG, exclude: ['*.lock'] }, false);
+    const gone = input.files.find((file) => file.file === 'src/gone.ts')!;
+    assert.equal(gone.status, 'deleted');
+    assert.equal(gone.lineCount, 0);
+    assert.equal(gone.source, '');
+    assert.deepEqual(gone.removals, [
+      { afterLine: 0, oldStart: 1, lines: ['export function gone() {', '  return 1;', '}'] },
+    ]);
+    // listed only, as before: what the config excludes
+    assert.deepEqual(input.deleted, ['yarn.lock']);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
   }
 });
 

@@ -42,6 +42,10 @@ export interface Recent {
   name: string;
   /** The root as shown: the home folder as ~ */
   path: string;
+  /** The branch it was on when last opened here; null when detached or not known */
+  branch: string | null;
+  /** When it was last opened here, in ms since the epoch; null when not known */
+  opened: number | null;
 }
 
 export type SetupPart = 'cli' | 'skills';

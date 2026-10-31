@@ -9,6 +9,8 @@ import { ViewedBox } from '../../ViewedBox.tsx';
 import { changedSinceViewed } from '../../../model/viewed.ts';
 import { ListRow } from '../../../../ui/ListRow.tsx';
 import { drawnUnits } from '../../../model/drawings.ts';
+import { fileByPath, unitNoteCount } from '../../../model/notes.ts';
+import { NoteMark } from '../NoteMark.tsx';
 
 interface UnitItemProps {
   unit: Unit;
@@ -24,11 +26,12 @@ function keepInSight(item: HTMLElement | null) {
 
 /** One change in the summary list. */
 export function UnitItem({ unit, side, active }: UnitItemProps) {
-  const { marks, viewed, changed, drawn } = useLens((state) => ({
+  const { marks, viewed, changed, drawn, notes } = useLens((state) => ({
     marks: state.concernMarks,
     viewed: state.viewedUnits.has(unitViewKey(unit)),
     changed: changedSinceViewed(state.viewedUnits, unitViewKey(unit)),
     drawn: drawnUnits(state.data.summary, state.data.buildPreviews).has(unit.id),
+    notes: unitNoteCount(state.notes, fileByPath(state.data, unit.displayFile), unit),
   }));
   const summary = unit.summary;
 
@@ -47,6 +50,7 @@ export function UnitItem({ unit, side, active }: UnitItemProps) {
           <PanelsTopLeft size={12} />
         </span>
       )}
+      <NoteMark count={notes} />
       <SignalMarker marks={marks} unit={unit} />
       {side && <span className='side'>{side}</span>}
       {unit.stale && <span className='gist stale'>code changed — re-run</span>}

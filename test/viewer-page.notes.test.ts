@@ -70,12 +70,12 @@ pageTest('a right-click on a line selects it and opens the code menu; Add a note
   assert.ok($('.unit-code .row[data-line="10"]').classList.contains('noted'));
 });
 
-pageTest('n notes the selected lines; with none selected the bar says how; Esc leaves the composer', async () => {
+pageTest('n no longer writes a note; the code menu notes the selected lines; Esc leaves the composer', async () => {
   await key('n');
-  assert.equal(status().label, 'Select the lines to note');
   assert.equal($$('#note-composer').length, 0);
   await selectRows($('#code .row[data-line="10"]'), $('#code .row[data-line="11"]'));
-  await key('n');
+  await rightClick($('#code .row[data-line="11"]'));
+  await click($('#code-menu-note'));
   assert.equal($('#note-composer .rn-meta').textContent, 'orders.ts:10–11');
   fireEvent.keyDown($('#note-input'), { key: 'Escape' });
   await settle();
@@ -150,6 +150,73 @@ test("the overview copies the notes for the agent with the confirmed findings; a
     const text = await navigator.clipboard.readText();
     assert.ok(text.startsWith('Act on these lens review findings: the reviewer raised some and confirmed the others.'));
     assert.ok(text.includes('2. [bug] src/orders.ts:10 — findOrders'));
+  } finally {
+    await close();
+  }
+});
+
+test('your notes are marked in the tree and the summary list, and ⇧N steps through them', async () => {
+  const removedNote = storedNote({
+    id: 'n2',
+    side: 'old',
+    start: 17,
+    end: 17,
+    lines: ['export function legacyTotal(rows: Order[]): number {'],
+    kind: 'note',
+    text: 'gone for good?',
+  });
+  await openWithNotes([removedNote, storedNote()]);
+  try {
+    const mark = (row: Element) => row.querySelector('.note-mark')?.textContent ?? null;
+    const file = $$('#nav .file').find((row) => row.textContent!.includes('orders.ts'))!;
+    assert.equal(mark(file), '2', 'two on the file');
+    assert.equal(file.querySelector('.note-mark')!.getAttribute('title'), '2 notes of yours');
+
+    const landed = () => $$('#code .row.landed').map((row) => row.dataset.line ?? '−' + row.dataset.old);
+    await key('N', { shiftKey: true });
+    assert.deepEqual(landed(), ['10'], 'in the order of the code');
+    await key('N', { shiftKey: true });
+    assert.deepEqual(landed(), ['−17']);
+    await key('N', { shiftKey: true });
+    assert.deepEqual(landed(), ['−17'], 'no file after it holds one');
+
+    // the summary list marks each change by the notes on its own lines
+    await key('v');
+    const units = Object.fromEntries(
+      $$('#nav .sum-item').map((row) => [row.querySelector('.name')!.textContent, mark(row)]),
+    );
+    assert.equal(units['findOrders'], '');
+    assert.equal(units['legacyTotal'], '');
+    // from the overview: the first change in the list's order with a note, on that note
+    await key('N', { shiftKey: true });
+    assert.equal($('.summary-pane h1').textContent, 'legacyTotal is gone');
+    assert.deepEqual(
+      $$('.unit-code .row.landed').map((row) => row.dataset.old),
+      ['17'],
+    );
+  } finally {
+    await close();
+  }
+});
+
+test('once every file is viewed, the review pill hands the notes for the agent over', async () => {
+  await openWithNotes([storedNote(), storedNote({ id: 'n2', kind: 'note', text: 'mine' })], { summary: null });
+  try {
+    await key('m');
+    assert.equal($('#review-next').textContent!.trim(), 'All 1 viewed');
+    assert.equal($('#review-handoff').textContent!.trim(), 'Copy 1 note for your agent');
+    await click($('#review-handoff'));
+    assert.ok((await navigator.clipboard.readText()).includes('1. [risk · reviewer] src/orders.ts:10'));
+    assert.equal(status().label, 'Copied 1 note');
+  } finally {
+    await close();
+  }
+  // nothing for the agent: the pill only says it's done
+  await openWithNotes([storedNote({ kind: 'note', text: 'mine' })], { summary: null });
+  try {
+    await key('m');
+    assert.equal($('#review-next').textContent!.trim(), 'All 1 file viewed');
+    assert.equal($$('#review-handoff').length, 0);
   } finally {
     await close();
   }

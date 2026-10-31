@@ -1,4 +1,4 @@
-import { ChevronRight } from 'lucide-react';
+import { Check, ChevronRight } from 'lucide-react';
 import type { ReactNode } from 'react';
 import clsx from 'clsx';
 import { useLens } from '../../store.ts';
@@ -11,6 +11,8 @@ import { StatusLetter } from '../../../ui/FileStatus.tsx';
 import { ListRow } from '../../../ui/ListRow.tsx';
 import { BINARY_TITLE, CHANGED_SINCE_VIEWED, STATUS_TITLE } from './const.ts';
 import { changedSinceViewed } from '../../model/viewed.ts';
+import { noteCounts } from '../../model/notes.ts';
+import { NoteMark } from './NoteMark.tsx';
 
 interface TreeContext {
   filter: string;
@@ -18,6 +20,7 @@ interface TreeContext {
   active: number;
   files: ViewFile[];
   viewedFiles: ReadonlySet<string>;
+  noteCounts: ReadonlyMap<string, number>;
 }
 
 /** The changed files as a folder tree: dirs first, single-child chains merged. */
@@ -28,6 +31,7 @@ export function Tree() {
     active: state.active,
     files: state.data.files,
     viewedFiles: state.viewedFiles,
+    noteCounts: noteCounts(state.notes),
   }));
   if (!tree.hasTree) return null;
   if (tree.filter !== '' && tree.root.dirs.size === 0 && tree.root.files.length === 0) {
@@ -38,21 +42,50 @@ export function Tree() {
   return <>{rows}</>;
 }
 
+/**
+ * Whether the reader is through a folder: 'done' when every file under it that opens is viewed,
+ * 'changed' when each was viewed but some changed since (its mark is keyed by content, so it counts
+ * as not viewed again), else null. Under a filter the tree shows only some of a folder: null.
+ */
+function dirState(dir: TreeDir, context: TreeContext): 'done' | 'changed' | null {
+  if (context.filter !== '') return null;
+  let opened = 0;
+  let changed = 0;
+  const walk = (node: TreeDir): boolean => {
+    for (const entry of node.files) {
+      if (entry.index === null) continue;
+      opened++;
+      const key = fileViewKey(context.files[entry.index]);
+      if (context.viewedFiles.has(key)) continue;
+      if (!changedSinceViewed(context.viewedFiles, key)) return false;
+      changed++;
+    }
+    return [...node.dirs.values()].every(walk);
+  };
+  if (!walk(dir) || opened === 0) return null;
+  return changed > 0 ? 'changed' : 'done';
+}
+
+const DIR_TITLE = { done: 'all viewed', changed: 'all viewed, but a file changed since you viewed it' };
+
 function addRows(node: TreeDir, path: string, depth: number, context: TreeContext, rows: ReactNode[]) {
   const indent = 8 + depth * 13;
   for (const dir of node.dirs.values()) {
     const dirPath = path + dir.name + '/';
     const closed = context.filter === '' && context.closedDirs.has(dirPath);
+    const through = dirState(dir, context);
     rows.push(
       <div
         key={'dir:' + dirPath}
-        className='dir'
+        className={clsx('dir', through)}
         style={{ paddingLeft: indent + 'px' }}
-        title={dirPath}
+        title={dirPath + (through ? ' — ' + DIR_TITLE[through] : '')}
         onClick={() => toggleDir(dirPath)}
       >
         <ChevronRight className={clsx('caret', !closed && 'open')} size={12} />
-        {dir.name}
+        <span className='dir-name'>{dir.name}</span>
+        {through === 'done' && <Check className='dir-mark' size={12} strokeWidth={2.5} />}
+        {through === 'changed' && <span className='dir-mark dot' />}
       </div>,
     );
     if (closed) continue;
@@ -109,7 +142,11 @@ function FileRow({ entry, indent, context }: { entry: TreeFile; indent: number; 
         <FilterMatch name={entry.name} filter={context.filter} />
         {entry.binary && <span className='kind'>binary</span>}
       </span>
-      {entry.status && <StatusLetter status={entry.status} />}
+      {/* one cell: a row without notes keeps the letter where it was */}
+      <span className='file-end'>
+        <NoteMark count={context.noteCounts.get(entry.path) ?? 0} />
+        {entry.status && <StatusLetter status={entry.status} />}
+      </span>
     </ListRow>
   );
 }

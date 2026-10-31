@@ -15,6 +15,7 @@ export const KEY_TABS: { id: KeyTab; label: string; keys: KeyHelp[] }[] = [
     label: 'Global',
     keys: [
       { keys: ['⌘P', 'Ctrl P'], action: 'search in files' },
+      { keys: ['⌘⇧P', 'Ctrl ⇧P'], action: 'find a file by its path' },
       { keys: ['v'], action: 'switch Code / Summary', note: '(diff mode)' },
       { keys: ['s'], action: 'toggle the sidebar' },
       { keys: ['e', 'c'], action: 'expand / collapse all folds of the open file or change' },
@@ -26,12 +27,7 @@ export const KEY_TABS: { id: KeyTab; label: string; keys: KeyHelp[] }[] = [
       { keys: ['t'], action: 'toggle hide tests' },
       { keys: ['r'], action: 'refresh the analysis' },
       { keys: ['a'], action: 'ask your agent about the open change (and your selection) · close the Ask rail' },
-      { keys: ['n'], action: 'write a note on the selected lines' },
-      {
-        keys: ['Shift F10'],
-        action: 'the code menu on the selected lines: ask, note, copy',
-        note: '(or right-click them)',
-      },
+      { keys: ['N'], action: 'jump to your next note, on into the next file or change with one' },
       { keys: ['\\'], action: 'show / hide the Ask rail' },
       { keys: ['?'], action: 'this help' },
       { keys: ['Esc'], action: 'close dialogs · clear the filter · leave the Ask input' },

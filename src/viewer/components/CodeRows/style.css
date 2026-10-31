@@ -116,6 +116,12 @@
   background: color-mix(in oklab, var(--cat) var(--tint), var(--surface-2));
   color: var(--text);
 }
+/* the caret and the category keep their width: a long description wraps, never them ("guar/d") */
+.pill .cat,
+.pill .caret {
+  flex: none;
+  white-space: nowrap;
+}
 .pill .cat {
   color: var(--cat);
 }

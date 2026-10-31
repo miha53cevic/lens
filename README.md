@@ -92,11 +92,11 @@ shows code you didn't write.
 - **Folds** collapse into one-line pills that quote what they hide
   (`1 guard → return DEFAULTS + log`), one click from the real code.
 - **Diff reading**: hunks only, inline removed lines (syntax-highlighted), word diff (on by default), side by side (old and new in two columns), hide tests.
-- **Search** across loaded files (⌘P / Ctrl P), ⌥-click for usages.
+- **Search** across loaded files (⌘P / Ctrl P), or their paths (⌘⇧P / Ctrl ⇧P), ⌥-click for usages.
 - **Viewed marks** and a progress ring, so you know what's left. A file or change whose code moved
   after you ticked it says so. They, and your real / dismissed verdicts on concerns, are kept per
   review in `.lens/marks/`: a branch you come back to has them, another branch starts without them.
-- **Notes**: right-click a line (or select lines and press `n`) to leave your own note under it,
+- **Notes**: right-click a line (or a selection of lines) to leave your own note under it,
   in both views. A plain note is yours alone; a bug, risk or question goes along when you copy the
   review for your agent (the overview, or with no summary the sidebar). Notes follow their lines
   as the code moves, and are kept per review in `.lens/notes/`.

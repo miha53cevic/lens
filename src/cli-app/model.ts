@@ -32,8 +32,8 @@ export interface FileFoldModel {
   parseError?: boolean;
   /** Diff mode: new-side line numbers touched by the diff */
   changedLines?: number[];
-  /** Diff mode: how the diff produced this file */
-  status?: DiffStatus;
+  /** Diff mode: how the diff produced this file. A deleted file has no lines: all of it is one removed block. */
+  status?: DiffStatus | 'deleted';
   /** Diff mode: old-side lines the diff removed, anchored to new-side positions */
   removals?: RemovedBlock[];
   /** The names the file declares (parse/declarations.ts): the viewer's "defined at" */

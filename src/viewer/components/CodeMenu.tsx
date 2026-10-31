@@ -15,7 +15,7 @@ export function CodeMenu() {
       <MenuItem id='code-menu-ask' icon={<MessageSquare size={14} />} shortcut='a' onSelect={askOpenAndFocus}>
         Ask about these lines
       </MenuItem>
-      <MenuItem id='code-menu-note' icon={<NotebookPen size={14} />} shortcut='n' onSelect={startNote}>
+      <MenuItem id='code-menu-note' icon={<NotebookPen size={14} />} onSelect={startNote}>
         Add a note
       </MenuItem>
       <MenuSeparator />

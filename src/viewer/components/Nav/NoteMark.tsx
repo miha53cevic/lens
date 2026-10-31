@@ -1,0 +1,12 @@
+import { plural } from '../../shared.ts';
+
+/** A file's or a change's notes, the reader's own, in a list's row: a dot, and how many past one. */
+export function NoteMark({ count }: { count: number }) {
+  if (count === 0) return null;
+  return (
+    <span className='note-mark' title={plural(count, 'note') + ' of yours'}>
+      <span className='dot' />
+      {count > 1 && count}
+    </span>
+  );
+}

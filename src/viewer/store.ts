@@ -101,8 +101,11 @@ export interface LensState {
   closedDirs: ReadonlySet<string>;
   viewedFiles: ReadonlySet<string>;
   viewedUnits: ReadonlySet<string>;
-  /** The search palette (⌘P). The <dialog> itself knows whether it's open. */
-  search: { query: string; word: boolean; matchCase: boolean; pinOrigin: boolean; selected: number };
+  /**
+   * The search palette (⌘P). The <dialog> itself knows whether it's open. `files`: it matches file
+   * paths instead of the code (⌘⇧P, or its chip), and stays so until switched back.
+   */
+  search: { query: string; word: boolean; matchCase: boolean; files: boolean; pinOrigin: boolean; selected: number };
   // Summary tab
   /** The open unit's id; null: the overview (the tab opens there) */
   summaryUnit: string | null;
@@ -207,7 +210,7 @@ const initialState: LensState = {
   // the review's marks, as the server keeps them (.lens/marks/<review>.json)
   viewedFiles: new Set(INITIAL_DATA.marks.files),
   viewedUnits: new Set(INITIAL_DATA.marks.units),
-  search: { query: '', word: false, matchCase: false, pinOrigin: false, selected: 0 },
+  search: { query: '', word: false, matchCase: false, files: false, pinOrigin: false, selected: 0 },
   summaryUnit: null,
   summaryDot: false,
   changedOnDisk: false,
