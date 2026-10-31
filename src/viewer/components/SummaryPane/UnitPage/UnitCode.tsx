@@ -8,6 +8,7 @@ import { askSelection } from '../../../model/askContext.ts';
 import { fileNotes } from '../../../model/notes.ts';
 import { codeLines } from '../../../shared.ts';
 import { CodeRows, holdSelectionSide, RemovedRow, SplitRows } from '../../CodeRows/index.tsx';
+import { findUsages } from '../../CodeRows/util.ts';
 import { SignalIcon } from '../../SignalIcon.tsx';
 import { addNoteMarks } from '../../Notes/marks.tsx';
 import { Verdict } from './Verdict.tsx';
@@ -82,7 +83,11 @@ export function UnitCode({ unit, hoveredCite }: { unit: Unit; hoveredCite: strin
     : { lines: [], removed: NO_REMOVED };
   return (
     <div className='unit-code'>
-      <div className={clsx('code', pairs && 'split')} onMouseDown={pairs ? holdSelectionSide : undefined}>
+      <div
+        className={clsx('code', pairs && 'split')}
+        onClick={findUsages}
+        onMouseDown={pairs ? holdSelectionSide : undefined}
+      >
         {pairs ? (
           <SplitRows
             path={unit.displayFile}

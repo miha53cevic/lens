@@ -10,11 +10,11 @@ import { Kbd } from '../../../ui/Kbd.tsx';
 import { Results } from './Results.tsx';
 import { FileResults } from './FileResults.tsx';
 import { findFiles, findHits, type SearchHit } from './util.ts';
+import './style.css';
 
 // what the mode that isn't on finds: the same array each time, so the selector's answer stays equal
 const NO_HITS: SearchHit[] = [];
 const NO_FILES: number[] = [];
-import './style.css';
 
 export function SearchDialog() {
   const { search, hits, found } = useLens((state) => ({

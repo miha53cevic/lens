@@ -12,7 +12,8 @@ import { CodeCard, removedCount } from '../CodeCard.tsx';
 import { OverviewRuler } from '../OverviewRuler.tsx';
 import { addNoteMarks, OutdatedNotes } from '../Notes/marks.tsx';
 import { fileStatus } from '../../../ui/FileStatus.tsx';
-import { findUsages, restoreFileScroll, saveFileScroll } from './util.ts';
+import { restoreFileScroll, saveFileScroll } from './util.ts';
+import { findUsages } from '../CodeRows/util.ts';
 
 /** The open file's code card, or why there's none. */
 export function FileCode() {

@@ -24,7 +24,10 @@ export function nextFile(): void {
 
 /** "Reviewed · next change": the open change is marked viewed, and the next one not viewed yet opens (the last one stays). */
 export function reviewedNextUnit(): void {
+  const open = getState().summaryUnit;
   if (!unitProgress(getState())?.currentDone) toggleUnitViewed(currentUnit(getState()));
+  // the inbox opened the next change to read as the mark landed: one more step would skip it
+  if (getState().summaryUnit !== open) return;
   const next = unitProgress(getState())?.next;
   if (typeof next === 'string') openSummaryUnit(next);
 }
