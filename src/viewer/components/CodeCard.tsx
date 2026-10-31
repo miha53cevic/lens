@@ -8,7 +8,6 @@ import './CodeCard.css';
 
 interface CodeCardProps {
   status?: FileStatus;
-  /** The file's path */
   path: string;
   /** Which part of the file: a summary unit's name */
   scope?: string;

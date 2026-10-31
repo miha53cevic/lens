@@ -21,7 +21,6 @@ export function repoPort(root: string): number {
   return FIRST_PORT + (createHash('sha256').update(toPosix(root)).digest().readUInt32BE(0) % PORT_COUNT);
 }
 
-/** Whether nothing listens on `port` right now. */
 function isFree(port: number): Promise<boolean> {
   return new Promise((resolve) => {
     const probe = createServer();

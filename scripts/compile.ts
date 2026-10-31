@@ -12,7 +12,6 @@ import { VIEWER_MODULE, bundleViewer } from '../src/cli-app/render/web/bundle.ts
 
 const root = resolve(import.meta.dirname, '..');
 
-/** Builds the compiled lens at `outfile`. */
 export async function compileLens(outfile: string): Promise<void> {
   const viewer = await bundleViewer(async () => null);
   const viewerModule: BunPlugin = {

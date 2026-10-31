@@ -15,7 +15,6 @@ const root = resolve(import.meta.dirname, '..');
 /** The folder Forge packs the app into on this machine (forge.config.ts). */
 const packedFolder = join(root, 'release', `Lens-${process.platform}-${process.arch}`);
 
-/** The app in it. */
 function packedApp(): string {
   const app =
     process.platform === 'darwin'

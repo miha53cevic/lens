@@ -14,7 +14,6 @@ export function readBody(req: IncomingMessage): Promise<string> {
   });
 }
 
-/** A cookie the browser sent, or null. */
 export function readCookie(req: IncomingMessage, name: string): string | null {
   for (const pair of (req.headers.cookie ?? '').split(';')) {
     const at = pair.indexOf('=');

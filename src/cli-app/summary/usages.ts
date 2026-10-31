@@ -25,7 +25,6 @@ const DOC_FILE = /\.(md|mdx|markdown|txt|rst|adoc)$/i;
 const MAX_FILE_BYTES = 1024 * 1024;
 
 export interface Usages {
-  /** The name searched for */
   name: string;
   /** "path:line  code", repo-relative, at most MAX_USAGES */
   lines: string[];

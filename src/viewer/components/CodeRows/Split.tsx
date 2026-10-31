@@ -112,7 +112,6 @@ function itemRows(item: SplitItem, itemIndex: number, context: RowContext): Reac
   }
 }
 
-/** The labels of a fold's own rows. */
 function bodyLabels(body: SplitItem[]): string[] {
   return body.flatMap((item) =>
     item.kind === 'same'

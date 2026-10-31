@@ -1,5 +1,3 @@
-// Helpers every part of the viewer shares.
-
 import type { CSSProperties } from 'react';
 import type { ViewerPayload } from '../cli-app/render/web/server.ts';
 import type { ViewerToken } from '../cli-app/render/highlight.ts';

@@ -16,7 +16,6 @@ import manifest from '../../package.json' with { type: 'json' };
 export interface RepoInfo {
   /** The repository's root, `/`-separated */
   root: string;
-  /** The root folder's name */
   name: string;
   /** The checked-out branch, or null on a detached HEAD */
   branch: string | null;

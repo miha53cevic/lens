@@ -85,7 +85,6 @@ export const openConcernLines = memo(
     ),
 );
 
-/** Whether the reader dismissed any of the unit's findings. */
 export function hasDismissed(marks: Marks, unit: Unit): boolean {
   return findings(unit).some((finding) => findingMark(marks, finding) === 'dismissed');
 }

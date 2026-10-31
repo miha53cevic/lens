@@ -75,7 +75,6 @@ export function fileNotes(notes: readonly ReaderNote[], file: ViewerFile): FileN
   return result;
 }
 
-/** The file a note or a unit is on. */
 export function fileByPath(data: ViewerPayload, path: string): ViewerFile | null {
   return data.files.find((file) => file.file === path) ?? null;
 }

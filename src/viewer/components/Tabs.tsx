@@ -11,7 +11,6 @@ function keepInSight(tab: HTMLElement | null) {
   tab?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
 }
 
-/** The Code view's editor tabs. */
 export function Tabs() {
   const { tabs, active, files, hidden } = useLens((state) => ({
     tabs: state.tabs,
