@@ -9,7 +9,7 @@ import { writePref } from '../shared.ts';
 import type { AskRequest } from '../../cli-app/api/contract.ts';
 import { api, endActivity, noteDone, noteFailure, reach, ServerGone, startActivity } from '../actions/status.ts';
 import { check, type Watcher } from '../../ui/poll.ts';
-import { slideIn } from '../../ui/motion.ts';
+import { slideIn, slideOut, stay } from '../../ui/motion.ts';
 
 const ASK_POLL_MS = 1000;
 export const ASK_MAX_LINES = 400;
@@ -21,15 +21,29 @@ export function setAsk(patch: Partial<LensState['ask']>) {
 }
 
 export function askSetOpen(open: boolean): void {
+  const rail = document.getElementById('ask-rail');
+  const set = () => {
+    writePref('lens.askOpen', open ? '1' : '0');
+    commit((state) => ({ ask: { ...state.ask, open } }));
+  };
+  // opened again while it slides out: it stays
+  if (open && stay(rail)) return;
+  if (!open && getState().ask.open) return slideOut(rail, 'right', set);
   const opening = open && !getState().ask.open;
-  writePref('lens.askOpen', open ? '1' : '0');
-  commit((state) => ({ ask: { ...state.ask, open } }));
-  if (opening) slideIn(document.getElementById('ask-rail'), 'right');
+  set();
+  if (opening) slideIn(rail, 'right');
   if (open) void check(askWatcher.id);
+}
+
+/** The header's button and its key: pressed while the rail slides out, it stays. */
+export function askToggle(): void {
+  if (stay(document.getElementById('ask-rail'))) return;
+  askSetOpen(!getState().ask.open);
 }
 
 /** `a` on a closed rail: it opens and its input takes the keys. */
 export function askOpenAndFocus(): void {
+  stay(document.getElementById('ask-rail'));
   if (!getState().ask.open) {
     writePref('lens.askOpen', '1');
     commit((state) => ({ ask: { ...state.ask, open: true } }));

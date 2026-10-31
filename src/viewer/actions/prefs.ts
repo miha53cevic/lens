@@ -11,17 +11,23 @@ import { toggledMark } from '../model/viewed.ts';
 import { currentUnit } from '../model/summaryList.ts';
 import { visibleActive } from './tabs.ts';
 import { saveMark } from './marks.ts';
-import { growOpen, pop, slideIn } from '../../ui/motion.ts';
+import { growClosed, growOpen, pop, slideIn, slideOut, stay } from '../../ui/motion.ts';
 
 // The sidebar: collapsed or not, its width, the tree's closed folders.
 
 /** Committed: a filter in the sidebar can take focus right after it shows (keys.ts). */
 export function toggleNav(): void {
-  commit((state) => {
-    writePref('lens.navCollapsed', !state.navCollapsed ? '1' : '0');
-    return { navCollapsed: !state.navCollapsed };
-  });
-  if (!getState().navCollapsed) slideIn(document.getElementById('nav'), 'left');
+  const nav = document.getElementById('nav');
+  // pressed again while it slides out: it stays
+  if (stay(nav)) return;
+  const flip = () =>
+    commit((state) => {
+      writePref('lens.navCollapsed', !state.navCollapsed ? '1' : '0');
+      return { navCollapsed: !state.navCollapsed };
+    });
+  if (!getState().navCollapsed) return slideOut(nav, 'left', flip);
+  flip();
+  slideIn(nav, 'left');
 }
 
 export function setNavWidth(width: number): void {
@@ -30,8 +36,13 @@ export function setNavWidth(width: number): void {
 }
 
 export function toggleDir(path: string): void {
-  commit((state) => ({ closedDirs: toggled(state.closedDirs, path) }));
-  // a folder the reader opens grows open; one opened by a filter, or shown again, just shows
+  const files = document.querySelector(`[data-dir-files="${CSS.escape(path)}"]`);
+  // clicked again while it closes: it stays open
+  if (stay(files)) return;
+  const flip = () => commit((state) => ({ closedDirs: toggled(state.closedDirs, path) }));
+  // a folder the reader closes shrinks shut; one the reader opens grows open (one opened by a filter, or shown again, just shows)
+  if (files && !getState().closedDirs.has(path)) return growClosed(files, flip);
+  flip();
   if (!getState().closedDirs.has(path)) growOpen(document.querySelector(`[data-dir-files="${CSS.escape(path)}"]`));
 }
 
