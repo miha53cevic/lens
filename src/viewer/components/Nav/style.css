@@ -12,6 +12,11 @@ nav {
   font-size: var(--text-sm);
 }
 
+/* the Summary list as an inbox: its cards need the room */
+nav.inbox {
+  min-width: 340px;
+}
+
 /* ---- the filter ---- */
 /* ui/Field, staying in sight over the tree as it scrolls */
 .nav-filter {

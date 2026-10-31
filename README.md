@@ -118,6 +118,9 @@ ones back to your agent. Units are grouped into **flows**: one story each, read 
 P3, with each unit in one flow and import-only or formatting-only changes under
 Housekeeping, even before a summary is written. The units in no flow are listed by file. An overview of the whole diff sits on top. With **Full units** on (the ⋯ menu),
 the rest of a unit's file sits above and below it, behind a bar that says what it holds.
+With **Inbox layout** on (the ⋯ menu), the list is an inbox instead: each flow a section of
+cards, and a change you mark read moves down into its flow's folded Read area while the next one
+opens; a flow with nothing left to read folds itself.
 
 With **Build previews** on (the ⋯ menu, on by default), the agent also draws what the
 change looks like: **previews** of the screens a UI diff changes, in your project's own
