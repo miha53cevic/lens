@@ -787,6 +787,35 @@ pageTest(
 );
 
 pageTest(
+  'the review pill in the inbox goes on to the next change to read, not past it',
+  async () => {
+    const open = () => $('.inbox-card.selected .caption-unit').textContent;
+    const names = cardNames('.inbox-body');
+    assert.equal(names.length, 3);
+    await click($('#review-next'));
+    assert.equal(open(), names[0]);
+    await click($('#review-next'));
+    assert.equal(open(), names[1], 'the mark opened it: the pill takes no second step');
+    assert.equal($('#nav .progress-count').textContent, '1 of 3');
+  },
+  { ...INBOX, 'lens.hideTests': '0' },
+  '#summary',
+);
+
+pageTest(
+  'a change the review pill opens unfolds its folded flow, its card in sight',
+  async () => {
+    await click($('.inbox-flow-head'));
+    assert.equal($$('.inbox-flow.open').length, 0);
+    await click($('#review-next'));
+    assert.equal($$('.inbox-flow.open').length, 1, 'Start review opened the folded flow');
+    assert.equal($('.inbox-card.selected .caption-unit').textContent, 'findOrders');
+  },
+  INBOX,
+  '#summary',
+);
+
+pageTest(
   "the ⋯ menu's Inbox layout switches the list between the classic rows and the inbox",
   async () => {
     assert.ok($$('.sum-item').length > 0);
@@ -797,6 +826,31 @@ pageTest(
     await click($('#summary-inbox'));
     assert.ok($$('.sum-item').length > 0);
     assert.equal($$('.inbox-card').length, 0);
+  },
+  {},
+  '#summary',
+);
+
+pageTest(
+  "⌥-click on a unit's code finds the identifier's usages, as in the Code view",
+  async () => {
+    await key('j');
+    const row = $$('.unit-code .row').find((candidate) => candidate.textContent!.includes('toOrder'))!;
+    const walker = document.createTreeWalker(row, NodeFilter.SHOW_TEXT);
+    let text: Node | null = walker.nextNode();
+    while (text && !text.textContent!.includes('toOrder')) text = walker.nextNode();
+    // happy-dom has no caret from a point: the one the click is on
+    const offset = text!.textContent!.indexOf('toOrder') + 2;
+    Object.assign(document, { caretPositionFromPoint: () => ({ offsetNode: text, offset }) });
+    try {
+      fireEvent.click(row, { altKey: true });
+      await settle();
+      assert.ok(($('#search-modal') as HTMLDialogElement).open);
+      assert.equal(($('#search-input') as HTMLInputElement).value, 'toOrder');
+      assert.ok(($('#search-word') as HTMLInputElement).checked, 'as a whole word');
+    } finally {
+      delete (document as { caretPositionFromPoint?: unknown }).caretPositionFromPoint;
+    }
   },
   {},
   '#summary',

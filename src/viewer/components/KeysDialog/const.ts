@@ -16,6 +16,7 @@ export const KEY_TABS: { id: KeyTab; label: string; keys: KeyHelp[] }[] = [
     keys: [
       { keys: ['⌘P', 'Ctrl P'], action: 'search in files' },
       { keys: ['⌘⇧P', 'Ctrl ⇧P'], action: 'find a file by its path' },
+      { keys: ['⌥ click'], action: 'find usages of the clicked identifier' },
       { keys: ['v'], action: 'switch Code / Summary', note: '(diff mode)' },
       { keys: ['s'], action: 'toggle the sidebar' },
       { keys: ['e', 'c'], action: 'expand / collapse all folds of the open file or change' },
@@ -42,7 +43,6 @@ export const KEY_TABS: { id: KeyTab; label: string; keys: KeyHelp[] }[] = [
       { keys: ['o'], action: 'keep the preview tab open (pin it)' },
       { keys: ['m'], action: 'mark the file as viewed' },
       { keys: ['/'], action: 'focus the file filter' },
-      { keys: ['⌥ click'], action: 'find usages of the clicked identifier' },
     ],
   },
   {

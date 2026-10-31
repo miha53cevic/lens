@@ -210,6 +210,8 @@ interface Exit {
   animation: Animation;
   then: () => void;
   hold: boolean;
+  /** What plays out with it, held at its last frame (growClosed's items): called off with it */
+  along: Animation[];
 }
 const leaving = new WeakMap<Element, Exit>();
 
@@ -218,12 +220,18 @@ const leaving = new WeakMap<Element, Exit>();
  * once (a second Esc doesn't wait). With `hold`, the last frame stays until the element is gone: for
  * a change that lands later (the desktop strip hears its tabs from the main process).
  */
-function leave(element: Element | null, keyframes: Keyframe[], then: () => void, hold = false): void {
+function leave(
+  element: Element | null,
+  keyframes: Keyframe[],
+  then: () => void,
+  hold = false,
+  along: () => Animation[] = () => [],
+): void {
   const running = element && leaving.get(element);
   if (running) return finish(element, running);
   const animation = animate(element, keyframes, MOTION.exit, MOTION.easeIn);
   if (!element || !animation) return then();
-  const exit = { animation, then, hold };
+  const exit = { animation, then, hold, along: along() };
   leaving.set(element, exit);
   if (hold) animation.effect?.updateTiming({ fill: 'forwards' });
   if (element instanceof HTMLElement) element.style.pointerEvents = 'none';
@@ -238,6 +246,7 @@ function finish(element: Element, exit: Exit): void {
   leaving.delete(element);
   exit.then();
   if (element instanceof HTMLElement) element.style.pointerEvents = '';
+  for (const item of exit.along) item.cancel();
   if (!exit.hold) return exit.animation.cancel();
   // held, and the element is still there a while after its change: it wasn't taken out after all
   setTimeout(() => element.isConnected && exit.animation.cancel(), 1000);
@@ -249,6 +258,7 @@ export function stay(element: Element | null): boolean {
   if (!element || !running) return false;
   leaving.delete(element);
   running.animation.cancel();
+  for (const item of running.along) item.cancel();
   if (element instanceof HTMLElement) element.style.pointerEvents = '';
   return true;
 }
@@ -266,19 +276,6 @@ export function slideOut(element: Element | null, edge: 'left' | 'right', then: 
  */
 export function growClosed(element: Element | null, then: () => void, each: Iterable<Element> = []): void {
   if (!(element instanceof HTMLElement) || !element.offsetWidth) return then();
-  if (!leaving.has(element))
-    [...each].reverse().forEach((item, index) =>
-      animate(
-        item,
-        [
-          { opacity: 1, translate: '0 0', scale: '1' },
-          { opacity: 0, translate: '0 6px', scale: '0.98' },
-        ],
-        MOTION.exit,
-        MOTION.easeIn,
-        Math.min(index, STAGGER.cap) * (STAGGER.step / 2),
-      )?.effect?.updateTiming({ fill: 'both' }),
-    );
   leave(
     element,
     [
@@ -286,6 +283,23 @@ export function growClosed(element: Element | null, then: () => void, each: Iter
       { height: '0px', opacity: 0, overflow: 'hidden' },
     ],
     then,
+    false,
+    // held at their last frame until the change takes them out, or `stay` calls them off
+    () =>
+      [...each].reverse().flatMap((item, index) => {
+        const sink = animate(
+          item,
+          [
+            { opacity: 1, translate: '0 0', scale: '1' },
+            { opacity: 0, translate: '0 6px', scale: '0.98' },
+          ],
+          MOTION.exit,
+          MOTION.easeIn,
+          Math.min(index, STAGGER.cap) * (STAGGER.step / 2),
+        );
+        sink?.effect?.updateTiming({ fill: 'both' });
+        return sink ? [sink] : [];
+      }),
   );
 }
 

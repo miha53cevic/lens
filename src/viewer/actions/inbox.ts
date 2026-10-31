@@ -56,13 +56,24 @@ export function toggleInboxRead(key: string): void {
   playOpened(readArea(key));
 }
 
-/** Stepping to a change (j, k) opens its flow when it was folded. */
-export function stepIntoInbox(unitId: string): boolean {
-  const list = listModel(getState());
-  const key = list?.inbox ? inboxKeyOf(list.inbox, unitId) : null;
-  if (key === null || inboxFlow(getState(), key)?.open !== false) return false;
-  commit((state) => ({ summaryUnit: unitId, inboxFlowOpen: new Map(state.inboxFlowOpen).set(key, true) }));
-  playOpened(flowBody(key));
+/**
+ * A change opened in the inbox (j, k, the review pill, ⇧N, a cite): its flow unfolds when it was
+ * folded, and its Read area when the card is in it, so its card is in sight. False when nothing
+ * hid it: the caller opens it as usual.
+ */
+export function openInInbox(unitId: string): boolean {
+  const flows = listModel(getState())?.inbox;
+  const key = flows ? inboxKeyOf(flows, unitId) : null;
+  const flow = key === null ? null : inboxFlow(getState(), key);
+  if (key === null || !flow) return false;
+  const inRead = !flow.readOpen && flow.read.some((unit) => unit.id === unitId);
+  if (flow.open && !inRead) return false;
+  commit((state) => ({
+    summaryUnit: unitId,
+    inboxFlowOpen: flow.open ? state.inboxFlowOpen : new Map(state.inboxFlowOpen).set(key, true),
+    inboxReadOpen: inRead ? new Set(state.inboxReadOpen).add(key) : state.inboxReadOpen,
+  }));
+  playOpened(flow.open ? readArea(key) : flowBody(key));
   return true;
 }
 
