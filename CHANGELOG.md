@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.4.0](https://github.com/miha53cevic/lens/compare/v0.3.1...v0.4.0) (2026-10-31)
+
+
+### Features
+
+* add a UI size stepper (80-150%) to the viewer and the app ([#40](https://github.com/miha53cevic/lens/issues/40)) ([47f2031](https://github.com/miha53cevic/lens/commit/47f2031c3e627da496548dee0f64e572b0aa7490))
+* inbox layout for the Summary list ([#43](https://github.com/miha53cevic/lens/issues/43)) ([3a7a60b](https://github.com/miha53cevic/lens/commit/3a7a60ba2f00afa24d9b9078b5430f54b602719a))
+* step through notes with N, find files by path, show deleted files ([#42](https://github.com/miha53cevic/lens/issues/42)) ([06741fc](https://github.com/miha53cevic/lens/commit/06741fc503da6c8479ec2e34795223a50b0bb795))
+
+
+### Bug Fixes
+
+* alt-click finds usages in the Summary view; inbox opens unfolded ([#44](https://github.com/miha53cevic/lens/issues/44)) ([df0c278](https://github.com/miha53cevic/lens/commit/df0c278a10a58e23314097bc55d1ab5d6d859856))
+* Architecture improvements ([#35](https://github.com/miha53cevic/lens/issues/35)) ([603b18f](https://github.com/miha53cevic/lens/commit/603b18f8750d49a79f55f802278c8c445baaf79d))
+* color removed lines as the old file colors them ([#38](https://github.com/miha53cevic/lens/issues/38)) ([7c795f2](https://github.com/miha53cevic/lens/commit/7c795f22c2784ce45458f0a92975c124f6139fc0))
+* highlight removed lines and group unfiled changes by file ([#37](https://github.com/miha53cevic/lens/issues/37)) ([2a2783a](https://github.com/miha53cevic/lens/commit/2a2783a7a4b938558a038895919cb73cf570af98))
+* Motion exit ([#41](https://github.com/miha53cevic/lens/issues/41)) ([5741c7c](https://github.com/miha53cevic/lens/commit/5741c7c29ee6fb1d8ba6a46ed86770ea48bf5830))
+
 ## [0.3.1](https://github.com/miha53cevic/lens/compare/v0.3.0...v0.3.1) (2026-10-23)
 
 
