@@ -14,6 +14,7 @@ import {
   unitLabel,
   unitSignals,
 } from './signals.ts';
+import { type InboxFlow, inboxFlows, inboxOrder } from './inbox.ts';
 
 export interface Section {
   flow: Flow;
@@ -76,8 +77,10 @@ export interface ListModel {
   folded: Set<string>;
   /** The files of `otherFiles` the reader folded (a filter unfolds them) */
   foldedFiles: Set<string>;
-  /** Unit ids in list order, as j/k walks them: what's visible */
+  /** Unit ids in list order, as j/k walks them: what's visible (the inbox's: inboxOrder) */
   order: string[];
+  /** The list as an inbox, when the reader turned it on (⋯ → Summary); null: the classic list */
+  inbox: InboxFlow[] | null;
   /** The open unit: the reader's, or the first in the list */
   activeId: string | null;
   summarized: number;
@@ -94,6 +97,10 @@ const buildList = memo(
     flowOpen: ReadonlyMap<string, boolean>,
     closedUnitFiles: ReadonlySet<string>,
     summaryUnit: string | null,
+    inboxOn: boolean,
+    viewedUnits: ReadonlySet<string>,
+    inboxFlowOpen: ReadonlyMap<string, boolean>,
+    inboxReadOpen: ReadonlySet<string>,
   ): ListModel => {
     const isShown = (unit: Unit) => !(hideTests && isTestFile(unit.displayFile));
     const units = summary.units.filter(isShown); // hide tests: the counts follow the list
@@ -137,10 +144,21 @@ const buildList = memo(
     const foldedFiles = new Set(
       filtering ? [] : otherFiles.filter((group) => closedUnitFiles.has(group.file)).map((group) => group.file),
     );
-    const order = [
-      ...sections.filter((section) => !folded.has(section.flow.title)).flatMap((section) => section.members),
-      ...otherFiles.filter((group) => !foldedFiles.has(group.file)).flatMap((group) => group.members),
-    ].map((unit) => unit.id);
+    // the inbox holds the changes in no flow as one more flow, after the flows, as the list does
+    const inbox = inboxOn
+      ? inboxFlows(
+          [...sections, { flow: null, members: otherFiles.flatMap((group) => group.members) }],
+          viewedUnits,
+          inboxFlowOpen,
+          inboxReadOpen,
+        )
+      : null;
+    const order = inbox
+      ? inboxOrder(inbox)
+      : [
+          ...sections.filter((section) => !folded.has(section.flow.title)).flatMap((section) => section.members),
+          ...otherFiles.filter((group) => !foldedFiles.has(group.file)).flatMap((group) => group.members),
+        ].map((unit) => unit.id);
     // a unit the filter hides stays open in the pane
     const activeId = summaryUnit && unitById(summary, summaryUnit) ? summaryUnit : order[0] || null;
     const listed = [...sections.flatMap((section) => section.members), ...others];
@@ -153,12 +171,15 @@ const buildList = memo(
       folded,
       foldedFiles,
       order,
+      inbox,
       activeId,
       summarized: units.filter((unit) => unit.summary).length,
       shownCount: listed.length,
     };
   },
 );
+
+const NOTHING: ReadonlySet<string> = new Set();
 
 export function listModel(state: LensState): ListModel | null {
   const summary = state.data.summary;
@@ -172,6 +193,11 @@ export function listModel(state: LensState): ListModel | null {
     state.flowOpen,
     state.closedUnitFiles,
     state.summaryUnit,
+    state.summaryInbox,
+    // the classic list doesn't read the marks: it keeps its memo while the reader marks changes
+    state.summaryInbox ? state.viewedUnits : NOTHING,
+    state.inboxFlowOpen,
+    state.inboxReadOpen,
   );
 }
 

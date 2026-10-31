@@ -50,9 +50,9 @@ export const KEY_TABS: { id: KeyTab; label: string; keys: KeyHelp[] }[] = [
     label: 'Summary',
     keys: [
       { keys: ['g'], action: 'the overview' },
-      { keys: ['j', 'k'], action: 'next / previous change' },
+      { keys: ['j', 'k'], action: 'next / previous change (the inbox: into a folded flow too)' },
       { keys: ['o'], action: 'open the change in the code view' },
-      { keys: ['m'], action: 'mark the change as viewed' },
+      { keys: ['m'], action: 'mark the change as viewed (the inbox: read, and on to the next)' },
       { keys: ['/'], action: 'filter the changes' },
     ],
   },

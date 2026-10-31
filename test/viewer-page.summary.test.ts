@@ -723,3 +723,81 @@ test('lens\'s own Housekeeping, before the agent has written a flow, sets nothin
     await close();
   }
 });
+
+// ---- the inbox layout (⋯ → Summary → Inbox layout) ----
+
+const INBOX = { 'lens.summaryInbox': '1' };
+const cardNames = (root = '.inbox-rail') => $$(root + ' .inbox-card .caption-unit').map((name) => name.textContent);
+
+pageTest(
+  'the inbox shows each flow as a section of cards, and reading one opens the next',
+  async (page) => {
+    assert.equal($$('.sum-item').length, 0, 'the cards replace the list');
+    assert.deepEqual(cardNames('.inbox-flow.open .inbox-body'), ['findOrders', 'legacyTotal']);
+    assert.equal($('.inbox-flow-head .t').textContent, 'Not in a story');
+    assert.equal($('.inbox-flow-head .n').textContent, '2 to read');
+    assert.ok($('.inbox-card .icons .sig-bug'), 'a finding shows as its icon on the card');
+
+    await click($$('.inbox-card')[0]);
+    assert.equal($('#summary-pane').dataset.unit, 'src/orders.ts#findOrders');
+    assert.ok($$('.inbox-card')[0].classList.contains('selected'));
+
+    await click($$('.inbox-card .inbox-read-btn')[0]);
+    assert.equal($('#summary-pane').dataset.unit, 'src/orders.ts#legacyTotal', 'the next change to read opens');
+    assert.deepEqual(cardNames('.inbox-body'), ['legacyTotal'], 'the read card left for the folded Read area');
+    assert.equal($('.inbox-read-toggle').textContent, 'Read 1');
+    assert.deepEqual(
+      postedMarks(page).map((change) => (change as { on: boolean }).on),
+      [true],
+      'kept by the server, as a viewed mark',
+    );
+
+    await key('m');
+    assert.equal($$('.inbox-flow.open').length, 0, 'a flow with nothing left to read folds itself');
+    assert.equal($('.inbox-flow-head .n').textContent, 'all read');
+    assert.ok($('.sum-overview-item').classList.contains('active'), 'none left: the overview');
+
+    await click($('.inbox-flow'));
+    assert.equal($$('.inbox-flow.open').length, 1, 'a click anywhere on a folded flow opens it');
+    await click($('.inbox-read-toggle'));
+    assert.deepEqual(cardNames('.inbox-read'), ['findOrders', 'legacyTotal']);
+    assert.deepEqual(
+      $$('.inbox-read .inbox-read-btn').map((button) => button.textContent),
+      ['Unread', 'Unread'],
+    );
+  },
+  INBOX,
+  '#summary',
+);
+
+pageTest(
+  'j steps into a folded flow and opens it; folding the open card’s flow keeps it folded',
+  async () => {
+    await click($('.inbox-flow-head'));
+    assert.equal($$('.inbox-flow.open').length, 0);
+    await key('j');
+    assert.equal($('#summary-pane').dataset.unit, 'src/orders.ts#findOrders');
+    assert.equal($$('.inbox-flow.open').length, 1, 'stepping in opened it');
+    await click($('.inbox-flow-head'));
+    assert.equal($$('.inbox-flow.open').length, 0, 'the reader folds it, with its card open');
+    assert.equal($('#summary-pane').dataset.unit, 'src/orders.ts#findOrders');
+  },
+  INBOX,
+  '#summary',
+);
+
+pageTest(
+  "the ⋯ menu's Inbox layout switches the list between the classic rows and the inbox",
+  async () => {
+    assert.ok($$('.sum-item').length > 0);
+    await click($('#summary-inbox'));
+    assert.equal($$('.sum-item').length, 0);
+    assert.deepEqual(cardNames(), ['findOrders', 'legacyTotal']);
+    assert.equal(localStorage.getItem('lens.summaryInbox'), '1');
+    await click($('#summary-inbox'));
+    assert.ok($$('.sum-item').length > 0);
+    assert.equal($$('.inbox-card').length, 0);
+  },
+  {},
+  '#summary',
+);

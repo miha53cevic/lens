@@ -3,6 +3,8 @@
 // the rest (transitions, @starting-style). Nothing here runs before the page has settled, with less
 // motion asked for, or where the browser can't animate (the page tests' happy-dom).
 
+import { cssPx } from './zoom.ts';
+
 /** The tokens' numbers (tokens.css: --motion-enter, --motion-exit, --motion-move, --ease-out, --ease-in). */
 export const MOTION = {
   enter: 180,
@@ -30,11 +32,21 @@ function motionAllowed(): boolean {
   return typeof matchMedia !== 'function' || !matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
-function animate(element: Element | null, keyframes: Keyframe[], duration: number, easing: string = MOTION.easeOut) {
+function animate(
+  element: Element | null,
+  keyframes: Keyframe[],
+  duration: number,
+  easing: string = MOTION.easeOut,
+  delay = 0,
+) {
   if (!(element instanceof HTMLElement || element instanceof SVGElement)) return null;
   if (typeof element.animate !== 'function' || !motionAllowed()) return null;
-  return element.animate(keyframes, { duration, easing });
+  // a delayed entrance holds its first frame while it waits, or it would show, then vanish, then rise
+  return element.animate(keyframes, { duration, easing, delay, fill: delay ? 'backwards' : 'none' });
 }
+
+/** How far apart a list's items start, and after how many they all start together */
+const STAGGER = { step: 35, cap: 8 } as const;
 
 /** A ref callback: what just mounted rises into place (a message, a status). */
 export function riseIn(element: Element | null): void {
@@ -46,6 +58,97 @@ export function riseIn(element: Element | null): void {
     ],
     MOTION.enter,
   );
+}
+
+/** What just opened rises into place one after another, each a beat behind the one above (a flow's cards). */
+export function riseInEach(elements: Iterable<Element>): void {
+  [...elements].forEach((element, index) =>
+    animate(
+      element,
+      [
+        { opacity: 0, translate: '0 6px', scale: '0.98' },
+        { opacity: 1, translate: '0 0', scale: '1' },
+      ],
+      MOTION.move,
+      MOTION.easeOut,
+      Math.min(index, STAGGER.cap) * STAGGER.step,
+    ),
+  );
+}
+
+/** Where keyed elements stand now, and how each looked: what `flip` moves them from. */
+export interface Places {
+  rects: Map<string, DOMRect>;
+  html: Map<string, string>;
+}
+
+/** Where each element stands now, by its key: taken before a change moves them. */
+export function places(elements: Iterable<HTMLElement>, key: (element: HTMLElement) => string | undefined): Places {
+  const found: Places = { rects: new Map(), html: new Map() };
+  for (const element of elements) {
+    const id = key(element);
+    if (id === undefined) continue;
+    found.rects.set(id, element.getBoundingClientRect());
+    found.html.set(id, element.outerHTML);
+  }
+  return found;
+}
+
+/**
+ * After a change: each element slides from where it stood (`before`) to where it stands now, so a
+ * list closes its gaps instead of jumping. One that left drops away from its old place, drawn in
+ * `ghosts`: an element of its own the page leaves empty, positioned, over the list.
+ */
+export function flip(
+  elements: Iterable<HTMLElement>,
+  key: (element: HTMLElement) => string | undefined,
+  before: Places,
+  ghosts: HTMLElement | null,
+): void {
+  if (!motionAllowed()) return;
+  const now = new Set<string>();
+  for (const element of elements) {
+    const id = key(element);
+    const was = id === undefined ? undefined : before.rects.get(id);
+    if (id === undefined || !was) continue;
+    now.add(id);
+    const shift = cssPx(was.top - element.getBoundingClientRect().top);
+    if (Math.abs(shift) > 1) animate(element, [{ translate: `0 ${shift}px` }, { translate: '0 0' }], MOTION.move);
+  }
+  if (!ghosts) return;
+  const origin = ghosts.getBoundingClientRect();
+  for (const [id, rect] of before.rects) {
+    if (now.has(id)) continue;
+    const holder = document.createElement('div');
+    holder.innerHTML = before.html.get(id) ?? '';
+    const ghost = holder.firstElementChild;
+    if (!(ghost instanceof HTMLElement)) continue;
+    ghost.removeAttribute('id');
+    Object.assign(ghost.style, {
+      position: 'absolute',
+      left: cssPx(rect.left - origin.left) + 'px',
+      top: cssPx(rect.top - origin.top) + 'px',
+      width: cssPx(rect.width) + 'px',
+      margin: '0',
+      pointerEvents: 'none',
+    });
+    ghosts.appendChild(ghost);
+    const drop = animate(
+      ghost,
+      [
+        { opacity: 1, translate: '0 0', scale: '1' },
+        { opacity: 0, translate: '0 24px', scale: '0.96' },
+      ],
+      MOTION.move,
+      MOTION.easeIn,
+    );
+    if (!drop) ghost.remove();
+    else
+      void drop.finished.then(
+        () => ghost.remove(),
+        () => ghost.remove(),
+      );
+  }
 }
 
 /** A ref callback: what just mounted fades in where it stands (an answer, a screen). */
@@ -157,9 +260,25 @@ export function slideOut(element: Element | null, edge: 'left' | 'right', then: 
   leave(element, [{ [margin]: '0px' }, { [margin]: -element.offsetWidth + 'px' }], then);
 }
 
-/** `growOpen` played back: what the reader closes shrinks to nothing under what closed it, then `then` takes it out. */
-export function growClosed(element: Element | null, then: () => void): void {
+/**
+ * `growOpen` played back: what the reader closes shrinks to nothing under what closed it, then `then`
+ * takes it out. With `each`, those items sink out last first while it shrinks (`riseInEach` played back).
+ */
+export function growClosed(element: Element | null, then: () => void, each: Iterable<Element> = []): void {
   if (!(element instanceof HTMLElement) || !element.offsetWidth) return then();
+  if (!leaving.has(element))
+    [...each].reverse().forEach((item, index) =>
+      animate(
+        item,
+        [
+          { opacity: 1, translate: '0 0', scale: '1' },
+          { opacity: 0, translate: '0 6px', scale: '0.98' },
+        ],
+        MOTION.exit,
+        MOTION.easeIn,
+        Math.min(index, STAGGER.cap) * (STAGGER.step / 2),
+      )?.effect?.updateTiming({ fill: 'both' }),
+    );
   leave(
     element,
     [

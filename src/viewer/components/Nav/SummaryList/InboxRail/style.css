@@ -1,0 +1,216 @@
+/* the Summary list as an inbox: a section per flow, its changes as cards, the read ones folded under them */
+.inbox-rail {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+/* a card that left drops away here, over the rail (ui/motion.ts flip) */
+.inbox-ghosts {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* ---- a flow ---- */
+.inbox-flow {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: color-mix(in oklab, var(--surface-2) 45%, transparent);
+}
+/* folded, the whole section is one target */
+.inbox-flow:not(.open) {
+  cursor: pointer;
+}
+.inbox-flow-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0 var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-lg);
+  color: var(--text);
+}
+/* no hover tint: on an open flow it would cover the head, not the section. The title answers instead */
+.inbox-flow-head.disclosure:hover:not(:disabled) {
+  background: none;
+}
+.inbox-flow-head:hover .t,
+.inbox-flow-head:hover > .pk,
+.inbox-flow:not(.open):hover .inbox-flow-head .t,
+.inbox-flow:not(.open):hover .inbox-flow-head > .pk {
+  color: var(--accent);
+}
+.inbox-flow-head .t {
+  overflow: hidden;
+  font-size: var(--text-md);
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  transition: color var(--motion);
+}
+.inbox-flow.done .inbox-flow-head .t {
+  color: var(--muted);
+  font-weight: 500;
+}
+.inbox-flow-head .n {
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+.inbox-flow.done .inbox-flow-head .n {
+  color: var(--add);
+}
+.inbox-flow-head .path,
+.inbox-flow-head .bar {
+  grid-column: 2 / -1;
+}
+.inbox-flow-head .path {
+  overflow: hidden;
+  color: var(--faint);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.inbox-flow-head .bar {
+  height: 3px;
+  margin-top: var(--space-1);
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background: var(--line);
+}
+.inbox-flow-head .bar i {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--add);
+  transition: width var(--motion-move);
+}
+.inbox-body,
+.inbox-read {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.inbox-body {
+  padding: 0 var(--space-2) var(--space-2);
+}
+.inbox-read-toggle {
+  color: var(--faint);
+}
+.inbox-read-toggle .n {
+  margin-left: var(--space-1);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- a card ---- */
+.inbox-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-1) var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--raised);
+  box-shadow: var(--elev-1);
+  cursor: pointer;
+}
+/* a card keeps its ground under the pointer: its edge answers */
+.inbox-card.list-row:hover:not(.selected) {
+  border-color: var(--line-strong);
+  background: var(--raised);
+}
+.inbox-card.selected {
+  border-color: var(--selected-ring);
+  box-shadow:
+    0 0 0 1px var(--selected-ring),
+    var(--elev-1);
+}
+.inbox-card .title {
+  align-self: baseline;
+  color: var(--text);
+  font-size: var(--text-md);
+  font-weight: 600;
+  line-height: 1.35;
+}
+/* text only: the way a caption reads, its text alone answers the pointer */
+.inbox-card .inbox-read-btn {
+  align-self: baseline;
+  height: auto;
+  padding: 0;
+  border: 0;
+  color: var(--faint);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  line-height: 1.35;
+}
+.inbox-card .inbox-read-btn:hover {
+  background: none;
+  color: var(--text);
+  font-weight: 600;
+}
+.inbox-card:hover .inbox-read-btn:not(:hover),
+.inbox-card.selected .inbox-read-btn:not(:hover) {
+  color: var(--muted);
+}
+.inbox-card .caption {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  min-width: 0;
+  color: var(--faint);
+  font-size: var(--text-xs);
+}
+.inbox-card .caption-file {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.inbox-card .caption-sep {
+  flex: none;
+}
+.inbox-card .caption-unit {
+  flex: none;
+  max-width: 60%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.inbox-card .icons {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-1);
+}
+.inbox-card .icons .sig {
+  display: inline-flex;
+  color: var(--sig);
+}
+.inbox-card .icons .drawn {
+  display: inline-flex;
+  color: var(--muted);
+}
+.inbox-card .note {
+  grid-column: 1 / -1;
+  color: var(--mod);
+  font-size: var(--text-xs);
+}
+.inbox-card.pending .title {
+  color: var(--faint);
+  font-weight: 400;
+  font-style: italic;
+}
+/* read: still a card on the flow's ground (a light theme loses a see-through one), only quieter */
+.inbox-card.read {
+  box-shadow: none;
+}
+.inbox-card.read .title {
+  color: var(--muted);
+  font-weight: 500;
+}
+.inbox-card.read .icons {
+  opacity: 0.6;
+}

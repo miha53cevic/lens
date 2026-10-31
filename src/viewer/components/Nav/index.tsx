@@ -12,8 +12,9 @@ import { hiddenStyle } from '../../shared.ts';
 import './style.css';
 
 export function Nav() {
-  const { view, shown, width, navQuery, sumQuery } = useLens((state) => ({
+  const { view, shown, width, navQuery, sumQuery, inbox } = useLens((state) => ({
     view: state.view,
+    inbox: state.view === 'summary' && state.summaryInbox,
     shown: navShown(state),
     width: state.navWidth,
     navQuery: state.navQuery,
@@ -35,6 +36,7 @@ export function Nav() {
     <nav
       id='nav'
       key={view}
+      className={inbox ? 'inbox' : undefined}
       ref={restoreScroll}
       style={{ display: shown ? undefined : 'none', width: width ? width + 'px' : undefined }}
       onScroll={(event) => {

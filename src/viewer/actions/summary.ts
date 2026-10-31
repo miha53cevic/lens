@@ -5,6 +5,7 @@ import type { Unit } from '../model/signals.ts';
 import { currentUnit, listModel } from '../model/summaryList.ts';
 import { jumpToLine, landOn } from './views.ts';
 import { saveMark } from './marks.ts';
+import { stepIntoInbox } from './inbox.ts';
 
 export function openSummaryUnit(unitId: string): void {
   update({ summaryUnit: unitId });
@@ -23,7 +24,7 @@ export function stepSummary(direction: number): void {
   // stops at the first and the last change: no wrapping around
   const target = position === -1 ? (direction > 0 ? 0 : list.order.length - 1) : position + direction;
   const unitId = list.order[target];
-  if (unitId) openSummaryUnit(unitId);
+  if (unitId && !stepIntoInbox(unitId)) openSummaryUnit(unitId);
 }
 
 export function openUnitInCode(unit: Unit | null): void {
