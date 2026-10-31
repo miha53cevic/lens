@@ -44,7 +44,6 @@ export type DeclarationKind = 'function' | 'class' | 'method' | 'property' | 'va
 
 export interface Declaration {
   name: string;
-  /** The line of the name */
   line: number;
   kind: DeclarationKind;
 }

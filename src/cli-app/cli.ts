@@ -54,7 +54,6 @@ interface CliOptions {
   open: boolean;
   openSummary: boolean;
   port: number;
-  /** --port was given explicitly */
   portSet: boolean;
   threshold: number | null;
   theme: string | null;

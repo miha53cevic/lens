@@ -73,7 +73,6 @@ function writeStoredMarks(root: string, review: string, marks: ReviewMarks): voi
   writeFileSync(marksFile(root, review), JSON.stringify(stored, null, 2) + '\n');
 }
 
-/** How many marks a review's file holds */
 export function countMarks(marks: ReviewMarks): number {
   return marks.files.length + marks.units.length + Object.keys(marks.concerns).length;
 }

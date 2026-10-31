@@ -75,7 +75,6 @@ function itemRows(item: CodeItem, itemIndex: number, context: RowContext): React
   }
 }
 
-/** The labels of a fold's own rows. */
 function bodyLabels(body: CodeItem[]): string[] {
   return body.flatMap((item) =>
     item.kind === 'line' ? ['N' + item.line] : item.kind === 'removed' ? ['O' + item.old] : [],

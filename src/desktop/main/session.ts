@@ -11,7 +11,6 @@ import { cliReason, type LensCli } from './cli.ts';
 const READY = /lens viewer on (http:\/\/127\.0\.0\.1:(\d+)\/)/;
 
 export interface ReviewSession {
-  /** The viewer's address */
   url: string;
   port: number;
   /** Resolves when the CLI process is gone, however it went (End session in the viewer, a crash, stop()). */

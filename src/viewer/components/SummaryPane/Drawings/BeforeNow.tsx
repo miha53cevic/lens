@@ -7,7 +7,6 @@ const MOMENTS: { value: Moment; label: string }[] = [
   { value: 'now', label: 'Now' },
 ];
 
-/** Before | Now, in a drawing's header. */
 export function BeforeNow({ value, onChange }: { value: Moment; onChange: (moment: Moment) => void }) {
   return <Segmented label='before or now' options={MOMENTS} value={value} onChange={onChange} />;
 }

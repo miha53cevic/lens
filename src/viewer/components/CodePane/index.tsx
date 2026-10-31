@@ -1,5 +1,3 @@
-// The Code view: the open file's code card.
-
 import { useLens } from '../../store.ts';
 import { FileCode } from './FileCode.tsx';
 import { hiddenStyle } from '../../shared.ts';

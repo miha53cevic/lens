@@ -18,7 +18,6 @@ export interface WindowState {
 }
 
 export interface StoredTab {
-  /** The repository's root */
   root: string;
   /** The review it showed; null: it was on its picker, or showed a lens started elsewhere */
   choice: ReviewChoice | null;

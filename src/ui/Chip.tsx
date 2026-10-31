@@ -2,7 +2,6 @@ import type { CSSProperties, ReactNode } from 'react';
 import './Chip.css';
 
 interface ChipProps {
-  /** The checkbox's id */
   id?: string;
   /** Its dot's color, and its tint when on. Without one: no dot, and the accent (search's word and case). */
   color?: string;

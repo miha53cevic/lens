@@ -38,7 +38,6 @@ export interface ApiRoutes {
   'POST /api/shutdown': Endpoint<null, Ok>;
   /** One viewed mark or verdict changed */
   'POST /api/marks': Endpoint<MarkChange, Ok>;
-  /** A new note */
   'POST /api/notes': Endpoint<NewNote, NotesResponse>;
   /** A note's kind or text, edited */
   'POST /api/notes/:id': Endpoint<NoteEdit, NotesResponse>;

@@ -169,7 +169,6 @@ export function clearKind(id: string): ClearKind | undefined {
   return CLEAR_KINDS.find((kind) => kind.id === id);
 }
 
-/** Every kind, with what each of its scopes would remove now. */
 export function describeKinds(at: ClearContext): ClearKindInfo[] {
   return CLEAR_KINDS.map((kind) => ({
     id: kind.id,

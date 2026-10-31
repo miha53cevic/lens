@@ -84,7 +84,6 @@ export function placeAt(menu: HTMLElement, x: number, y: number) {
   menu.style.top = Math.max(8, Math.min(y, window.innerHeight - height - 8)) + 'px';
 }
 
-/** Closes the menu an item is in. */
 function closeMenu(item: HTMLElement) {
   item.closest<HTMLElement>('[popover]')?.hidePopover?.();
 }

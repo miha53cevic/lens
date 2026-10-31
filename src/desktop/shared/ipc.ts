@@ -10,7 +10,6 @@ import { parseChoice } from './choice.ts';
 /** The calls of an area: its api without the state it reads */
 export type Calls<Api> = Omit<Api, 'state' | 'onState'>;
 
-/** A call's arguments */
 export type Args<Api, Call extends keyof Calls<Api>> = Calls<Api>[Call] extends (...args: infer A) => unknown
   ? A
   : never;

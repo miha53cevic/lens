@@ -81,7 +81,6 @@ export function filePlan(state: LensState, file: ViewFile): FilePlan {
   return buildFilePlan(file, state.hunksOnly, state.expandedGaps, showsRemoved(state));
 }
 
-/** The open file, unless there's none. */
 export function activeFile(state: LensState): ViewFile | null {
   return state.data.files[state.active] ?? null;
 }

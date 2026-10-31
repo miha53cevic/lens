@@ -70,7 +70,6 @@ export function classify(root: Node, source: string, config: LensConfig): FoldRe
     ...commentRegions(root, ctx),
   ].filter((r) => config.categories[r.category] !== false);
 
-  // Resolve overlaps by category priority, then by position.
   candidates.sort((a, b) => priorityOf(a.category) - priorityOf(b.category) || a.startLine - b.startLine);
   const accepted: FoldRegion[] = [];
   for (const region of candidates) {
