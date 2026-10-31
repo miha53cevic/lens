@@ -69,6 +69,7 @@ const START: LauncherState = {
     skills: { state: 'installed', where: '~/.claude/skills', note: null },
   },
   theme: VESPER,
+  zoom: 100,
   platform: 'darwin',
 };
 const PICKER: LauncherState = {
@@ -599,6 +600,20 @@ test('a page is served in the theme: its colors on <html>, and nothing for a col
   );
   assert.match(themeAttributes(VESPER), /^ data-appearance="dark" /);
   assert.equal(themeAttributes({ ...LIGHT, accent: 'red;background:url(x)"><script>' }), '');
+  assert.match(themeAttributes(LIGHT, 125), /--theme-accent:#6f42c1;zoom:1.25;--ui-zoom:1.25"$/, 'the UI size');
+  assert.doesNotMatch(themeAttributes(LIGHT, 100), /zoom/, 'nothing at the default');
+  assert.doesNotMatch(themeAttributes(LIGHT, 333), /zoom/, 'nor for a size lens has no step for');
+});
+
+pageTest("the launcher follows the viewer's UI size, and drops it at the default", 'launcher', START, async (page) => {
+  const root = document.documentElement;
+  assert.equal(root.style.getPropertyValue('zoom'), '');
+  await page.push({ ...START, zoom: 125 });
+  assert.equal(root.style.getPropertyValue('zoom'), '1.25');
+  assert.equal(root.style.getPropertyValue('--ui-zoom'), '1.25');
+  await page.push({ ...START, zoom: 100 });
+  assert.equal(root.style.getPropertyValue('zoom'), '');
+  assert.equal(root.style.getPropertyValue('--ui-zoom'), '');
 });
 
 // ---- the tab strip ----

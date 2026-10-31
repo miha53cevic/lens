@@ -18,6 +18,7 @@ import { ClearDataDialog } from './ClearDataDialog/index.tsx';
 import { ReviewPill } from './ReviewPill.tsx';
 import { StatusBar } from './StatusBar/index.tsx';
 import { CodeMenu } from './CodeMenu.tsx';
+import { cssPx } from '../../ui/zoom.ts';
 import './App.css';
 
 export function App() {
@@ -43,7 +44,9 @@ export function App() {
           label='resize the file tree'
           panelId='nav'
           hidden={!navVisible}
-          widthAt={(event, nav) => Math.min(600, Math.max(160, event.clientX - nav.getBoundingClientRect().left))}
+          widthAt={(event, nav) =>
+            Math.min(600, Math.max(160, cssPx(event.clientX - nav.getBoundingClientRect().left)))
+          }
           onResized={setNavWidth}
         />
         <div className='editor'>
@@ -57,7 +60,9 @@ export function App() {
           label='resize the Ask rail'
           panelId='ask-rail'
           hidden={!askOpen}
-          widthAt={(event, rail) => Math.min(720, Math.max(280, rail.getBoundingClientRect().right - event.clientX))}
+          widthAt={(event, rail) =>
+            Math.min(720, Math.max(280, cssPx(rail.getBoundingClientRect().right - event.clientX)))
+          }
           onResized={askSetWidth}
         />
         <AskRail />

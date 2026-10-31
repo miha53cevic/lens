@@ -10,7 +10,10 @@
   /* the main process lays the tabs' pages out under this height (STRIP_HEIGHT in window.ts) */
   height: 40px;
   padding-left: max(var(--space-3), env(titlebar-area-x, 0px));
-  padding-right: max(var(--space-3), calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw)));
+  padding-right: max(
+    var(--space-3),
+    calc(var(--screen-w) - env(titlebar-area-x, 0px) - env(titlebar-area-width, var(--screen-w)))
+  );
   background: var(--bg);
   user-select: none;
   -webkit-app-region: drag;

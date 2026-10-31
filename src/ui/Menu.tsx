@@ -5,6 +5,7 @@ import { useId, useRef, type ReactNode, type Ref } from 'react';
 import clsx from 'clsx';
 import { IconButton } from './IconButton.tsx';
 import { Kbd } from './Kbd.tsx';
+import { cssPx } from './zoom.ts';
 import './Menu.css';
 
 interface MenuProps {
@@ -72,16 +73,18 @@ export function MenuPanel({ id, className, panelRef, onToggle, children }: MenuP
 function placeUnder(menu: HTMLElement | null, trigger: HTMLElement) {
   if (!menu) return;
   const rect = trigger.getBoundingClientRect();
-  menu.style.top = rect.bottom + 6 + 'px';
-  menu.style.right = Math.max(8, window.innerWidth - rect.right) + 'px';
+  menu.style.top = cssPx(rect.bottom) + 6 + 'px';
+  menu.style.right = Math.max(8, cssPx(window.innerWidth - rect.right)) + 'px';
 }
 
 /** An open menu at a point (a right-click): its top left corner there, kept inside the window. */
 export function placeAt(menu: HTMLElement, x: number, y: number) {
   const { width, height } = menu.getBoundingClientRect();
   menu.style.right = 'auto';
-  menu.style.left = Math.max(8, Math.min(x, window.innerWidth - width - 8)) + 'px';
-  menu.style.top = Math.max(8, Math.min(y, window.innerHeight - height - 8)) + 'px';
+  // in CSS px, as the menu's own 8px margin is
+  const [left, top, right, bottom] = [x, y, window.innerWidth - width, window.innerHeight - height].map(cssPx);
+  menu.style.left = Math.max(8, Math.min(left, right - 8)) + 'px';
+  menu.style.top = Math.max(8, Math.min(top, bottom - 8)) + 'px';
 }
 
 /** Closes the menu an item is in. */

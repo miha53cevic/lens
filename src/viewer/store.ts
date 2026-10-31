@@ -16,6 +16,7 @@ import type { ReaderNote } from '../cli-app/notes/store.ts';
 import type { ConcernMark } from '../cli-app/marks/store.ts';
 import { INITIAL_DATA, readPref } from './shared.ts';
 import { CODE_SIZE_DEFAULT, savedCodeSize } from './codeSize.ts';
+import { savedZoom, UI_ZOOM_DEFAULT } from '../cli-app/zoom.ts';
 
 export type View = 'code' | 'summary';
 export type { ConcernMark };
@@ -91,6 +92,8 @@ export interface LensState {
   sideBySide: boolean;
   /** The code's size in px, one of CODE_SIZES (codeSize.ts) */
   codeSize: number;
+  /** The whole page's zoom in percent, one of UI_ZOOMS (cli-app/zoom.ts) */
+  uiZoom: number;
   navCollapsed: boolean;
   navWidth: number;
   /** The tree filter's text (transient) */
@@ -163,6 +166,14 @@ function loadCodeSize(): number {
   }
 }
 
+function loadUiZoom(): number {
+  try {
+    return savedZoom(document.cookie);
+  } catch {
+    return UI_ZOOM_DEFAULT;
+  }
+}
+
 function savedWidth(key: string, min: number, max: number, fallback: number) {
   const width = Number(readPref(key));
   return width >= min && width <= max ? width : fallback;
@@ -188,6 +199,7 @@ const initialState: LensState = {
   wordDiff: readPref('lens.wordDiff') !== '0', // on by default
   sideBySide: readPref('lens.sideBySide') === '1', // off by default
   codeSize: loadCodeSize(),
+  uiZoom: loadUiZoom(),
   navCollapsed: readPref('lens.navCollapsed') === '1',
   navWidth: savedWidth('lens.navWidth', 160, 600, 0),
   navQuery: '',

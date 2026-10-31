@@ -25,6 +25,7 @@ import type { Session, Store } from './store.ts';
 import { Tab, type OwnScreen, type TabHost } from './tab.ts';
 import { TabList } from './tabs.ts';
 import type { Themes } from './themes.ts';
+import type { UiZoom } from './zoom.ts';
 
 /** The strip's height: the views start under it. The shell's stylesheet has the same number. */
 export const STRIP_HEIGHT = 40;
@@ -50,6 +51,7 @@ export interface WindowDeps {
   cli: LensCli;
   store: Store;
   themes: Themes;
+  zoom: UiZoom;
   preload: string;
   setup: SetupEnv;
 }
@@ -346,6 +348,7 @@ export class AppWindow implements TabHost {
       version: themes.version,
       setup: setupState(setup),
       theme: themes.current,
+      zoom: this.deps.zoom.current,
       platform: process.platform,
     };
   }
@@ -384,6 +387,11 @@ export class AppWindow implements TabHost {
     }
     this.sendStrip();
     this.sendMenu();
+  }
+
+  /** The UI's size changed in a review: the launcher's pages follow (the strip and the menu stay as they are). */
+  zoomChanged(): void {
+    for (const tab of this.tabs.all) this.sendLauncher(tab);
   }
 
   // ---- the strip's theme menu ----

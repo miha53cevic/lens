@@ -101,6 +101,7 @@ shows code you didn't write.
   review for your agent (the overview, or with no summary the sidebar). Notes follow their lines
   as the code moves, and are kept per review in `.lens/notes/`.
 - **The code theme** colors the whole page; a light theme turns it light.
+- **Code size and UI size** (⋯ menu): the code's font size, and a zoom of the whole interface (80–150%) for a small or a large screen. Both are kept for every repository; the desktop app's own screens follow the UI size too.
 - **Reload** (`r`) re-runs the analysis; the status bar says when the code changed on disk.
 - **Clear saved data** (⋯ menu): the summaries, your notes, and the viewed and concern marks, each
   for this review or every review, ticked on its own and listed before anything goes. Settings stay.

@@ -4,6 +4,7 @@ import type { FoldRegion } from '../../cli-app/model.ts';
 import { commit, type LensState, toggled, update } from '../store.ts';
 import { activeFile, isRegionOpen, planRegions, regionKey, unitPlan } from '../model/plans.ts';
 import { currentUnit } from '../model/summaryList.ts';
+import { cssPx } from '../../ui/zoom.ts';
 
 export function toggleRegion(path: string, region: FoldRegion): void {
   update((state) => {
@@ -75,5 +76,5 @@ export function toggleContext(key: string, bar?: HTMLElement): void {
   const offset = bar?.getBoundingClientRect().top;
   commit((state) => ({ expandedGaps: toggled(state.expandedGaps, key) }));
   const pane = document.getElementById('summary-pane');
-  if (bar && pane && offset !== undefined) pane.scrollTop += bar.getBoundingClientRect().top - offset;
+  if (bar && pane && offset !== undefined) pane.scrollTop += cssPx(bar.getBoundingClientRect().top - offset);
 }

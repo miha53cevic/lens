@@ -18,6 +18,7 @@ import { buildProgressReader, type BuildProgress } from '../../summary/progress.
 import { clearKinds, describeKinds, type ClearContext, type ClearPlan } from '../../clear.ts';
 import { escapeHtml } from '../../text.ts';
 import { isLightColor, THEME_COOKIE } from '../../theme.ts';
+import { parsedZoom, UI_ZOOM_COOKIE, UI_ZOOM_DEFAULT, zoomStyle } from '../../zoom.ts';
 import { bundleViewer } from './bundle.ts';
 // Imported as text, so the compiled `lens` carries it. bun-types types every .html import as an
 // HTML bundle (what Bun.serve takes), which an import as text isn't.
@@ -211,11 +212,11 @@ export function viewerPayload(
 }
 
 /**
- * The page for a payload. The theme's colors go on the <html> element too (as main.tsx sets them),
- * so the page's first paint, before its script has run, is already in the theme.
+ * The page for a payload. The theme's colors and the UI's zoom go on the <html> element too (as main.tsx
+ * sets them), so the page's first paint, before its script has run, is already in the theme and at its size.
  */
-export function renderPage(template: string, payload: ViewerPayload): string {
-  const colors = `--code-fg:${payload.fg};--code-bg:${payload.bg};--theme-accent:${payload.accent}`;
+export function renderPage(template: string, payload: ViewerPayload, zoom = UI_ZOOM_DEFAULT): string {
+  const colors = `--code-fg:${payload.fg};--code-bg:${payload.bg};--theme-accent:${payload.accent}${zoomStyle(zoom)}`;
   const root = ` data-appearance="${isLightColor(payload.bg) ? 'light' : 'dark'}" style="${escapeHtml(colors)}"`;
   const data = JSON.stringify(payload).replace(/</g, '\\u003c');
   // Function replacements: plain strings would expand $-sequences in the payload.
@@ -270,7 +271,7 @@ export async function serveViewer(
   // another theme or a ↻ refresh replaces them instead of adding to them. The promise is what's
   // kept, so requests that arrive while it tokenizes wait for the same work.
   let heldTokens: { files: ViewerFile[]; theme: string; tokens: Promise<ThemeTokens> } | null = null;
-  let heldPage: { input: ViewerInput; theme: string; saved: number; html: string } | null = null;
+  let heldPage: { input: ViewerInput; theme: string; zoom: number; saved: number; html: string } | null = null;
 
   function tokensFor(files: ViewerFile[], theme: string): Promise<ThemeTokens> {
     if (heldTokens && heldTokens.files === files && heldTokens.theme === theme) return heldTokens.tokens;
@@ -351,17 +352,23 @@ export async function serveViewer(
     return { root: current.root, key: current.summary?.key ?? null, review: current.review };
   }
 
-  async function htmlFor(theme: string): Promise<string> {
+  async function htmlFor(theme: string, zoom: number): Promise<string> {
     // the page opens with the summary as it is now, not as it was when the server started
     syncSummary();
     const input = current;
     // stringifying an MBs payload on every reload is waste
-    if (heldPage && heldPage.input === input && heldPage.theme === theme && heldPage.saved === savedVersion) {
+    if (
+      heldPage &&
+      heldPage.input === input &&
+      heldPage.theme === theme &&
+      heldPage.zoom === zoom &&
+      heldPage.saved === savedVersion
+    ) {
       return heldPage.html;
     }
     const version = savedVersion;
-    const html = renderPage(template, await payloadFor(input, theme));
-    heldPage = { input, theme, saved: version, html };
+    const html = renderPage(template, await payloadFor(input, theme), zoom);
+    heldPage = { input, theme, zoom, saved: version, html };
     return html;
   }
 
@@ -375,7 +382,8 @@ export async function serveViewer(
     // the theme the reader picked (the viewer keeps it in a cookie), unless --theme pinned this run's
     const picked = url.searchParams.get('theme') || opts.themePinned ? null : readCookie(req, THEME_COOKIE);
     // the page first: once the headers are out, a failure can't be answered with a 500
-    const html = await htmlFor(picked && isBundledTheme(picked) ? picked : themeOf(url));
+    const zoom = parsedZoom(readCookie(req, UI_ZOOM_COOKIE));
+    const html = await htmlFor(picked && isBundledTheme(picked) ? picked : themeOf(url), zoom);
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
     res.end(html);
   };

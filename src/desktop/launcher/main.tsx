@@ -8,6 +8,7 @@ import '../../ui/styles/base.css';
 import { watch } from '../../ui/poll.ts';
 import type { LauncherState } from '../shared/api.ts';
 import { applyTheme } from '../shared/page.ts';
+import { applyZoom } from '../../cli-app/zoom.ts';
 import { motionReady } from '../../ui/motion.ts';
 import { Launcher } from './components/Launcher.tsx';
 import { ErrorBoundary } from '../../ui/ErrorBoundary.tsx';
@@ -16,6 +17,7 @@ import { useLauncher } from './store.ts';
 function show(state: LauncherState | null): void {
   if (!state) return;
   if (useLauncher.getState().state?.theme.name !== state.theme.name) applyTheme(state.theme);
+  if (useLauncher.getState().state?.zoom !== state.zoom) applyZoom(document.documentElement, state.zoom);
   useLauncher.setState({ state });
   // the screen the tab opens on is drawn still; the ones after it may move
   motionReady();

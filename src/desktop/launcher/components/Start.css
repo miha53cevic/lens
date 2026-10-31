@@ -1,5 +1,5 @@
 .start-hero {
-  margin-top: 9vh;
+  margin-top: calc(var(--screen-h) * 0.09);
   text-align: center;
 }
 .start-brand.brand {

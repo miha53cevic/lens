@@ -1,7 +1,7 @@
 /* every dialog: a raised card over a dimmed page */
 dialog {
-  width: min(620px, 90vw);
-  max-height: 80vh;
+  width: min(620px, calc(var(--screen-w) * 0.9));
+  max-height: calc(var(--screen-h) * 0.8);
   padding: 0;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-lg);

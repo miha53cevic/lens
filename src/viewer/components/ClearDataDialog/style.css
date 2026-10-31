@@ -1,5 +1,5 @@
 #clear-modal {
-  width: min(480px, 90vw);
+  width: min(480px, calc(var(--screen-w) * 0.9));
 }
 .clear-body {
   display: grid;

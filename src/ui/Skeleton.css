@@ -10,13 +10,13 @@
   /* a line of text: the letters' height, in the middle of the line the real text will take */
   height: 0.7em;
   border-radius: var(--radius-sm);
-  background: linear-gradient(100deg, var(--skeleton) 42%, var(--skeleton-glint) 50%, var(--skeleton) 58%) 0 0 / 200vw
-    100% fixed;
+  background: linear-gradient(100deg, var(--skeleton) 42%, var(--skeleton-glint) 50%, var(--skeleton) 58%) 0 0 /
+    calc(var(--screen-w) * 2) 100% fixed;
   animation: skeleton-sweep 1.8s linear infinite;
 }
 @keyframes skeleton-sweep {
   to {
-    background-position: -200vw 0;
+    background-position: calc(var(--screen-w) * -2) 0;
   }
 }
 .skeleton-icon {

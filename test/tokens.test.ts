@@ -140,6 +140,13 @@ test("the viewer's default code size is the token's", () => {
   assert.match(readFileSync(join(ROOT, TOKENS), 'utf8'), new RegExp(`--text-code: ${CODE_SIZE_DEFAULT}px;`));
 });
 
+test("a size by the window's is --screen-w or --screen-h, which the UI's zoom doesn't stretch", () => {
+  assert.deepEqual(
+    broken(({ value }) => /\d(?:d|s|l)?(?:vh|vw|vmin|vmax)\b/.test(value)),
+    [],
+  );
+});
+
 test('transitions take their timing from the motion tokens', () => {
   // a delay is a wait, not a motion (the 150 ms before a loading screen shows): it may be its own
   assert.deepEqual(

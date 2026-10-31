@@ -11,8 +11,10 @@ import {
   setThreshold,
   setWordDiff,
   stepCodeSize,
+  stepUiZoom,
 } from '../../actions/prefs.ts';
 import { CODE_SIZE_DEFAULT, CODE_SIZES } from '../../codeSize.ts';
+import { UI_ZOOM_DEFAULT, UI_ZOOMS } from '../../../cli-app/zoom.ts';
 import { openDialog } from '../../actions/dialogs.ts';
 import { endSession } from '../../actions/session.ts';
 import { isDiffMode } from '../../shared.ts';
@@ -34,7 +36,7 @@ const LEVELS = [
 ];
 
 /**
- * ⋯: the code's size and the view settings first (they act on the Code tab's file and the
+ * ⋯: the code's size, the UI's and the view settings first (they act on the Code tab's file and the
  * Summary tab's change alike), then the summary's own switch, the shortcuts and the settings, then the two that
  * remove something: clear saved data and end session.
  */
@@ -50,6 +52,7 @@ export function MoreMenu() {
     split: isSplit(state),
     hideTests: state.hideTests,
     codeSize: state.codeSize,
+    uiZoom: state.uiZoom,
     hasSummary: state.data.summary !== null,
     buildPreviews: state.data.buildPreviews,
     fullUnits: state.fullUnits,
@@ -74,6 +77,24 @@ export function MoreMenu() {
             atMin={more.codeSize === CODE_SIZES[0]}
             atMax={more.codeSize === CODE_SIZES[CODE_SIZES.length - 1]}
             onStep={stepCodeSize}
+          />
+        </div>
+        <div className='menu-row'>
+          <span className='menu-label'>
+            UI size
+            <span className='menu-aside' id='ui-zoom-hint'>
+              default {UI_ZOOM_DEFAULT}%
+            </span>
+          </span>
+          <Stepper
+            id='ui-zoom'
+            label='UI size'
+            value={more.uiZoom + '%'}
+            lessLabel='Smaller'
+            moreLabel='Larger'
+            atMin={more.uiZoom === UI_ZOOMS[0]}
+            atMax={more.uiZoom === UI_ZOOMS[UI_ZOOMS.length - 1]}
+            onStep={stepUiZoom}
           />
         </div>
       </MenuSection>

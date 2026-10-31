@@ -12,6 +12,7 @@ import { ErrorBoundary } from '../ui/ErrorBoundary.tsx';
 import { getState, subscribe, type LensState } from './store.ts';
 import { isLightColor } from '../cli-app/theme.ts';
 import { CODE_SIZE_DEFAULT } from './codeSize.ts';
+import { applyZoom } from '../cli-app/zoom.ts';
 import { setView, stampWatcher } from './actions/views.ts';
 import { openFirstTreeFile } from './actions/tabs.ts';
 import { askWatcher } from './ask/rail.ts';
@@ -24,7 +25,7 @@ import { check, watch } from '../ui/poll.ts';
 import { motionReady } from '../ui/motion.ts';
 
 /**
- * The document follows the state: the theme's colors (the tokens' inputs), the code's size, the tab title, the Ask selection's change.
+ * The document follows the state: the theme's colors (the tokens' inputs), the code's size, the UI's zoom, the tab title, the Ask selection's change.
  * The chrome's colors are mixed from the code theme's (styles/tokens.css), and a light theme also flips the
  * fixed colors (diff, signals) to their light set. The server writes the same on the page it sends.
  */
@@ -43,6 +44,8 @@ function syncDocument(state: LensState, previous: LensState | null) {
     if (state.codeSize === CODE_SIZE_DEFAULT) root.style.removeProperty('--text-code');
     else root.style.setProperty('--text-code', state.codeSize + 'px');
   }
+  // the whole page's zoom: the server wrote it on the page too, so this changes nothing at start
+  if (!previous || previous.uiZoom !== state.uiZoom) applyZoom(document.documentElement, state.uiZoom);
   // PR mode: "owner/repo#N — title" in the tab title too
   if (!previous || previous.data.label !== label) document.title = label ? 'lens — ' + label : 'lens';
   // a selection from another change goes when the reader opens a different one

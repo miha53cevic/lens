@@ -33,6 +33,12 @@
   /* the code itself, until the reader picks another size (the viewer's ⋯ menu) */
   --text-code: 12px;
 
+  /* the window's size. CSS zoom on <html> (the UI size, ui/zoom.ts) zooms vw and vh too, so a
+     stylesheet sizes by the window with these instead: they are the window at any zoom */
+  --ui-zoom: 1;
+  --screen-w: calc(100vw / var(--ui-zoom));
+  --screen-h: calc(100vh / var(--ui-zoom));
+
   /* a 4px grid: padding, margins and gaps are 0 or one of these */
   --space-1: 4px;
   --space-2: 8px;

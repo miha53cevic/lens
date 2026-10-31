@@ -263,6 +263,12 @@ test("the page the server sends carries its theme's colors on <html>, before any
   assert.ok(renderPage('<html/*__LENS_ROOT__*/>', payload).startsWith('<html data-appearance="dark"'));
 });
 
+test('the page the server sends is at the UI size, so it arrives at it instead of jumping to it', () => {
+  assert.match(renderPage('<html/*__LENS_ROOT__*/>', payload, 125), /;zoom:1.25;--ui-zoom:1.25">$/);
+  assert.doesNotMatch(renderPage('<html/*__LENS_ROOT__*/>', payload, 100), /zoom/, 'nothing at the default');
+  assert.doesNotMatch(renderPage('<html/*__LENS_ROOT__*/>', payload, 37), /zoom/, 'nor for a size with no step');
+});
+
 pageTest(
   '/ shows a collapsed sidebar, remembers it, and focuses the filter',
   async () => {

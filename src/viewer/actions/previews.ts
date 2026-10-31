@@ -2,6 +2,7 @@
 
 import { commit, update } from '../store.ts';
 import { api, noteDone, tracked } from './status.ts';
+import { cssPx } from '../../ui/zoom.ts';
 
 /** How tall a preview's frame may grow to fit its screen */
 const FRAME_MIN = 120;
@@ -60,5 +61,5 @@ export function openUnitFromPreview(unitId: string, title: string): void {
   }
   const pane = document.getElementById('summary-pane');
   const moved = previewCards().find((candidate) => candidate.dataset.preview === title);
-  if (pane && moved && offset !== null) pane.scrollTop += moved.getBoundingClientRect().top - offset;
+  if (pane && moved && offset !== null) pane.scrollTop += cssPx(moved.getBoundingClientRect().top - offset);
 }
