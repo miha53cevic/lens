@@ -165,6 +165,7 @@ test('what script animates moves as the motion tokens do', () => {
   assert.match(tokens, new RegExp(`--motion-exit: ${MOTION.exit}ms var\\(--ease-in\\);`));
   assert.match(tokens, new RegExp(`--motion-move: ${MOTION.move}ms var\\(--ease-out\\);`));
   assert.ok(tokens.includes(`--ease-out: ${MOTION.easeOut};`));
+  assert.ok(tokens.includes(`--ease-in: ${MOTION.easeIn};`));
 });
 
 test('the retired tokens stay retired', () => {

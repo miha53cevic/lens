@@ -2,7 +2,7 @@ import { ArrowLeftRight, Folder, Plus, Settings, Shapes } from 'lucide-react';
 import type { StripTab } from '../shared/api.ts';
 import { IconButton } from '../../ui/IconButton.tsx';
 import { Tab } from '../../ui/Tab.tsx';
-import { widenIn } from '../../ui/motion.ts';
+import { narrowOut, widenIn } from '../../ui/motion.ts';
 import { ThemeTrigger } from '../../ui/ThemeMenu.tsx';
 import { useStrip } from './store.ts';
 import './style.css';
@@ -32,7 +32,8 @@ function RepoTab({ tab, active }: { tab: StripTab; active: boolean }) {
       data-tab={tab.id}
       active={active}
       onSelect={() => strip.select(tab.id)}
-      onClose={() => strip.close(tab.id)}
+      // it narrows out, and stays narrowed until the main process's answer takes it out
+      onClose={() => narrowOut(document.querySelector(`.rtab[data-tab="${tab.id}"]`), () => strip.close(tab.id), true)}
       closeLabel={'Close ' + tab.title}
       actions={
         // on every tab with a review, shown or not, so a tab keeps its width when another comes to the front

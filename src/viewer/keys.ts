@@ -22,7 +22,7 @@ import {
   toggleUnitViewed,
 } from './actions/prefs.ts';
 import { setView } from './actions/views.ts';
-import { askOpenAndFocus, askSetOpen } from './ask/rail.ts';
+import { askOpenAndFocus, askToggle } from './ask/rail.ts';
 import { startNote } from './actions/notes.ts';
 import { isDiffMode } from './shared.ts';
 
@@ -142,7 +142,7 @@ export function onKeyDown(event: KeyboardEvent): void {
       break;
     case 'a':
       // keys never reach here from the Ask input, so an open rail closes
-      if (state.ask.open) askSetOpen(false);
+      if (state.ask.open) askToggle();
       else askOpenAndFocus();
       event.preventDefault(); // the "a" mustn't land in the textarea
       break;
@@ -151,7 +151,7 @@ export function onKeyDown(event: KeyboardEvent): void {
       event.preventDefault(); // the "n" mustn't land in the note
       break;
     case '\\':
-      askSetOpen(!state.ask.open);
+      askToggle();
       break;
   }
 }

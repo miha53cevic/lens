@@ -3,12 +3,13 @@
 // the rest (transitions, @starting-style). Nothing here runs before the page has settled, with less
 // motion asked for, or where the browser can't animate (the page tests' happy-dom).
 
-/** The tokens' numbers (tokens.css: --motion-enter, --motion-exit, --motion-move, --ease-out). */
+/** The tokens' numbers (tokens.css: --motion-enter, --motion-exit, --motion-move, --ease-out, --ease-in). */
 export const MOTION = {
   enter: 180,
   exit: 110,
   move: 220,
   easeOut: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
+  easeIn: 'cubic-bezier(0.4, 0, 1, 1)',
 } as const;
 
 /** The class on <html> once the page has settled: CSS's entrances wait for it too. */
@@ -95,6 +96,102 @@ export function slideIn(element: Element | null, edge: 'left' | 'right'): void {
   if (!(element instanceof HTMLElement)) return;
   const margin = edge === 'left' ? 'marginLeft' : 'marginRight';
   animate(element, [{ [margin]: -element.offsetWidth + 'px' }, { [margin]: '0px' }], MOTION.move);
+}
+
+// What leaves plays out first, and the change that takes it away runs after: React removes or hides
+// an element in the same frame its state changes, which leaves nothing to animate. With no motion the
+// change runs at once, so the page tests see the end state.
+
+/** The exits still playing, and the change each runs at its end. */
+interface Exit {
+  animation: Animation;
+  then: () => void;
+  hold: boolean;
+}
+const leaving = new WeakMap<Element, Exit>();
+
+/**
+ * Plays `keyframes` out on `element`, then runs `then`. Called again while it plays, `then` runs at
+ * once (a second Esc doesn't wait). With `hold`, the last frame stays until the element is gone: for
+ * a change that lands later (the desktop strip hears its tabs from the main process).
+ */
+function leave(element: Element | null, keyframes: Keyframe[], then: () => void, hold = false): void {
+  const running = element && leaving.get(element);
+  if (running) return finish(element, running);
+  const animation = animate(element, keyframes, MOTION.exit, MOTION.easeIn);
+  if (!element || !animation) return then();
+  const exit = { animation, then, hold };
+  leaving.set(element, exit);
+  if (hold) animation.effect?.updateTiming({ fill: 'forwards' });
+  if (element instanceof HTMLElement) element.style.pointerEvents = 'none';
+  void animation.finished.then(
+    () => finish(element, exit),
+    () => {},
+  );
+}
+
+function finish(element: Element, exit: Exit): void {
+  if (leaving.get(element) !== exit) return;
+  leaving.delete(element);
+  exit.then();
+  if (element instanceof HTMLElement) element.style.pointerEvents = '';
+  if (!exit.hold) return exit.animation.cancel();
+  // held, and the element is still there a while after its change: it wasn't taken out after all
+  setTimeout(() => element.isConnected && exit.animation.cancel(), 1000);
+}
+
+/** An exit still playing on `element` is called off, and it stays where it was. True when there was one. */
+export function stay(element: Element | null): boolean {
+  const running = element && leaving.get(element);
+  if (!element || !running) return false;
+  leaving.delete(element);
+  running.animation.cancel();
+  if (element instanceof HTMLElement) element.style.pointerEvents = '';
+  return true;
+}
+
+/** `slideIn` played back: a panel slides out past its edge, and what is beside it takes the room, then `then` hides it. */
+export function slideOut(element: Element | null, edge: 'left' | 'right', then: () => void): void {
+  if (!(element instanceof HTMLElement) || !element.offsetWidth) return then();
+  const margin = edge === 'left' ? 'marginLeft' : 'marginRight';
+  leave(element, [{ [margin]: '0px' }, { [margin]: -element.offsetWidth + 'px' }], then);
+}
+
+/** `growOpen` played back: what the reader closes shrinks to nothing under what closed it, then `then` takes it out. */
+export function growClosed(element: Element | null, then: () => void): void {
+  if (!(element instanceof HTMLElement) || !element.offsetWidth) return then();
+  leave(
+    element,
+    [
+      { height: element.offsetHeight + 'px', opacity: 1, overflow: 'hidden' },
+      { height: '0px', opacity: 0, overflow: 'hidden' },
+    ],
+    then,
+  );
+}
+
+/**
+ * `widenIn` played back: a tab that closes narrows out of its place, so the ones beside it move over.
+ * With `hold` it stays narrowed until the change that removes it lands.
+ */
+export function narrowOut(element: Element | null, then: () => void, hold = false): void {
+  if (!(element instanceof HTMLElement) || !element.offsetWidth) return then();
+  leave(
+    element,
+    [
+      { maxWidth: element.offsetWidth + 'px', opacity: 1, overflow: 'hidden' },
+      {
+        maxWidth: '0px',
+        opacity: 0,
+        overflow: 'hidden',
+        paddingInline: '0px',
+        marginInline: '0px',
+        borderWidth: '0px',
+      },
+    ],
+    then,
+    hold,
+  );
 }
 
 /** Something the reader just did, done: a short swell (the review pill, the ring at 100%). */

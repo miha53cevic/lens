@@ -4,7 +4,7 @@ import { commit, getState, type LensState, type Tab, update } from '../store.ts'
 import { isTestFile } from '../shared.ts';
 import { activeFile } from '../model/plans.ts';
 import { firstTreeFile, treeModel, visibleFile } from '../model/tree.ts';
-import { widenIn } from '../../ui/motion.ts';
+import { narrowOut, stay, widenIn } from '../../ui/motion.ts';
 
 // The file gets a tab. A new file takes over the preview tab when one exists; otherwise it
 // opens next to the active tab.
@@ -35,23 +35,32 @@ export function visibleActive(state: LensState): Partial<LensState> {
 }
 
 export function openFile(fileIndex: number, pin?: boolean): void {
+  // opened again while its tab narrows out: the tab stays
+  stay(tabElement(fileIndex));
   const state = getState();
   const tabs = withTab(state.tabs, state.active, fileIndex, pin);
   const patch = { ...revealIfTest(state, fileIndex), tabs, active: fileIndex };
   // a tab that joins the bar widens into its place; one that replaces the preview just shows
   if (tabs.length <= state.tabs.length) return update(patch);
   commit(patch);
-  widenIn(document.querySelector(`#tabbar .tab[data-file="${fileIndex}"]`));
+  widenIn(tabElement(fileIndex));
 }
 
+const tabElement = (fileIndex: number) => document.querySelector(`#tabbar .tab[data-file="${fileIndex}"]`);
+
+function withoutTab(state: LensState, fileIndex: number): Partial<LensState> {
+  const at = state.tabs.findIndex((tab) => tab.index === fileIndex);
+  if (at === -1) return {};
+  const tabs = state.tabs.filter((tab) => tab.index !== fileIndex);
+  const next = tabs[Math.min(at, tabs.length - 1)];
+  return { tabs, active: state.active === fileIndex ? (next ? next.index : -1) : state.active };
+}
+
+/** The file next to the tab shows at once; the tab narrows out of the bar, then leaves it. */
 export function closeTab(fileIndex: number): void {
-  update((state) => {
-    const at = state.tabs.findIndex((tab) => tab.index === fileIndex);
-    if (at === -1) return {};
-    const tabs = state.tabs.filter((tab) => tab.index !== fileIndex);
-    const next = tabs[Math.min(at, tabs.length - 1)];
-    return { tabs, active: state.active === fileIndex ? (next ? next.index : -1) : state.active };
-  });
+  const { active } = withoutTab(getState(), fileIndex);
+  if (active !== undefined) update({ active });
+  narrowOut(tabElement(fileIndex), () => update((state) => withoutTab(state, fileIndex)));
 }
 
 export function pinTab(fileIndex: number): void {

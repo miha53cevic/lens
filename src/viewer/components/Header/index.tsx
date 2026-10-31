@@ -8,7 +8,7 @@ import { isBusy } from '../../model/status.ts';
 import { refresh } from '../../actions/session.ts';
 import { openSearch } from '../../actions/dialogs.ts';
 import { toggleNav } from '../../actions/prefs.ts';
-import { askSetOpen } from '../../ask/rail.ts';
+import { askToggle } from '../../ask/rail.ts';
 import { hiddenStyle } from '../../shared.ts';
 import { Brand } from '../../../ui/Brand.tsx';
 import { IconButton } from '../../../ui/IconButton.tsx';
@@ -50,13 +50,7 @@ export function Header() {
       <IconButton id='search-btn' label='Search in files' shortcut='⌘P' onClick={() => openSearch()}>
         <Search size={16} />
       </IconButton>
-      <IconButton
-        id='ask-btn'
-        label='Ask your agent'
-        shortcut='a'
-        aria-pressed={header.askOpen}
-        onClick={() => askSetOpen(!header.askOpen)}
-      >
+      <IconButton id='ask-btn' label='Ask your agent' shortcut='a' aria-pressed={header.askOpen} onClick={askToggle}>
         <MessageSquare size={16} />
       </IconButton>
       <TopBarDivider />
