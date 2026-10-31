@@ -12,6 +12,7 @@ import { setWindowsUserPath, terminalPath, type SetupEnv } from './setup.ts';
 import { runSmoke } from './smoke.ts';
 import { openStore } from './store.ts';
 import { Themes } from './themes.ts';
+import { UiZoom } from './zoom.ts';
 import { AppWindow } from './window.ts';
 
 // this file, bundled, is dist/main.mjs: the pages and the preload sit next to it
@@ -44,9 +45,15 @@ function lensCli(): LensCli {
 async function start(): Promise<void> {
   const cli = lensCli();
   const themes = new Themes(cli, viewerSession(), () => window?.themeChanged());
-  lockDown(distDir, () => themes.current);
-  await themes.load();
+  const zoom = new UiZoom(viewerSession(), () => window?.zoomChanged());
+  lockDown(
+    distDir,
+    () => themes.current,
+    () => zoom.current,
+  );
+  await Promise.all([themes.load(), zoom.load()]);
   themes.watch();
+  zoom.watch();
 
   const setup: SetupEnv = {
     command: [cli.command, ...cli.args],
@@ -61,6 +68,7 @@ async function start(): Promise<void> {
     cli,
     store: openStore(join(app.getPath('userData'), 'state.json')),
     themes,
+    zoom,
     preload: join(distDir, 'preload.cjs'),
     setup,
   });

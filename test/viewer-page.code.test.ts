@@ -150,6 +150,48 @@ pageTest('the code size: the stepper sets it, the cookie keeps it, and the defau
   await click(larger);
 });
 
+pageTest('the UI size: the stepper zooms the whole page, the cookie keeps it, and the default keeps none', async () => {
+  const root = document.documentElement;
+  const [smaller, larger] = $$('#ui-zoom .icon-btn');
+  assert.equal($('#ui-zoom output').textContent, '100%');
+  assert.equal(root.style.getPropertyValue('zoom'), '', 'at the default the page is as it is');
+  assert.equal($('#ui-zoom-hint').textContent, 'default 100%');
+
+  await click(larger);
+  await click(larger);
+  assert.equal($('#ui-zoom output').textContent, '125%');
+  assert.equal(root.style.getPropertyValue('zoom'), '1.25');
+  assert.equal(root.style.getPropertyValue('--ui-zoom'), '1.25', 'for what the zoom gets wrong (ui/zoom.ts)');
+  assert.ok(document.cookie.includes('lens-ui-zoom=125'));
+  assert.equal($('#code-size output').textContent, '12px', 'the code size is its own');
+
+  await click(larger);
+  assert.equal($('#ui-zoom output').textContent, '150%', 'it stops at the largest');
+  assert.equal((larger as HTMLButtonElement).disabled, true);
+
+  for (let step = 0; step < 3; step++) await click(smaller);
+  assert.equal(root.style.getPropertyValue('zoom'), '');
+  assert.equal(root.style.getPropertyValue('--ui-zoom'), '');
+  assert.ok(!document.cookie.includes('lens-ui-zoom'), 'the default keeps no cookie');
+
+  await click(smaller);
+  await click(smaller);
+  assert.equal($('#ui-zoom output').textContent, '80%', 'it stops at the smallest');
+  assert.equal((smaller as HTMLButtonElement).disabled, true);
+  await click(larger);
+  await click(larger);
+});
+
+test('the UI size comes back from its cookie', async () => {
+  await open({}, '', 'lens-ui-zoom=110; path=/');
+  try {
+    assert.equal(document.documentElement.style.getPropertyValue('zoom'), '1.1');
+    assert.equal($('#ui-zoom output').textContent, '110%');
+  } finally {
+    await close();
+  }
+});
+
 test('the code size comes back from its cookie', async () => {
   await open({}, '', 'lens-code-size=18; path=/');
   try {

@@ -82,6 +82,8 @@ export interface LauncherState {
   version: string;
   setup: Record<SetupPart, SetupItem>;
   theme: ThemeSwatch;
+  /** The UI's size in percent: the viewer's (cli-app/zoom.ts), which the launcher's pages take too */
+  zoom: number;
   platform: string;
 }
 

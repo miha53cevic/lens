@@ -1,6 +1,6 @@
 /* the ? help keeps its size from tab to tab */
 #keys-modal {
-  height: min(34rem, 80vh);
+  height: min(34rem, calc(var(--screen-h) * 0.8));
 }
 #keys-modal .set-table td:first-child {
   width: 9rem;

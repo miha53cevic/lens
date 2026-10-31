@@ -1,9 +1,10 @@
-// What the reader sets: the sidebar, the view settings (the header's ⋯ menu) and the code's size,
+// What the reader sets: the sidebar, the view settings (the header's ⋯ menu), the code's size and the UI's,
 // which the browser remembers, and the viewed marks, which the server keeps for the review.
 
 import { commit, getState, THRESHOLD_PREF, toggled, update } from '../store.ts';
 import { fileViewKey, INITIAL_DATA, type ViewFile, writePref } from '../shared.ts';
 import { CODE_SIZE_COOKIE, CODE_SIZE_DEFAULT, steppedSize } from '../codeSize.ts';
+import { steppedZoom, UI_ZOOM_COOKIE, UI_ZOOM_DEFAULT } from '../../cli-app/zoom.ts';
 import { type Unit, unitViewKey } from '../model/signals.ts';
 import { fileProgress, type Progress, unitProgress } from '../model/progress.ts';
 import { toggledMark } from '../model/viewed.ts';
@@ -93,6 +94,18 @@ export function setCodeSize(size: number): void {
 
 export function stepCodeSize(delta: number): void {
   setCodeSize(steppedSize(getState().codeSize, delta));
+}
+
+// The whole page's zoom, kept the same way: the server reads the cookie, so the page arrives at it.
+
+export function setUiZoom(zoom: number): void {
+  const kept = zoom === UI_ZOOM_DEFAULT ? '; max-age=0' : '; max-age=31536000';
+  document.cookie = UI_ZOOM_COOKIE + '=' + zoom + '; path=/' + kept + '; samesite=lax';
+  update({ uiZoom: zoom });
+}
+
+export function stepUiZoom(delta: number): void {
+  setUiZoom(steppedZoom(getState().uiZoom, delta));
 }
 
 // Viewed marks: keyed by content, so what changes after it was ticked comes back unticked (and

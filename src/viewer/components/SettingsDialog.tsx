@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { useLens } from '../store.ts';
 import { catColor } from '../shared.ts';
 import { CODE_SIZE_DEFAULT } from '../codeSize.ts';
+import { UI_ZOOM_DEFAULT } from '../../cli-app/zoom.ts';
 import { ModalHead } from './ModalHead.tsx';
 import './SettingsRows.css';
 import './SettingsDialog.css';
@@ -46,7 +47,7 @@ function Section({ title, hint, rows }: { title: string; hint?: string; rows: [R
 
 /** The settings in effect: where they come from, this session's choices, every rule. */
 export function SettingsDialog() {
-  const { data, threshold, hideTests, hunksOnly, wordDiff, sideBySide, codeSize } = useLens((state) => ({
+  const { data, threshold, hideTests, hunksOnly, wordDiff, sideBySide, codeSize, uiZoom } = useLens((state) => ({
     data: state.data,
     threshold: state.threshold,
     hideTests: state.hideTests,
@@ -54,6 +55,7 @@ export function SettingsDialog() {
     wordDiff: state.wordDiff,
     sideBySide: state.sideBySide,
     codeSize: state.codeSize,
+    uiZoom: state.uiZoom,
   }));
   const config = data.config;
   const categories = Object.keys(config.categories || {});
@@ -81,6 +83,12 @@ export function SettingsDialog() {
               <>
                 {codeSize}px
                 {codeSize !== CODE_SIZE_DEFAULT && <span className='set-aside'>default: {CODE_SIZE_DEFAULT}px</span>}
+              </>,
+            ],
+            [
+              'UI size',
+              <>
+                {uiZoom}%{uiZoom !== UI_ZOOM_DEFAULT && <span className='set-aside'>default: {UI_ZOOM_DEFAULT}%</span>}
               </>,
             ],
             ['Theme', data.theme],

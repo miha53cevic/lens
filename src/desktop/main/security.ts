@@ -112,7 +112,7 @@ function originOf(url: string): string | null {
  * hold every page (the ones created later too) to its own origin. A page is served in the theme
  * of the moment, so a new tab doesn't flash the default one before its script has run.
  */
-export function lockDown(distDir: string, theme: () => ThemeSwatch): void {
+export function lockDown(distDir: string, theme: () => ThemeSwatch, zoom: () => number): void {
   session.defaultSession.protocol.handle(APP_SCHEME, (request) => {
     const { host, pathname } = new URL(request.url);
     const name = pathname.slice(1);
@@ -120,7 +120,10 @@ export function lockDown(distDir: string, theme: () => ThemeSwatch): void {
     if (!type) return new Response('not found', { status: 404 });
     const file = readFileSync(join(distDir, name));
     const body = name.endsWith('.html')
-      ? file.toString().replace('<html', () => '<html' + themeAttributes(theme()))
+      ? // the launcher's screens are at the UI's size; the strip and the theme menu stay at 100%
+        file
+          .toString()
+          .replace('<html', () => '<html' + themeAttributes(theme(), name === 'launcher.html' ? zoom() : undefined))
       : file;
     return new Response(body, {
       headers: {

@@ -3,7 +3,7 @@
   inset: auto;
   margin: 0;
   width: 300px;
-  max-height: calc(100vh - 80px);
+  max-height: calc(var(--screen-h) - 80px);
   overflow-y: auto;
   padding: var(--space-2);
   border: 1px solid var(--line-strong);
