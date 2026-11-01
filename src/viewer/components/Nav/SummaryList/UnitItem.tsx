@@ -1,4 +1,3 @@
-import clsx from 'clsx';
 import { PanelsTopLeft } from 'lucide-react';
 import { useLens } from '../../../store.ts';
 import { type Unit, unitLabel, unitViewKey } from '../../../model/signals.ts';
@@ -39,22 +38,46 @@ export function UnitItem({ unit, side, active }: UnitItemProps) {
     <ListRow
       ref={active ? keepInSight : undefined}
       selected={active}
-      className={clsx('sum-item', active && 'active', !summary && 'pending', viewed && 'viewed', 'st-' + unit.status)}
+      data-part='sum-item'
+      data-active={active || undefined}
+      data-pending={summary ? undefined : ''}
+      data-viewed={viewed || undefined}
+      className='group/item grid w-full grid-cols-[16px_minmax(0,1fr)_auto_auto_auto_auto] items-center gap-x-2 px-2 py-1 text-left'
       title={unit.id + ' — ' + unit.status + (summary ? '\n' + summary.gist : '')}
       onClick={() => openSummaryUnit(unit.id)}
     >
       <ViewedBox checked={viewed} changed={changed} onToggle={() => toggleUnitViewed(unit)} />
-      <span className='name'>{unitLabel(unit)}</span>
+      <span
+        data-part='name'
+        className='overflow-hidden text-ellipsis whitespace-nowrap group-data-pending/item:opacity-60 group-data-viewed/item:opacity-55'
+      >
+        {unitLabel(unit)}
+      </span>
       {drawn && (
-        <span className='drawn' title='Has a preview or a sequence'>
+        <span data-part='drawn' className='inline-flex text-faint' title='Has a preview or a sequence'>
           <PanelsTopLeft size={12} />
         </span>
       )}
       <NoteMark count={notes} />
       <SignalMarker marks={marks} unit={unit} />
-      {side && <span className='side'>{side}</span>}
-      {unit.stale && <span className='gist stale'>code changed — re-run</span>}
-      {changed && !unit.stale && <span className='gist changed'>changed since you reviewed it</span>}
+      {side && (
+        <span
+          data-part='side'
+          className='max-w-[80px] overflow-hidden text-xs text-ellipsis whitespace-nowrap text-faint'
+        >
+          {side}
+        </span>
+      )}
+      {unit.stale && (
+        <span data-part='gist' className='col-[2/-1] text-xs text-mod'>
+          code changed — re-run
+        </span>
+      )}
+      {changed && !unit.stale && (
+        <span data-part='gist' className='col-[2/-1] text-xs text-mod'>
+          changed since you reviewed it
+        </span>
+      )}
     </ListRow>
   );
 }

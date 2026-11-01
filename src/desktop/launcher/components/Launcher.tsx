@@ -5,7 +5,6 @@ import { ReviewPicker } from './ReviewPicker/index.tsx';
 import { Settings } from './Settings.tsx';
 import { Start } from './Start.tsx';
 import { StatusLine } from './StatusLine.tsx';
-import './Launcher.css';
 
 export function Launcher() {
   const screen = useLauncher((store) => store.state?.screen ?? null);
@@ -21,7 +20,7 @@ export function Launcher() {
   if (screen === null) return null;
   return (
     <>
-      <div className='stage'>
+      <div className='relative flex min-h-0 flex-1 flex-col'>
         {!reopening && screen === 'start' && <Start />}
         {!reopening && screen === 'picker' && hasRepo && <ReviewPicker key={pickerKey} />}
         {screen === 'settings' && <Settings />}

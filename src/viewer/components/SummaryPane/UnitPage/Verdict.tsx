@@ -18,7 +18,9 @@ export function Verdict({ finding, mark, size = 'sm' }: VerdictProps) {
     <Button
       variant={value === 'dismissed' ? 'ghost' : 'default'}
       size={size}
-      className={'vbtn v-' + value}
+      // "real", once given, is the reader's check: green, as viewed is
+      className={value === 'real' ? 'aria-pressed:border-add aria-pressed:bg-add aria-pressed:text-surface' : undefined}
+      data-part='vbtn'
       data-mark={value}
       aria-pressed={mark === value}
       title={tip}
@@ -28,10 +30,14 @@ export function Verdict({ finding, mark, size = 'sm' }: VerdictProps) {
     </Button>
   );
   if (mark === 'dismissed') {
-    return <span className='verdict'>{button('dismissed', <RotateCcw size={11} />, 'Restore', 'bring it back')}</span>;
+    return (
+      <span className='inline-flex items-center gap-2'>
+        {button('dismissed', <RotateCcw size={11} />, 'Restore', 'bring it back')}
+      </span>
+    );
   }
   return (
-    <span className='verdict' role='group' aria-label='your call'>
+    <span className='inline-flex items-center gap-2' role='group' aria-label='your call'>
       {button(
         'real',
         <Check size={11} />,

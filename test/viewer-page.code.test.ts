@@ -31,22 +31,22 @@ usePage();
 
 pageTest('the page opens on the first file of the tree, folded, hunks only', async () => {
   assert.deepEqual(treeFiles(), ['orders.ts'], 'hide tests is on by default');
-  assert.equal($('.tab.active .tab-name').textContent, 'orders.ts');
+  assert.equal($('[data-part="tab"][data-active] [data-part="tab-name"]').textContent, 'orders.ts');
   assert.deepEqual(rows(), HUNKS);
   assert.deepEqual(
     $$('#code .row.gap').map((gap) => gap.lastElementChild!.textContent),
     ['⋯ 5 unchanged lines', '⋯ 1 unchanged line', '⋯ 7 unchanged lines'],
   );
   // the code card's header: the file's status, its path, the lines the diff added and removed
-  assert.equal($('.code-head .status-badge').textContent, 'MModified');
-  assert.equal($('.code-head .code-path').textContent, 'src/orders.ts');
-  assert.equal($('.code-head .counts').textContent, '+2−5');
-  assert.equal($('#tree .file .status-letter').textContent, 'M');
-  assert.equal($('#nav .progress-count').textContent, '0 of 1');
+  assert.equal($('[data-part="code-head"] [data-part="status-badge"]').textContent, 'MModified');
+  assert.equal($('[data-part="code-head"] [data-part="code-path"]').textContent, 'src/orders.ts');
+  assert.equal($('[data-part="code-head"] [data-part="counts"]').textContent, '+2−5');
+  assert.equal($('#tree [data-part="file"] [data-part="status-letter"]').textContent, 'M');
+  assert.equal($('#nav [data-part="progress-count"]').textContent, '0 of 1');
 });
 
 pageTest('a shortcut drops the focus a click left, so no ring stays on it; other keys keep it', async () => {
-  const file = $('#tree .file');
+  const file = $('#tree [data-part="file"]');
   file.focus();
   await key('Enter');
   assert.equal(document.activeElement, file, 'Enter still presses what has the focus');
@@ -57,7 +57,7 @@ pageTest('a shortcut drops the focus a click left, so no ring stays on it; other
 pageTest('a fold opens on a click; expand all, collapse all and a fold chip act on all of them', async () => {
   const fold = (category: string) => $(`#code .region[data-cat="${category}"]`);
   const chip = (category: string) =>
-    $$('#toggles .chip')
+    $$('#toggles [data-part="chip"]')
       .find((candidate) => candidate.textContent === category)!
       .querySelector('input')!;
   await click(fold('guard').querySelector('.pill-row')!);
@@ -67,7 +67,7 @@ pageTest('a fold opens on a click; expand all, collapse all and a fold chip act 
   await key('e');
   assert.ok(fold('guard').classList.contains('open') && fold('logging').classList.contains('open'));
   assert.deepEqual(
-    $$('#toggles .chip input').map((box) => (box as HTMLInputElement).checked),
+    $$('#toggles [data-part="chip"] input').map((box) => (box as HTMLInputElement).checked),
     [true, true, true],
     "every chip, import's too",
   );
@@ -126,7 +126,7 @@ pageTest(
 
 pageTest('the code size: the stepper sets it, the cookie keeps it, and the default keeps none', async () => {
   const codeSize = () => document.documentElement.style.getPropertyValue('--text-code');
-  const [smaller, larger] = $$('#code-size .icon-btn');
+  const [smaller, larger] = $$('#code-size [data-part="icon-btn"]');
   assert.equal($('#code-size output').textContent, '12px');
   assert.equal(codeSize(), '', 'at the default the token rules');
 
@@ -152,7 +152,7 @@ pageTest('the code size: the stepper sets it, the cookie keeps it, and the defau
 
 pageTest('the UI size: the stepper zooms the whole page, the cookie keeps it, and the default keeps none', async () => {
   const root = document.documentElement;
-  const [smaller, larger] = $$('#ui-zoom .icon-btn');
+  const [smaller, larger] = $$('#ui-zoom [data-part="icon-btn"]');
   assert.equal($('#ui-zoom output').textContent, '100%');
   assert.equal(root.style.getPropertyValue('zoom'), '', 'at the default the page is as it is');
   assert.equal($('#ui-zoom-hint').textContent, 'default 100%');
@@ -238,7 +238,7 @@ pageTest('word diff (d, on by default) marks the words a replaced line changed, 
   await key('v');
   await key('j');
   assert.deepEqual(
-    $$('.unit-code .row[data-line="10"] .w-add').map((word) => word.textContent),
+    $$('[data-part="unit-code"] .row[data-line="10"] .w-add').map((word) => word.textContent),
     ['and deleted = 0'],
   );
 });
@@ -295,7 +295,7 @@ pageTest('side by side (l, off by default) puts each removed line beside what re
   await click($('#code .region > .srow.pill-row > .left'));
   // a lookup by line finds the new side
   assert.ok($('#code .row[data-line="11"]').classList.contains('right'));
-  assert.equal($$('.code-pane .ruler').length, 0, 'no overview ruler');
+  assert.equal($$('[data-part="code-pane"] [data-part="ruler"]').length, 0, 'no overview ruler');
   const removed = $('#show-removed') as HTMLButtonElement;
   assert.ok(removed.disabled, 'the removed lines are its left side');
   assert.equal(removed.getAttribute('aria-checked'), 'true');
@@ -309,11 +309,11 @@ pageTest('side by side (l, off by default) puts each removed line beside what re
   );
   await key('v');
   await key('j');
-  assert.ok($('.unit-code .code').classList.contains('split'), 'the Summary tab too');
-  assert.ok($$('.unit-code .srow').length > 0);
-  assert.equal($$('.unit-card .ruler').length, 0);
+  assert.ok($('[data-part="unit-code"] .code').classList.contains('split'), 'the Summary tab too');
+  assert.ok($$('[data-part="unit-code"] .srow').length > 0);
+  assert.equal($$('[data-card="unit-card"] [data-part="ruler"]').length, 0);
   await key('l');
-  assert.equal($$('.unit-code .srow').length, 0, 'l works on the Summary tab');
+  assert.equal($$('[data-part="unit-code"] .srow').length, 0, 'l works on the Summary tab');
   assert.equal(localStorage.getItem('lens.sideBySide'), '0');
 });
 
@@ -352,7 +352,7 @@ pageTest(
 pageTest('the ruler ticks the changes by row; a click opens the fold around one and flashes it', async () => {
   // the changed log line (9) is folded: its tick sits at the fold's pill, one run with line 10
   assert.deepEqual(ticks(), ['del O9', 'add N9', 'del O17']);
-  const tick = $$('.code-pane .ruler .tick')[1];
+  const tick = $$('[data-part="code-pane"] [data-part="ruler"] [data-part="tick"]')[1];
   // rows: ⋯ R6 −9 R9 10 … (20 on screen): the run is rows 3–4
   assert.equal(tick.style.top, (3 / 20) * 100 + '%');
   assert.equal(tick.style.height, (2 / 20) * 100 + '%');
@@ -364,24 +364,30 @@ pageTest('the ruler ticks the changes by row; a click opens the fold around one 
 pageTest("a unit's ruler ticks its open concerns too; a dismissed one drops off", async () => {
   await key('v');
   await key('j');
-  assert.deepEqual(ticks('.unit-card'), ['del O9', 'add N9', 'bug N10']);
-  // only a concern's tick takes the concern color (a class match, so "tick-add" can't catch it)
+  assert.deepEqual(ticks('[data-card="unit-card"]'), ['del O9', 'add N9', 'bug N10']);
+  // only a concern's tick takes the concern color
   assert.deepEqual(
-    $$('.unit-card .ruler .tick.concern').map((tick) => tick.dataset.label),
+    $$('[data-card="unit-card"] [data-part="ruler"] [data-part="tick"]:not([data-kind="add"], [data-kind="del"])').map(
+      (tick) => tick.dataset.label,
+    ),
     ['N10'],
   );
-  await click($('.concern .vbtn.v-dismissed'));
-  assert.deepEqual(ticks('.unit-card'), ['del O9', 'add N9']);
+  await click($('[data-part="concern"] [data-part="vbtn"][data-mark="dismissed"]'));
+  assert.deepEqual(ticks('[data-card="unit-card"]'), ['del O9', 'add N9']);
 });
 
 pageTest('hide tests: t shows the test file, and hiding it again leaves it', async () => {
   await key('t');
   assert.deepEqual(treeFiles(), ['orders.test.ts', 'orders.ts']);
-  await click($$('#tree .file').find((file) => file.textContent!.includes('orders.test.ts'))!);
-  assert.equal($('.tab.active .tab-name').textContent, 'orders.test.ts');
+  await click($$('#tree [data-part="file"]').find((file) => file.textContent!.includes('orders.test.ts'))!);
+  assert.equal($('[data-part="tab"][data-active] [data-part="tab-name"]').textContent, 'orders.test.ts');
   await key('t');
   assert.deepEqual(treeFiles(), ['orders.ts']);
-  assert.equal($('.tab.active .tab-name').textContent, 'orders.ts', 'the open test file gives way');
+  assert.equal(
+    $('[data-part="tab"][data-active] [data-part="tab-name"]').textContent,
+    'orders.ts',
+    'the open test file gives way',
+  );
 });
 
 test('a viewed mark is kept by the server, and comes back with the review', async () => {
@@ -389,8 +395,8 @@ test('a viewed mark is kept by the server, and comes back with the review', asyn
   let saved = '';
   try {
     await key('m');
-    assert.ok($('#tree .file').classList.contains('viewed'));
-    assert.equal($('#nav .progress-count').textContent, '1 of 1');
+    assert.ok($('#tree [data-part="file"]').hasAttribute('data-viewed'));
+    assert.equal($('#nav [data-part="progress-count"]').textContent, '1 of 1');
     const [tick] = postedMarks(page) as { list: string; key: string; on: boolean }[];
     assert.equal(tick.list, 'files');
     assert.match(tick.key, /^src\/orders\.ts@/);
@@ -405,7 +411,7 @@ test('a viewed mark is kept by the server, and comes back with the review', asyn
   }
   await open({}, '', '', withMarks({ files: [saved] }));
   try {
-    assert.ok($('#tree .file').classList.contains('viewed'));
+    assert.ok($('#tree [data-part="file"]').hasAttribute('data-viewed'));
   } finally {
     await close();
   }
@@ -415,10 +421,10 @@ test('↻ takes the marks the review has now: another branch is another review',
   await open();
   try {
     await key('m');
-    assert.ok($('#tree .file').classList.contains('viewed'));
+    assert.ok($('#tree [data-part="file"]').hasAttribute('data-viewed'));
     // the refresh's payload has no marks: the review checked out now has none
     await click($('#refresh'));
-    assert.ok(!$('#tree .file').classList.contains('viewed'));
+    assert.ok(!$('#tree [data-part="file"]').hasAttribute('data-viewed'));
   } finally {
     await close();
   }
@@ -427,7 +433,7 @@ test('↻ takes the marks the review has now: another branch is another review',
 test('marks an older lens kept in the browser are dropped: they were for no review in particular', async () => {
   await open({ 'lens.viewedFiles': '["src/orders.ts@x"]', 'lens.concernMarks': '{}' });
   try {
-    assert.ok(!$('#tree .file').classList.contains('viewed'));
+    assert.ok(!$('#tree [data-part="file"]').hasAttribute('data-viewed'));
     assert.equal(localStorage.getItem('lens.viewedFiles'), null);
     assert.equal(localStorage.getItem('lens.concernMarks'), null);
   } finally {
@@ -438,29 +444,29 @@ test('marks an older lens kept in the browser are dropped: they were for no revi
 pageTest(
   'a file viewed before its code changed says so, until it is viewed again',
   async () => {
-    const box = () => $('#tree .file .viewed-box');
+    const box = () => $('#tree [data-part="file"] [data-part="viewed-box"]');
     assert.equal(box().getAttribute('aria-checked'), 'false', 'not viewed: the code is new');
-    assert.ok(box().classList.contains('changed'));
-    assert.match($('#tree .file').getAttribute('title')!, /changed since you viewed it/);
-    assert.equal($('#nav .progress-count').textContent, '0 of 1');
-    assert.equal($('#nav .legend.changed').textContent, '1 changed since viewed');
+    assert.ok(box().hasAttribute('data-changed'));
+    assert.match($('#tree [data-part="file"]').getAttribute('title')!, /changed since you viewed it/);
+    assert.equal($('#nav [data-part="progress-count"]').textContent, '0 of 1');
+    assert.equal($('#nav [data-part="legend"][data-changed]').textContent, '1 changed since viewed');
 
     // its folder: each file viewed, one changed since: the dot, not the tick
-    const folder = () => $('#tree .dir');
-    assert.ok(folder().classList.contains('changed'));
+    const folder = () => $('#tree [data-part="dir"]');
+    assert.ok(folder().dataset.through === 'changed');
     assert.match(folder().getAttribute('title')!, /a file changed since you viewed it/);
 
     await key('m');
     assert.equal(box().getAttribute('aria-checked'), 'true');
-    assert.ok(!box().classList.contains('changed'));
-    assert.equal($$('#nav .legend.changed').length, 0);
-    assert.ok(folder().classList.contains('done'), 'every file in it viewed: the tick');
+    assert.ok(!box().hasAttribute('data-changed'));
+    assert.equal($$('#nav [data-part="legend"][data-changed]').length, 0);
+    assert.ok(folder().dataset.through === 'done', 'every file in it viewed: the tick');
     await key('m');
-    assert.ok(!box().classList.contains('changed'), 'unticked now: never viewed, as far as it shows');
-    assert.ok(!folder().classList.contains('done') && !folder().classList.contains('changed'));
+    assert.ok(!box().hasAttribute('data-changed'), 'unticked now: never viewed, as far as it shows');
+    assert.ok(folder().dataset.through !== 'done' && folder().dataset.through !== 'changed');
     await key('t');
     await key('m');
-    assert.ok(!folder().classList.contains('done'), 'the test file shows now, and is not viewed');
+    assert.ok(folder().dataset.through !== 'done', 'the test file shows now, and is not viewed');
   },
   {},
   '',
@@ -472,10 +478,12 @@ test('a change reviewed before its code changed says so in the Summary list', as
   await open({}, '', '', withMarks({ units: [unit.id + '@old'] }));
   try {
     await key('v');
-    const item = $$('.sum-item').find((candidate) => candidate.querySelector('.name')!.textContent === 'findOrders')!;
-    assert.ok(item.querySelector('.viewed-box.changed'));
-    assert.equal(item.querySelector('.gist.changed')!.textContent, 'changed since you reviewed it');
-    assert.equal($('#nav .legend.changed').textContent, '1 changed since viewed');
+    const item = $$('[data-part="sum-item"]').find(
+      (candidate) => candidate.querySelector('[data-part="name"]')!.textContent === 'findOrders',
+    )!;
+    assert.ok(item.querySelector('[data-part="viewed-box"][data-changed]'));
+    assert.equal(item.querySelector('[data-part="gist"]')!.textContent, 'changed since you reviewed it');
+    assert.equal($('#nav [data-part="legend"][data-changed]').textContent, '1 changed since viewed');
   } finally {
     await close();
   }
@@ -483,10 +491,10 @@ test('a change reviewed before its code changed says so in the Summary list', as
 
 pageTest('the review pill marks the file viewed and opens the next one, stopping at the ends of the tree', async () => {
   const pill = () => $('#review-next').textContent!.trim();
-  const open = () => $('.tab.active .tab-name').textContent;
+  const open = () => $('[data-part="tab"][data-active] [data-part="tab-name"]').textContent;
   const prev = () => $('#review-prev') as HTMLButtonElement;
   await key('t'); // the test file shows too, first in the tree: orders.ts is now the last file
-  assert.equal($('#nav .progress-count').textContent, '0 of 2');
+  assert.equal($('#nav [data-part="progress-count"]').textContent, '0 of 2');
   assert.equal(pill(), 'Mark viewed', 'the last file: nothing after it to open');
   await key('j');
   assert.equal(open(), 'orders.ts', 'j stops at the last file');
@@ -498,7 +506,7 @@ pageTest('the review pill marks the file viewed and opens the next one, stopping
   assert.equal(pill(), 'Viewed · next file');
   await click($('#review-next'));
   assert.equal(open(), 'orders.ts', 'the next file not viewed yet');
-  assert.equal($('#nav .progress-count').textContent, '1 of 2');
+  assert.equal($('#nav [data-part="progress-count"]').textContent, '1 of 2');
   assert.equal(pill(), 'Mark viewed');
   await click($('#review-next'));
   assert.equal(pill(), 'All 2 files viewed');
@@ -579,40 +587,48 @@ pageTest('the tree filter offers its clear button only while there is text, and 
 });
 
 pageTest("a tab closes from its button, which is the design system's icon button", async () => {
-  const close = $('#tabbar .tab .tab-close');
-  assert.ok(close.classList.contains('icon-btn'));
+  const close = $('#tabbar [data-part="tab"] [data-part="tab-close"]');
+  assert.ok(close.getAttribute('aria-label'));
   assert.equal(close.getAttribute('aria-label'), 'Close orders.ts', 'it names the tab it closes');
   await click(close);
-  assert.equal($$('#tabbar .tab').length, 0);
+  assert.equal($$('#tabbar [data-part="tab"]').length, 0);
 });
 
 pageTest("the shortcuts' tabs sit above the scrolling keys, not in them", async () => {
   await key('?');
-  assert.equal($('.key-tabs').closest('.modal-body'), null);
-  assert.ok($('#keys-modal .modal-body .set-table'));
+  assert.equal($('[data-part="key-tabs"]').closest('[data-part="modal-body"]'), null);
+  assert.ok($('#keys-modal [data-part="modal-body"] [data-part="set-table"]'));
 });
 
 test('a changed binary file is a row of the tree: its status, dimmed, and nothing to open', async () => {
   try {
     await open({}, '', '', { ...payload, binary: [{ file: 'src/logo.png', status: 'modified' }] });
-    const row = $('#tree .file.binary');
-    assert.equal(row.querySelector('.fname')!.firstChild!.textContent, 'logo.png');
-    assert.equal(row.querySelector('.kind')!.textContent, 'binary');
-    assert.ok(row.classList.contains('modified') && row.querySelector('.status-letter.st-modified'));
+    const row = $('#tree [data-part="file"][data-binary]');
+    assert.equal(row.querySelector('[data-part="fname"]')!.firstChild!.textContent, 'logo.png');
+    assert.equal(row.querySelector('[data-part="kind"]')!.textContent, 'binary');
+    assert.ok(
+      row.dataset.status === 'modified' && row.querySelector('[data-part="status-letter"][data-status="modified"]'),
+    );
     assert.ok((row as HTMLButtonElement).disabled, "it can't be opened");
     assert.match(row.title, /^src\/logo\.png — modified, a binary file/);
-    assert.equal($$('#tree .file .viewed-box:not(.placeholder)').length, 1, 'no viewed box: it is not a file to read');
+    assert.equal(
+      $$('#tree [data-part="file"] [data-part="viewed-box"]:not(.placeholder)').length,
+      1,
+      'no viewed box: it is not a file to read',
+    );
 
     // j / k walk the files that open, and the filter finds the row by its name
-    const active = () => $('#tree .file.active .fname').textContent;
+    const active = () => $('#tree [data-part="file"][data-active] [data-part="fname"]').textContent;
     const first = active();
     await key('j');
     await key('k');
     assert.equal(active(), first);
-    await type($('.nav-filter input'), 'logo');
+    await type($('#file-filter'), 'logo');
     assert.deepEqual(
-      $$('#tree .file').map((file) => file.className),
-      ['list-row file modified binary'],
+      $$('#tree [data-part="file"]').map(
+        (file) => file.dataset.status === 'modified' && file.hasAttribute('data-binary'),
+      ),
+      [true],
     );
   } finally {
     await close();
@@ -625,7 +641,8 @@ pageTest('j / k keep the open file in sight in the tree', async () => {
   const scrolled: string[] = [];
   const original = HTMLElement.prototype.scrollIntoView;
   HTMLElement.prototype.scrollIntoView = function (this: HTMLElement) {
-    if (this.matches('#tree .file')) scrolled.push(this.querySelector('.fname')!.textContent!);
+    if (this.matches('#tree [data-part="file"]'))
+      scrolled.push(this.querySelector('[data-part="fname"]')!.textContent!);
   };
   try {
     await key('k');
@@ -635,6 +652,10 @@ pageTest('j / k keep the open file in sight in the tree', async () => {
   } finally {
     HTMLElement.prototype.scrollIntoView = original;
   }
+});
+
+pageTest('the code clears the review pill, as the ruler does', async () => {
+  assert.ok($('#code').classList.contains('pb-[64px]'));
 });
 
 pageTest('removed lines keep their syntax colors, in both views', async () => {
@@ -649,5 +670,5 @@ pageTest('removed lines keep their syntax colors, in both views', async () => {
   );
   await key('v');
   await key('j');
-  assert.ok(colored('.unit-code .row.removed').length > 0, 'the Summary tab too');
+  assert.ok(colored('[data-part="unit-code"] .row.removed').length > 0, 'the Summary tab too');
 });

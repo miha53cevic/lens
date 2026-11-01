@@ -33,12 +33,11 @@ import { Spinner } from '../Spinner.tsx';
 import { Stepper } from '../Stepper.tsx';
 import { StatusBar } from '../StatusBar.tsx';
 import { Swatch } from '../Swatch.tsx';
-import { Tab } from '../Tab.tsx';
+import { Tab, TAB_BUTTON } from '../Tab.tsx';
 import { Tag } from '../Tag.tsx';
 import { TextArea } from '../TextArea.tsx';
 import { ThemeMenu } from '../ThemeMenu.tsx';
 import { TopBar, TopBarDivider } from '../TopBar.tsx';
-import './style.css';
 
 /** Two code themes for the theme menu to list: the page itself is in the theme of the page that shows it. */
 const THEMES = {
@@ -54,9 +53,9 @@ const SURFACES = ['bg', 'surface', 'surface-2', 'raised', 'selected-bg', 'accent
 
 function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
-    <section className='sandbox-section' id={id}>
-      <h2 className='eyebrow'>{title}</h2>
-      <div className='sandbox-row'>{children}</div>
+    <section className='mt-6' id={id}>
+      <h2 className='eyebrow m-0 mb-2'>{title}</h2>
+      <div className='flex flex-wrap items-center gap-3 rounded-lg border border-line bg-surface p-4'>{children}</div>
     </section>
   );
 }
@@ -85,9 +84,9 @@ export function Sandbox() {
   const [disclosed, setDisclosed] = useState(true);
 
   return (
-    <main className='sandbox'>
-      <header className='sandbox-head'>
-        <h1>Sandbox</h1>
+    <main className='min-h-0 flex-1 overflow-y-auto px-7 pt-6 pb-8'>
+      <header className='flex items-center justify-between gap-4'>
+        <h1 className='m-0 font-serif text-xl font-bold'>Sandbox</h1>
       </header>
 
       <Section id='g-button' title='Button'>
@@ -217,7 +216,7 @@ export function Sandbox() {
       </Section>
 
       <Section id='g-tab' title='Tab'>
-        <div className='sandbox-tabs' role='tablist'>
+        <div className='flex gap-1' role='tablist'>
           {['orders.ts', 'report.ts'].map((name, tabIndex) => (
             <Tab
               key={name}
@@ -237,7 +236,7 @@ export function Sandbox() {
             onClose={() => {}}
             closeLabel='Close lens'
             actions={
-              <IconButton size='sm' className='tab-btn' label="Change what's reviewed">
+              <IconButton size='sm' className={TAB_BUTTON} label="Change what's reviewed">
                 <ArrowLeftRight size={12} />
               </IconButton>
             }
@@ -249,7 +248,7 @@ export function Sandbox() {
       </Section>
 
       <Section id='g-list-row' title='ListRow'>
-        <div className='sandbox-rows'>
+        <div className='grid w-[260px] gap-1 font-mono text-sm [&>button]:px-2 [&>button]:py-1 [&>button]:font-mono [&>button]:text-sm'>
           {['src/orders.ts', 'src/report.ts', 'src/types.ts'].map((path, rowIndex) => (
             <ListRow key={path} selected={row === rowIndex} onClick={() => setRow(rowIndex)}>
               {path}
@@ -259,11 +258,11 @@ export function Sandbox() {
       </Section>
 
       <Section id='g-disclosure' title='Disclosure'>
-        <div className='sandbox-rows'>
+        <div className='grid w-[260px] gap-1 font-mono text-sm [&>button]:px-2 [&>button]:py-1 [&>button]:font-mono [&>button]:text-sm'>
           <Disclosure open={disclosed} onClick={() => setDisclosed(!disclosed)}>
             src/orders.ts:42
           </Disclosure>
-          {disclosed && <div className='sandbox-note'>what it shows, under it</div>}
+          {disclosed && <div className='px-6 text-sm text-faint'>what it shows, under it</div>}
           <Disclosure open={false} disabled>
             dismissed: it stays shut
           </Disclosure>
@@ -277,6 +276,7 @@ export function Sandbox() {
 
       <Section id='g-textarea' title='TextArea'>
         <TextArea
+          className='w-[360px]'
           rows={2}
           aria-label='a question'
           placeholder='Ask about findOrders…'
@@ -286,8 +286,9 @@ export function Sandbox() {
       </Section>
 
       <Section id='g-field' title='Field'>
-        <Field size='sm' mono placeholder='HEAD~3 -- src/' aria-label='small' />
+        <Field className='w-[240px]' size='sm' mono placeholder='HEAD~3 -- src/' aria-label='small' />
         <Field
+          className='w-[240px]'
           icon={<Search size={13} />}
           placeholder='Filter files'
           aria-label='medium'
@@ -295,7 +296,13 @@ export function Sandbox() {
           onChange={(event) => setQuery(event.target.value)}
           onClear={() => setQuery('')}
         />
-        <Field size='lg' icon={<GitPullRequest size={16} />} placeholder='A number, or a PR URL' aria-label='large' />
+        <Field
+          className='w-[240px]'
+          size='lg'
+          icon={<GitPullRequest size={16} />}
+          placeholder='A number, or a PR URL'
+          aria-label='large'
+        />
       </Section>
 
       <Section id='g-menu' title='Menu'>
@@ -343,9 +350,9 @@ export function Sandbox() {
         <span className='dot' />
       </Section>
 
-      <section className='sandbox-section' id='g-bars'>
-        <h2 className='eyebrow'>TopBar, Brand, Swatch, StatusBar</h2>
-        <div className='sandbox-bars'>
+      <section className='mt-6' id='g-bars'>
+        <h2 className='eyebrow m-0 mb-2'>TopBar, Brand, Swatch, StatusBar</h2>
+        <div className='overflow-hidden rounded-lg border border-line'>
           <TopBar>
             <Brand />
             <TopBarDivider />
@@ -369,7 +376,7 @@ export function Sandbox() {
       </section>
 
       <Section id='g-skeleton' title='Skeleton'>
-        <div className='sandbox-skeleton-lines'>
+        <div className='grid gap-2'>
           <Skeleton width='14ch' />
           <Skeleton width='22ch' />
           <Skeleton width='9ch' />
@@ -381,16 +388,16 @@ export function Sandbox() {
         <Skeleton size='lg' round width='168px' />
       </Section>
 
-      <section className='sandbox-section' id='g-review-skeleton'>
-        <h2 className='eyebrow'>ReviewSkeleton</h2>
-        <div className='sandbox-review-skeleton'>
+      <section className='mt-6' id='g-review-skeleton'>
+        <h2 className='eyebrow m-0 mb-2'>ReviewSkeleton</h2>
+        <div className='flex h-[420px] overflow-hidden rounded-lg border border-line'>
           <ReviewSkeleton />
         </div>
       </section>
 
-      <section className='sandbox-section' id='g-error-boundary'>
-        <h2 className='eyebrow'>ErrorBoundary</h2>
-        <div className='sandbox-crash'>
+      <section className='mt-6' id='g-error-boundary'>
+        <h2 className='eyebrow m-0 mb-2'>ErrorBoundary</h2>
+        <div className='rounded-lg border border-line'>
           <CrashPanel
             what='the review'
             error={new TypeError("Cannot read properties of undefined (reading 'hunks')")}
@@ -411,7 +418,7 @@ export function Sandbox() {
         {SPACE_STEPS.map((step) => (
           <span
             key={step}
-            className='sandbox-space'
+            className='h-4 rounded-xs bg-accent'
             style={{ width: `var(--space-${step})` }}
             title={'--space-' + step}
           />
@@ -420,8 +427,8 @@ export function Sandbox() {
 
       <Section id='g-color' title='Surfaces and colors'>
         {SURFACES.map((name) => (
-          <span key={name} className='sandbox-swatch'>
-            <i style={{ background: `var(--${name})` }} />
+          <span key={name} className='inline-flex items-center gap-2 font-mono text-xs text-muted'>
+            <i className='size-6 rounded-sm border border-line-strong' style={{ background: `var(--${name})` }} />
             {name}
           </span>
         ))}
@@ -429,7 +436,11 @@ export function Sandbox() {
 
       <Section id='g-elevation' title='Elevation'>
         {[1, 2, 3].map((step) => (
-          <span key={step} className='sandbox-lift' style={{ boxShadow: `var(--elev-${step})` }}>
+          <span
+            key={step}
+            className='mr-4 mb-5 inline-grid h-[56px] w-[120px] place-items-center rounded-md border border-line-strong bg-raised text-xs text-muted'
+            style={{ boxShadow: `var(--elev-${step})` }}
+          >
             elev-{step}
           </span>
         ))}

@@ -184,7 +184,7 @@ export function rows(root = '#code'): string[] {
 }
 
 export function treeFiles(): string[] {
-  return $$('#tree .file').map((file) => file.querySelector('.fname')!.textContent!);
+  return $$('#tree [data-part="file"]').map((file) => file.querySelector('[data-part="fname"]')!.textContent!);
 }
 
 /** A test on a freshly opened page. */
@@ -257,16 +257,18 @@ export async function selectRows(from: HTMLElement, to: HTMLElement) {
   await settle();
 }
 
-export function ticks(card = '.code-pane'): string[] {
-  return $$(card + ' .ruler .tick').map((tick) => tick.className.match(/tick-(\w+)/)![1] + ' ' + tick.dataset.label);
+export function ticks(card = '[data-part="code-pane"]'): string[] {
+  return $$(card + ' [data-part="ruler"] [data-part="tick"]').map(
+    (tick) => tick.dataset.kind + ' ' + tick.dataset.label,
+  );
 }
 
 /** What the status bar says: its kind, its label and the detail after it. */
 export function status(): { kind: string; label: string; detail: string } {
   return {
-    kind: $('#status').className.replace('status status-', ''),
-    label: $('#status .status-label').textContent!,
-    detail: document.querySelector('#status .status-detail')?.textContent ?? '',
+    kind: $('#status').dataset.kind!,
+    label: $('#status [data-part="status-label"]').textContent!,
+    detail: document.querySelector('#status [data-part="status-detail"]')?.textContent ?? '',
   };
 }
 export const REST = { kind: 'idle', label: 'Ready', detail: '' };

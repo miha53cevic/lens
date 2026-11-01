@@ -51,7 +51,7 @@ export function moveSearchSelection(delta: number, hitCount: number): void {
   commit((state) => ({
     search: { ...state.search, selected: (state.search.selected + delta + hitCount) % hitCount },
   }));
-  document.querySelector('.search-hit.selected')?.scrollIntoView({ block: 'nearest' });
+  document.querySelector('[data-part="search-hit"][data-selected]')?.scrollIntoView({ block: 'nearest' });
 }
 
 /** A file found by its path: the palette closes and the code view opens it. */

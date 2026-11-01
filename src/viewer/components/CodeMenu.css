@@ -1,5 +1,0 @@
-/* a right-click menu: narrower than a header's, and it grows from the pointer, not from a button's corner */
-.menu.code-menu {
-  width: 240px;
-  transform-origin: top left;
-}

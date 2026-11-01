@@ -15,7 +15,6 @@ import { confirmedLabel, notesForAgent, realConcerns } from '../model/realConcer
 import { copyForAgent } from '../actions/notes.ts';
 import { Button } from '../../ui/Button.tsx';
 import { riseIn } from '../../ui/motion.ts';
-import './ReviewPill.css';
 
 /** What the pill offers, for the open file or change. */
 type Stage = 'hidden' | 'start' | 'todo' | 'last' | 'done' | 'all';
@@ -71,7 +70,10 @@ export function ReviewPill() {
 
   if (pill.stage === 'start') {
     return (
-      <div className='review-pill' id='review-pill'>
+      <div
+        className='absolute bottom-4 left-1/2 z-(--z-float) inline-flex -translate-x-1/2 items-center gap-1 rounded-full border border-line-strong bg-raised p-1 whitespace-nowrap shadow-1'
+        id='review-pill'
+      >
         <Button variant='primary' size='sm' id='review-next' onClick={startReview}>
           Start review <ArrowRight size={13} />
         </Button>
@@ -79,19 +81,30 @@ export function ReviewPill() {
     );
   }
   return (
-    <div className='review-pill' id='review-pill'>
+    <div
+      className='absolute bottom-4 left-1/2 z-(--z-float) inline-flex -translate-x-1/2 items-center gap-1 rounded-full border border-line-strong bg-raised p-1 whitespace-nowrap shadow-1'
+      id='review-pill'
+    >
       <Button variant='ghost' size='sm' id='review-prev' aria-label='Prev' disabled={pill.atStart} onClick={prev}>
-        <ArrowLeft size={13} /> <span className='rp-wide'>Prev</span>
+        <ArrowLeft size={13} /> <span className='@max-[800px]/editor:hidden'>Prev</span>
       </Button>
       {pill.stage === 'all' && !pill.handoffLabel && (
-        <span ref={riseIn} className='rp-all' id='review-next'>
+        <span
+          ref={riseIn}
+          className='inline-flex h-control-sm items-center gap-2 rounded-full bg-accent px-3 text-sm font-semibold text-accent-fg'
+          id='review-next'
+        >
           <Check size={13} /> All {plural(pill.total, noun)} {markedWord.toLowerCase()}
         </span>
       )}
       {/* the review is done and there's something for the agent: handing it over is what's next */}
       {pill.stage === 'all' && pill.handoffLabel && (
         <>
-          <span ref={riseIn} className='rp-done' id='review-next'>
+          <span
+            ref={riseIn}
+            className='inline-flex h-control-sm items-center gap-2 rounded-full px-3 text-sm font-semibold text-add'
+            id='review-next'
+          >
             <Check size={13} /> All {pill.total} {markedWord.toLowerCase()}
           </span>
           <Button
@@ -101,12 +114,16 @@ export function ReviewPill() {
             onClick={() => void copyForAgent(handoff(getState()))}
           >
             <Copy size={13} /> Copy {pill.handoffLabel}
-            <span className='rp-wide'> for your agent</span>
+            <span className='@max-[800px]/editor:hidden'> for your agent</span>
           </Button>
         </>
       )}
       {pill.stage === 'done' && (
-        <span ref={riseIn} className='rp-done' id='review-next'>
+        <span
+          ref={riseIn}
+          className='inline-flex h-control-sm items-center gap-2 rounded-full px-3 text-sm font-semibold text-add'
+          id='review-next'
+        >
           <Check size={13} /> {markedWord}
         </span>
       )}
@@ -118,9 +135,9 @@ export function ReviewPill() {
               {/* on a narrow pane: "Viewed →" */}
               <span>
                 {markedWord}
-                <span className='rp-wide'>{' · next ' + noun}</span>
+                <span className='@max-[800px]/editor:hidden'>{' · next ' + noun}</span>
               </span>
-              <ArrowRight size={13} className='rp-narrow' />
+              <ArrowRight size={13} className='hidden @max-[800px]/editor:inline' />
             </>
           ) : (
             'Mark ' + markedWord.toLowerCase()

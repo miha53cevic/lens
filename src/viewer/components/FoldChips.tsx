@@ -13,7 +13,7 @@ export function FoldChips() {
   if (categories.length === 0) return null;
 
   return (
-    <div className='toggles' id='toggles'>
+    <div className='flex flex-wrap gap-1' id='toggles'>
       {categories.map((category) => (
         <Chip
           key={category}

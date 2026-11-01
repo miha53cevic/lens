@@ -1,7 +1,6 @@
 import type { ButtonHTMLAttributes } from 'react';
-import clsx from 'clsx';
+import { cn } from './cn.ts';
 import { Tip } from './Tip.tsx';
-import './IconButton.css';
 
 interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   /** What it does: its accessible name, and its tooltip when it has a key */
@@ -17,7 +16,17 @@ interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 /** A button that is only an icon. With a key, a tooltip says what it does and its key. */
 export function IconButton({ label, shortcut, tipSide, size = 'md', className, children, ...props }: IconButtonProps) {
   return (
-    <button {...props} className={clsx('icon-btn', size === 'sm' && 'icon-btn-sm', className)} aria-label={label}>
+    <button
+      data-part='icon-btn'
+      {...props}
+      data-size={size}
+      className={cn(
+        'relative inline-grid size-control flex-none place-items-center rounded-full text-muted motion-colors not-disabled:hover:bg-hover-bg not-disabled:hover:text-text aria-pressed:bg-selected-bg aria-pressed:text-accent aria-pressed:shadow-[inset_0_0_0_1px_var(--selected-ring)]',
+        size === 'sm' && 'size-control-xs',
+        className,
+      )}
+      aria-label={label}
+    >
       {children}
       {shortcut && <Tip label={label} shortcut={shortcut} side={tipSide} />}
     </button>

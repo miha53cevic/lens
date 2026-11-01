@@ -162,16 +162,18 @@ function $(selector: string): HTMLElement {
 const $$ = (selector: string) => [...document.querySelectorAll<HTMLElement>(selector)];
 const text = (selector: string) => $(selector).textContent!.replace(/\s+/g, ' ').trim();
 /** What the status bar says: its label, then its reason when it gives one */
-const status = () => $$('#status .status-label, #status .status-detail').map((part) => part.textContent);
+const status = () =>
+  $$('#status [data-part="status-label"], #status [data-part="status-detail"]').map((part) => part.textContent);
 /** The picker's choices, the picked one marked: ["worktree", "*staged", …] */
-const choices = () => $$('.choice').map((row) => (row.classList.contains('checked') ? '*' : '') + row.dataset.range);
+const choices = () =>
+  $$('[data-part="choice"]').map((row) => (row.hasAttribute('data-checked') ? '*' : '') + row.dataset.range);
 
 // ---- Start ----
 
 pageTest('Start: one button, and the recent folders with none picked for you', 'launcher', START, async (page) => {
-  assert.equal(text('.start-tagline'), 'Code review for the agentic era.');
+  assert.equal(text('[data-part="start-tagline"]'), 'Code review for the agentic era.');
   assert.deepEqual(
-    $$('.recent-open').map((row) => row.textContent),
+    $$('[data-part="recent-open"]').map((row) => row.textContent),
     ['lens~/repos/lensmain · 2h ago', 'storefront~/repos/storefront'],
   );
   assert.equal(text('#open-repository'), 'Open repository ⌘O');
@@ -182,7 +184,7 @@ pageTest('Start: one button, and the recent folders with none picked for you', '
 
   await click($('#open-repository'));
   fireEvent.keyDown(document, { key: 'o', metaKey: true });
-  await click($$('.recent-open')[1]);
+  await click($$('[data-part="recent-open"]')[1]);
   await click($('[aria-label="Forget lens"]'));
   assert.deepEqual(page.calls, [
     ['openRepository'],
@@ -212,7 +214,7 @@ pageTest(
 
     const missing = { ...START.setup, cli: { state: 'missing' as const, where: '~/.local/bin/lens', note: null } };
     await page.push({ ...START, recents: [], setup: missing });
-    assert.equal($$('.recents').length, 0, 'no Recent section without recents');
+    assert.equal($$('[data-part="recents"]').length, 0, 'no Recent section without recents');
     await click($('#setup-notice'));
     assert.deepEqual(page.calls.at(-1), ['settings']);
 
@@ -221,7 +223,7 @@ pageTest(
       status: { kind: 'failed', label: "Couldn't open ~/Downloads/notes", detail: 'not inside a git repository' },
     });
     assert.deepEqual(status(), ["Couldn't open ~/Downloads/notes", 'not inside a git repository']);
-    assert.ok($('#status').classList.contains('status-failed'));
+    assert.ok($('#status').dataset.kind === 'failed');
     await click($('#status-action'));
     assert.deepEqual(page.calls.at(-1), ['dismiss']);
 
@@ -239,28 +241,31 @@ pageTest(
   'launcher',
   PICKER,
   async (page) => {
-    assert.equal(text('.repo-id'), 'storefrontfeature~/repos/storefront');
+    assert.equal(text('[data-part="repo-id"]'), 'storefrontfeature~/repos/storefront');
     // nothing changed in the working tree, two files staged: Staged is where it starts
     assert.deepEqual(choices(), ['worktree', '*staged', 'branch', 'custom']);
     assert.deepEqual(
-      $$('.choice-meta').map((meta) => meta.textContent),
+      $$('[data-part="choice-meta"]').map((meta) => meta.textContent),
       ['0 files', '2 files', '5 commits', ''],
     );
-    assert.equal(text('.copy-cmd-text'), 'lens diff --staged');
+    assert.equal(text('[data-part="copy-cmd-text"]'), 'lens diff --staged');
 
     // nothing in the working tree: not offered, since the CLI would find nothing to show
-    assert.ok($('.choice[data-range="worktree"]').classList.contains('disabled'));
-    assert.equal(text('.choice[data-range="worktree"] .choice-sub'), 'Nothing unstaged right now');
+    assert.ok($('[data-part="choice"][data-range="worktree"]').hasAttribute('data-disabled'));
+    assert.equal(
+      text('[data-part="choice"][data-range="worktree"] [data-part="choice-sub"]'),
+      'Nothing unstaged right now',
+    );
 
     await page.push({ ...PICKER, repo: { ...REPO, changed: 1 } });
-    await click($('.choice[data-range="worktree"] input'));
-    assert.equal(text('.copy-cmd-text'), 'lens diff');
+    await click($('[data-part="choice"][data-range="worktree"] input'));
+    assert.equal(text('[data-part="copy-cmd-text"]'), 'lens diff');
     await click($('#open-review'));
     assert.deepEqual(page.calls, [['open', { kind: 'diff', range: 'worktree' }]]);
 
     // what was picked emptied since (committed in a terminal): it stays picked, and says why it can't open
     await page.push({ ...PICKER, repo: { ...REPO, changed: 0 } });
-    assert.equal(text('.picker-problem'), 'Nothing unstaged to review');
+    assert.equal(text('[data-part="picker-problem"]'), 'Nothing unstaged to review');
     assert.equal(($('#open-review') as HTMLButtonElement).disabled, true);
   },
 );
@@ -277,26 +282,26 @@ pageTest(
     );
     await type($('#picker-base'), 'release');
     assert.deepEqual(choices(), ['worktree', 'staged', '*branch', 'custom'], 'picking a base picks its choice');
-    assert.equal(text('.copy-cmd-text'), 'lens diff release...HEAD');
+    assert.equal(text('[data-part="copy-cmd-text"]'), 'lens diff release...HEAD');
     assert.deepEqual(page.calls, [['setBase', 'release']], 'the commits are recounted against it');
     assert.equal(
-      $$('.choice-meta')[2].textContent,
+      $$('[data-part="choice-meta"]')[2].textContent,
       '',
       'the count shown was against main: gone until the new one arrives',
     );
     await page.push({ ...PICKER, repo: { ...REPO, base: 'release', ahead: 2 } });
-    assert.equal($$('.choice-meta')[2].textContent, '2 commits');
+    assert.equal($$('[data-part="choice-meta"]')[2].textContent, '2 commits');
     assert.deepEqual(choices(), ['worktree', 'staged', '*branch', 'custom'], 'the picker keeps what was picked');
 
     await type($('#picker-custom'), 'HEAD~3 -- "my dir"');
     assert.deepEqual(choices(), ['worktree', 'staged', 'branch', '*custom']);
-    assert.equal(text('.copy-cmd-text'), 'lens diff HEAD~3 -- "my dir"');
+    assert.equal(text('[data-part="copy-cmd-text"]'), 'lens diff HEAD~3 -- "my dir"');
     await click($('#open-review'));
     assert.deepEqual(page.calls.at(-1), ['open', { kind: 'diff', range: 'custom', args: 'HEAD~3 -- "my dir"' }]);
 
     // a lens flag is not a git diff argument: said, and not opened
     await type($('#picker-custom'), 'HEAD~1 --json');
-    assert.equal(text('.picker-problem'), '--json is a lens flag, not a git diff argument');
+    assert.equal(text('[data-part="picker-problem"]'), '--json is a lens flag, not a git diff argument');
     assert.equal(($('#open-review') as HTMLButtonElement).disabled, true);
   },
 );
@@ -310,10 +315,10 @@ pageTest('the picker asks for its repository again when it comes back into sight
   assert.equal(asked(), 1);
   // the counts are what the main process says now; the picked choice is the page's own
   await page.push({ ...PICKER, repo: { ...REPO, changed: 3, staged: 0 } });
-  await click($('.choice[data-range="worktree"]'));
+  await click($('[data-part="choice"][data-range="worktree"]'));
   await page.push({ ...PICKER, repo: { ...REPO, changed: 4, staged: 0 } });
-  assert.equal($('.choice[data-range="worktree"] .choice-meta').textContent, '4 files');
-  assert.ok($('.choice[data-range="worktree"]').classList.contains('checked'));
+  assert.equal($('[data-part="choice"][data-range="worktree"] [data-part="choice-meta"]').textContent, '4 files');
+  assert.ok($('[data-part="choice"][data-range="worktree"]').hasAttribute('data-checked'));
 });
 
 pageTest('Start and Settings have nothing to ask again', 'launcher', START, async (page) => {
@@ -330,18 +335,21 @@ pageTest('Start and Settings have nothing to ask again', 'launcher', START, asyn
 
 pageTest('the picker: a pull request by number, on the remote it names', 'launcher', PICKER, async (page) => {
   await click($('#picker-mode [data-value="pr"]'));
-  assert.equal($$('.choice').length, 0);
-  assert.match(text('.pr-panel .hint'), /^On origin → github\.com\/acme\/storefront\. Fetched with plain git/);
-  assert.equal(text('.picker-problem'), 'Enter a PR number or URL');
+  assert.equal($$('[data-part="choice"]').length, 0);
+  assert.match(
+    text('[data-part="pr-panel"] [data-part="hint"]'),
+    /^On origin → github\.com\/acme\/storefront\. Fetched with plain git/,
+  );
+  assert.equal(text('[data-part="picker-problem"]'), 'Enter a PR number or URL');
   assert.equal(($('#open-review') as HTMLButtonElement).disabled, true);
 
   await type($('#picker-pr'), '482');
-  assert.equal(text('.copy-cmd-text'), 'lens pr 482');
+  assert.equal(text('[data-part="copy-cmd-text"]'), 'lens pr 482');
   await click($('#open-review'));
   assert.deepEqual(page.calls, [['open', { kind: 'pr', ref: '482' }]]);
 
   await page.push({ ...PICKER, repo: { ...REPO, github: null } });
-  assert.match(text('.pr-panel .hint'), /^No remote here points at GitHub/);
+  assert.match(text('[data-part="pr-panel"] [data-part="hint"]'), /^No remote here points at GitHub/);
 });
 
 pageTest(
@@ -384,7 +392,7 @@ pageTest(
   async () => {
     assert.deepEqual(choices(), ['worktree', 'staged', '*branch', 'custom']);
     assert.equal(($('#picker-base') as HTMLSelectElement).value, 'release');
-    assert.equal(text('.copy-cmd-text'), 'lens diff release...HEAD');
+    assert.equal(text('[data-part="copy-cmd-text"]'), 'lens diff release...HEAD');
     assert.equal($('#picker-back').getAttribute('aria-label'), 'Back to the review');
   },
 );
@@ -403,7 +411,7 @@ const REOPENING: LauncherState = {
 /** The loading screen: what it is called, and whether it is the review's shape with nothing to read or press */
 const reopening = () => {
   const screen = $('#reopening');
-  const shaped = screen.querySelectorAll('.review-skeleton .skeleton').length > 20;
+  const shaped = screen.querySelectorAll('[data-part="review-skeleton"] .skeleton').length > 20;
   return [screen.getAttribute('aria-label'), screen.getAttribute('aria-busy'), shaped, $$('#reopening button').length];
 };
 
@@ -414,14 +422,18 @@ pageTest(
   async (page) => {
     // its repository is still being read: not Start's button and recents
     assert.deepEqual(reopening(), ['Reading storefront', 'true', true, 0]);
-    assert.equal(text('#reopening .brand'), 'lens.', 'what is known is real: only the rest is a placeholder');
-    assert.ok(!$('#reopening').classList.contains('reopening-over'), 'the whole screen, at once');
-    assert.deepEqual($$('#open-repository, .recent, #picker-back, #open-review'), []);
+    assert.equal(
+      text('#reopening [data-part="brand"]'),
+      'lens.',
+      'what is known is real: only the rest is a placeholder',
+    );
+    assert.ok(!$('#reopening').hasAttribute('data-over'), 'the whole screen, at once');
+    assert.deepEqual($$('#open-repository, [data-part="recent"], #picker-back, #open-review'), []);
 
     // read: its review starts, and the picker stays out of sight
     await page.push(REOPENING);
     assert.deepEqual(reopening(), ['Reopening storefront, working tree', 'true', true, 0]);
-    assert.deepEqual($$('#picker-back, #open-review, .picker-header'), []);
+    assert.deepEqual($$('#picker-back, #open-review, [data-part="picker-header"]'), []);
     assert.deepEqual(status(), ['Opening working tree…']);
     await click($('#status-action'));
     assert.deepEqual(page.calls.at(-1), ['cancel']);
@@ -443,7 +455,7 @@ pageTest(
   'launcher',
   PICKER,
   async (page) => {
-    await click($$('.choice')[1]);
+    await click($$('[data-part="choice"]')[1]);
     const picked = choices();
     const opening: LauncherState = {
       ...PICKER,
@@ -452,7 +464,7 @@ pageTest(
     };
     await page.push(opening);
     assert.deepEqual(reopening(), ['Opening the review', 'true', true, 0]);
-    assert.ok($('#reopening').classList.contains('reopening-over'), 'over the picker, once the wait is worth showing');
+    assert.ok($('#reopening').hasAttribute('data-over'), 'over the picker, once the wait is worth showing');
     assert.ok($('#open-review'), 'the picker is still there');
     assert.deepEqual(status(), ['Opening staged changes…']);
 
@@ -483,7 +495,7 @@ pageTest(
   'launcher',
   SETTINGS,
   async (page) => {
-    assert.equal(text('.settings-version'), 'lens 0.1.0');
+    assert.equal(text('[data-part="settings-version"]'), 'lens 0.1.0');
     assert.equal($$('#setup-notice').length, 0, 'the notice leads here: it is not shown here');
     await click($('#setup-cli button'));
     await click($('#setup-skills button'));
@@ -496,7 +508,7 @@ pageTest(
 
     await page.push({ ...SETTINGS, status: { kind: 'done', label: 'Installed the lens command' } });
     assert.equal(text('#status'), 'Installed the lens command');
-    assert.ok($('#status').classList.contains('status-done'));
+    assert.ok($('#status').dataset.kind === 'done');
 
     const external = {
       state: 'external' as const,
@@ -540,72 +552,96 @@ pageTest(
   SANDBOX,
   async (page) => {
     const count = (selector: string) => $$(selector).length;
-    assert.equal(text('.sandbox h1'), 'Sandbox');
-    assert.equal(count('.settings, .start'), 0, 'the screen is its own');
-    assert.equal(count('#g-button .btn'), 9);
-    assert.equal(count('#g-button .btn-primary'), 1);
-    assert.equal(count('#g-button .btn-xs'), 1, 'the size a card row uses');
-    assert.equal(count('#g-kbd .kbd-sm'), 1, 'a keycap for a hint');
-    assert.equal(count('#g-disclosure .disclosure[aria-expanded="true"]'), 1);
-    assert.equal(count('#g-disclosure .disclosure:disabled'), 1);
-    assert.equal(count('#g-button .btn .tip.tip-start kbd'), 1, 'a button with a key teaches it');
-    assert.equal(count('#g-icon-button .icon-btn'), 4);
-    assert.equal(count('#g-icon-button .icon-btn-sm'), 1);
-    assert.equal(count('#g-icon-button .icon-btn[aria-pressed="true"]'), 1);
-    assert.equal(count('#g-segmented .seg'), 2);
-    assert.equal(count('#g-segmented .seg-lg [aria-checked="true"]'), 1);
-    assert.equal(count('#g-stepper .stepper'), 2);
-    assert.equal(count('#g-stepper .stepper .icon-btn-sm:disabled'), 1, 'a stepper at its end can only go back');
-    assert.equal(count('#g-chip .chip'), 3);
-    assert.equal(count('#g-chip .chip .dot'), 2, 'a chip without a color has no dot');
-    assert.equal(count('#g-choice [role="radiogroup"] .choice .choice-radio'), 3);
-    assert.equal(count('#g-choice [role="group"] .choice .choice-box'), 2);
-    assert.equal(count('#g-choice .choice.checked'), 2, 'the picked radio and the ticked box');
-    assert.equal(count('#g-choice .choice.disabled input:disabled'), 1);
-    assert.equal(count('#g-tag .tag'), 6);
-    assert.equal(count('#g-tag button.tag'), 2, 'a tag that does something is a button');
-    assert.equal(count('#g-tag .tag-toned'), 1);
-    assert.equal(count('#g-tag .tag[aria-pressed="true"]'), 1);
-    assert.equal(count('#g-tab [role="tablist"] .tab'), 3);
-    assert.equal(count('#g-tab .tab.active [role="tab"][aria-selected="true"]'), 1);
-    assert.equal(count('#g-tab .tab .tab-close'), 3);
-    assert.equal(count('#g-list-row .list-row'), 3);
-    assert.equal(count('#g-list-row .list-row.selected'), 1);
-    assert.equal(count('#g-select .select select'), 2);
-    assert.equal(count('#g-select .select select:disabled'), 1);
-    assert.equal(count('#g-textarea textarea.textarea'), 1);
-    assert.equal(count('#g-kbd .spinner'), 1);
-    assert.equal(count('#g-field .field'), 3);
-    assert.equal(count('#g-field .field-md .icon-btn-sm'), 1, 'a field with text offers to clear it');
-    assert.equal(count('#g-menu [role="menu"]:not(.theme-menu) [role="menuitem"]'), 2);
-    assert.equal(count('#g-menu .theme-trigger .swatch'), 1, 'the theme menu shows the theme on its button');
-    assert.equal(count('#g-menu .theme-menu [role="menuitem"] .swatch'), 2);
-    assert.equal(count('#g-menu .theme-menu .theme-check'), 1, 'the theme the menu is given is checked');
-    assert.equal(count('#g-status .status-letter'), 5);
-    assert.equal(count('#g-status .status-badge'), 5);
-    assert.equal(count('#g-kbd .kbd-combo'), 5);
-    assert.equal(count('#g-kbd .btn-primary kbd'), 2, 'keycaps on a primary button');
-    assert.equal(count('#g-kbd .copy-cmd'), 1);
-    assert.equal(count('#g-kbd .progress'), 1);
+    assert.equal(text('main h1'), 'Sandbox');
+    assert.equal(count('[data-part="settings"], [data-part="start"]'), 0, 'the screen is its own');
+    assert.equal(count('#g-button [data-part="btn"]'), 9);
+    assert.equal(count('#g-button [data-variant="primary"]'), 1);
+    assert.equal(count('#g-button [data-part="btn"][data-size="xs"]'), 1, 'the size a card row uses');
+    assert.equal(count('#g-kbd [data-part="kbd-combo"][data-size="sm"]'), 1, 'a keycap for a hint');
+    assert.equal(count('#g-disclosure [data-part="disclosure"][aria-expanded="true"]'), 1);
+    assert.equal(count('#g-disclosure [data-part="disclosure"]:disabled'), 1);
+    assert.equal(
+      count('#g-button [data-part="btn"] [data-part="tip"][data-side="start"] kbd'),
+      1,
+      'a button with a key teaches it',
+    );
+    assert.equal(count('#g-icon-button [data-part="icon-btn"]'), 4);
+    assert.equal(count('#g-icon-button [data-part="icon-btn"][data-size="sm"]'), 1);
+    assert.equal(count('#g-icon-button [data-part="icon-btn"][aria-pressed="true"]'), 1);
+    assert.equal(count('#g-segmented [data-part="seg"]'), 2);
+    assert.equal(count('#g-segmented [data-size="lg"] [aria-checked="true"]'), 1);
+    assert.equal(count('#g-stepper [data-part="stepper"]'), 2);
+    assert.equal(
+      count('#g-stepper [data-part="stepper"] [data-part="icon-btn"][data-size="sm"]:disabled'),
+      1,
+      'a stepper at its end can only go back',
+    );
+    assert.equal(count('#g-chip [data-part="chip"]'), 3);
+    assert.equal(count('#g-chip [data-part="chip"] .dot'), 2, 'a chip without a color has no dot');
+    assert.equal(count('#g-choice [role="radiogroup"] [data-part="choice"] [data-part="choice-radio"]'), 3);
+    assert.equal(count('#g-choice [role="group"] [data-part="choice"] [data-part="choice-checkbox"]'), 2);
+    assert.equal(count('#g-choice [data-part="choice"][data-checked]'), 2, 'the picked radio and the ticked box');
+    assert.equal(count('#g-choice [data-part="choice"][data-disabled] input:disabled'), 1);
+    assert.equal(count('#g-tag [data-part="tag"]'), 6);
+    assert.equal(count('#g-tag button[data-part="tag"]'), 2, 'a tag that does something is a button');
+    assert.equal(count('#g-tag [data-toned]'), 1);
+    assert.equal(count('#g-tag [data-part="tag"][aria-pressed="true"]'), 1);
+    assert.equal(count('#g-tab [role="tablist"] [data-part="tab"]'), 3);
+    assert.equal(count('#g-tab [data-part="tab"][data-active] [role="tab"][aria-selected="true"]'), 1);
+    assert.equal(count('#g-tab [data-part="tab"] [data-part="tab-close"]'), 3);
+    assert.equal(count('#g-list-row [data-part="list-row"]'), 3);
+    assert.equal(count('#g-list-row [data-part="list-row"][data-selected]'), 1);
+    assert.equal(count('#g-select [data-part="select"] select'), 2);
+    assert.equal(count('#g-select [data-part="select"] select:disabled'), 1);
+    assert.equal(count('#g-textarea textarea'), 1);
+    assert.equal(count('#g-kbd .spin'), 1);
+    assert.equal(count('#g-field [data-part="field"]'), 3);
+    assert.equal(
+      count('#g-field [data-size="md"] [data-part="icon-btn"][data-size="sm"]'),
+      1,
+      'a field with text offers to clear it',
+    );
+    assert.equal(count('#g-menu [role="menu"]:not(:has(#theme-github-light, [id^=theme-])) [role="menuitem"]'), 2);
+    assert.equal(
+      count('#g-menu [popovertarget] [data-part="swatch"]'),
+      1,
+      'the theme menu shows the theme on its button',
+    );
+    assert.equal(count('#g-menu [role="menu"]:has([id^=theme-]) [role="menuitem"] [data-part="swatch"]'), 2);
+    assert.equal(
+      count('#g-menu [role="menu"]:has([id^=theme-]) [data-part="theme-check"]'),
+      1,
+      'the theme the menu is given is checked',
+    );
+    assert.equal(count('#g-status [data-part="status-letter"]'), 5);
+    assert.equal(count('#g-status [data-part="status-badge"]'), 5);
+    assert.equal(count('#g-kbd [data-part="kbd-combo"]'), 5);
+    assert.equal(count('#g-kbd [data-variant="primary"] kbd'), 2, 'keycaps on a primary button');
+    assert.equal(count('#g-kbd [data-part="copy-cmd"]'), 1);
+    assert.equal(count('#g-kbd [data-part="progress"]'), 1);
     assert.equal(count('#g-skeleton .skeleton'), 8);
-    assert.equal(count('#g-skeleton .skeleton-round'), 2);
+    assert.equal(count('#g-skeleton [data-round]'), 2);
     assert.equal(count('#g-skeleton .skeleton[aria-hidden="true"]'), 8, 'a placeholder says nothing to a reader');
-    assert.equal(count('#g-review-skeleton .review-skeleton .header .brand'), 1, 'the name is real');
-    assert.equal(count('#g-review-skeleton .review-skeleton-row'), 48);
-    assert.equal(count('#g-error-boundary .crash[role="alert"] .copy-cmd'), 1, 'a crash says what broke');
-    assert.equal(count('#g-error-boundary .crash .btn-primary'), 1, 'and offers a reload');
-    assert.equal(count('#g-bars .header .brand'), 1);
-    assert.equal(count('#g-bars .header .swatch'), 2);
-    assert.equal(count('#g-bars .status-bar .status-failed #status-action'), 0, 'the action sits beside the status');
-    assert.equal(count('#g-bars .status-bar #status-action'), 1);
-    assert.equal(count('#g-bars .status-notices > *'), 3);
-    assert.equal(count('#g-bars .status-notices .notice-dot'), 2, 'a plain fact has no dot');
+    assert.equal(count('#g-review-skeleton [data-part="review-skeleton"] header'), 1, 'the name is real');
+    assert.equal(count('#g-review-skeleton .font-mono > .h-\\[1\\.75em\\]'), 48);
+    assert.equal(
+      count('#g-error-boundary [data-part="crash"][role="alert"] [data-part="copy-cmd"]'),
+      1,
+      'a crash says what broke',
+    );
+    assert.equal(count('#g-error-boundary [data-part="crash"] [data-variant="primary"]'), 1, 'and offers a reload');
+    assert.equal(count('#g-bars [data-part="header"] [data-part="brand"]'), 1);
+    assert.equal(count('#g-bars [data-part="header"] [data-part="swatch"]'), 2);
+    assert.equal(count('#g-bars #status[data-kind="failed"] #status-action'), 0, 'the action sits beside the status');
+    assert.equal(count('#g-bars [data-part="status-bar"] #status-action'), 1);
+    assert.equal(count('#g-bars [data-part="status-notices"] > *'), 3);
+    assert.equal(count('#g-bars [data-part="status-notices"] [data-part="notice-dot"]'), 2, 'a plain fact has no dot');
 
     // a field's clear button empties it and goes
-    const field = $('#g-field .field-md');
-    await click(field.querySelector('.icon-btn-sm')!);
+    const field = $('#g-field [data-size="md"]');
+    await click(field.querySelector('[data-part="icon-btn"][data-size="sm"]')!);
     assert.equal(field.querySelector('input')!.value, '');
-    assert.equal(field.querySelector('.icon-btn-sm'), null);
+    assert.equal(field.querySelector('[data-part="icon-btn"][data-size="sm"]'), null);
 
     // its theme is the app's: the strip's button switches it, as on every page
     assert.equal(document.documentElement.dataset.appearance, 'dark');
@@ -659,17 +695,17 @@ pageTest(
   STRIP,
   async (page) => {
     assert.deepEqual(
-      $$('.rtab').map((tab) => (tab.classList.contains('active') ? '*' : '') + tab.textContent),
+      $$('[data-tab]').map((tab) => (tab.hasAttribute('data-active') ? '*' : '') + tab.textContent),
       ['*lensstaged changes', 'storefrontPR #482', 'New tab'],
     );
     assert.equal(document.documentElement.dataset.platform, 'darwin');
     assert.deepEqual(
-      $$('.rtab').map((tab) => tab.querySelectorAll('[aria-label="Change what\'s reviewed"]').length),
+      $$('[data-tab]').map((tab) => tab.querySelectorAll('[aria-label="Change what\'s reviewed"]').length),
       [1, 1, 0],
       'every tab with a review can change it, in front or not: a tab keeps its width when another comes forward',
     );
 
-    await click($$('.rtab .tab-main')[1]);
+    await click($$('[data-tab] [data-part="tab-main"]')[1]);
     await click($('[aria-label="Change what\'s reviewed"]'));
     await click($('[aria-label="Close storefront"]'));
     await click($('#new-tab'));
@@ -677,8 +713,8 @@ pageTest(
     await click($('#theme-btn'));
     assert.deepEqual(page.calls.slice(0, 5), [['select', 2], ['change', 1], ['close', 2], ['add'], ['settings']]);
     assert.equal(page.calls[5][0], 'themeMenu', 'the themes open in a menu the main process shows, under the button');
-    assert.equal($('#theme-btn').className, 'icon-btn theme-trigger', "the viewer's own theme button");
-    assert.equal($$('#theme-btn .swatch').length, 1);
+    assert.equal($('#theme-btn').dataset.part, 'icon-btn', "the viewer's own theme button");
+    assert.equal($$('#theme-btn [data-part="swatch"]').length, 1);
     assert.deepEqual($$('[role=menu]'), [], 'its menu is not in this page: it would open under the tab');
 
     // more tabs than fit scroll sideways: the one that comes to the front is brought into sight
@@ -687,7 +723,7 @@ pageTest(
       sighted.push(this.dataset.tab);
     };
     await page.push({ ...STRIP, activeId: 2, theme: LIGHT, fullscreen: true });
-    assert.ok($$('.rtab')[1].classList.contains('active'));
+    assert.ok($$('[data-tab]')[1].hasAttribute('data-active'));
     assert.deepEqual(sighted, ['2']);
     assert.equal(document.documentElement.dataset.appearance, 'light');
     assert.ok(document.documentElement.hasAttribute('data-fullscreen'));
@@ -706,11 +742,11 @@ pageTest(
     assert.deepEqual($$('[role=menu]'), [], 'closed: the page is a clear sheet');
 
     await page.push({ ...MENU, at: { right: 1100, top: 46 } });
-    assert.equal($('#theme-menu').className, 'menu theme-menu');
+    assert.equal($('#theme-menu').dataset.part, 'menu');
     assert.deepEqual([$('#theme-menu').style.top, $('#theme-menu').style.right], ['46px', '220px']);
     assert.deepEqual(
       $$('#theme-menu [role=menuitem]').map(
-        (item) => item.textContent + (item.querySelector('.theme-check') ? ' ✓' : ''),
+        (item) => item.textContent + (item.querySelector('[data-part="theme-check"]') ? ' ✓' : ''),
       ),
       ['vesper ✓', 'github-light'],
     );

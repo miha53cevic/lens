@@ -28,7 +28,7 @@ function askSetSelection(selection: KeptSelection | null) {
 /** The code the selection can come from in the current view. */
 function askCodeRoot(state: LensState): Element | null {
   return state.view === 'summary'
-    ? document.querySelector('.summary-pane .unit-code')
+    ? document.querySelector('[data-part="summary-pane"] [data-part="unit-code"]')
     : document.getElementById('code');
 }
 

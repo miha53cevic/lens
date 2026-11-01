@@ -19,7 +19,6 @@ import { ReviewPill } from './ReviewPill.tsx';
 import { StatusBar } from './StatusBar/index.tsx';
 import { CodeMenu } from './CodeMenu.tsx';
 import { cssPx } from '../../ui/zoom.ts';
-import './App.css';
 
 export function App() {
   const { ended, navVisible, askOpen } = useLens((state) => ({
@@ -37,7 +36,7 @@ export function App() {
       <SearchDialog />
       <ClearDataDialog />
       <CodeMenu />
-      <div className='layout'>
+      <div className='flex min-h-0 flex-1 overflow-clip'>
         <Nav />
         <Resizer
           id='resizer'
@@ -49,7 +48,7 @@ export function App() {
           }
           onResized={setNavWidth}
         />
-        <div className='editor'>
+        <div className='@container/editor relative flex min-w-0 flex-1 flex-col'>
           <Tabs />
           <CodePane />
           <SummaryPane />

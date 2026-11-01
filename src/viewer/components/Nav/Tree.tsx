@@ -77,15 +77,17 @@ function addRows(node: TreeDir, path: string, depth: number, context: TreeContex
     rows.push(
       <div
         key={'dir:' + dirPath}
-        className={clsx('dir', through)}
+        data-part='dir'
+        data-through={through || undefined}
+        className='flex cursor-pointer items-center gap-2 overflow-hidden px-2 py-1 font-semibold text-ellipsis whitespace-nowrap text-muted select-none hover:text-text'
         style={{ paddingLeft: indent + 'px' }}
         title={dirPath + (through ? ' — ' + DIR_TITLE[through] : '')}
         onClick={() => toggleDir(dirPath)}
       >
         <ChevronRight className={clsx('caret', !closed && 'open')} size={12} />
-        <span className='dir-name'>{dir.name}</span>
-        {through === 'done' && <Check className='dir-mark' size={12} strokeWidth={2.5} />}
-        {through === 'changed' && <span className='dir-mark dot' />}
+        <span className='overflow-hidden text-ellipsis'>{dir.name}</span>
+        {through === 'done' && <Check className='ml-auto flex-none text-add' size={12} strokeWidth={2.5} />}
+        {through === 'changed' && <span className='dot ml-auto flex-none [--dot:var(--mod)]' />}
       </div>,
     );
     if (closed) continue;
@@ -125,7 +127,12 @@ function FileRow({ entry, indent, context }: { entry: TreeFile; indent: number; 
     <ListRow
       ref={active ? keepInSight : undefined}
       selected={active}
-      className={clsx('file', entry.status, entry.binary && 'binary', active && 'active', viewed && 'viewed')}
+      data-part='file'
+      data-status={entry.status}
+      data-binary={entry.binary ? '' : undefined}
+      data-active={active || undefined}
+      data-viewed={viewed || undefined}
+      className='group/file grid w-full grid-cols-[14px_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2 py-1 text-left font-mono text-sm/[1.5] text-muted data-binary:opacity-60 data-[status=excluded]:opacity-60 disabled:cursor-default disabled:opacity-100 data-binary:disabled:opacity-60 data-[status=excluded]:disabled:opacity-60'
       style={{ paddingLeft: indent + 'px' }}
       title={title}
       disabled={fileIndex === null}
@@ -136,14 +143,21 @@ function FileRow({ entry, indent, context }: { entry: TreeFile; indent: number; 
       {fileIndex !== null ? (
         <ViewedBox checked={viewed} changed={changed} onToggle={() => toggleFileViewed(fileIndex)} />
       ) : (
-        <span className='viewed-box placeholder' />
+        <span className='invisible inline-grid size-[13px] flex-none' />
       )}
-      <span className='fname'>
+      <span
+        data-part='fname'
+        className='overflow-hidden text-ellipsis whitespace-nowrap group-data-viewed/file:opacity-55 group-data-[status=deleted]/file:line-through group-data-[status=deleted]/file:decoration-del group-data-[status=excluded]/file:italic'
+      >
         <FilterMatch name={entry.name} filter={context.filter} />
-        {entry.binary && <span className='kind'>binary</span>}
+        {entry.binary && (
+          <span data-part='kind' className='ml-2 font-sans text-xs text-faint'>
+            binary
+          </span>
+        )}
       </span>
       {/* one cell: a row without notes keeps the letter where it was */}
-      <span className='file-end'>
+      <span className='inline-flex min-w-[12px] items-center justify-end gap-2'>
         <NoteMark count={context.noteCounts.get(entry.path) ?? 0} />
         {entry.status && <StatusLetter status={entry.status} />}
       </span>
@@ -158,7 +172,7 @@ function FilterMatch({ name, filter }: { name: string; filter: string }) {
   return (
     <>
       {name.slice(0, matchAt)}
-      <span className='hl'>{name.slice(matchAt, matchAt + filter.length)}</span>
+      <span className='text-accent'>{name.slice(matchAt, matchAt + filter.length)}</span>
       {name.slice(matchAt + filter.length)}
     </>
   );

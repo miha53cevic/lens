@@ -32,27 +32,31 @@ export function RealConcerns() {
     }
   };
   return (
-    <div className='ov-real'>
-      <div className='ov-real-row'>
-        <span className='ov-real-count'>
+    <div data-part='ov-real' className='rounded-md border border-line bg-surface px-4 py-3'>
+      <div className='flex flex-wrap items-center justify-between gap-x-4 gap-y-2'>
+        <span data-part='ov-real-count' className='min-w-0 text-muted [&_b]:text-text'>
           {count > 0 && <b>{confirmedLabel(real, 'confirmed ')}</b>}
           {/* the notes are on lines, not in changes: the count of changes is for confirmed findings alone */}
           {real.items.length > 0 && real.notes.length === 0 && <> in {plural(real.unitCount, 'change')}</>}
           {real.stale > 0 && (
-            <span className='stale-count'>
+            <span className='text-mod'>
               {(count > 0 ? ' · ' + real.stale + ' more' : plural(real.stale, 'confirmed finding')) +
                 ' on code that changed since'}
             </span>
           )}
         </span>
         {count > 0 && (
-          <Button size='sm' className='ov-real-copy' onClick={copy}>
+          <Button size='sm' data-part='ov-real-copy' className='' onClick={copy}>
             {copied ? <Check size={13} /> : <Copy size={13} />}
             Copy for your agent
           </Button>
         )}
       </div>
-      {shown && <pre className='ov-real-text'>{real.text}</pre>}
+      {shown && (
+        <pre className='mt-3 mb-0 font-mono text-sm/[1.6] [overflow-wrap:anywhere] whitespace-pre-wrap text-muted select-all'>
+          {real.text}
+        </pre>
+      )}
     </div>
   );
 }

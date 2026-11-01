@@ -1,3 +1,5 @@
+import { cn } from '../../../ui/cn.ts';
+import { DIALOG } from '../ModalHead.tsx';
 // Search in files (⌘P): a palette of every match, ↑ / ↓ to pick, ↵ to jump. Its files mode (⌘⇧P)
 // matches the files' paths instead, and ↵ opens one.
 
@@ -10,7 +12,6 @@ import { Kbd } from '../../../ui/Kbd.tsx';
 import { Results } from './Results.tsx';
 import { FileResults } from './FileResults.tsx';
 import { findFiles, findHits, type SearchHit } from './util.ts';
-import './style.css';
 
 // what the mode that isn't on finds: the same array each time, so the selector's answer stays equal
 const NO_HITS: SearchHit[] = [];
@@ -27,11 +28,14 @@ export function SearchDialog() {
   const count = search.files ? found.length : hits.length;
 
   return (
-    <dialog id='search-modal' className='palette'>
-      <div className='palette-head'>
+    <dialog
+      id='search-modal'
+      className={cn(DIALOG, 'mt-[calc(var(--screen-h)*0.07)] mb-auto w-[min(700px,calc(var(--screen-w)*0.92))]')}
+    >
+      <div className='flex items-center gap-2 border-b border-line p-3'>
         <Field
           size='lg'
-          className='palette-field'
+          className='min-w-0 flex-1'
           icon={<Search size={16} aria-hidden />}
           id='search-input'
           placeholder={search.files ? 'Find a file by its path…' : 'Search in files…'}
@@ -64,14 +68,17 @@ export function SearchDialog() {
           </>
         )}
       </div>
-      <div className='search-results' id='search-results'>
+      <div
+        className='max-h-[calc(var(--screen-h)*0.56)] overflow-y-auto py-1 [&_.no-match]:px-4 [&_.no-match]:py-3'
+        id='search-results'
+      >
         {search.files ? (
           <FileResults query={search.query} found={found} selected={search.selected} />
         ) : (
           <Results query={search.query} hits={hits} selected={search.selected} />
         )}
       </div>
-      <div className='palette-foot'>
+      <div className='flex items-center gap-4 border-t border-line px-4 py-2 text-xs text-faint'>
         <span>
           <Kbd size='sm' combo='↑ ↓' /> navigate
         </span>
@@ -81,7 +88,7 @@ export function SearchDialog() {
         <span>
           <Kbd size='sm' combo='Esc' /> close
         </span>
-        <span className='spacer' />
+        <span className='flex-1' />
         {search.files ? (
           <span>
             <Kbd size='sm' combo='⌘⇧P' /> opens here

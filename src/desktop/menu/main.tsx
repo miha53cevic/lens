@@ -3,6 +3,7 @@
 // view the main process puts over the whole window while the menu is open, and takes away after.
 
 import { createRoot } from 'react-dom/client';
+import '../../ui/styles/tailwind.css';
 import '../../ui/styles/tokens.css';
 import '../../ui/styles/base.css';
 import type { MenuState } from '../shared/api.ts';

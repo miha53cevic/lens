@@ -3,10 +3,10 @@
 // listeners, and the store subscriptions that keep the document in step with the state.
 
 import { createRoot } from 'react-dom/client';
-// the design tokens and the page's base styles come first: every component's own CSS builds on them
+// Tailwind's entry names the layers, so it comes first; then the design tokens and the page's base styles
+import '../ui/styles/tailwind.css';
 import '../ui/styles/tokens.css';
 import '../ui/styles/base.css';
-import './styles/signals.css';
 import { App } from './components/App.tsx';
 import { ErrorBoundary } from '../ui/ErrorBoundary.tsx';
 import { getState, subscribe, type LensState } from './store.ts';

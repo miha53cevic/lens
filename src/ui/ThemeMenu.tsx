@@ -1,7 +1,6 @@
 import { Check, ChevronDown } from 'lucide-react';
 import { Menu, MenuItem, MenuSection } from './Menu.tsx';
 import { Swatch } from './Swatch.tsx';
-import './ThemeMenu.css';
 
 /** A code theme as the menu shows it: its name, and the two colors of its swatch. */
 export interface ThemeOption {
@@ -20,7 +19,10 @@ interface ThemeListProps {
   onPick: (name: string) => void;
 }
 
-/** What the menu's button shows: the page's own theme, and a caret. Its button takes `theme-trigger`. */
+/** The menu's button: a swatch (ui/Swatch) and a caret, wider than an icon. */
+export const THEME_TRIGGER = 'inline-flex w-auto gap-1 px-2';
+
+/** What the menu's button shows: the page's own theme, and a caret. Its button takes `THEME_TRIGGER`. */
 export function ThemeTrigger() {
   return (
     <>
@@ -45,7 +47,9 @@ export function ThemeList({ theme, themes, busy, onPick }: ThemeListProps) {
           }}
         >
           {option.name}
-          {option.name === theme && <Check size={13} className='theme-check' />}
+          {option.name === theme && (
+            <Check size={13} data-part='theme-check' className='ml-2 align-[-2px] text-accent' />
+          )}
         </MenuItem>
       ))}
     </MenuSection>
@@ -58,8 +62,9 @@ export function ThemeMenu(props: ThemeListProps) {
     <Menu
       id='theme-btn'
       label={'Code theme: ' + props.theme}
-      triggerClass='theme-trigger'
-      className='theme-menu'
+      triggerClass={THEME_TRIGGER}
+      data-part='theme-menu'
+      className='w-[240px]'
       trigger={<ThemeTrigger />}
     >
       <ThemeList {...props} />

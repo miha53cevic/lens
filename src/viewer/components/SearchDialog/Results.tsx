@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { useLens } from '../../store.ts';
 import { sourceLines } from '../../shared.ts';
 import { jumpToHit } from '../../actions/dialogs.ts';
-import { listRowClass } from '../../../ui/ListRow.tsx';
+import { listRow } from '../../../ui/ListRow.tsx';
 import { SEARCH_LIMIT, type SearchHit } from './util.ts';
 
 interface ResultsProps {
@@ -28,8 +28,13 @@ export function Results({ query, hits, selected }: ResultsProps) {
   const definitionCount = hits.filter((hit) => hit.declares).length;
   if (definitionCount > 0) {
     rows.push(
-      <div key='defined' className='search-file defined'>
-        Defined at <span className='count'>· {definitionCount}</span>
+      <div
+        key='defined'
+        className='overflow-hidden px-4 pt-2 pb-1 font-mono text-xs text-ellipsis whitespace-nowrap text-muted font-sans font-semibold text-accent'
+        data-part='search-file'
+        data-defined=''
+      >
+        Defined at <span className='text-faint'>· {definitionCount}</span>
       </div>,
     );
   }
@@ -40,9 +45,12 @@ export function Results({ query, hits, selected }: ResultsProps) {
       lastFileIndex = hit.fileIndex;
       const hitCount = hits.filter((other) => !other.declares && other.fileIndex === hit.fileIndex).length;
       rows.push(
-        <div key={'file' + hit.fileIndex} className='search-file'>
+        <div
+          key={'file' + hit.fileIndex}
+          className='overflow-hidden px-4 pt-2 pb-1 font-mono text-xs text-ellipsis whitespace-nowrap text-muted'
+        >
           {file.file + ' '}
-          <span className='count'>· {hitCount}</span>
+          <span className='text-faint'>· {hitCount}</span>
         </div>,
       );
     }
@@ -53,18 +61,25 @@ export function Results({ query, hits, selected }: ResultsProps) {
     rows.push(
       <div
         key={hitIndex}
-        className={listRowClass(hitIndex === selected, 'search-hit')}
+        {...listRow(
+          hitIndex === selected,
+          'group/hit mx-2 flex cursor-pointer items-baseline gap-2 overflow-hidden rounded-md py-1 pr-3 pl-6 font-mono text-sm whitespace-pre',
+        )}
+        data-part='search-hit'
         onClick={() => jumpToHit(hit.fileIndex, hit.line)}
       >
-        <span className='ln'>{hit.line}</span>
+        <span className='min-w-[3.2ch] flex-none text-right text-faint'>{hit.line}</span>
         {hit.declares && (
-          <span className='declares'>
-            {hit.declares} · <span className='path'>{file.file}</span>
+          <span className='max-w-[40%] flex-none overflow-hidden text-xs text-ellipsis whitespace-nowrap text-faint'>
+            {hit.declares} ·{' '}
+            <span data-part='path' className='text-muted'>
+              {file.file}
+            </span>
           </span>
         )}
-        <span className='preview'>
+        <span className='overflow-hidden text-ellipsis text-muted group-data-selected/hit:text-text'>
           {before}
-          <span className='match'>{text.substr(hit.column, hit.length)}</span>
+          <span className='font-bold text-accent'>{text.substr(hit.column, hit.length)}</span>
           {after}
         </span>
       </div>,

@@ -107,7 +107,8 @@ export function FileCode() {
       onBodyScroll={(event) => saveFileScroll(event.currentTarget, file.file)}
     >
       <div
-        className={clsx('code', pairs && 'split')}
+        // the review pill floats over the code: the last rows can scroll out from under it, as the ruler's do
+        className={clsx('code pb-[64px]', pairs && 'split')}
         id='code'
         onClick={findUsages}
         onMouseDown={pairs ? holdSelectionSide : undefined}

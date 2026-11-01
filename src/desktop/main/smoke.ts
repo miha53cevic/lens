@@ -111,7 +111,7 @@ export async function runSmoke(window: AppWindow, themes: Themes, repo: string):
         document.body.append(probe);
         const rect = probe.getBoundingClientRect();
         probe.remove();
-        const style = getComputedStyle(document.querySelector('.tabstrip'));
+        const style = getComputedStyle(document.querySelector('[data-part="tabstrip"]'));
         return { titlebarAreaX: rect.left, titlebarAreaWidth: rect.width, paddingLeft: style.paddingLeft, paddingRight: style.paddingRight, innerWidth };
       })()`,
     );

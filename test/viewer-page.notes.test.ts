@@ -32,13 +32,13 @@ pageTest('a right-click on a line selects it and opens the code menu; Add a note
   await rightClick(line(10));
   assert.ok(line(10).classList.contains('ask-sel'), 'the line under the pointer is the selection now');
   assert.deepEqual(
-    $$('#code-menu .menu-label').map((label) => label.textContent),
+    $$('#code-menu [role="menuitem"] > span:first-of-type').map((label) => label.textContent),
     ['Ask about these lines', 'Add a note', 'Copy lines', 'Copy file:line'],
   );
 
   await click($('#code-menu-note'));
   assert.equal(document.activeElement, $('#note-input'), 'the composer takes the keys');
-  assert.equal($('#note-composer .rn-meta').textContent, 'orders.ts:10');
+  assert.equal($('#note-composer [data-part="rn-meta"]').textContent, 'orders.ts:10');
   assert.ok(!line(10).classList.contains('ask-sel'), 'the noted lines are no longer the Ask selection');
   assert.ok(($('#note-save') as HTMLButtonElement).disabled, 'nothing to save yet');
   await click($('#note-kind-risk'));
@@ -56,9 +56,9 @@ pageTest('a right-click on a line selects it and opens the code menu; Add a note
     text: 'deleted is a string column',
   });
   assert.equal($$('#note-composer').length, 0);
-  const card = $('#code .reader-note[data-note="n1"]');
-  assert.equal(card.querySelector('.rn-meta')!.textContent, 'goes along to your agent');
-  assert.equal(card.querySelector('.rn-text')!.textContent, 'deleted is a string column');
+  const card = $('#code [data-part="line-note"][data-note="n1"]');
+  assert.equal(card.querySelector('[data-part="rn-meta"]')!.textContent, 'goes along to your agent');
+  assert.equal(card.querySelector('[data-part="rn-text"]')!.textContent, 'deleted is a string column');
   assert.ok(line(10).matches('.noted.k-risk'));
   assert.ok(ticks().includes('risk N10'), 'the ruler ticks it, as it does a concern');
   assert.equal(status().label, 'Note added');
@@ -66,8 +66,8 @@ pageTest('a right-click on a line selects it and opens the code menu; Add a note
   // the Summary tab's unit shows the same note under the same line
   await key('v');
   await key('j');
-  assert.ok($('.unit-code .reader-note[data-note="n1"]'));
-  assert.ok($('.unit-code .row[data-line="10"]').classList.contains('noted'));
+  assert.ok($('[data-part="unit-code"] [data-part="line-note"][data-note="n1"]'));
+  assert.ok($('[data-part="unit-code"] .row[data-line="10"]').classList.contains('noted'));
 });
 
 pageTest('n no longer writes a note; the code menu notes the selected lines; Esc leaves the composer', async () => {
@@ -76,7 +76,7 @@ pageTest('n no longer writes a note; the code menu notes the selected lines; Esc
   await selectRows($('#code .row[data-line="10"]'), $('#code .row[data-line="11"]'));
   await rightClick($('#code .row[data-line="11"]'));
   await click($('#code-menu-note'));
-  assert.equal($('#note-composer .rn-meta').textContent, 'orders.ts:10–11');
+  assert.equal($('#note-composer [data-part="rn-meta"]').textContent, 'orders.ts:10–11');
   fireEvent.keyDown($('#note-input'), { key: 'Escape' });
   await settle();
   assert.equal($$('#note-composer').length, 0);
@@ -85,14 +85,14 @@ pageTest('n no longer writes a note; the code menu notes the selected lines; Esc
 pageTest('a removed line takes a note on the old side, by its old number', async (page) => {
   await rightClick($('#code .row.removed[data-old="17"]'));
   await click($('#code-menu-note'));
-  assert.equal($('#note-composer .rn-meta').textContent, 'orders.ts: removed 17');
+  assert.equal($('#note-composer [data-part="rn-meta"]').textContent, 'orders.ts: removed 17');
   await type($('#note-input'), 'was this exported?');
   fireEvent.keyDown($('#note-input'), { key: 'Enter' }); // Enter saves, Shift Enter is a new line
   await settle();
   const sent = page.requests.find((request) => request.method === 'POST' && request.path === '/api/notes')!;
   const body = sent.body as ReaderNote;
   assert.deepEqual([body.side, body.start, body.end, body.kind], ['old', 17, 17, 'note']);
-  assert.equal($('#code .reader-note .rn-meta').textContent, 'only you see it');
+  assert.equal($('#code [data-part="line-note"] [data-part="rn-meta"]').textContent, 'only you see it');
 });
 
 test('a note is edited in place and resolved; one whose line changed says so; one whose lines are gone is listed above the code', async () => {
@@ -102,23 +102,29 @@ test('a note is edited in place and resolved; one whose line changed says so; on
     storedNote({ id: 'n3', start: 90, end: 91, lines: ['a', 'b'], kind: 'bug', text: 'gone' }),
   ]);
   try {
-    assert.equal($('#code .reader-note[data-note="n2"] .rn-meta').textContent, 'the line changed since');
-    assert.ok($('#code .outdated-notes .reader-note[data-note="n3"]'));
-    assert.equal($('#code .outdated-notes .rn-meta').textContent, 'outdated: its lines are gone');
+    assert.equal(
+      $('#code [data-part="line-note"][data-note="n2"] [data-part="rn-meta"]').textContent,
+      'the line changed since',
+    );
+    assert.ok($('#code [data-part="outdated-notes"] [data-part="line-note"][data-note="n3"]'));
+    assert.equal(
+      $('#code [data-part="outdated-notes"] [data-part="rn-meta"]').textContent,
+      'outdated: its lines are gone',
+    );
 
-    await click($('#code .reader-note[data-note="n1"] .rn-edit'));
+    await click($('#code [data-part="line-note"][data-note="n1"] [data-part="rn-edit"]'));
     assert.equal(($('#note-input') as HTMLTextAreaElement).value, 'deleted is a string column');
-    assert.equal($$('#code .reader-note[data-note="n1"]').length, 0, 'its composer takes its place');
+    assert.equal($$('#code [data-part="line-note"][data-note="n1"]').length, 0, 'its composer takes its place');
     await click($('#note-kind-question'));
     await type($('#note-input'), 'is deleted a string column?');
     await click($('#note-save'));
     const edit = page.requests.find((request) => request.method === 'POST' && request.path === '/api/notes/n1')!;
     assert.deepEqual(edit.body, { kind: 'question', text: 'is deleted a string column?' });
-    assert.ok($('#code .reader-note.k-question[data-note="n1"]'));
+    assert.ok($('#code [data-part="line-note"].k-question[data-note="n1"]'));
 
-    await click($('#code .reader-note[data-note="n1"] .rn-resolve'));
+    await click($('#code [data-part="line-note"][data-note="n1"] [data-part="rn-resolve"]'));
     assert.ok(page.requests.some((request) => request.method === 'DELETE' && request.path === '/api/notes/n1'));
-    assert.equal($$('#code .reader-note[data-note="n1"]').length, 0);
+    assert.equal($$('#code [data-part="line-note"][data-note="n1"]').length, 0);
   } finally {
     await close();
   }
@@ -128,8 +134,8 @@ test("the overview copies the notes for the agent with the confirmed findings; a
   await openWithNotes([storedNote(), storedNote({ id: 'n2', kind: 'note', text: 'look again tomorrow' })]);
   try {
     await key('v');
-    assert.equal($('.ov-real-count').textContent, '1 note');
-    await click($('.ov-real-copy'));
+    assert.equal($('[data-part="ov-real-count"]').textContent, '1 note');
+    await click($('[data-part="ov-real-copy"]'));
     assert.equal(
       await navigator.clipboard.readText(),
       [
@@ -143,10 +149,10 @@ test("the overview copies the notes for the agent with the confirmed findings; a
     assert.equal(status().label, 'Copied 1 note');
     // with a confirmed concern too
     await key('j');
-    await click($('.concern .vbtn.v-real'));
+    await click($('[data-part="concern"] [data-part="vbtn"][data-mark="real"]'));
     await key('g');
-    assert.equal($('.ov-real-count').textContent, '1 note and 1 confirmed concern');
-    await click($('.ov-real-copy'));
+    assert.equal($('[data-part="ov-real-count"]').textContent, '1 note and 1 confirmed concern');
+    await click($('[data-part="ov-real-copy"]'));
     const text = await navigator.clipboard.readText();
     assert.ok(text.startsWith('Act on these lens review findings: the reviewer raised some and confirmed the others.'));
     assert.ok(text.includes('2. [bug] src/orders.ts:10 — findOrders'));
@@ -167,10 +173,10 @@ test('your notes are marked in the tree and the summary list, and ⇧N steps thr
   });
   await openWithNotes([removedNote, storedNote()]);
   try {
-    const mark = (row: Element) => row.querySelector('.note-mark')?.textContent ?? null;
-    const file = $$('#nav .file').find((row) => row.textContent!.includes('orders.ts'))!;
+    const mark = (row: Element) => row.querySelector('[data-part="note-mark"]')?.textContent ?? null;
+    const file = $$('#nav [data-part="file"]').find((row) => row.textContent!.includes('orders.ts'))!;
     assert.equal(mark(file), '2', 'two on the file');
-    assert.equal(file.querySelector('.note-mark')!.getAttribute('title'), '2 notes of yours');
+    assert.equal(file.querySelector('[data-part="note-mark"]')!.getAttribute('title'), '2 notes of yours');
 
     const landed = () => $$('#code .row.landed').map((row) => row.dataset.line ?? '−' + row.dataset.old);
     await key('N', { shiftKey: true });
@@ -183,15 +189,15 @@ test('your notes are marked in the tree and the summary list, and ⇧N steps thr
     // the summary list marks each change by the notes on its own lines
     await key('v');
     const units = Object.fromEntries(
-      $$('#nav .sum-item').map((row) => [row.querySelector('.name')!.textContent, mark(row)]),
+      $$('#nav [data-part="sum-item"]').map((row) => [row.querySelector('[data-part="name"]')!.textContent, mark(row)]),
     );
     assert.equal(units['findOrders'], '');
     assert.equal(units['legacyTotal'], '');
     // from the overview: the first change in the list's order with a note, on that note
     await key('N', { shiftKey: true });
-    assert.equal($('.summary-pane h1').textContent, 'legacyTotal is gone');
+    assert.equal($('[data-part="summary-pane"] h1').textContent, 'legacyTotal is gone');
     assert.deepEqual(
-      $$('.unit-code .row.landed').map((row) => row.dataset.old),
+      $$('[data-part="unit-code"] .row.landed').map((row) => row.dataset.old),
       ['17'],
     );
   } finally {
@@ -225,7 +231,7 @@ test('once every file is viewed, the review pill hands the notes for the agent o
 test('without a summary, the sidebar counts the notes for the agent and copies them', async () => {
   await openWithNotes([storedNote(), storedNote({ id: 'n2', kind: 'note', text: 'mine' })], { summary: null });
   try {
-    assert.equal($('#nav .notes-for-agent').textContent, '1 note for your agent Copy');
+    assert.equal($('#nav [data-part="notes-for-agent"]').textContent, '1 note for your agent Copy');
     await click($('#notes-copy'));
     assert.ok((await navigator.clipboard.readText()).includes('1. [risk · reviewer] src/orders.ts:10'));
   } finally {
@@ -234,7 +240,7 @@ test('without a summary, the sidebar counts the notes for the agent and copies t
   // with a summary, the overview does it: the sidebar says nothing
   await openWithNotes([storedNote()]);
   try {
-    assert.equal($$('#nav .notes-for-agent').length, 0);
+    assert.equal($$('#nav [data-part="notes-for-agent"]').length, 0);
   } finally {
     await close();
   }

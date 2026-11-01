@@ -30,7 +30,7 @@ export function setBuildPreviews(on: boolean): Promise<boolean> {
 export function onPreviewMessage(event: MessageEvent): void {
   const message = event.data as { lens?: unknown; type?: unknown; height?: unknown } | null;
   if (!message || message.lens !== true) return;
-  const frame = [...document.querySelectorAll<HTMLIFrameElement>('iframe.preview-frame')].find(
+  const frame = [...document.querySelectorAll<HTMLIFrameElement>('iframe')].find(
     (candidate) => candidate.contentWindow === event.source,
   );
   if (!frame) return;
@@ -39,8 +39,8 @@ export function onPreviewMessage(event: MessageEvent): void {
   }
 }
 
-const previewCards = () => [...document.querySelectorAll<HTMLElement>('#summary-pane .preview-card')];
-const cardFrame = (card: HTMLElement) => card.querySelector<HTMLIFrameElement>('iframe.preview-frame');
+const previewCards = () => [...document.querySelectorAll<HTMLElement>('#summary-pane [data-part="preview-card"]')];
+const cardFrame = (card: HTMLElement) => card.querySelector<HTMLIFrameElement>('iframe');
 
 /**
  * A preview's unit chip on a unit's page: opens that unit with the preview where it was on screen.

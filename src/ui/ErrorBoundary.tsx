@@ -2,7 +2,6 @@ import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { RefreshCw, TriangleAlert } from 'lucide-react';
 import { Button } from './Button.tsx';
 import { CopyCommand } from './CopyCommand.tsx';
-import './ErrorBoundary.css';
 
 interface CrashPanelProps {
   error: Error;
@@ -13,10 +12,14 @@ interface CrashPanelProps {
 /** What a page shows instead of itself when it failed to draw: what broke, and the way back. */
 export function CrashPanel({ error, what }: CrashPanelProps) {
   return (
-    <main className='crash' role='alert'>
-      <TriangleAlert size={20} className='crash-icon' />
-      <h1>lens couldn't draw {what}</h1>
-      <p className='crash-detail'>
+    <main
+      data-part='crash'
+      className='mx-auto flex min-h-full max-w-[60ch] flex-col items-center justify-center gap-3 px-4 py-8 text-center text-text'
+      role='alert'
+    >
+      <TriangleAlert size={20} className='text-danger' />
+      <h1 className='m-0 text-lg font-semibold'>lens couldn't draw {what}</h1>
+      <p className='m-0 text-sm text-muted'>
         Reloading starts the page over. If it happens again, copy the error into a bug report.
       </p>
       <CopyCommand command={error.message || error.name} block />

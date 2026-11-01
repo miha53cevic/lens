@@ -1,7 +1,7 @@
 import { useLens } from '../../store.ts';
 import { openFoundFile } from '../../actions/dialogs.ts';
 import { StatusLetter } from '../../../ui/FileStatus.tsx';
-import { listRowClass } from '../../../ui/ListRow.tsx';
+import { listRow } from '../../../ui/ListRow.tsx';
 import { FILE_LIMIT } from './util.ts';
 
 interface FileResultsProps {
@@ -27,13 +27,18 @@ export function FileResults({ query, found, selected }: FileResultsProps) {
         return (
           <div
             key={fileIndex}
-            className={listRowClass(rowIndex === selected, 'search-hit search-path')}
+            {...listRow(
+              rowIndex === selected,
+              'group/hit mx-2 flex cursor-pointer items-baseline gap-2 overflow-hidden rounded-md py-1 pr-3 pl-6 font-mono text-sm whitespace-pre',
+            )}
+            data-part='search-hit'
+            data-path=''
             onClick={() => openFoundFile(fileIndex)}
           >
             {file.status && <StatusLetter status={file.status} />}
-            <span className='preview'>
+            <span className='overflow-hidden text-ellipsis text-muted group-data-selected/hit:text-text'>
               {file.file.slice(0, at)}
-              <span className='match'>{file.file.slice(at, at + wanted.length)}</span>
+              <span className='font-bold text-accent'>{file.file.slice(at, at + wanted.length)}</span>
               {file.file.slice(at + wanted.length)}
             </span>
           </div>

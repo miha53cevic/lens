@@ -6,7 +6,6 @@ import { useLens } from '../store.ts';
 import { isRegionOpen, isSplit } from '../model/plans.ts';
 import { rulerTicks, type RegionShows } from '../model/ruler.ts';
 import { landOn } from '../actions/views.ts';
-import './OverviewRuler.css';
 
 interface OverviewRulerProps {
   /** The file the rows are from: folds open by its path */
@@ -48,19 +47,30 @@ export function OverviewRuler({ path, items, changedLines, flagged }: OverviewRu
   const jump = (event: MouseEvent<HTMLElement>, label: string) => {
     const line = label.slice(1);
     const selector = label.startsWith('N') ? '.row[data-line="' + line + '"]' : '.row[data-old="' + line + '"]';
-    const row = event.currentTarget.closest('.code-card')?.querySelector<HTMLElement>(selector);
+    const row = event.currentTarget.closest('[data-part="code-card"]')?.querySelector<HTMLElement>(selector);
     if (row) landOn(row, path, label);
   };
   return (
-    <div className='ruler' aria-hidden='true'>
-      <div className='ruler-track'>
+    <div
+      data-part='ruler'
+      className='w-[10px] flex-none border-l border-line bg-[color-mix(in_oklab,var(--surface-2)_60%,transparent)] pt-1 pb-3'
+      aria-hidden='true'
+    >
+      <div className='relative h-full'>
         {ticks.map((tick, tickIndex) => (
           <div
             key={tickIndex}
+            data-part='tick'
+            data-kind={tick.kind}
             className={clsx(
-              'tick',
-              'tick-' + tick.kind,
-              tick.kind !== 'add' && tick.kind !== 'del' && ['concern', 'k-' + tick.kind],
+              'absolute cursor-pointer rounded-xs hover:shadow-[0_0_0_1px_var(--text)]',
+              tick.kind === 'add' || tick.kind === 'del'
+                ? [
+                    'right-[2px] left-[2px] min-h-[3px] opacity-85 hover:opacity-100',
+                    tick.kind === 'add' ? 'bg-add' : 'bg-del',
+                  ]
+                : // a concern: its signal color, wider than the changes under it
+                  ['right-0 left-0 min-h-[4px] bg-(--k)', 'k-' + tick.kind],
             )}
             data-label={tick.label}
             style={{ top: tick.top * 100 + '%', height: tick.height * 100 + '%' } as CSSProperties}

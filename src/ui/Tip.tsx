@@ -1,6 +1,5 @@
 import clsx from 'clsx';
 import { Kbd } from './Kbd.tsx';
-import './Tip.css';
 
 interface TipProps {
   /** What the control does */
@@ -14,7 +13,16 @@ interface TipProps {
 /** A tooltip under the control it is in, on hover and on keyboard focus. Button and IconButton show one for a key. */
 export function Tip({ label, shortcut, side = 'end' }: TipProps) {
   return (
-    <span className={clsx('tip', side === 'start' && 'tip-start')} aria-hidden>
+    <span
+      data-part='tip'
+      data-side={side}
+      className={clsx(
+        // it settles in from its control
+        'pointer-events-none absolute top-[calc(100%+var(--space-2))] z-(--z-tip) inline-flex items-center gap-2 rounded-md border border-line-strong bg-raised py-1 pr-2 pl-3 font-sans text-sm/[1.3] font-normal whitespace-nowrap text-text opacity-0 shadow-1 [transition:opacity_var(--motion),translate_var(--motion)] [translate:0_-3px] [:focus-visible>&]:opacity-100 [:focus-visible>&]:delay-(--tip-delay) [:focus-visible>&]:[translate:0_0] [:hover>&]:opacity-100 [:hover>&]:delay-(--tip-delay) [:hover>&]:[translate:0_0]',
+        side === 'start' ? 'left-0' : 'right-0',
+      )}
+      aria-hidden
+    >
       {label} <Kbd combo={shortcut} />
     </span>
   );

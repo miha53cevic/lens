@@ -1,3 +1,4 @@
+import clsx from 'clsx';
 // The sidebar: the file tree (Code view) or the list of changes (Summary tab), each under
 // how far the review got.
 
@@ -9,7 +10,6 @@ import { Tree } from './Tree.tsx';
 import { SummaryList } from './SummaryList/index.tsx';
 import { ChangesProgress, FilesProgress } from './Progress.tsx';
 import { hiddenStyle } from '../../shared.ts';
-import './style.css';
 
 export function Nav() {
   const { view, shown, width, navQuery, sumQuery, inbox } = useLens((state) => ({
@@ -27,7 +27,9 @@ export function Nav() {
     (nav: HTMLElement | null) => {
       if (!nav) return;
       nav.scrollTop = scrollStore.getState().nav[view];
-      nav.querySelector('.sum-item.active, .file.active')?.scrollIntoView({ block: 'nearest' });
+      nav
+        .querySelector('[data-part="sum-item"][data-active], [data-part="file"][data-active]')
+        ?.scrollIntoView({ block: 'nearest' });
     },
     [view],
   );
@@ -36,7 +38,12 @@ export function Nav() {
     <nav
       id='nav'
       key={view}
-      className={inbox ? 'inbox' : undefined}
+      className={clsx(
+        // a row scrolled into sight from below the top stops under the sticky filter, not behind it
+        'w-[270px] flex-none overflow-x-hidden overflow-y-auto bg-bg px-3 pt-4 pb-6 scroll-pt-[calc(var(--control-h)+var(--space-2))] text-sm',
+        // the Summary list as an inbox: its cards need the room
+        inbox ? 'min-w-[340px]' : 'min-w-0',
+      )}
       ref={restoreScroll}
       style={{ display: shown ? undefined : 'none', width: width ? width + 'px' : undefined }}
       onScroll={(event) => {

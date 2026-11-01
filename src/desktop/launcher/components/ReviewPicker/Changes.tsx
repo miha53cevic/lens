@@ -107,7 +107,7 @@ export function Changes({ repo, range, onRange, base, onBase, custom, onCustom }
             size='sm'
             mono
             id='picker-custom'
-            className='choice-input'
+            className='w-[220px]'
             aria-label='git diff arguments'
             placeholder='HEAD~3 -- src/'
             value={custom}

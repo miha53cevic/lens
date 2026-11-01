@@ -16,7 +16,7 @@ export const VIEWER_MODULE = 'lens:viewer-bundle';
 export interface ViewerBundle {
   /** The viewer's code, safe to inline in a <script> element */
   script: string;
-  /** Every stylesheet the code imports (tokens, base, the components'), in import order */
+  /** Tailwind's utilities and every stylesheet the code imports, in import order */
   css: string;
 }
 
@@ -25,12 +25,16 @@ export interface ViewerBundle {
  * from the .css files the code imports. The desktop app's own pages are bundled this way too.
  */
 export async function bundlePage(entryPoint: string): Promise<ViewerBundle> {
+  // only here: the plugin loads a native module as it is imported, which the compiled lens, whose viewer
+  // is already bundled, can't find once the checkout it was compiled from is gone
+  const { default: tailwind } = await import('bun-plugin-tailwind');
   const result = await Bun.build({
     entrypoints: [entryPoint],
     format: 'iife',
     target: 'browser',
     jsx: { runtime: 'automatic' },
     define: { 'process.env.NODE_ENV': '"production"' },
+    plugins: [tailwind],
     throw: true,
   });
   const output = (extension: string) => result.outputs.find((file) => file.path.endsWith(extension))?.text() ?? '';
@@ -56,7 +60,7 @@ async function prebuiltViewer(): Promise<ViewerBundle | null> {
 
 /**
  * The viewer's browser code (src/viewer), bundled when the server starts — lens has no build
- * step. Components import their own .css files; Bun.build collects them into one stylesheet.
+ * step. Bun.build collects Tailwind's utilities and the imported .css files into one stylesheet.
  */
 export async function bundleViewer(prebuilt = prebuiltViewer): Promise<ViewerBundle> {
   return (await prebuilt()) ?? bundlePage(entry);

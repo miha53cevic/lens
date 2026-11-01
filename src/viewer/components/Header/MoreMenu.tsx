@@ -63,10 +63,10 @@ export function MoreMenu() {
   return (
     <Menu id='more-btn' label='View settings and more' trigger={<MoreHorizontal size={17} />}>
       <MenuSection title='Code'>
-        <div className='menu-row'>
-          <span className='menu-label'>
+        <div className='flex items-center gap-2 px-2 py-1'>
+          <span className='min-w-0 flex-1'>
             Code size
-            <span className='menu-aside' id='code-size-hint'>
+            <span className='ml-2 text-faint' id='code-size-hint'>
               default {CODE_SIZE_DEFAULT}px
             </span>
           </span>
@@ -81,10 +81,10 @@ export function MoreMenu() {
             onStep={stepCodeSize}
           />
         </div>
-        <div className='menu-row'>
-          <span className='menu-label'>
+        <div className='flex items-center gap-2 px-2 py-1'>
+          <span className='min-w-0 flex-1'>
             UI size
-            <span className='menu-aside' id='ui-zoom-hint'>
+            <span className='ml-2 text-faint' id='ui-zoom-hint'>
               default {UI_ZOOM_DEFAULT}%
             </span>
           </span>
@@ -102,8 +102,8 @@ export function MoreMenu() {
       </MenuSection>
       <MenuSeparator />
       <MenuSection title='Folding'>
-        <div className='menu-row'>
-          <span className='menu-label'>Fold level</span>
+        <div className='flex items-center gap-2 px-2 py-1'>
+          <span className='min-w-0 flex-1'>Fold level</span>
           <Segmented
             id='threshold'
             label='fold level'
@@ -112,7 +112,7 @@ export function MoreMenu() {
             onChange={setThreshold}
           />
         </div>
-        <div className='menu-hint' id='threshold-hint'>
+        <div className='px-2 pb-1 text-xs/[1.45] text-faint' id='threshold-hint'>
           {more.levelHint} <Kbd size='sm' combo='[' /> <Kbd size='sm' combo=']' />
         </div>
         <MenuItem id='expand-all' shortcut='e' onSelect={expandAll}>

@@ -1,5 +1,4 @@
 import type { CSSProperties, ReactNode } from 'react';
-import './Chip.css';
 
 interface ChipProps {
   id?: string;
@@ -13,9 +12,19 @@ interface ChipProps {
 /** A small toggle, with a colored dot for the fold categories. */
 export function Chip({ id, color, checked, onChange, children }: ChipProps) {
   return (
-    <label className='chip' style={color ? ({ '--chip': color } as CSSProperties) : undefined}>
-      <input id={id} type='checkbox' checked={checked} onChange={(event) => onChange(event.target.checked)} />
-      {color && <span className='dot' />}
+    <label
+      data-part='chip'
+      className='relative inline-flex h-control-xs flex-none cursor-pointer items-center gap-1 rounded-full border border-line px-2 text-sm whitespace-nowrap text-muted select-none motion-colors [--tone:var(--accent)] hover:text-text has-checked:border-tone-line has-checked:bg-tone-tint has-checked:text-text has-[input:focus-visible]:outline-2 has-[input:focus-visible]:outline-offset-2 has-[input:focus-visible]:outline-focus'
+      style={color ? ({ '--tone': color } as CSSProperties) : undefined}
+    >
+      <input
+        id={id}
+        className='pointer-events-none absolute opacity-0'
+        type='checkbox'
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+      />
+      {color && <span className='dot [--dot:var(--tone)]' />}
       {children}
     </label>
   );

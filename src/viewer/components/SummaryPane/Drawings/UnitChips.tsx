@@ -1,4 +1,3 @@
-import clsx from 'clsx';
 import { useLens } from '../../../store.ts';
 import { unitLabel } from '../../../model/signals.ts';
 import { Tag } from '../../../../ui/Tag.tsx';
@@ -18,14 +17,15 @@ export function UnitChips({
 }) {
   const all = useLens((state) => state.data.summary?.units);
   return (
-    <div className='drawing-units'>
+    <div className='flex flex-wrap gap-2'>
       {units.map((id) => {
         const unit = all?.find((candidate) => candidate.id === id);
         if (!unit) return null;
         return (
           <Tag
             key={id}
-            className={clsx('drawing-unit', id === picked && 'on')}
+            data-part='drawing-unit'
+            data-on={id === picked || undefined}
             mono
             dot={UNIT_DOT[unit.status] ?? 'var(--mod)'}
             pressed={id === picked}

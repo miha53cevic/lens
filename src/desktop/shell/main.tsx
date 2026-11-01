@@ -2,6 +2,7 @@
 // the main process lays out under it, so this page is only ever 40px of the window.
 
 import { createRoot } from 'react-dom/client';
+import '../../ui/styles/tailwind.css';
 import '../../ui/styles/tokens.css';
 import '../../ui/styles/base.css';
 import { applyTheme } from '../shared/page.ts';

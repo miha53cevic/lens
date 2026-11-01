@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { relPath } from '../src/cli-app/paths.ts';
 import { CODE_SIZE_DEFAULT } from '../src/viewer/codeSize.ts';
 import { MOTION } from '../src/ui/motion.ts';
+import { bundlePage } from '../src/cli-app/render/web/bundle.ts';
 
 const ROOT = join(import.meta.dirname, '..');
 const TOKENS = 'src/ui/styles/tokens.css';
@@ -59,7 +60,7 @@ function scale(prefix: string): number[] {
 }
 
 test('the stylesheets were found', () => {
-  assert.ok(DECLARATIONS.length > 1500, `only ${DECLARATIONS.length} declarations read`);
+  assert.ok(DECLARATIONS.length > 300, `only ${DECLARATIONS.length} declarations read`);
 });
 
 test('no stylesheet writes a color of its own', () => {
@@ -172,5 +173,154 @@ test('the retired tokens stay retired', () => {
   assert.deepEqual(
     broken(({ value }) => /var\(--accent-soft\)/.test(value)),
     [],
+  );
+});
+
+// Styling is Tailwind's: only what utilities can't say has a stylesheet.
+test('only the tokens, the helpers, Tailwind and the code rows have a stylesheet', () => {
+  const found = ['src/ui', 'src/viewer', 'src/desktop'].flatMap((folder) => stylesheets(join(ROOT, folder))).sort();
+  assert.deepEqual(
+    found,
+    [
+      'src/ui/styles/base.css',
+      'src/ui/styles/tailwind.css',
+      'src/ui/styles/tokens.css',
+      'src/viewer/components/CodeRows/style.css',
+    ].sort(),
+  );
+});
+
+function sources(dir: string): string[] {
+  return readdirSync(dir).flatMap((name) => {
+    const path = join(dir, name);
+    if (statSync(path).isDirectory()) return sources(path);
+    return /\.tsx?$/.test(name) ? [relPath(ROOT, path)] : [];
+  });
+}
+
+/** Every class written in a class string: a className, the arguments of cn / clsx, an UPPER_CASE constant's text. */
+function classStrings(): { where: string; name: string }[] {
+  const found: { where: string; name: string }[] = [];
+  for (const file of ['src/ui', 'src/viewer', 'src/desktop'].flatMap((folder) => sources(join(ROOT, folder)))) {
+    if (file.startsWith('src/desktop/main/')) continue;
+    const source = readFileSync(join(ROOT, file), 'utf8').replace(
+      /^\s*(\/\/|\*|\/\*).*$|\s\/\/ .*$|Record<[^>]*>/gm,
+      '',
+    );
+    const literal = /"([^"\n]*)"|'([^'\n]*)'/g;
+    const blocks = [
+      ...source.matchAll(/className=(?:'[^'\n]*'|"[^"\n]*")/g),
+      // a choice between classes, and classes in generated HTML
+      ...source.matchAll(/className=\{[^{}]*\}/g),
+      ...source.matchAll(/\bclass="[^"'\n]*"/g),
+      ...source.matchAll(/\b(?:cn|clsx)\((?:[^()]|\([^()]*\))*\)/g),
+      // only constants of class strings: the name says what they are for
+      ...source.matchAll(
+        /^(?:export )?const (?:[A-Z_]*(?:ROW|BUTTON|TAG|TONED|(?<!CODE_)MENU|ITEM|DANGER|BOX|RADIO|MARK|INLINE|BLOCK|CARET|DISCLOSURE|COMMAND|LIST|NOTE|DIALOG|BODY|SIZES|VARIANTS|HEIGHTS|TRIGGER|STEP|STEPS|HEADS|TONES|DOTS|SLOT))\b[^=\n]*=\s*(?:'[^'\n]*'|"[^"\n]*"|\{[^}]*\});/gm,
+      ),
+    ];
+    for (const [block] of blocks) {
+      // a string compared with something is a value, not a class
+      for (const match of block.replace(/[=!]== (?:'[^']*'|"[^"]*")/g, '').matchAll(literal)) {
+        for (const name of (match[1] ?? match[2]).split(/\s+/))
+          if (name && !/^[A-Z]$/.test(name)) found.push({ where: file, name });
+      }
+    }
+  }
+  return found;
+}
+
+const CLASSES = classStrings();
+const offenders = (bad: (name: string) => boolean) =>
+  [...new Set(CLASSES.filter(({ name }) => bad(name)).map(({ where, name }) => where + ': ' + name))].join('\n');
+
+test('the class strings were found', () => {
+  assert.ok(CLASSES.length > 1000, `only ${CLASSES.length} classes read`);
+});
+
+test('no class writes a color, a font size, a corner or a layer of its own', () => {
+  assert.equal(
+    offenders((name) => /\[[^\]]*#[0-9a-f]{3,8}\b/i.test(name)),
+    '',
+    'a raw color',
+  );
+  assert.equal(
+    offenders((name) => /(^|:)text-\[\d/.test(name)),
+    '',
+    'a font size off the type scale',
+  );
+  assert.equal(
+    offenders((name) => /(^|:)rounded(-[a-z]+)?-\[\d+(px|rem)\]/.test(name)),
+    '',
+    'a corner off the radius scale',
+  );
+  assert.equal(
+    offenders((name) => /(^|:)z-\[?\d/.test(name)),
+    '',
+    'a layer off the tokens',
+  );
+});
+
+test('arbitrary padding, margins and gaps stay on the 4px grid', () => {
+  const offGrid = (name: string) => {
+    const match = /(?:^|:)-?(?:p|m|gap)[a-z]?(?:-[xy])?-\[(\d+)px\]/.exec(name);
+    return match !== null && Number(match[1]) % 4 !== 0;
+  };
+  assert.equal(offenders(offGrid), '');
+});
+
+test("a size by the window's is --screen-w or --screen-h, which the UI's zoom doesn't stretch", () => {
+  assert.equal(
+    offenders((name) => /\b\d*v[wh]\b|(?:^|:)(?:min-|max-)?[wh]-screen$/.test(name)),
+    '',
+  );
+});
+
+test('a transition in a class string takes its timing from the motion tokens', () => {
+  const offScale = (name: string) => {
+    const match = /\[transition:([^\]]*)\]/.exec(name);
+    return match !== null && /\d+m?s/.test(match[1]);
+  };
+  assert.equal(offenders(offScale), '');
+});
+
+// Tailwind writes bg-[gradient(…),color] as a background-image, where a color is invalid: no background at all
+test('a gradient over a color is [background:…], not bg-[…]', () => {
+  assert.equal(
+    offenders((name) => /(?:^|:)bg-\[(?:linear|radial|conic)-gradient\(.*\),var\(--[^()]*\)\]$/.test(name)),
+    '',
+  );
+});
+
+// a selector that names a part nothing draws silently does nothing
+test('every data-part a selector names is drawn', () => {
+  const files = ['src/ui', 'src/viewer', 'src/desktop'].flatMap((folder) => [
+    ...sources(join(ROOT, folder)),
+    ...stylesheets(join(ROOT, folder)),
+  ]);
+  const text = files.map((file) => readFileSync(join(ROOT, file), 'utf8')).join('\n');
+  const named = [...text.matchAll(/\[data-part=["']?([a-z][a-z-]*)/g)].map((match) => match[1]);
+  const drawn = new Set(
+    [...text.matchAll(/data-part(?:=|': |": )(?:\{)?["'`]([a-z][a-z-]*)/g)].map((match) => match[1]),
+  );
+  assert.deepEqual([...new Set(named)].filter((part) => !drawn.has(part)).sort(), []);
+});
+
+test('every class gives CSS: a typo or a step off the scales would otherwise do nothing, silently', async () => {
+  let css = '';
+  for (const page of [
+    'viewer/main.tsx',
+    'desktop/launcher/main.tsx',
+    'desktop/shell/main.tsx',
+    'desktop/menu/main.tsx',
+  ]) {
+    css += (await bundlePage(join(ROOT, 'src', page))).css;
+  }
+  const escaped = (name: string) => '.' + name.replace(/[^a-zA-Z0-9_-]/g, (char) => '\\' + char);
+  // a group's name and a container's mark what other classes read; content-[…] holds a character the bundler writes as it is
+  const isGroup = (name: string) => /^group\/|^@container\/|content-\[/.test(name);
+  assert.equal(
+    offenders((name) => !isGroup(name) && !css.includes(escaped(name))),
+    '',
   );
 });

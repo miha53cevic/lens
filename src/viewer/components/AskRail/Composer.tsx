@@ -1,3 +1,4 @@
+import clsx from 'clsx';
 import { Check } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useLens } from '../../store.ts';
@@ -52,26 +53,26 @@ export function Composer() {
   };
 
   return (
-    <div className='ask-composer'>
-      <div className='ask-chips' id='ask-chips'>
+    <div className='flex flex-none flex-col gap-2 border-t border-line px-3 pt-2 pb-3'>
+      <div className='flex flex-wrap gap-1 empty:hidden' id='ask-chips'>
         {composer.contextLabel && (
-          <Tag className='ask-chip unit' mono>
+          <Tag className='' mono>
             {composer.contextLabel}
           </Tag>
         )}
         {composer.contextLabel && composer.selectionLabel && (
-          <Tag className='ask-chip' mono color='var(--question)'>
+          <Tag className='' mono color='var(--question)'>
             {composer.selectionLabel}
           </Tag>
         )}
         {/* the unit's open concerns go along: the agent knows what "the risk here" is */}
         {composer.contextLabel && composer.concernCount > 0 && (
-          <Tag className='ask-chip' mono color='var(--question)'>
+          <Tag className='' mono color='var(--question)'>
             {plural(composer.concernCount, 'concern')}
           </Tag>
         )}
         {composer.contextLabel && composer.breakCount > 0 && (
-          <Tag className='ask-chip' mono color='var(--question)'>
+          <Tag className='' mono color='var(--question)'>
             {plural(composer.breakCount, 'possible break')}
           </Tag>
         )}
@@ -100,8 +101,14 @@ export function Composer() {
           }
         }}
       />
-      <div className='ask-row'>
-        <span className={composer.error ? 'ask-hint error' : 'ask-hint'} id='ask-hint'>
+      <div className='flex items-center gap-2'>
+        <span
+          className={clsx(
+            'flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-xs [&>span]:whitespace-nowrap',
+            composer.error ? 'text-del' : 'text-muted',
+          )}
+          id='ask-hint'
+        >
           {composer.error || (
             <>
               <span>
