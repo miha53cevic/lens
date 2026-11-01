@@ -1,3 +1,4 @@
+![](src/desktop/icons/icon.ico)
 # lens
 
 **The code review tool for the agentic era.**
