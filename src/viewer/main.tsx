@@ -7,7 +7,6 @@ import { createRoot } from 'react-dom/client';
 import '../ui/styles/tailwind.css';
 import '../ui/styles/tokens.css';
 import '../ui/styles/base.css';
-import './styles/signals.css';
 import { App } from './components/App.tsx';
 import { ErrorBoundary } from '../ui/ErrorBoundary.tsx';
 import { getState, subscribe, type LensState } from './store.ts';

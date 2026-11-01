@@ -1,3 +1,4 @@
+import { LINE_NOTE } from '../../Notes/index.tsx';
 import { useMemo, type ReactNode } from 'react';
 import clsx from 'clsx';
 import { useLens } from '../../../store.ts';
@@ -54,16 +55,24 @@ export function UnitCode({ unit, hoveredCite }: { unit: Unit; hoveredCite: strin
     if (mark === 'dismissed') continue;
     addClass(concern.line, 'flagged k-' + concern.kind);
     const note = (
-      <div key={finding.key} className={clsx('line-note', 'inline-note', 'k-' + concern.kind, mark)}>
-        <div className='rn-top'>
-          <b className='rn-kind eyebrow sm'>
+      <div
+        key={finding.key}
+        data-part='line-note'
+        data-note='inline'
+        data-real={mark === 'real' || undefined}
+        className={clsx(LINE_NOTE, 'k-' + concern.kind)}
+      >
+        <div className='mb-1 flex flex-wrap items-center gap-x-2 gap-y-1'>
+          <b className='eyebrow sm inline-flex items-center gap-1 text-(--k,var(--line-strong))'>
             <SignalIcon signal={concern.kind} /> {concernLabel(concern, mark)}
           </b>
-          <span className='rn-acts'>
+          <span className='ml-auto inline-flex flex-wrap items-center gap-1'>
             <Verdict finding={finding} mark={mark} size='xs' />
           </span>
         </div>
-        <div className='rn-text'>{concern.text}</div>
+        <div data-part='rn-text' className='[overflow-wrap:anywhere] whitespace-pre-wrap'>
+          {concern.text}
+        </div>
       </div>
     );
     notes.set(concern.line, [...(notes.get(concern.line) ?? []), note]);
@@ -82,7 +91,7 @@ export function UnitCode({ unit, hoveredCite }: { unit: Unit; hoveredCite: strin
     ? codeLines(plan.file, wordDiff, showRemoved)
     : { lines: [], removed: NO_REMOVED };
   return (
-    <div className='unit-code'>
+    <div data-part='unit-code' className=''>
       <div
         className={clsx('code', pairs && 'split')}
         onClick={findUsages}
@@ -111,7 +120,7 @@ export function UnitCode({ unit, hoveredCite }: { unit: Unit; hoveredCite: strin
         )}
         {unit.renamedFrom && (
           <>
-            <div className='renamed-from'>was {unit.renamedFrom.id}</div>
+            <div className='px-4 py-1 font-sans text-sm text-muted'>was {unit.renamedFrom.id}</div>
             {unit.renamedFrom.removals.flatMap((block, blockIndex) =>
               block.lines.map((text, lineIndex) => (
                 <RemovedRow key={blockIndex + ':' + lineIndex} text={text} gutter={plan.gutter} />

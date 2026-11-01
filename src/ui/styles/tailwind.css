@@ -1,12 +1,12 @@
 /*
- * Tailwind's entry: every page imports it first. The order of the layers is what lets the utilities
- * replace the old stylesheets one at a time: `legacy` holds what hasn't moved yet, and any utility beats it.
+ * Tailwind's entry: every page imports it first. The order of the layers makes any utility beat what little
+ * CSS has names: `base` (the reset and the helpers) and `components` (the code rows).
  * `reference` and `inline` make a utility read the design token itself (p-1 is padding: var(--space-1)), and
  * add no variables: tokens.css stays the only place a token is set. `--*: initial` closes the scales, so a
  * class with no token behind it gives no CSS (test/tokens.test.ts fails it).
  */
 
-@layer theme, base, legacy, utilities;
+@layer theme, base, components, utilities;
 @import 'tailwindcss/theme.css' layer(theme);
 @import 'tailwindcss/utilities.css' layer(utilities) source(none);
 /* src/ui, src/viewer, src/desktop; class strings in .ts files count too */
@@ -122,4 +122,84 @@
     background var(--motion),
     border-color var(--motion),
     color var(--motion);
+}
+
+/* an agent's answer: markdown drawn as HTML, whose elements have no classes to hang utilities on */
+@utility answer {
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+
+  & p {
+    margin: 0 0 var(--space-2);
+  }
+  & ul,
+  & ol {
+    margin: 0 0 var(--space-2);
+    padding-left: 1.2rem;
+  }
+  & code {
+    padding: 0 var(--space-1);
+    border-radius: var(--radius-xs);
+    background: var(--surface-2);
+    font-size: var(--text-sm);
+  }
+  & pre {
+    margin: 0 0 var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    overflow-x: auto;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+  }
+  & pre code {
+    padding: 0;
+    background: none;
+  }
+  & :is(h1, h2, h3, h4, h5, h6) {
+    margin: var(--space-3) 0 var(--space-1);
+    font-weight: 700;
+    font-size: var(--text-md);
+    line-height: 1.4;
+  }
+  & li > ul,
+  & li > ol,
+  & li > p {
+    margin: 0;
+  }
+  & blockquote {
+    margin: 0 0 var(--space-2);
+    padding: 0 0 0 var(--space-3);
+    border-left: 2px solid var(--line-strong);
+    color: var(--muted);
+  }
+  & blockquote > :last-child {
+    margin-bottom: 0;
+  }
+  & hr {
+    margin: var(--space-3) 0;
+    border: 0;
+    border-top: 1px solid var(--line);
+  }
+  /* a table wider than the rail scrolls in its own box */
+  & table {
+    display: block;
+    margin: 0 0 var(--space-2);
+    overflow-x: auto;
+    border-collapse: collapse;
+    font-size: var(--text-sm);
+  }
+  & th,
+  & td {
+    padding: var(--space-1) var(--space-2);
+    border: 1px solid var(--line);
+    text-align: left;
+    white-space: nowrap;
+  }
+  & th {
+    color: var(--muted);
+    font-weight: 600;
+  }
+  & .cite {
+    vertical-align: 1px;
+  }
 }

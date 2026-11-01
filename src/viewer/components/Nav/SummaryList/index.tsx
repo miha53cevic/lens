@@ -1,7 +1,6 @@
 import { Fragment } from 'react';
 import { HOUSEKEEPING } from '../../../../cli-app/summary/housekeeping.ts';
 import { FileText } from 'lucide-react';
-import clsx from 'clsx';
 import { useLens } from '../../../store.ts';
 import { listModel } from '../../../model/summaryList.ts';
 import { showOverview, toggleFlow } from '../../../actions/summary.ts';
@@ -25,8 +24,14 @@ export function SummaryList() {
 
   return (
     <>
-      <ListRow selected={overview} className={clsx('sum-overview-item', overview && 'active')} onClick={showOverview}>
-        <FileText size={14} className='ico' />
+      <ListRow
+        selected={overview}
+        data-part='sum-overview-item'
+        data-active={overview || undefined}
+        className='group/overview mb-1 flex w-full items-center gap-2 px-2 py-1 font-medium [&_[data-part=kbd-combo]]:ml-auto'
+        onClick={showOverview}
+      >
+        <FileText size={14} className='group-data-active/overview:text-accent' />
         Overview
         <Kbd combo='g' />
       </ListRow>
@@ -37,22 +42,46 @@ export function SummaryList() {
           const folded = list.folded.has(flow.title);
           const headings = stepHeadings(flow, members);
           return (
-            <div key={'flow:' + flow.title} className={clsx('sum-section', folded && 'folded')}>
+            <div
+              key={'flow:' + flow.title}
+              data-part='sum-section'
+              data-folded={folded || undefined}
+              className='group/section pt-2 pb-1'
+            >
               {/* the flow's name and why it matters: the agent's priority only orders the flows (P3 starts folded) */}
               <Disclosure
+                data-part='sum-section-title'
+                data-flow=''
                 open={!folded}
-                className='sum-section-title flow'
+                className='flex w-full min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1 px-2 py-1 text-left'
                 title={folded ? flow.why : undefined}
                 onClick={() => toggleFlow(flow.title, folded)}
               >
-                <span className='t'>{flow.title}</span>
-                {folded && <span className='sub'>{plural(members.length, 'change')}</span>}
+                <span
+                  data-part='t'
+                  className='min-w-0 font-serif text-lg/[1.3] font-bold [overflow-wrap:anywhere] text-text group-data-folded/section:text-muted'
+                >
+                  {flow.title}
+                </span>
+                {folded && (
+                  <span data-part='sub' className='inline-flex items-center gap-1 text-xs whitespace-nowrap text-faint'>
+                    {plural(members.length, 'change')}
+                  </span>
+                )}
               </Disclosure>
-              {!folded && flow.why && <div className='sum-section-why'>{flow.why}</div>}
+              {!folded && flow.why && (
+                <div data-part='sum-section-why' className='px-2 pb-1 text-xs/[1.4] text-muted'>
+                  {flow.why}
+                </div>
+              )}
               {!folded &&
                 members.map((unit) => (
                   <Fragment key={unit.id}>
-                    {headings.has(unit.id) && <div className='sum-step eyebrow sm'>{headings.get(unit.id)}</div>}
+                    {headings.has(unit.id) && (
+                      <div data-part='sum-step' className='px-2 pt-2 pb-1 eyebrow sm'>
+                        {headings.get(unit.id)}
+                      </div>
+                    )}
                     <UnitItem unit={unit} active={isActive(unit.id)} />
                   </Fragment>
                 ))}
@@ -60,11 +89,19 @@ export function SummaryList() {
           );
         })}
       {!list.inbox && list.otherFiles.length > 0 && (
-        <div className='sum-section'>
+        <div data-part='sum-section' className='pt-2 pb-1'>
           {/* Housekeeping alone is lens's own, not a story: no heading to set the rest apart from it */}
           {list.sections.some((section) => section.flow.title !== HOUSEKEEPING) && (
-            <div className='sum-section-title'>
-              <span className='t'>Not in a story</span>
+            <div
+              data-part='sum-section-title'
+              className='flex w-full min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1 px-2 py-1 text-left'
+            >
+              <span
+                data-part='t'
+                className='min-w-0 font-serif text-base/[1.3] font-bold [overflow-wrap:anywhere] text-text'
+              >
+                Not in a story
+              </span>
             </div>
           )}
           {list.otherFiles.map((group) => (

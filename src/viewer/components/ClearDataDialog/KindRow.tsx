@@ -63,7 +63,7 @@ export function KindRow({
           ) : undefined
         }
       />
-      {checked && warning && <p className='clear-warning'>{warning}</p>}
+      {checked && warning && <p className='m-0 pr-3 pb-2 pl-[40px] text-sm/[1.45] text-risk'>{warning}</p>}
     </>
   );
 }

@@ -117,7 +117,7 @@ pageTest('a standing notice shows only while it has something to say, and leads 
   assert.deepEqual(notices(), ['New summary waiting']);
   await click($('#status-bar [data-part="status-notice"]'));
   await settle();
-  assert.ok($('#summary-pane .sum-headline'), 'the Summary tab, with the summary loaded');
+  assert.ok($('#summary-pane [data-part="sum-headline"]'), 'the Summary tab, with the summary loaded');
   assert.deepEqual(notices(), []);
   assert.deepEqual(status(), { kind: 'done', label: 'New summary loaded', detail: '' });
 });
@@ -174,7 +174,7 @@ test("a first run: the page opened before any summary, and shows the agent's run
     assert.deepEqual(notices(), ['New summary waiting']);
     await click($('#status-bar [data-part="status-notice"]'));
     await settle();
-    assert.ok($('#summary-pane .sum-headline'), 'the Summary tab, with the summary loaded');
+    assert.ok($('#summary-pane [data-part="sum-headline"]'), 'the Summary tab, with the summary loaded');
   } finally {
     await close();
   }
@@ -337,7 +337,7 @@ pageTest('⌘⇧P finds a file by its path, its name first; ↵ opens it, and �
   assert.equal($$('#search-word').length, 0, 'word and case are for the code');
   await type($('#search-input'), 'orders');
   assert.deepEqual(
-    $$('#search-results .search-path').map((row) => row.textContent),
+    $$('#search-results [data-path]').map((row) => row.textContent),
     ['Msrc/orders.ts'],
     'hide tests leaves the test file out',
   );
@@ -345,26 +345,26 @@ pageTest('⌘⇧P finds a file by its path, its name first; ↵ opens it, and �
   await key('t');
   await key('p', { ctrlKey: true, shiftKey: true });
   assert.deepEqual(
-    $$('#search-results .search-path').map((row) => row.textContent),
+    $$('#search-results [data-path]').map((row) => row.textContent),
     ['Msrc/orders.test.ts', 'Msrc/orders.ts'],
     "both names hold it: the files' order",
   );
   await type($('#search-input'), 'TEST');
   assert.deepEqual(
-    $$('#search-results .search-path').map((row) => row.textContent),
+    $$('#search-results [data-path]').map((row) => row.textContent),
     ['Msrc/orders.test.ts'],
     'any case',
   );
   fireEvent.keyDown($('#search-input'), { key: 'Enter' });
   await settle();
   assert.ok(!($('#search-modal') as HTMLDialogElement).open);
-  assert.equal($('[data-part="tab"][data-active] .tab-name').textContent, 'orders.test.ts');
+  assert.equal($('[data-part="tab"][data-active] [data-part="tab-name"]').textContent, 'orders.test.ts');
 
   await key('p', { ctrlKey: true });
   assert.ok(($('#search-files') as HTMLInputElement).checked, 'the palette opens as it was left');
   await click($('#search-files'));
   assert.ok($('#search-word'), 'back to the code');
-  assert.ok($$('#search-results .search-hit').length > 0);
+  assert.ok($$('#search-results [data-part="search-hit"]').length > 0);
 });
 
 pageTest('the row a jump lands on stays marked after the flash, until the next jump', async () => {
@@ -376,34 +376,38 @@ pageTest('the row a jump lands on stays marked after the flash, until the next j
   assert.deepEqual(landed(), ['14']);
   await key('e'); // the rows re-render: the mark is state, so it stays
   assert.deepEqual(landed(), ['14']);
-  await click($$('.code-pane .ruler .tick')[0]);
+  await click($$('[data-part="code-pane"] [data-part="ruler"] [data-part="tick"]')[0]);
   assert.deepEqual(landed(), ['−9'], 'a ruler jump moves it');
   await key('v');
   await key('j');
-  assert.equal($$('.unit-code .row.landed').length, 1, 'the unit shows the same file: the mark is there too');
+  assert.equal(
+    $$('[data-part="unit-code"] .row.landed').length,
+    1,
+    'the unit shows the same file: the mark is there too',
+  );
   await click($('.cite'));
-  assert.equal($$('.unit-code .row.landed').length, 1, 'a cite moves it');
+  assert.equal($$('[data-part="unit-code"] .row.landed').length, 1, 'a cite moves it');
 });
 
 pageTest('tabs: a double-click keeps a tab, w closes the active one, and a refresh keeps them', async (page) => {
   await key('t');
-  fireEvent.dblClick($$('#tree .file').find((file) => file.textContent!.includes('orders.test.ts'))!);
+  fireEvent.dblClick($$('#tree [data-part="file"]').find((file) => file.textContent!.includes('orders.test.ts'))!);
   await settle();
   assert.deepEqual(
-    $$('[data-part="tab"] .tab-name').map((tab) => tab.textContent),
+    $$('[data-part="tab"] [data-part="tab-name"]').map((tab) => tab.textContent),
     ['orders.ts', 'orders.test.ts'],
   );
   await click($('#refresh'));
   await settle();
   assert.ok(page.requests.some((request) => request.path === '/api/refresh'));
   assert.deepEqual(
-    $$('[data-part="tab"] .tab-name').map((tab) => tab.textContent),
+    $$('[data-part="tab"] [data-part="tab-name"]').map((tab) => tab.textContent),
     ['orders.ts', 'orders.test.ts'],
   );
-  assert.equal($('[data-part="tab"][data-active] .tab-name').textContent, 'orders.test.ts');
+  assert.equal($('[data-part="tab"][data-active] [data-part="tab-name"]').textContent, 'orders.test.ts');
   await key('w');
   assert.deepEqual(
-    $$('[data-part="tab"] .tab-name').map((tab) => tab.textContent),
+    $$('[data-part="tab"] [data-part="tab-name"]').map((tab) => tab.textContent),
     ['orders.ts'],
   );
 });
@@ -419,9 +423,9 @@ pageTest(
   'clear saved data: nothing goes until a kind is ticked, and a cleared summary leaves the Summary tab without it',
   async (page) => {
     await key('v');
-    await click($('.sum-item'));
-    assert.equal($('.sum-headline').textContent, 'findOrders skips deleted orders');
-    const changedSince = () => $$('.sum-item .viewed-box.changed').length;
+    await click($('[data-part="sum-item"]'));
+    assert.equal($('[data-part="sum-headline"]').textContent, 'findOrders skips deleted orders');
+    const changedSince = () => $$('[data-part="sum-item"] [data-part="viewed-box"][data-changed]').length;
     assert.equal(changedSince(), 1, 'reviewed before its code changed');
 
     page.clearInfo.kinds.push({
@@ -448,7 +452,7 @@ pageTest(
     await click($('[data-part="choice"][data-kind="summaries"]'));
     assert.ok($('[data-part="choice"][data-kind="summaries"]').hasAttribute('data-checked'), 'the whole row ticks it');
     assert.deepEqual(
-      $$('.clear-gone li').map((item) => item.textContent),
+      $$('[data-part="clear-gone"] li').map((item) => item.textContent),
       ['.lens/summary/diff@main/'],
     );
     fireEvent.change($('#clear-scope-summaries'), { target: { value: 'all' } });
@@ -459,7 +463,7 @@ pageTest(
     );
     await click($('#clear-marks'));
     assert.deepEqual(
-      $$('.clear-gone li').map((item) => item.textContent),
+      $$('[data-part="clear-gone"] li').map((item) => item.textContent),
       ['.lens/summary/diff@main/', '.lens/summary/pr-87/', '.lens/marks/diff@main.json'],
     );
 

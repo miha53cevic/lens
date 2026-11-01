@@ -52,7 +52,7 @@ pageTest('Ask without an agent copies the question as a prompt', async (page) =>
 
 pageTest('a command to run copies on click, and its icon turns into a check', async () => {
   await key('\\');
-  const command = $('.ask-empty [data-part="copy-cmd"]');
+  const command = $('[data-part="ask-empty"] [data-part="copy-cmd"]');
   assert.equal(command.textContent, '/lens-ask');
   await click(command);
   assert.equal(await navigator.clipboard.readText(), '/lens-ask');
@@ -140,7 +140,7 @@ pageTest('a question about a unit takes its open concerns along; a dismissed one
   await click($('#ask-send'));
   assert.deepEqual(sentConcerns(), [{ kind: 'bug', text: 'deleted is a string column', line: 'N10' }]);
 
-  await click($('.concern .vbtn.v-dismissed'));
+  await click($('[data-part="concern"] [data-part="vbtn"][data-mark="dismissed"]'));
   assert.equal($('#ask-chips').textContent, 'findOrders');
   await type($('#ask-input'), 'and now?');
   await click($('#ask-send'));
@@ -162,7 +162,7 @@ pageTest('a question about a unit takes its open possible breaks along; a dismis
   await click($('#ask-send'));
   assert.deepEqual(sent().breaks, ['callers of legacyTotal no longer compile']);
 
-  await click($('.brk .vbtn.v-dismissed'));
+  await click($('[data-part="brk"] [data-part="vbtn"][data-mark="dismissed"]'));
   assert.equal($('#ask-chips').textContent, 'legacyTotal1 concern');
   await type($('#ask-input'), 'and now?');
   await click($('#ask-send'));
@@ -215,11 +215,11 @@ pageTest('a question with no agent to answer it says so, instead of counting the
   page.ask = { listening: false, questions: [question] };
   await key('\\');
   assert.equal(
-    $('.ask-noagent').textContent,
+    $('[data-part="ask-noagent"]').textContent,
     'No agent is listening. Run /lens-ask in your agent to get this answered.',
   );
-  assert.equal(document.querySelector('.ask-wait'), null, 'no spinner and no wait time');
-  assert.equal(document.querySelector('.ask-lines'), null, 'and no answer on its way');
+  assert.equal(document.querySelector('[data-part="ask-wait"]'), null, 'no spinner and no wait time');
+  assert.equal(document.querySelector('[data-part="ask-lines"]'), null, 'and no answer on its way');
   assert.deepEqual(status(), {
     kind: 'waiting',
     label: 'No agent for your question',
@@ -230,9 +230,13 @@ pageTest('a question with no agent to answer it says so, instead of counting the
   page.ask = { listening: true, questions: [question] };
   await key('\\');
   await key('\\');
-  assert.match($('.ask-wait').textContent!, /^waiting for agent · \d+s$/);
-  assert.equal(document.querySelectorAll('.ask-lines .skeleton').length, 3, "the answer's place, while one is written");
-  assert.equal(document.querySelector('.ask-noagent'), null);
+  assert.match($('[data-part="ask-wait"]').textContent!, /^waiting for agent · \d+s$/);
+  assert.equal(
+    document.querySelectorAll('[data-part="ask-lines"] .skeleton').length,
+    3,
+    "the answer's place, while one is written",
+  );
+  assert.equal(document.querySelector('[data-part="ask-noagent"]'), null);
   assert.equal(status().label, 'Waiting for your agent');
 });
 
@@ -322,7 +326,7 @@ pageTest("an answer's markdown is drawn, its cites link, and nothing in it runs 
     ],
   };
   await key('\\');
-  const answer = $('.ask-a');
+  const answer = $('[data-part="ask-a"]');
   // a list right under its intro line is a list, and keeps its nesting
   assert.equal(answer.querySelector('p')!.textContent, 'Two things happen in 1:');
   assert.equal(answer.querySelectorAll(':scope > ul > li').length, 1);
@@ -332,7 +336,7 @@ pageTest("an answer's markdown is drawn, its cites link, and nothing in it runs 
   assert.equal(answer.querySelectorAll('td').length, 2);
   // cites are numbered markers, in text and inside `code`; one that is the whole `code` is the marker alone
   assert.deepEqual(
-    [...answer.querySelectorAll<HTMLElement>('.ask-mark')].map((mark) => [
+    [...answer.querySelectorAll<HTMLElement>('[data-part="ask-mark"]')].map((mark) => [
       mark.textContent,
       mark.dataset.line,
       mark.title,
@@ -343,13 +347,13 @@ pageTest("an answer's markdown is drawn, its cites link, and nothing in it runs 
       ['2', '11', 'src/orders.ts:11'],
     ],
   );
-  assert.equal(answer.querySelector('code .ask-mark')!.textContent, '2');
+  assert.equal(answer.querySelector('code [data-part="ask-mark"]')!.textContent, '2');
   // and listed, folded, under the answer
-  const sources = answer.querySelector<HTMLDetailsElement>('details.ask-sources')!;
+  const sources = answer.querySelector<HTMLDetailsElement>('details[data-part="ask-sources"]')!;
   assert.equal(sources.open, false);
   assert.equal(sources.querySelector('summary')!.textContent, '2 sources');
   assert.deepEqual(
-    [...sources.querySelectorAll('.ask-cite')].map((button) => button.textContent),
+    [...sources.querySelectorAll('.cite')].map((button) => button.textContent),
     ['src/orders.ts:10', 'src/orders.ts:11'],
   );
   // html is shown, not run; no image is fetched; a link is its text and its address
@@ -398,16 +402,16 @@ pageTest("an answer's flow block is a lane of steps under their layers, and its 
     ],
   };
   await key('\\');
-  const answer = $('.ask-a');
-  const lane = answer.querySelector('.ask-flow')!;
+  const answer = $('[data-part="ask-a"]');
+  const lane = answer.querySelector('[data-part="ask-flow"]')!;
   // a layer is named once over its run of steps
   assert.deepEqual(
-    [...lane.children].map((item) => item.className + ' ' + item.textContent),
+    [...lane.children].map((item) => (item as HTMLElement).dataset.part + ' ' + item.textContent),
     [
-      'ask-flow-layer eyebrow sm API',
+      'ask-flow-layer API',
       'ask-flow-step checks the body  1',
       'ask-flow-step then the user',
-      'ask-flow-layer eyebrow sm db',
+      'ask-flow-layer db',
       'ask-flow-step inserts the row  2',
     ],
   );
@@ -415,7 +419,7 @@ pageTest("an answer's flow block is a lane of steps under their layers, and its 
   assert.equal(answer.querySelector('pre code')!.textContent, 'not a step at all\n');
   // the sources, then what the agent read, quieter
   const tail = [...answer.children].slice(-2);
-  assert.equal(tail[0].className, 'ask-sources');
-  assert.equal(tail[1].className, 'ask-read');
+  assert.equal((tail[0] as HTMLElement).dataset.part, 'ask-sources');
+  assert.equal((tail[1] as HTMLElement).dataset.part, 'ask-read');
   assert.equal(tail[1].textContent, 'Read: orders.ts');
 });

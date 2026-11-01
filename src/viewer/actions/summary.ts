@@ -68,7 +68,7 @@ function citedRow(label: string): HTMLElement | null {
   const selector = label.startsWith('O')
     ? '.row[data-old="' + label.slice(1) + '"]'
     : '.row[data-line="' + label.slice(1) + '"]';
-  return document.querySelector<HTMLElement>('.summary-pane .unit-code ' + selector);
+  return document.querySelector<HTMLElement>('[data-part="summary-pane"] [data-part="unit-code"] ' + selector);
 }
 
 /** A cite: the line in the unit's code, its fold opened, scrolled to and flashed. */

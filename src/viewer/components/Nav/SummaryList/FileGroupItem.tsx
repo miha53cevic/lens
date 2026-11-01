@@ -23,18 +23,21 @@ export function FileGroupItem({ group, folded, isActive }: FileGroupItemProps) {
     return <UnitItem unit={unit} side={unitLabel(unit) === base ? undefined : base} active={isActive(unit.id)} />;
   }
   return (
-    <div className='sum-file'>
+    <div className='mt-0 [&+&]:mt-1'>
       <Disclosure
         open={!folded}
-        className='sum-file-title'
+        data-part='sum-file-title'
+        className='w-full px-2 py-1 text-xs text-muted'
         title={group.file}
         onClick={() => toggleUnitFile(group.file)}
       >
-        <span className='path'>
-          {dir && <span className='sum-file-dir'>{dir}/</span>}
-          <span className='sum-file-name'>{baseName(group.file)}</span>
+        <span data-part='path' className='flex min-w-0 flex-1 items-center font-mono whitespace-nowrap text-text'>
+          {dir && <span className='min-w-0 overflow-hidden text-ellipsis text-faint'>{dir}/</span>}
+          <span className='flex-none'>{baseName(group.file)}</span>
         </span>
-        <span className='n'>{group.members.length}</span>
+        <span data-part='n' className='text-faint tabular-nums'>
+          {group.members.length}
+        </span>
       </Disclosure>
       {!folded && group.members.map((unit) => <UnitItem key={unit.id} unit={unit} active={isActive(unit.id)} />)}
     </div>

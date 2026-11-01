@@ -20,6 +20,23 @@ function stepsAt(steps: SequenceStep[], moment: Moment): SequenceStep[] {
 }
 
 /** The lanes as columns, the steps as arrows in order; a step with a unit opens it. */
+// a sequence: lanes as columns, steps as arrows; a step that opens its unit is a link
+const STEP =
+  '[&_line]:fill-none [&_line]:stroke-(--step) [&_line]:[stroke-width:var(--step-w)] [&_path]:fill-none [&_path]:stroke-(--step) [&_path]:[stroke-width:var(--step-w)] [&_text]:fill-(--step-text) [&_text]:text-xs';
+const STEPS: Record<string, string> = {
+  plain: '[--step-text:var(--muted)] [--step-w:1.3] [--step:var(--muted)]',
+  added: '[--step-text:var(--add)] [--step-w:2] [--step:var(--add)]',
+  changed: '[--step-text:var(--mod)] [--step-w:2] [--step:var(--mod)]',
+  removed:
+    '[--step-text:var(--del)] [--step-w:2] [--step:var(--del)] [&_line]:[stroke-dasharray:5_4] [&_path]:[stroke-dasharray:5_4]',
+};
+const HEADS: Record<string, string> = {
+  plain: 'fill-muted stroke-none',
+  added: 'fill-add stroke-none',
+  changed: 'fill-mod stroke-none',
+  removed: 'fill-del stroke-none',
+};
+
 export function SequenceDiagram({
   sequence,
   moment,
@@ -36,9 +53,9 @@ export function SequenceDiagram({
   const known = new Set(sequence.units);
 
   return (
-    <div className='sequence-stage'>
+    <div className='overflow-x-auto px-4 py-3'>
       <svg
-        className='sequence'
+        className='mx-auto block h-auto max-w-full font-sans'
         width={width}
         viewBox={`0 0 ${width} ${height}`}
         role='img'
@@ -56,12 +73,15 @@ export function SequenceDiagram({
               markerHeight='7'
               orient='auto-start-reverse'
             >
-              <path d='M0 0L10 5L0 10z' className={'seq-head ' + kind} />
+              <path d='M0 0L10 5L0 10z' data-part='seq-head' className={HEADS[kind]} />
             </marker>
           ))}
         </defs>
         {sequence.lanes.map((lane) => (
-          <g key={lane} className='seq-lane'>
+          <g
+            key={lane}
+            className='[&_line]:stroke-line [&_line]:[stroke-dasharray:3_4] [&_text]:fill-text [&_text]:text-sm [&_text]:font-semibold'
+          >
             <text x={x(lane)} y={HEAD_H / 2} textAnchor='middle'>
               {lane}
             </text>
@@ -79,7 +99,15 @@ export function SequenceDiagram({
           return (
             <g
               key={stepIndex}
-              className={clsx('seq-step', kind, opens && 'opens', step.unit === unitId && unitId !== null && 'mine')}
+              data-part='seq-step'
+              data-kind={kind}
+              data-opens={opens || undefined}
+              className={clsx(
+                STEP,
+                STEPS[kind],
+                opens && 'cursor-pointer hover:[&_text]:underline',
+                step.unit === unitId && unitId !== null && '[&_text]:font-bold',
+              )}
               data-step={stepIndex}
               onClick={opens ? () => openSummaryUnit(step.unit!) : undefined}
             >

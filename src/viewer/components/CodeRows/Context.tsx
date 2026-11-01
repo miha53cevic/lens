@@ -45,11 +45,11 @@ export function Context({ item, context, children }: ContextProps) {
             </span>
           )}
         </span>
-        <span className='spacer' />
+        <span className='flex-1' />
         {changed && (
-          <span className='counts'>
-            {item.added > 0 && <span className='a'>+{item.added}</span>}
-            {item.removed > 0 && <span className='d'>−{item.removed}</span>}
+          <span data-part='counts' className='inline-flex flex-none gap-1 font-mono text-xs leading-none'>
+            {item.added > 0 && <span className='text-add'>+{item.added}</span>}
+            {item.removed > 0 && <span className='text-del'>−{item.removed}</span>}
           </span>
         )}
         <span className='context-count'>{plural(item.lineCount, 'line')}</span>

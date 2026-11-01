@@ -11,5 +11,5 @@ interface SpinnerProps {
  * less motion. What's on its way to the page is a ui/Skeleton instead.
  */
 export function Spinner({ size = 13, className }: SpinnerProps) {
-  return <LoaderCircle size={size} className={clsx('spinner spin', className)} aria-hidden='true' />;
+  return <LoaderCircle size={size} className={clsx('spin', className)} aria-hidden='true' />;
 }

@@ -92,10 +92,6 @@
     background: var(--dot, currentColor);
   }
 
-  .spacer {
-    flex: 1;
-  }
-
   /* a label in small capitals over what it names: a section, a kind, a layer. A place sets only
    its color and its spacing, which win over these (:where weighs nothing); .sm is the smaller
    one, inside a row or a note */
@@ -225,5 +221,57 @@
     .skeleton {
       background: var(--skeleton);
     }
+  }
+
+  /* A signal's color, shared by its marker, its chip and its concern: --sig, and --k on concerns. */
+
+  .sig-bug {
+    --sig: var(--bug);
+  }
+  .sig-risk {
+    --sig: var(--risk);
+  }
+  .sig-question {
+    --sig: var(--question);
+  }
+  .sig-breaks {
+    --sig: var(--breaks);
+  }
+  .sig-dismissed {
+    --sig: var(--muted);
+  }
+
+  .k-bug {
+    --k: var(--bug);
+  }
+  .k-risk {
+    --k: var(--risk);
+  }
+  .k-question {
+    --k: var(--question);
+  }
+
+  /* the marker before a unit's name: its most serious signal */
+  .sig {
+    display: inline-flex;
+    align-self: center;
+    justify-self: center;
+    color: var(--sig);
+    cursor: help;
+  }
+
+  /* a line a sentence is about, as a button (a change's cites, an answer's sources) */
+  .cite {
+    flex: none;
+    padding: 0 var(--space-1);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    color: var(--muted);
+    font: var(--text-xs) / 1.6 var(--font-mono);
+    vertical-align: 1px;
+  }
+  .cite:hover {
+    border-color: var(--accent);
+    color: var(--text);
   }
 }

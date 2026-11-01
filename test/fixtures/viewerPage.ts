@@ -184,7 +184,7 @@ export function rows(root = '#code'): string[] {
 }
 
 export function treeFiles(): string[] {
-  return $$('#tree .file').map((file) => file.querySelector('.fname')!.textContent!);
+  return $$('#tree [data-part="file"]').map((file) => file.querySelector('[data-part="fname"]')!.textContent!);
 }
 
 /** A test on a freshly opened page. */
@@ -257,8 +257,10 @@ export async function selectRows(from: HTMLElement, to: HTMLElement) {
   await settle();
 }
 
-export function ticks(card = '.code-pane'): string[] {
-  return $$(card + ' .ruler .tick').map((tick) => tick.className.match(/tick-(\w+)/)![1] + ' ' + tick.dataset.label);
+export function ticks(card = '[data-part="code-pane"]'): string[] {
+  return $$(card + ' [data-part="ruler"] [data-part="tick"]').map(
+    (tick) => tick.dataset.kind + ' ' + tick.dataset.label,
+  );
 }
 
 /** What the status bar says: its kind, its label and the detail after it. */

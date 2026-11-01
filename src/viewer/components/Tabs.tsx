@@ -1,10 +1,8 @@
-import clsx from 'clsx';
 import { useLens } from '../store.ts';
 import { baseName, hiddenStyle } from '../shared.ts';
 import { closeTab, openFile, pinTab } from '../actions/tabs.ts';
 import { StatusLetter } from '../../ui/FileStatus.tsx';
 import { Tab } from '../../ui/Tab.tsx';
-import './Tabs.css';
 
 /** The tab in front stays in sight when there are more tabs than the bar has room for. */
 function keepInSight(tab: HTMLElement | null) {
@@ -27,7 +25,7 @@ export function Tabs() {
 
   return (
     <div
-      className='tabbar'
+      className='flex flex-none gap-1 overflow-x-auto bg-bg px-6 pt-3 pb-2 [scrollbar-width:none]'
       id='tabbar'
       role='tablist'
       style={hiddenStyle(hidden)}
@@ -47,7 +45,8 @@ export function Tabs() {
             data-file={tab.index}
             tabRef={tab.index === active ? keepInSight : undefined}
             active={tab.index === active}
-            className={clsx(!tab.pinned && 'preview')}
+            className='max-w-[260px]'
+            data-preview={tab.pinned ? undefined : ''}
             mono
             title={path}
             onSelect={() => openFile(tab.index)}
@@ -56,8 +55,12 @@ export function Tabs() {
             closeLabel={'Close ' + name}
           >
             {file.status && <StatusLetter status={file.status} />}
-            <span className='tab-name'>{name}</span>
-            {baseNameCounts.get(name)! > 1 && dir && <span className='tab-dir'>{dir}</span>}
+            <span data-part='tab-name' className='overflow-hidden text-ellipsis group-data-preview/tab:italic'>
+              {name}
+            </span>
+            {baseNameCounts.get(name)! > 1 && dir && (
+              <span className='overflow-hidden text-xs text-ellipsis text-faint'>{dir}</span>
+            )}
           </Tab>
         );
       })}

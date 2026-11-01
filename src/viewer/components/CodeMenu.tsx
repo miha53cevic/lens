@@ -3,7 +3,6 @@ import { MenuItem, MenuPanel, MenuSeparator } from '../../ui/Menu.tsx';
 import { askOpenAndFocus } from '../ask/rail.ts';
 import { startNote } from '../actions/notes.ts';
 import { CODE_MENU, copySelectedLines, copySelectedPlace } from '../actions/codeMenu.ts';
-import './CodeMenu.css';
 
 /**
  * The code's right-click menu (actions/codeMenu.ts), on the lines it was opened on. It takes the
@@ -11,7 +10,7 @@ import './CodeMenu.css';
  */
 export function CodeMenu() {
   return (
-    <MenuPanel id={CODE_MENU} className='code-menu'>
+    <MenuPanel id={CODE_MENU} className='w-[240px] origin-top-left'>
       <MenuItem id='code-menu-ask' icon={<MessageSquare size={14} />} shortcut='a' onSelect={askOpenAndFocus}>
         Ask about these lines
       </MenuItem>

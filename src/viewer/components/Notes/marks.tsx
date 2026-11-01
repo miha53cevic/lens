@@ -33,7 +33,7 @@ export function addNoteMarks(
 export function OutdatedNotes({ fileNotes }: { fileNotes: FileNotes }) {
   if (fileNotes.outdated.length === 0) return null;
   return (
-    <div className='outdated-notes'>
+    <div data-part='outdated-notes' className='border-b border-line py-2 [&_[data-part=line-note]]:ml-4'>
       {fileNotes.outdated.map((note) => (
         <NoteCard key={note.id} note={note} placed={null} />
       ))}

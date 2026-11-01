@@ -31,14 +31,14 @@ pageTest(
   async () => {
     assert.equal($('#summary-pane').style.display, '');
     assert.deepEqual(
-      $$('.sum-item .name').map((name) => name.textContent),
+      $$('[data-part="sum-item"] [data-part="name"]').map((name) => name.textContent),
       ['findOrders', 'legacyTotal'],
       "the test file's unit hides with the tests",
     );
-    assert.equal($('[data-part="progress"] .legend').textContent, '2 flagged');
-    assert.ok($('.sum-overview-item').classList.contains('active'));
+    assert.equal($('[data-part="progress"] [data-part="legend"]').textContent, '2 flagged');
+    assert.ok($('[data-part="sum-overview-item"]').hasAttribute('data-active'));
     assert.deepEqual(
-      $$('.ov-stat').map((stat) => stat.textContent),
+      $$('[data-part="ov-stat"]').map((stat) => stat.textContent),
       ['1 possible bug', '1 question', '1 may break callers'],
     );
   },
@@ -53,9 +53,9 @@ test('with nothing summarized, the Summary tab opens on the overview: what to ru
     await open();
     await key('v');
     await settle();
-    assert.equal($('#summary-pane .sum-headline').textContent, 'The changes');
+    assert.equal($('#summary-pane [data-part="sum-headline"]').textContent, 'The changes');
     const how = $('#no-summary');
-    assert.equal(how.querySelector('.ov-what-label')!.textContent, 'Agent summary');
+    assert.equal(how.querySelector('[data-part="ov-what-label"]')!.textContent, 'Agent summary');
     assert.deepEqual(
       [...how.querySelectorAll('[data-part="copy-cmd-text"]')].map((command) => command.textContent),
       [fresh.command, fresh.cli],
@@ -87,7 +87,7 @@ test('a diff that ends at a branch not checked out says to check it out, instead
       ['git checkout feature'],
     );
     await click($('#review-next'));
-    const note = $('#summary-pane .sum-note');
+    const note = $('#summary-pane [data-part="sum-note"]');
     assert.match(note.textContent!, /^Not summarized yet\. A summary is written from the checked-out code/);
     assert.deepEqual(
       [...note.querySelectorAll('[data-part="copy-cmd-text"]')].map((command) => command.textContent),
@@ -99,7 +99,7 @@ test('a diff that ends at a branch not checked out says to check it out, instead
     payload.summary = { ...unsummarized, key: unsummarized.key + '-feature', checkout: null };
     window.dispatchEvent(new Event('focus'));
     await settle();
-    const after = $('#summary-pane .sum-note');
+    const after = $('#summary-pane [data-part="sum-note"]');
     assert.match(after.textContent!, /^Not summarized yet\. Run .* in your agent\./);
     assert.deepEqual(
       [...after.querySelectorAll('[data-part="copy-cmd-text"]')].map((command) => command.textContent),
@@ -132,12 +132,20 @@ test('a summary submitted after the page loaded: the overview doesn\'t say "not 
       return realFetch(input, init);
     }) as typeof fetch;
     await key('v');
-    assert.equal($('#summary-pane .sum-headline').textContent, 'The changes', 'the overview is there already');
+    assert.equal(
+      $('#summary-pane [data-part="sum-headline"]').textContent,
+      'The changes',
+      'the overview is there already',
+    );
     assert.equal($$('#no-summary').length, 0, 'no "not written yet" while the stamp is checked');
     release();
     await settle();
     assert.equal($$('#no-summary').length, 0);
-    assert.equal($('#summary-pane .sum-headline').textContent, 'The changes', 'the overview, with the new summary');
+    assert.equal(
+      $('#summary-pane [data-part="sum-headline"]').textContent,
+      'The changes',
+      'the overview, with the new summary',
+    );
   } finally {
     payload.summary = fresh;
     await close();
@@ -149,12 +157,15 @@ pageTest('on the Summary tab the pill starts the review, and marks each change r
   await key('v');
   assert.equal(pill(), 'Start review');
   await click($('#review-next'));
-  assert.equal($('.sum-headline').textContent, 'findOrders skips deleted orders');
+  assert.equal($('[data-part="sum-headline"]').textContent, 'findOrders skips deleted orders');
   assert.equal(pill(), 'Reviewed · next change');
   await click($('#review-next'));
-  assert.equal($('.sum-item.active .name').textContent, 'legacyTotal');
+  assert.equal($('[data-part="sum-item"][data-active] [data-part="name"]').textContent, 'legacyTotal');
   assert.equal($('#nav [data-part="progress-count"]').textContent, '1 of 2');
-  assert.equal($('.sum-item:not(.active) .viewed-box').getAttribute('aria-checked'), 'true');
+  assert.equal(
+    $('[data-part="sum-item"]:not([data-active]) [data-part="viewed-box"]').getAttribute('aria-checked'),
+    'true',
+  );
 });
 
 test("the agent's previews and sequences: all on the overview, a unit's own on its page, each step opening its unit", async () => {
@@ -193,17 +204,17 @@ test("the agent's previews and sequences: all on the overview, a unit's own on i
       ],
     },
   ];
-  const steps = () => $$('.sequence-card .seq-step text').map((label) => label.textContent);
+  const steps = () => $$('[data-part="sequence-card"] [data-part="seq-step"] text').map((label) => label.textContent);
   try {
     const page = await open();
     await key('v');
     // the overview: every drawing, and the list marks the units they show
-    assert.equal($$('#drawings .preview-card').length, 1);
-    const frame = $('.preview-card iframe') as HTMLIFrameElement;
+    assert.equal($$('#drawings [data-part="preview-card"]').length, 1);
+    const frame = $('[data-part="preview-card"] iframe') as HTMLIFrameElement;
     assert.equal(frame.getAttribute('src'), '/api/preview/0123456789abcdef.html');
     // a unit's chip outlines it in the preview, and the overview stays; again, and it's off
     const chip = (unitId: string) =>
-      $$('.preview-card .drawing-unit').find((button) =>
+      $$('[data-part="preview-card"] [data-part="drawing-unit"]').find((button) =>
         button.textContent!.includes(unitId === find ? 'findOrders' : 'legacyTotal'),
       )!;
     await click(chip(legacy));
@@ -213,46 +224,46 @@ test("the agent's previews and sequences: all on the overview, a unit's own on i
     await click(chip(legacy));
     assert.equal(frame.getAttribute('src'), '/api/preview/0123456789abcdef.html');
     assert.equal(frame.getAttribute('sandbox'), 'allow-scripts', 'scripts, but never its own origin');
-    assert.equal($$('.preview-card [data-part="seg"]').length, 0, 'a new screen: no Before');
+    assert.equal($$('[data-part="preview-card"] [data-part="seg"]').length, 0, 'a new screen: no Before');
     assert.deepEqual(steps(), ['findOrders(user)', 'skip deleted', 'orders'], 'now: every step but the removed one');
-    assert.equal($('.sequence-card .drawing-stale').textContent, 'code changed since');
+    assert.equal($('[data-part="sequence-card"] [data-part="drawing-stale"]').textContent, 'code changed since');
     assert.deepEqual(
-      $$('.sequence-card .step-kind').map((kind) => kind.textContent),
+      $$('[data-part="sequence-card"] [data-part="step-kind"]').map((kind) => kind.textContent),
       ['added', 'changed', 'removed'],
     );
-    assert.equal($$('.sum-item .drawn').length, 2);
+    assert.equal($$('[data-part="sum-item"] [data-part="drawn"]').length, 2);
 
-    await click($('.sequence-card [data-value="before"]'));
+    await click($('[data-part="sequence-card"] [data-value="before"]'));
     assert.deepEqual(
       steps(),
       ['findOrders(all)', 'legacyTotal()', 'orders'],
       'before: as it was, without the added one',
     );
-    assert.equal($$('.seq-step.opens').length, 2, 'the plain step names no unit: it opens nothing');
+    assert.equal($$('[data-part="seq-step"][data-opens]').length, 2, 'the plain step names no unit: it opens nothing');
 
     // a step opens its unit; that unit's page shows the drawings that show it
-    fireEvent.click($('.seq-step.removed'));
+    fireEvent.click($('[data-part="seq-step"][data-kind="removed"]'));
     await settle();
     assert.equal($('#summary-pane').dataset.unit, legacy);
-    assert.equal($$('#drawings .preview-card').length, 1);
-    assert.equal($$('#drawings .sequence-card').length, 1);
+    assert.equal($$('#drawings [data-part="preview-card"]').length, 1);
+    assert.equal($$('#drawings [data-part="sequence-card"]').length, 1);
 
     // on a unit's page, a chip opens its unit
     await click(chip(find));
     assert.equal($('#summary-pane').dataset.unit, find);
-    const own = $('.preview-card iframe') as HTMLIFrameElement;
+    const own = $('[data-part="preview-card"] iframe') as HTMLIFrameElement;
     assert.equal(
       own.getAttribute('src'),
       '/api/preview/0123456789abcdef.html#' + encodeURIComponent(find),
       'its elements outlined',
     );
-    assert.ok($('.preview-card .drawing-unit.on'), "the page's own unit, picked");
+    assert.ok($('[data-part="preview-card"] [data-part="drawing-unit"][data-on]'), "the page's own unit, picked");
 
     // the frame tells the page its height, and nothing else
     // (its frame isn't loaded here: a stand-in window is the one it posts from)
     const frameWindow = new EventTarget() as unknown as Window;
     const post = async (data: unknown, source: Window = frameWindow) => {
-      Object.defineProperty($('iframe.preview-frame'), 'contentWindow', { value: frameWindow, configurable: true });
+      Object.defineProperty($('iframe'), 'contentWindow', { value: frameWindow, configurable: true });
       window.dispatchEvent(new MessageEvent('message', { data, source }));
       await settle();
     };
@@ -265,7 +276,7 @@ test("the agent's previews and sequences: all on the overview, a unit's own on i
     assert.equal($('#summary-pane').dataset.unit, find, 'a click in the frame opens nothing');
     await click(chip(legacy));
     assert.equal(
-      ($('.preview-card iframe') as HTMLIFrameElement).style.height,
+      ($('[data-part="preview-card"] iframe') as HTMLIFrameElement).style.height,
       '900px',
       "the next unit's frame keeps the height, so the preview stays in place",
     );
@@ -277,7 +288,7 @@ test("the agent's previews and sequences: all on the overview, a unit's own on i
       [{ method: 'POST', path: '/api/settings', body: { buildPreviews: false } }],
     );
     assert.equal(document.querySelector('#drawings'), null);
-    assert.equal($$('.sum-item .drawn').length, 0);
+    assert.equal($$('[data-part="sum-item"] [data-part="drawn"]').length, 0);
     assert.equal($('#build-previews').getAttribute('aria-checked'), 'false');
   } finally {
     summary.previews = [];
@@ -301,18 +312,23 @@ test('a flow is its name and why: the priority only orders it, and a P3 flow sta
   await open();
   try {
     await key('v');
-    const title = () => $('.sum-section-title.flow .t').textContent;
-    const count = () => $$('.sum-section-title.flow .sub')[0]?.textContent?.trim() ?? null;
+    const title = () => $('[data-part="sum-section-title"][data-flow] [data-part="t"]').textContent;
+    const count = () =>
+      $$('[data-part="sum-section-title"][data-flow] [data-part="sub"]')[0]?.textContent?.trim() ?? null;
     assert.deepEqual([title(), count()], ['Order cleanup', '2 changes'], 'folded: the name and its count');
-    assert.equal($$('.sum-section-title .prio').length, 0, 'no P3 tag');
-    assert.equal($$('.sum-section-why').length, 0, 'folded: the why only as a tooltip');
-    assert.equal($('.sum-section-title.flow').getAttribute('title'), 'drops the old totals');
-    await click($('.sum-section-title.flow'));
+    assert.equal($$('[data-part="sum-section-title"] .prio').length, 0, 'no P3 tag');
+    assert.equal($$('[data-part="sum-section-why"]').length, 0, 'folded: the why only as a tooltip');
+    assert.equal($('[data-part="sum-section-title"][data-flow]').getAttribute('title'), 'drops the old totals');
+    await click($('[data-part="sum-section-title"][data-flow]'));
     assert.deepEqual([title(), count()], ['Order cleanup', null]);
-    assert.equal($('.sum-section-why').textContent, 'drops the old totals');
-    assert.equal($$('.sum-section:not(.folded) .sum-item').length, 2);
-    assert.equal($$('.sum-section:not(.folded) .sum-item .side').length, 0, 'no file labels');
-    assert.equal($$('.sum-step').length, 0, 'one step over every change: no heading');
+    assert.equal($('[data-part="sum-section-why"]').textContent, 'drops the old totals');
+    assert.equal($$('[data-part="sum-section"]:not(.folded) [data-part="sum-item"]').length, 2);
+    assert.equal(
+      $$('[data-part="sum-section"]:not(.folded) [data-part="sum-item"] [data-part="side"]').length,
+      0,
+      'no file labels',
+    );
+    assert.equal($$('[data-part="sum-step"]').length, 0, 'one step over every change: no heading');
   } finally {
     summary.flows = [];
     await close();
@@ -335,16 +351,17 @@ test("a flow's steps are headings where each starts; a unit in two flows is list
   try {
     // the list as the reader sees it: steps as "#step", changes as "flow:name", the open one with ">"
     const listed = () =>
-      $$('.sum-step, .sum-item').map((row) =>
-        row.classList.contains('sum-step')
+      $$('[data-part="sum-step"], [data-part="sum-item"]').map((row) =>
+        row.getAttribute('data-part') === 'sum-step'
           ? '#' + row.textContent
-          : (row.classList.contains('active') ? '>' : '') +
-            row.closest('.sum-section')!.querySelector('.sum-section-title .t')!.textContent +
+          : (row.hasAttribute('data-active') ? '>' : '') +
+            row.closest('[data-part="sum-section"]')!.querySelector('[data-part="sum-section-title"] [data-part="t"]')!
+              .textContent +
             ':' +
-            row.querySelector('.name')!.textContent,
+            row.querySelector('[data-part="name"]')!.textContent,
       );
     await key('v');
-    await click($$('.sum-item')[0]);
+    await click($$('[data-part="sum-item"]')[0]);
     // Twice lists nothing the first flow hasn't: it isn't shown
     assert.deepEqual(listed(), ['#repo', '>Reads:findOrders', '#cleanup', 'Reads:legacyTotal']);
     await key('j');
@@ -362,11 +379,11 @@ test("a flow's steps are headings where each starts; a unit in two flows is list
 pageTest("a unit's code has the Code view's folds and toolbar keys, but shows whole", async () => {
   await key('v');
   await key('j');
-  assert.equal($('.sum-headline').textContent, 'findOrders skips deleted orders');
+  assert.equal($('[data-part="sum-headline"]').textContent, 'findOrders skips deleted orders');
   // the card's header says where the unit is: no path line over the headline
-  assert.equal($$('.sum-inner .kicker').length, 0);
-  assert.equal($('.unit-card .code-path').textContent, 'src/orders.tsfindOrders');
-  const code = '.unit-code .code';
+  assert.equal($$('[data-part="sum-inner"] [data-part="kicker"]').length, 0);
+  assert.equal($('[data-card="unit-card"] [data-part="code-path"]').textContent, 'src/orders.tsfindOrders');
+  const code = '[data-part="unit-code"] .code';
   // hunks only is on, but the unit shows whole: line 5 is far from the changes and the cited line, and still there
   assert.deepEqual(rows(code), ['5', 'R6', '−9', 'R9', '10', '11', '12']);
   assert.deepEqual(
@@ -385,16 +402,16 @@ pageTest("a unit's code has the Code view's folds and toolbar keys, but shows wh
 pageTest("a concern sits under its line; dismissing it drops the note and the unit's flag", async (page) => {
   await key('v');
   await key('j');
-  const line = $('.unit-code .row[data-line="10"]');
+  const line = $('[data-part="unit-code"] .row[data-line="10"]');
   assert.ok(line.classList.contains('cited') && line.classList.contains('flagged') && line.classList.contains('k-bug'));
-  assert.ok(line.nextElementSibling!.classList.contains('inline-note'));
-  assert.ok($('.sum-item.active .sig-bug'));
+  assert.ok((line.nextElementSibling as HTMLElement).dataset.note === 'inline');
+  assert.ok($('[data-part="sum-item"][data-active] .sig-bug'));
 
-  await click($('.concern .vbtn.v-dismissed'));
-  assert.equal($$('.inline-note').length, 0);
-  assert.ok($('.concern').classList.contains('dismissed'));
-  assert.equal($('[data-part="progress"] .legend').textContent, '1 flagged');
-  assert.equal($$('.sum-item.active .sig').length, 0);
+  await click($('[data-part="concern"] [data-part="vbtn"][data-mark="dismissed"]'));
+  assert.equal($$('[data-note="inline"]').length, 0);
+  assert.ok($('[data-part=\"concern\"]').dataset.mark === 'dismissed');
+  assert.equal($('[data-part="progress"] [data-part="legend"]').textContent, '1 flagged');
+  assert.equal($$('[data-part="sum-item"][data-active] .sig').length, 0);
   assert.deepEqual(
     postedMarks(page).map((change) => (change as { mark: string }).mark),
     ['dismissed'],
@@ -405,19 +422,23 @@ pageTest("a concern sits under its line; dismissing it drops the note and the un
 pageTest("a verdict doesn't move the list: the order stays, and a signal filter keeps the open unit", async () => {
   // the list's names, the open unit marked ">"
   const listed = () =>
-    $$('.sum-item').map(
-      (item) => (item.classList.contains('active') ? '>' : '') + item.querySelector('.name')!.textContent,
+    $$('[data-part="sum-item"]').map(
+      (item) => (item.hasAttribute('data-active') ? '>' : '') + item.querySelector('[data-part="name"]')!.textContent,
     );
   await key('v');
   await key('j');
   assert.deepEqual(listed(), ['>findOrders', 'legacyTotal']);
-  await click($('.concern .vbtn.v-dismissed'));
+  await click($('[data-part="concern"] [data-part="vbtn"][data-mark="dismissed"]'));
   assert.deepEqual(listed(), ['>findOrders', 'legacyTotal'], 'no longer flagged, but it keeps its place');
 
-  await click($('.concern .vbtn.v-dismissed')); // restore
-  await click($('.sig-chip[data-sig="any"]'));
-  await click($('.concern .vbtn.v-dismissed'));
-  assert.equal($('.sig-chip[data-sig="any"]').getAttribute('aria-pressed'), 'true', 'legacyTotal keeps the filter on');
+  await click($('[data-part="concern"] [data-part="vbtn"][data-mark="dismissed"]')); // restore
+  await click($('[data-part="sig-chip"][data-sig="any"]'));
+  await click($('[data-part="concern"] [data-part="vbtn"][data-mark="dismissed"]'));
+  assert.equal(
+    $('[data-part="sig-chip"][data-sig="any"]').getAttribute('aria-pressed'),
+    'true',
+    'legacyTotal keeps the filter on',
+  );
   assert.deepEqual(listed(), ['>findOrders', 'legacyTotal'], 'the open unit stays listed under it');
 });
 
@@ -425,21 +446,21 @@ pageTest('a caller it may break takes a verdict: dismissed drops the flag, real 
   await key('v');
   await key('j');
   await key('j');
-  assert.equal($('.sig-chip[data-sig="breaks"] .n').textContent, '1');
+  assert.equal($('[data-part="sig-chip"][data-sig="breaks"] [data-part="n"]').textContent, '1');
 
-  await click($('.brk .vbtn.v-dismissed'));
-  assert.ok($('.brk').classList.contains('dismissed'));
-  assert.equal($$('.sig-chip[data-sig="breaks"]').length, 0);
-  assert.equal($('.sig-chip[data-sig="dismissed"] .n').textContent, '1');
-  assert.ok(($('.brk-head') as HTMLButtonElement).disabled, 'its callers stay shut');
+  await click($('[data-part="brk"] [data-part="vbtn"][data-mark="dismissed"]'));
+  assert.ok($('[data-part=\"brk\"]').dataset.mark === 'dismissed');
+  assert.equal($$('[data-part="sig-chip"][data-sig="breaks"]').length, 0);
+  assert.equal($('[data-part="sig-chip"][data-sig="dismissed"] [data-part="n"]').textContent, '1');
+  assert.ok(($('[data-part="brk-head"]') as HTMLButtonElement).disabled, 'its callers stay shut');
 
-  await click($('.brk .vbtn.v-dismissed')); // restore
-  assert.equal($('.sig-chip[data-sig="breaks"] .n').textContent, '1');
-  await click($('.brk .vbtn.v-real'));
-  assert.ok($('.brk').classList.contains('real'));
+  await click($('[data-part="brk"] [data-part="vbtn"][data-mark="dismissed"]')); // restore
+  assert.equal($('[data-part="sig-chip"][data-sig="breaks"] [data-part="n"]').textContent, '1');
+  await click($('[data-part="brk"] [data-part="vbtn"][data-mark="real"]'));
+  assert.ok($('[data-part=\"brk\"]').dataset.mark === 'real');
   await key('g');
-  assert.equal($('.ov-real-count').textContent, '1 confirmed possible break in 1 change');
-  await click($('.ov-real-copy'));
+  assert.equal($('[data-part="ov-real-count"]').textContent, '1 confirmed possible break in 1 change');
+  await click($('[data-part="ov-real-copy"]'));
   assert.equal($('#status [data-part="status-label"]').textContent, 'Copied 1 possible break');
   assert.match(
     await navigator.clipboard.readText(),
@@ -450,18 +471,18 @@ pageTest('a caller it may break takes a verdict: dismissed drops the flag, real 
 pageTest('a dismissed chip lists the changes whose concerns the reader dismissed', async () => {
   await key('v');
   await key('j');
-  assert.equal($$('.sig-chip[data-sig="dismissed"]').length, 0, 'nothing dismissed yet');
-  await click($('.concern .vbtn.v-dismissed'));
-  assert.equal($('.sig-chip[data-sig="dismissed"] .n').textContent, '1');
-  await click($('.sig-chip[data-sig="dismissed"]'));
+  assert.equal($$('[data-part="sig-chip"][data-sig="dismissed"]').length, 0, 'nothing dismissed yet');
+  await click($('[data-part="concern"] [data-part="vbtn"][data-mark="dismissed"]'));
+  assert.equal($('[data-part="sig-chip"][data-sig="dismissed"] [data-part="n"]').textContent, '1');
+  await click($('[data-part="sig-chip"][data-sig="dismissed"]'));
   assert.deepEqual(
-    $$('.sum-item .name').map((name) => name.textContent),
+    $$('[data-part="sum-item"] [data-part="name"]').map((name) => name.textContent),
     ['findOrders'],
   );
-  await click($('.concern .vbtn.v-dismissed')); // restore: nothing is dismissed, the filter lifts
-  assert.equal($$('.sig-chip[data-sig="dismissed"]').length, 0);
+  await click($('[data-part="concern"] [data-part="vbtn"][data-mark="dismissed"]')); // restore: nothing is dismissed, the filter lifts
+  assert.equal($$('[data-part="sig-chip"][data-sig="dismissed"]').length, 0);
   assert.deepEqual(
-    $$('.sum-item .name').map((name) => name.textContent),
+    $$('[data-part="sum-item"] [data-part="name"]').map((name) => name.textContent),
     ['findOrders', 'legacyTotal'],
   );
 });
@@ -469,14 +490,14 @@ pageTest('a dismissed chip lists the changes whose concerns the reader dismissed
 pageTest('hovering a When row tints the line it cites, until the pointer leaves the row or the tab', async () => {
   await key('v');
   await key('j');
-  const cited = () => $('.unit-code .row[data-line="10"]').classList.contains('hover-cite');
-  fireEvent.mouseOver($('.scn'));
+  const cited = () => $('[data-part="unit-code"] .row[data-line="10"]').classList.contains('hover-cite');
+  fireEvent.mouseOver($('[data-part="scn"]'));
   await settle();
   assert.ok(cited());
-  fireEvent.mouseOut($('.scn'));
+  fireEvent.mouseOut($('[data-part="scn"]'));
   await settle();
   assert.ok(!cited());
-  fireEvent.mouseOver($('.scn'));
+  fireEvent.mouseOver($('[data-part="scn"]'));
   await settle();
   await key('v');
   await key('v');
@@ -487,8 +508,8 @@ pageTest('a deleted unit is its removed lines; o opens a unit in the code view',
   await key('v');
   await key('j');
   await key('j');
-  assert.equal($('.sum-item.active .name').textContent, 'legacyTotal');
-  assert.deepEqual(rows('.unit-code .code'), ['−17', '−18', '−19', '−20']);
+  assert.equal($('[data-part="sum-item"][data-active] [data-part="name"]').textContent, 'legacyTotal');
+  assert.deepEqual(rows('[data-part="unit-code"] .code'), ['−17', '−18', '−19', '−20']);
   await key('k');
   assert.equal($('#open-in-code [data-part="tip"] kbd').textContent, 'o', 'its button teaches the key');
   await key('o');
@@ -498,13 +519,13 @@ pageTest('a deleted unit is its removed lines; o opens a unit in the code view',
 
 pageTest('a concern marked real can be copied for the agent from the overview; none real, no block', async () => {
   await key('v');
-  assert.equal($$('.ov-real').length, 0, 'nothing is confirmed yet');
+  assert.equal($$('[data-part="ov-real"]').length, 0, 'nothing is confirmed yet');
   await key('j');
-  await click($('.concern .vbtn.v-real'));
+  await click($('[data-part="concern"] [data-part="vbtn"][data-mark="real"]'));
   await key('g');
-  assert.equal($('.ov-real-count').textContent, '1 confirmed concern in 1 change');
+  assert.equal($('[data-part="ov-real-count"]').textContent, '1 confirmed concern in 1 change');
 
-  await click($('.ov-real-copy'));
+  await click($('[data-part="ov-real-copy"]'));
   assert.equal(
     await navigator.clipboard.readText(),
     [
@@ -515,14 +536,14 @@ pageTest('a concern marked real can be copied for the agent from the overview; n
       '',
     ].join('\n'),
   );
-  assert.ok($('.ov-real-copy .lucide-check'));
+  assert.ok($('[data-part="ov-real-copy"] .lucide-check'));
   assert.equal($('#status [data-part="status-label"]').textContent, 'Copied 1 concern');
 
   // taking the verdict back takes the block away
   await key('j');
-  await click($('.concern .vbtn.v-real'));
+  await click($('[data-part="concern"] [data-part="vbtn"][data-mark="real"]'));
   await key('g');
-  assert.equal($$('.ov-real').length, 0);
+  assert.equal($$('[data-part="ov-real"]').length, 0);
 });
 
 test('the copied concerns name a removed line as one, in the order of the summary', async () => {
@@ -539,8 +560,8 @@ test('the copied concerns name a removed line as one, in the order of the summar
   );
   await open({}, '#summary', '', withMarks({ concerns: marks }));
   try {
-    assert.equal($('.ov-real-count').textContent, '2 confirmed concerns in 2 changes');
-    await click($('.ov-real-copy'));
+    assert.equal($('[data-part="ov-real-count"]').textContent, '2 confirmed concerns in 2 changes');
+    await click($('[data-part="ov-real-copy"]'));
     const text = await navigator.clipboard.readText();
     assert.match(text, /\d\. \[bug\] src\/orders\.ts:10 — findOrders\n {3}deleted is a string column\n/);
     assert.match(
@@ -565,8 +586,8 @@ test("a confirmed concern on code that changed since is counted, not copied: its
   const marks = { [`${unit.id}@oldhash#bug:N3:deleted is a string column`]: 'real' as const };
   await open({}, '#summary', '', withMarks({ concerns: marks }));
   try {
-    assert.equal($('.ov-real-count').textContent, '1 confirmed finding on code that changed since');
-    assert.equal($$('.ov-real-copy').length, 0, 'nothing to copy: its lines may point elsewhere now');
+    assert.equal($('[data-part="ov-real-count"]').textContent, '1 confirmed finding on code that changed since');
+    assert.equal($$('[data-part="ov-real-copy"]').length, 0, 'nothing to copy: its lines may point elsewhere now');
   } finally {
     payload.summary = fresh;
     await close();
@@ -576,7 +597,7 @@ test("a confirmed concern on code that changed since is counted, not copied: its
 pageTest('full units: the rest of the file sits above and below the unit, each behind a bar', async () => {
   await key('v');
   await key('j');
-  const code = '.unit-code .code';
+  const code = '[data-part="unit-code"] .code';
   const bar = (side: string) => $(code + ' .context.' + side + ' > .context-bar');
   const opened = (side: string) => rows(code + ' > .context.' + side + ' > .context-body');
   const unitRows = ['5', 'R6', '−9', 'R9', '10', '11', '12'];
@@ -588,13 +609,17 @@ pageTest('full units: the rest of the file sits above and below the unit, each b
   assert.deepEqual(rows(code), unitRows);
   assert.equal(bar('above').textContent!.trim(), '4 lines', 'nothing declared above it, nothing changed');
   assert.equal(bar('below').querySelector('.context-names')!.textContent, 'toOrder, formatTotal');
-  assert.equal(bar('below').querySelector('.counts')!.textContent, '−4', "legacyTotal's removed lines are below");
+  assert.equal(
+    bar('below').querySelector('[data-part="counts"]')!.textContent,
+    '−4',
+    "legacyTotal's removed lines are below",
+  );
   assert.ok(bar('below').querySelector('.mark.changed'));
   assert.equal(bar('below').querySelector('.context-count')!.textContent, '15 lines');
   // a closed stretch's change ticks the ruler at its bar; a click on the tick opens it
-  assert.deepEqual(ticks('.unit-card'), ['del O9', 'add N9', 'del O17', 'bug N10']);
+  assert.deepEqual(ticks('[data-card="unit-card"]'), ['del O9', 'add N9', 'del O17', 'bug N10']);
   assert.ok(!$(code + ' .context.below').classList.contains('open'));
-  await click($('.unit-card .ruler .tick[data-label="O17"]'));
+  await click($('[data-card="unit-card"] [data-part="ruler"] [data-part="tick"][data-label="O17"]'));
   assert.ok($(code + ' .context.below').classList.contains('open'));
   // open, it is the file's code, whole though hunks only is on
   assert.deepEqual(opened('below'), [
@@ -629,10 +654,14 @@ test('full units: a unit that owns part of a removed block shows that part once,
     await open({ 'lens.fullUnits': '1' }, '', '', { ...payload, summary: { ...payload.summary!, units } });
     await key('v');
     await key('j');
-    const code = '.unit-code .code';
+    const code = '[data-part="unit-code"] .code';
     assert.deepEqual(rows(code), ['5', 'R6', '−9', 'R9', '10', '11', '12', '−19', '−20']);
     const below = $(code + ' .context.below > .context-bar');
-    assert.equal(below.querySelector('.counts')!.textContent, '−2', 'only the lines the unit does not own');
+    assert.equal(
+      below.querySelector('[data-part="counts"]')!.textContent,
+      '−2',
+      'only the lines the unit does not own',
+    );
     await click(below);
     assert.deepEqual(rows(code + ' > .context.below > .context-body'), [
       ...['13', '14', '15', '16', '17', '−17', '−18'],
@@ -647,28 +676,36 @@ pageTest(
   'the changes in no flow sit under their file, which folds them out of the list and of j/k',
   async () => {
     const files = () =>
-      $$('.sum-file-title').map((title) => [
-        title.querySelector('.path')!.textContent,
-        title.querySelector('.n')!.textContent,
+      $$('[data-part="sum-file-title"]').map((title) => [
+        title.querySelector('[data-part="path"]')!.textContent,
+        title.querySelector('[data-part="n"]')!.textContent,
         title.getAttribute('aria-expanded'),
       ]);
-    const items = () => $$('.sum-item .name').map((name) => name.textContent);
+    const items = () => $$('[data-part="sum-item"] [data-part="name"]').map((name) => name.textContent);
     await key('t'); // the test file's unit shows too
     assert.deepEqual(files(), [['src/orders.ts', '2', 'true']], "a file with one change is that change's row");
     assert.deepEqual(items(), ['findOrders', 'legacyTotal', 'orders.test.ts']);
-    assert.equal($$('.sum-item .side').length, 0, 'the file is the heading, not a label on each');
-    assert.equal($$('.sum-section-title').length, 0, 'no story: no "Not in a story"');
+    assert.equal(
+      $$('[data-part="sum-item"] [data-part="side"]').length,
+      0,
+      'the file is the heading, not a label on each',
+    );
+    assert.equal($$('[data-part="sum-section-title"]').length, 0, 'no story: no "Not in a story"');
 
-    await click($('.sum-file-title'));
+    await click($('[data-part="sum-file-title"]'));
     assert.equal(files()[0][2], 'false');
     assert.deepEqual(items(), ['orders.test.ts']);
     await key('j');
-    assert.equal($('.sum-item.active .name').textContent, 'orders.test.ts', 'j skips the folded file');
+    assert.equal(
+      $('[data-part="sum-item"][data-active] [data-part="name"]').textContent,
+      'orders.test.ts',
+      'j skips the folded file',
+    );
 
     await type($('#sum-filter input'), 'legacy');
     assert.deepEqual(items(), ['legacyTotal'], 'a filter unfolds it');
     await type($('#sum-filter input'), '');
-    await click($('.sum-file-title'));
+    await click($('[data-part="sum-file-title"]'));
     assert.deepEqual(items(), ['findOrders', 'legacyTotal', 'orders.test.ts']);
   },
   {},
@@ -690,15 +727,20 @@ test('lens\'s own Housekeeping, before the agent has written a flow, sets nothin
   await open();
   try {
     await key('v');
-    assert.equal($('.sum-section-title.flow .t').textContent, 'Housekeeping');
-    assert.ok($('.sum-section-title.flow').closest('.sum-section')!.classList.contains('folded'), 'P3: folded');
+    assert.equal($('[data-part="sum-section-title"][data-flow] [data-part="t"]').textContent, 'Housekeeping');
+    assert.ok(
+      $('[data-part="sum-section-title"][data-flow]').closest('[data-part="sum-section"]')!.hasAttribute('data-folded'),
+      'P3: folded',
+    );
     assert.deepEqual(
-      $$('.sum-section-title:not(.flow)').map((title) => title.textContent),
+      $$('[data-part="sum-section-title"]:not([data-flow])').map((title) => title.textContent),
       [],
       'no "Not in a story" under it',
     );
     assert.deepEqual(
-      $$('.sum-section:not(.folded) .sum-item .name').map((name) => name.textContent),
+      $$('[data-part="sum-section"]:not(.folded) [data-part="sum-item"] [data-part="name"]').map(
+        (name) => name.textContent,
+      ),
       ['findOrders'],
       'the rest, by file',
     );
@@ -714,7 +756,7 @@ test('lens\'s own Housekeeping, before the agent has written a flow, sets nothin
     await key('v');
     await key('t');
     assert.deepEqual(
-      $$('.sum-section-title:not(.flow) .t').map((title) => title.textContent),
+      $$('[data-part="sum-section-title"]:not([data-flow]) [data-part="t"]').map((title) => title.textContent),
       ['Not in a story'],
       'beside a story it does',
     );
@@ -727,25 +769,33 @@ test('lens\'s own Housekeeping, before the agent has written a flow, sets nothin
 // ---- the inbox layout (⋯ → Summary → Inbox layout) ----
 
 const INBOX = { 'lens.summaryInbox': '1' };
-const cardNames = (root = '.inbox-rail') => $$(root + ' .inbox-card .caption-unit').map((name) => name.textContent);
+const cardNames = (root = '[data-part="inbox-rail"]') =>
+  $$(root + ' [data-part="inbox-card"] [data-part="caption-unit"]').map((name) => name.textContent);
 
 pageTest(
   'the inbox shows each flow as a section of cards, and reading one opens the next',
   async (page) => {
-    assert.equal($$('.sum-item').length, 0, 'the cards replace the list');
-    assert.deepEqual(cardNames('.inbox-flow.open .inbox-body'), ['findOrders', 'legacyTotal']);
-    assert.equal($('.inbox-flow-head .t').textContent, 'Not in a story');
-    assert.equal($('.inbox-flow-head .n').textContent, '2 to read');
-    assert.ok($('.inbox-card .icons .sig-bug'), 'a finding shows as its icon on the card');
+    assert.equal($$('[data-part="sum-item"]').length, 0, 'the cards replace the list');
+    assert.deepEqual(cardNames('[data-part="inbox-flow"][data-open] [data-part="inbox-body"]'), [
+      'findOrders',
+      'legacyTotal',
+    ]);
+    assert.equal($('[data-part="inbox-flow-head"] [data-part="t"]').textContent, 'Not in a story');
+    assert.equal($('[data-part="inbox-flow-head"] [data-part="n"]').textContent, '2 to read');
+    assert.ok($('[data-part="inbox-card"] [data-part="icons"] .sig-bug'), 'a finding shows as its icon on the card');
 
-    await click($$('.inbox-card')[0]);
+    await click($$('[data-part="inbox-card"]')[0]);
     assert.equal($('#summary-pane').dataset.unit, 'src/orders.ts#findOrders');
-    assert.ok($$('.inbox-card')[0].hasAttribute('data-selected'));
+    assert.ok($$('[data-part="inbox-card"]')[0].hasAttribute('data-selected'));
 
-    await click($$('.inbox-card .inbox-read-btn')[0]);
+    await click($$('[data-part="inbox-card"] [data-part="inbox-read-btn"]')[0]);
     assert.equal($('#summary-pane').dataset.unit, 'src/orders.ts#legacyTotal', 'the next change to read opens');
-    assert.deepEqual(cardNames('.inbox-body'), ['legacyTotal'], 'the read card left for the folded Read area');
-    assert.equal($('.inbox-read-toggle').textContent, 'Read 1');
+    assert.deepEqual(
+      cardNames('[data-part="inbox-body"]'),
+      ['legacyTotal'],
+      'the read card left for the folded Read area',
+    );
+    assert.equal($('[data-part="inbox-read-toggle"]').textContent, 'Read 1');
     assert.deepEqual(
       postedMarks(page).map((change) => (change as { on: boolean }).on),
       [true],
@@ -753,16 +803,16 @@ pageTest(
     );
 
     await key('m');
-    assert.equal($$('.inbox-flow.open').length, 0, 'a flow with nothing left to read folds itself');
-    assert.equal($('.inbox-flow-head .n').textContent, 'all read');
-    assert.ok($('.sum-overview-item').classList.contains('active'), 'none left: the overview');
+    assert.equal($$('[data-part="inbox-flow"][data-open]').length, 0, 'a flow with nothing left to read folds itself');
+    assert.equal($('[data-part="inbox-flow-head"] [data-part="n"]').textContent, 'all read');
+    assert.ok($('[data-part="sum-overview-item"]').hasAttribute('data-active'), 'none left: the overview');
 
-    await click($('.inbox-flow'));
-    assert.equal($$('.inbox-flow.open').length, 1, 'a click anywhere on a folded flow opens it');
-    await click($('.inbox-read-toggle'));
-    assert.deepEqual(cardNames('.inbox-read'), ['findOrders', 'legacyTotal']);
+    await click($('[data-part="inbox-flow"]'));
+    assert.equal($$('[data-part="inbox-flow"][data-open]').length, 1, 'a click anywhere on a folded flow opens it');
+    await click($('[data-part="inbox-read-toggle"]'));
+    assert.deepEqual(cardNames('[data-part="inbox-read"]'), ['findOrders', 'legacyTotal']);
     assert.deepEqual(
-      $$('.inbox-read .inbox-read-btn').map((button) => button.textContent),
+      $$('[data-part="inbox-read"] [data-part="inbox-read-btn"]').map((button) => button.textContent),
       ['Unread', 'Unread'],
     );
   },
@@ -773,13 +823,13 @@ pageTest(
 pageTest(
   'j steps into a folded flow and opens it; folding the open card’s flow keeps it folded',
   async () => {
-    await click($('.inbox-flow-head'));
-    assert.equal($$('.inbox-flow.open').length, 0);
+    await click($('[data-part="inbox-flow-head"]'));
+    assert.equal($$('[data-part="inbox-flow"][data-open]').length, 0);
     await key('j');
     assert.equal($('#summary-pane').dataset.unit, 'src/orders.ts#findOrders');
-    assert.equal($$('.inbox-flow.open').length, 1, 'stepping in opened it');
-    await click($('.inbox-flow-head'));
-    assert.equal($$('.inbox-flow.open').length, 0, 'the reader folds it, with its card open');
+    assert.equal($$('[data-part="inbox-flow"][data-open]').length, 1, 'stepping in opened it');
+    await click($('[data-part="inbox-flow-head"]'));
+    assert.equal($$('[data-part="inbox-flow"][data-open]').length, 0, 'the reader folds it, with its card open');
     assert.equal($('#summary-pane').dataset.unit, 'src/orders.ts#findOrders');
   },
   INBOX,
@@ -789,8 +839,8 @@ pageTest(
 pageTest(
   'the review pill in the inbox goes on to the next change to read, not past it',
   async () => {
-    const open = () => $('.inbox-card[data-selected] .caption-unit').textContent;
-    const names = cardNames('.inbox-body');
+    const open = () => $('[data-part="inbox-card"][data-selected] [data-part="caption-unit"]').textContent;
+    const names = cardNames('[data-part="inbox-body"]');
     assert.equal(names.length, 3);
     await click($('#review-next'));
     assert.equal(open(), names[0]);
@@ -805,11 +855,11 @@ pageTest(
 pageTest(
   'a change the review pill opens unfolds its folded flow, its card in sight',
   async () => {
-    await click($('.inbox-flow-head'));
-    assert.equal($$('.inbox-flow.open').length, 0);
+    await click($('[data-part="inbox-flow-head"]'));
+    assert.equal($$('[data-part="inbox-flow"][data-open]').length, 0);
     await click($('#review-next'));
-    assert.equal($$('.inbox-flow.open').length, 1, 'Start review opened the folded flow');
-    assert.equal($('.inbox-card[data-selected] .caption-unit').textContent, 'findOrders');
+    assert.equal($$('[data-part="inbox-flow"][data-open]').length, 1, 'Start review opened the folded flow');
+    assert.equal($('[data-part="inbox-card"][data-selected] [data-part="caption-unit"]').textContent, 'findOrders');
   },
   INBOX,
   '#summary',
@@ -818,14 +868,14 @@ pageTest(
 pageTest(
   "the ⋯ menu's Inbox layout switches the list between the classic rows and the inbox",
   async () => {
-    assert.ok($$('.sum-item').length > 0);
+    assert.ok($$('[data-part="sum-item"]').length > 0);
     await click($('#summary-inbox'));
-    assert.equal($$('.sum-item').length, 0);
+    assert.equal($$('[data-part="sum-item"]').length, 0);
     assert.deepEqual(cardNames(), ['findOrders', 'legacyTotal']);
     assert.equal(localStorage.getItem('lens.summaryInbox'), '1');
     await click($('#summary-inbox'));
-    assert.ok($$('.sum-item').length > 0);
-    assert.equal($$('.inbox-card').length, 0);
+    assert.ok($$('[data-part="sum-item"]').length > 0);
+    assert.equal($$('[data-part="inbox-card"]').length, 0);
   },
   {},
   '#summary',
@@ -835,7 +885,7 @@ pageTest(
   "⌥-click on a unit's code finds the identifier's usages, as in the Code view",
   async () => {
     await key('j');
-    const row = $$('.unit-code .row').find((candidate) => candidate.textContent!.includes('toOrder'))!;
+    const row = $$('[data-part="unit-code"] .row').find((candidate) => candidate.textContent!.includes('toOrder'))!;
     const walker = document.createTreeWalker(row, NodeFilter.SHOW_TEXT);
     let text: Node | null = walker.nextNode();
     while (text && !text.textContent!.includes('toOrder')) text = walker.nextNode();

@@ -56,15 +56,15 @@ export function Tag({ children, color, dot, icon, mono, onClick, pressed, id, ti
   );
   if (!onClick) {
     return (
-      <span {...data} {...hook} id={id} className={classes} style={style} title={title}>
+      <span {...hook} {...data} id={id} className={classes} style={style} title={title}>
         {inner}
       </span>
     );
   }
   return (
     <button
-      {...data}
       {...hook}
+      {...data}
       id={id}
       type='button'
       className={classes}

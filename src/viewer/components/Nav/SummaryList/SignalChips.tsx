@@ -17,7 +17,8 @@ export function SignalChips({ counts, signal }: SignalChipsProps) {
     // the signal's color once it's on; till then only on its icon
     <Tag
       key={id}
-      className={clsx('sig-chip', id !== 'any' && 'sig-' + id)}
+      data-part='sig-chip'
+      className={clsx(id !== 'any' && 'sig-' + id, '[&>span:first-child]:text-(--sig)')}
       data-sig={id}
       color={signal === id ? 'var(--sig)' : undefined}
       icon={id !== 'any' && <SignalIcon signal={id} size={11} />}
@@ -25,13 +26,15 @@ export function SignalChips({ counts, signal }: SignalChipsProps) {
       onClick={() => setSignalFilter(id)}
     >
       {label}
-      <span className='n'>{counts[id]}</span>
+      <span data-part='n' className='text-text tabular-nums'>
+        {counts[id]}
+      </span>
     </Tag>
   );
   const present = (Object.keys(SIGNALS) as SignalId[]).filter((id) => counts[id] > 0);
 
   return (
-    <div className='sig-chips'>
+    <div className='flex flex-wrap gap-1 px-1 pt-1 pb-2'>
       {counts.any > 0 && chip('any', 'all flagged')}
       {present.map((id) => chip(id, SIGNALS[id].many))}
       {counts.dismissed > 0 && chip('dismissed', 'dismissed')}

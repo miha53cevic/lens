@@ -14,9 +14,14 @@ export function AgentOverview({ summary, anySummarized, checking }: AgentOvervie
   const overview = summary.overview;
   if (!overview && summary.checkout) {
     return (
-      <div className='ov-what' id='no-summary'>
-        <div className='ov-what-label eyebrow'>Agent summary</div>
-        <p className='ov-how'>
+      <div
+        className='[&_p]:mt-0 [&_p]:mb-4 [&_p]:max-w-[72ch] [&_p]:text-lg/[1.65] [&_p]:text-pretty [&_p]:text-text'
+        id='no-summary'
+      >
+        <div data-part='ov-what-label' className='mb-1 text-accent eyebrow'>
+          Agent summary
+        </div>
+        <p className='[&&]:m-0 [&&]:text-md/[1.6] [&&]:text-muted'>
           <CheckoutFirst branch={summary.checkout} />
         </p>
       </div>
@@ -24,7 +29,7 @@ export function AgentOverview({ summary, anySummarized, checking }: AgentOvervie
   }
   if (!overview && anySummarized) {
     return (
-      <div className='sum-note'>
+      <div data-part='sum-note' className='rounded-md border border-line bg-surface px-3 py-2 text-md/[1.5] text-muted'>
         No overview yet — run <CopyCommand command={summary.command} /> again to add one.
       </div>
     );
@@ -34,11 +39,18 @@ export function AgentOverview({ summary, anySummarized, checking }: AgentOvervie
     if (checking) return null;
     // nothing summarized yet: how to get a summary, where it will be
     return (
-      <div className='ov-what' id='no-summary'>
-        <div className='ov-what-label eyebrow'>Agent summary</div>
-        <p className='ov-how'>Not written yet. Your coding agent writes it: run this in it.</p>
+      <div
+        className='[&_p]:mt-0 [&_p]:mb-4 [&_p]:max-w-[72ch] [&_p]:text-lg/[1.65] [&_p]:text-pretty [&_p]:text-text'
+        id='no-summary'
+      >
+        <div data-part='ov-what-label' className='mb-1 text-accent eyebrow'>
+          Agent summary
+        </div>
+        <p className='[&&]:m-0 [&&]:text-md/[1.6] [&&]:text-muted'>
+          Not written yet. Your coding agent writes it: run this in it.
+        </p>
         <CopyCommand command={summary.command} block />
-        <p className='ov-how'>
+        <p className='[&&]:m-0 [&&]:text-md/[1.6] [&&]:text-muted'>
           Without the skill, any agent with a shell can follow <CopyCommand command={summary.cli} />. It appears here
           when it's done.
         </p>
@@ -47,14 +59,20 @@ export function AgentOverview({ summary, anySummarized, checking }: AgentOvervie
   }
   return (
     <>
-      <div className='ov-what'>
-        <div className='ov-what-label eyebrow'>Agent summary</div>
+      <div className='[&_p]:mt-0 [&_p]:mb-4 [&_p]:max-w-[72ch] [&_p]:text-lg/[1.65] [&_p]:text-pretty [&_p]:text-text'>
+        <div data-part='ov-what-label' className='mb-1 text-accent eyebrow'>
+          Agent summary
+        </div>
         {overview.what.split('\n\n').map((paragraph, paragraphIndex) => (
           <p key={paragraphIndex}>{paragraph}</p>
         ))}
       </div>
       {overview.stale && (
-        <div className='sum-note stale'>
+        <div
+          data-part='sum-note'
+          data-stale=''
+          className='rounded-md border border-[color-mix(in_oklab,var(--mod)_var(--tint-line),transparent)] bg-surface px-3 py-2 text-md/[1.5] text-mod'
+        >
           The diff changed since this overview was written.{' '}
           {summary.checkout ? (
             <CheckoutFirst branch={summary.checkout} />

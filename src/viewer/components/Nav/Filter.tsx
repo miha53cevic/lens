@@ -16,7 +16,8 @@ interface FilterProps {
 export function Filter({ inputId, clearId, wrapperId, hidden, placeholder, value, onChange }: FilterProps) {
   return (
     <Field
-      className='nav-filter'
+      data-part='nav-filter'
+      className='sticky top-[calc(-1*var(--space-4))] z-(--z-sticky) mb-2'
       wrapperId={wrapperId}
       style={hiddenStyle(hidden)}
       icon={<Search size={13} />}

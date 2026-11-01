@@ -23,7 +23,7 @@ function openCode(): { code: HTMLElement; path: string; id: string } | null {
     return file && code ? { code, path: file.file, id: file.file } : null;
   }
   const unit = currentUnit(state);
-  const code = document.querySelector<HTMLElement>('.unit-code .code');
+  const code = document.querySelector<HTMLElement>('[data-part="unit-code"] .code');
   return unit && code ? { code, path: unit.displayFile, id: unit.id } : null;
 }
 
@@ -41,7 +41,7 @@ function readerAt(rows: HTMLElement[], path: string): number {
     const at = rows.findIndex((row) => rowLabel(row) === landed.label);
     if (at !== -1) return at;
   }
-  const scroller = rows[0]?.closest<HTMLElement>('.code-body, .summary-pane');
+  const scroller = rows[0]?.closest<HTMLElement>('[data-part="code-body"], [data-part="summary-pane"]');
   if (!scroller) return -1;
   const top = scroller.getBoundingClientRect().top;
   // rows in a folded stretch aren't laid out (no offsetParent): they are not in sight

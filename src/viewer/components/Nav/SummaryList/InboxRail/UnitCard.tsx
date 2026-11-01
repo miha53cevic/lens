@@ -28,16 +28,32 @@ export function UnitCard({ unit, active }: { unit: Unit; active: boolean }) {
   return (
     <div
       ref={active ? keepInSight : undefined}
-      {...listRow(active, clsx('inbox-card', read && 'read', !summary && 'pending'))}
+      {...listRow(
+        active,
+        // a card keeps its ground under the pointer: its edge answers. Read: still a card on the flow's ground
+        // (a light theme loses a see-through one), only quieter
+        clsx(
+          'group/card grid cursor-pointer grid-cols-[minmax(0,1fr)_auto] gap-x-2 gap-y-1 rounded-md border border-line bg-raised p-3 not-data-selected:hover:border-line-strong not-data-selected:hover:bg-raised data-selected:border-selected-ring',
+          read ? 'shadow-none' : 'shadow-1',
+          active && 'data-selected:shadow-[0_0_0_1px_var(--selected-ring),var(--elev-1)]',
+        ),
+      )}
+      data-part='inbox-card'
+      data-read={read || undefined}
+      data-pending={summary ? undefined : ''}
       data-inbox-unit={unit.id}
       role='button'
       onClick={() => openSummaryUnit(unit.id)}
     >
-      <span className='title'>{summary ? summary.headline : unitLabel(unit)}</span>
+      <span className='self-baseline text-md leading-[1.35] font-semibold text-text group-data-pending/card:font-normal group-data-pending/card:text-faint group-data-pending/card:italic group-data-read/card:font-medium group-data-read/card:text-muted'>
+        {summary ? summary.headline : unitLabel(unit)}
+      </span>
       <Button
         variant='ghost'
         size='xs'
-        className='inbox-read-btn'
+        data-part='inbox-read-btn'
+        // text only: the way a caption reads, its text alone answers the pointer
+        className='h-auto self-baseline border-0 p-0 text-xs leading-[1.35] font-medium text-faint group-hover/card:text-muted group-data-selected/card:text-muted not-disabled:hover:bg-transparent not-disabled:hover:font-semibold not-disabled:hover:text-text'
         aria-pressed={read}
         onClick={(event) => {
           event.stopPropagation();
@@ -46,25 +62,34 @@ export function UnitCard({ unit, active }: { unit: Unit; active: boolean }) {
       >
         {read ? 'Unread' : 'Read'}
       </Button>
-      <span className='caption' title={unit.displayFile}>
-        <span className='caption-file'>{baseName(unit.displayFile)}</span>
-        <span className='caption-sep'>›</span>
-        <span className='caption-unit'>{unitLabel(unit)}</span>
+      <span className='flex min-w-0 items-baseline gap-1 text-xs text-faint' title={unit.displayFile}>
+        <span className='min-w-0 overflow-hidden text-ellipsis whitespace-nowrap'>{baseName(unit.displayFile)}</span>
+        <span className='flex-none'>›</span>
+        <span
+          data-part='caption-unit'
+          className='max-w-[60%] flex-none overflow-hidden text-ellipsis whitespace-nowrap'
+        >
+          {unitLabel(unit)}
+        </span>
       </span>
-      <span className='icons'>
+      <span data-part='icons' className='inline-flex items-center justify-end gap-1 group-data-read/card:opacity-60'>
         {unitSignals(marks, unit).map((signal) => (
-          <span key={signal} className={clsx('sig', 'sig-' + signal)} title={signalTip(marks, unit, signal)}>
+          <span
+            key={signal}
+            className={clsx('inline-flex text-(--sig)', 'sig-' + signal)}
+            title={signalTip(marks, unit, signal)}
+          >
             <SignalIcon signal={signal} size={12} />
           </span>
         ))}
         {drawn && (
-          <span className='drawn' title='Has a preview or a sequence'>
+          <span data-part='drawn' className='inline-flex text-muted' title='Has a preview or a sequence'>
             <PanelsTopLeft size={12} />
           </span>
         )}
       </span>
-      {unit.stale && <span className='note'>code changed — re-run</span>}
-      {changed && !unit.stale && <span className='note'>changed since you read it</span>}
+      {unit.stale && <span className='col-[1/-1] text-xs text-mod'>code changed — re-run</span>}
+      {changed && !unit.stale && <span className='col-[1/-1] text-xs text-mod'>changed since you read it</span>}
     </div>
   );
 }

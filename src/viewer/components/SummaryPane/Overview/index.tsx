@@ -27,19 +27,28 @@ export function Overview() {
   const flagged = SHOWN_SIGNALS.filter((signal) => list.counts[signal] > 0);
 
   return (
-    <div className='sum-inner ov-page'>
-      <div className='kicker'>
+    <div
+      data-part='sum-inner'
+      className='flex flex-col gap-5 px-6 pt-6 pb-[104px] [&>*]:min-w-0 mx-auto w-full max-w-[760px]'
+    >
+      <div data-part='kicker' className='-mb-3 flex items-center gap-2 text-md text-muted'>
         {plural(units.length, 'change') + ' in ' + plural(fileCount, 'file')}
-        {stale > 0 && <span className='stale-count'>{' · ' + stale + ' stale'}</span>}
+        {stale > 0 && <span className='text-mod'>{' · ' + stale + ' stale'}</span>}
       </div>
-      <h1 className='sum-headline'>{label ?? 'The changes'}</h1>
+      <h1
+        data-part='sum-headline'
+        className='m-0 font-serif text-2xl/[1.22] font-bold tracking-[-0.015em] text-balance text-text'
+      >
+        {label ?? 'The changes'}
+      </h1>
       {flagged.length > 0 && (
-        <div className='ov-stats'>
+        <div className='-mt-2 flex flex-wrap gap-2'>
           {flagged.map((signal) => (
             // the list's signal filters (SignalChips), at the overview's size: the color once it's on
             <Tag
               key={signal}
-              className={clsx('ov-stat', 'sig-' + signal)}
+              data-part='ov-stat'
+              className={clsx('sig-' + signal, '[&>span:first-child]:text-(--sig) [&_b]:text-text [&_b]:tabular-nums')}
               data-sig={signal}
               color={list.signal === signal ? 'var(--sig)' : undefined}
               icon={<SignalIcon signal={signal} size={11} />}

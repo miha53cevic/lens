@@ -8,15 +8,15 @@ import { clearData, VIEWER_KINDS } from '../../actions/clear.ts';
 import { countText } from '../../../cli-app/text.ts';
 import { Button } from '../../../ui/Button.tsx';
 import { ChoiceList } from '../../../ui/Choice.tsx';
-import { ModalHead } from '../ModalHead.tsx';
+import { DIALOG, ModalHead } from '../ModalHead.tsx';
+import { cn } from '../../../ui/cn.ts';
 import { KindRow } from './KindRow.tsx';
-import './style.css';
 
 /** ⋯ → Clear saved data…: what lens keeps, one row per kind; nothing goes until it's ticked and Clear is pressed. */
 export function ClearDataDialog() {
   const info = useLens((state) => state.clearInfo);
   return (
-    <dialog id='clear-modal'>
+    <dialog id='clear-modal' className={cn(DIALOG, 'w-[min(480px,calc(var(--screen-w)*0.9))]')}>
       <ModalHead title='Clear saved data' />
       {/* a fresh pick on every opening: nothing stays ticked from the last one */}
       {info && <Picker key={info.opened} kinds={info.kinds} />}
@@ -53,7 +53,7 @@ function Picker({ kinds }: { kinds: ClearInfoResponse['kinds'] }) {
 
   return (
     <>
-      <div className='modal-body clear-body'>
+      <div data-part='modal-body' className='min-h-0 flex-1 overflow-y-auto px-4 pt-4 pb-5 text-md grid gap-3'>
         <ChoiceList type='checkbox' label='What to clear'>
           {kinds.map((kind) => {
             const scope = scopes[kind.id];
@@ -89,15 +89,19 @@ function Picker({ kinds }: { kinds: ClearInfoResponse['kinds'] }) {
           ))}
         </ChoiceList>
         {gone.length > 0 && (
-          <ul className='clear-gone' aria-label='what goes'>
+          <ul
+            data-part='clear-gone'
+            className="m-0 grid list-none gap-1 rounded-md bg-[color-mix(in_oklab,var(--danger)_var(--tint),transparent)] px-3 py-2 [&_li]:font-mono [&_li]:text-xs [&_li]:[overflow-wrap:anywhere] [&_li]:before:text-danger [&_li]:before:content-['−_']"
+            aria-label='what goes'
+          >
             {gone.map((what) => (
               <li key={what}>{what}</li>
             ))}
           </ul>
         )}
       </div>
-      <div className='clear-foot'>
-        <span className='clear-hint'>Settings stay. The agent can write a summary again.</span>
+      <div className='flex flex-none items-center gap-2 border-t border-line px-4 py-3'>
+        <span className='min-w-0 flex-1 text-sm text-faint'>Settings stay. The agent can write a summary again.</span>
         <form method='dialog'>
           <Button variant='ghost'>Cancel</Button>
         </form>

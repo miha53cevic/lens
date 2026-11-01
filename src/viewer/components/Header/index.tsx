@@ -16,7 +16,6 @@ import { ViewSwitch } from './ViewSwitch.tsx';
 import { ThemeMenu } from './ThemeMenu.tsx';
 import { MoreMenu } from './MoreMenu.tsx';
 import { TopBar, TopBarDivider } from '../../../ui/TopBar.tsx';
-import './style.css';
 
 export function Header() {
   const header = useLens((state) => ({
@@ -40,13 +39,17 @@ export function Header() {
       <Brand />
       {/* PR mode: "owner/repo#N — title" */}
       {header.label && (
-        <span className='header-title' id='pr-label' title={header.label}>
+        <span
+          className='max-w-[calc(var(--screen-w)*0.34)] min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-muted'
+          id='pr-label'
+          title={header.label}
+        >
           {header.label}
         </span>
       )}
-      <span className='spacer' />
+      <span className='flex-1' />
       <ViewSwitch />
-      <span className='spacer' />
+      <span className='flex-1' />
       <IconButton id='search-btn' label='Search in files' shortcut='⌘P' onClick={() => openSearch()}>
         <Search size={16} />
       </IconButton>

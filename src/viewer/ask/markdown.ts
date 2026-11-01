@@ -26,7 +26,7 @@ function citeMarker(cite: AskCite, env: AskEnv): string {
   if (index < 0) index = env.used.push(cite) - 1;
   const ref = escapeHtml(cite.ref);
   return (
-    '<button class="ask-cite ask-mark" ' +
+    '<button data-part="ask-mark" class="inline-flex h-[16px] min-w-[16px] items-center justify-center rounded-full border border-line-strong mr-1 px-1 align-[2px] font-mono text-2xs leading-none font-semibold text-muted hover:border-accent hover:text-text" ' +
     citeData(cite) +
     ' title="' +
     ref +
@@ -56,10 +56,11 @@ function linkCites(html: string, env: AskEnv): string {
 function citeSources(used: AskCite[]): string {
   if (used.length === 0) return '';
   const items = used.map(
-    (cite) => '<li><button class="cite ask-cite" ' + citeData(cite) + '>' + escapeHtml(cite.ref) + '</button></li>',
+    (cite) =>
+      '<li><button data-part="cite" class="cite" ' + citeData(cite) + '>' + escapeHtml(cite.ref) + '</button></li>',
   );
   return (
-    '<details class="ask-sources">' +
+    '<details data-part="ask-sources" class="mb-2 [&_summary]:-ml-2 [&_summary]:text-xs [&_summary]:text-faint [&_ol]:mx-0 [&_ol]:mt-1 [&_ol]:mb-0 [&_ol]:grid [&_ol]:gap-1 [&_ol]:text-xs">' +
     disclosureSummaryHtml(plural(used.length, 'source')) +
     '<ol>' +
     items.join('') +
@@ -80,13 +81,19 @@ function flowLane(content: string, env: AskEnv): string | null {
     steps.push({ layer: match[1].trim(), text: match[2] });
   }
   if (steps.length === 0) return null;
-  let html = '<ol class="ask-flow">';
+  let html = '<ol data-part="ask-flow" class="mb-2 list-none rounded-md border border-line bg-surface px-3 py-2">';
   // a layer is named once over its run of steps, so a hop to another one stands out
   steps.forEach((step, index) => {
     if (index === 0 || steps[index - 1].layer !== step.layer) {
-      html += '<li class="ask-flow-layer eyebrow sm">' + escapeHtml(step.layer) + '</li>';
+      html +=
+        '<li data-part="ask-flow-layer" class="eyebrow sm mt-2 font-mono leading-[1.6] text-muted first:mt-0">' +
+        escapeHtml(step.layer) +
+        '</li>';
     }
-    html += '<li class="ask-flow-step">' + linkCites(escapeHtml(step.text), env) + '</li>';
+    html +=
+      '<li data-part="ask-flow-step" class="relative ml-1 border-l-2 border-line-strong py-1 pl-4 text-sm/[1.5] before:absolute before:top-[11px] before:left-[-5px] before:size-2 before:rounded-full before:bg-accent before:content-[&quot;&quot;]">' +
+      linkCites(escapeHtml(step.text), env) +
+      '</li>';
   });
   return html + '</ol>\n';
 }
@@ -129,5 +136,9 @@ export function askMarkdown(markdown: string, cites: AskCite[], files: { file: s
   const html = parser.render(markdown, env);
   const read = READ_LINE.exec(html);
   if (!read) return html + citeSources(env.used);
-  return html.slice(0, read.index) + citeSources(env.used) + read[0].replace('<p>', '<p class="ask-read">');
+  return (
+    html.slice(0, read.index) +
+    citeSources(env.used) +
+    read[0].replace('<p>', '<p data-part="ask-read" class="text-xs text-faint">')
+  );
 }

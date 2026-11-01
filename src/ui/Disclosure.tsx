@@ -20,7 +20,7 @@ interface DisclosureProps extends ButtonHTMLAttributes<HTMLButtonElement> {
  */
 export function Disclosure({ open, className, children, ...props }: DisclosureProps) {
   return (
-    <button type='button' {...props} aria-expanded={open} data-part='disclosure' className={cn(DISCLOSURE, className)}>
+    <button type='button' data-part='disclosure' {...props} aria-expanded={open} className={cn(DISCLOSURE, className)}>
       <ChevronRight className={clsx('pk', CARET, open && 'open')} size={12} />
       {children}
     </button>

@@ -27,7 +27,7 @@ function NotesForAgent() {
   const handoff = useLens((state) => (state.data.summary ? null : notesForAgent(state.notes, state.data.files)));
   if (!handoff || handoff.notes.length === 0) return null;
   return (
-    <span className='legend notes-for-agent'>
+    <span data-part='notes-for-agent' className='inline-flex flex-wrap items-center gap-1 text-xs text-muted'>
       {plural(handoff.notes.length, 'note')} for your agent
       <Button variant='ghost' size='xs' id='notes-copy' onClick={() => void copyForAgent(handoff)}>
         <Copy size={11} /> Copy
@@ -39,7 +39,11 @@ function NotesForAgent() {
 /** How many were viewed, then changed: they count as not viewed again, and this says why. */
 function ChangedLegend({ changed }: { changed: number }) {
   if (changed === 0) return null;
-  return <span className='legend changed'>{changed} changed since viewed</span>;
+  return (
+    <span data-part='legend' data-changed='' className='text-xs text-mod'>
+      {changed} changed since viewed
+    </span>
+  );
 }
 
 /** The top of the Summary tab's list: how many changes the reader reviewed, and how many are flagged. */
@@ -56,7 +60,9 @@ export function ChangesProgress() {
   });
   return (
     <ProgressRing done={done} total={total} label={total === 1 ? 'change reviewed' : 'changes reviewed'}>
-      <span className='legend'>{legend}</span>
+      <span data-part='legend' className='text-xs text-faint'>
+        {legend}
+      </span>
       <ChangedLegend changed={changed} />
     </ProgressRing>
   );

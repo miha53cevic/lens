@@ -20,5 +20,5 @@ interface ListRowProps extends ComponentProps<'button'> {
 
 /** A row of a list that opens what it names. */
 export function ListRow({ selected = false, className, ...props }: ListRowProps) {
-  return <button {...props} {...listRow(selected, className)} />;
+  return <button {...listRow(selected, className)} {...props} />;
 }

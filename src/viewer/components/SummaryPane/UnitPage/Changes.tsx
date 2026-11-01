@@ -11,23 +11,29 @@ interface ChangesProps {
 /** What behaves differently, one sentence per situation: when …, what it did, what it does now, and the line that causes it. */
 export function Changes({ changes, onHover }: ChangesProps) {
   return (
-    <div className='chg'>
-      <div className='section-label eyebrow'>What behaves differently</div>
+    <div className='flex flex-col gap-2'>
+      <div data-part='section-label' className='eyebrow mb-1'>
+        What behaves differently
+      </div>
       {changes.map((change, changeIndex) => (
         <p
           key={changeIndex}
-          className='scn'
+          data-part='scn'
+          className='-mx-2 my-0 rounded-md px-2 py-1 text-base/[1.6] hover:bg-hover-bg [&_del]:text-muted [&_del]:decoration-del [&_ins]:rounded-xs [&_ins]:bg-add-bg [&_ins]:px-1 [&_ins]:text-text [&_ins]:no-underline [&_ins]:shadow-[inset_0_-1.5px_0_var(--add)]'
           data-line={change.line}
           onMouseEnter={() => onHover(change.line)}
           onMouseLeave={() => onHover(null)}
         >
-          <span className='when'>When {change.when}:</span>{' '}
+          <span className='font-serif text-muted italic'>When {change.when}:</span>{' '}
           {change.before ? (
             <>
-              <del>{change.before}</del> <ArrowRight size={12} className='to' />{' '}
+              <del>{change.before}</del> <ArrowRight size={12} className='align-[-1px] text-faint' />{' '}
             </>
           ) : (
-            <span className='new-b eyebrow sm' title="behavior that didn't exist before">
+            <span
+              className='mr-2 rounded-xs bg-add p-1 align-[2px] leading-none text-surface eyebrow sm'
+              title="behavior that didn't exist before"
+            >
               new
             </span>
           )}

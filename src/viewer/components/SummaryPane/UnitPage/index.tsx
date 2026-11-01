@@ -30,14 +30,29 @@ export function UnitPage({ unit }: { unit: Unit }) {
   const summary = unit.summary;
 
   return (
-    <div className='sum-inner'>
+    <div data-part='sum-inner' className='flex flex-col gap-5 px-6 pt-6 pb-[104px] [&>*]:min-w-0'>
       {summary ? (
-        <h1 className='sum-headline'>{summary.headline}</h1>
+        <h1
+          data-part='sum-headline'
+          className='m-0 font-serif text-2xl/[1.22] font-bold tracking-[-0.015em] text-balance text-text'
+        >
+          {summary.headline}
+        </h1>
       ) : (
-        <h1 className='sum-headline pending'>{unitLabel(unit)}</h1>
+        <h1
+          data-part='sum-headline'
+          data-pending=''
+          className='m-0 font-mono text-xl/[1.3] font-medium text-balance text-muted'
+        >
+          {unitLabel(unit)}
+        </h1>
       )}
       {unit.stale ? (
-        <div className='sum-note stale'>
+        <div
+          data-part='sum-note'
+          data-stale=''
+          className='rounded-md border border-[color-mix(in_oklab,var(--mod)_var(--tint-line),transparent)] bg-surface px-3 py-2 text-md/[1.5] text-mod'
+        >
           The code changed since this was summarized.{' '}
           {checkout ? (
             <CheckoutFirst branch={checkout} />
@@ -49,7 +64,10 @@ export function UnitPage({ unit }: { unit: Unit }) {
         </div>
       ) : (
         !summary && (
-          <div className='sum-note'>
+          <div
+            data-part='sum-note'
+            className='rounded-md border border-line bg-surface px-3 py-2 text-md/[1.5] text-muted'
+          >
             Not summarized yet.{' '}
             {checkout ? (
               <CheckoutFirst branch={checkout} />
@@ -72,7 +90,8 @@ export function UnitPage({ unit }: { unit: Unit }) {
         added={unit.changedLines.length}
         removed={removedCount(unit.removals)}
         tag={unit.formattingOnly ? 'formatting only' : undefined}
-        className='unit-card'
+        part='unit-card'
+        className=''
         ruler={<UnitRuler unit={unit} />}
         action={
           inCodeView && (

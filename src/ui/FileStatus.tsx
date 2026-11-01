@@ -18,6 +18,9 @@ const NAMES: Record<FileStatus, string> = {
   excluded: 'Excluded',
 };
 
+/** Its color, as --tone, for what shows a status its own way (a code card's top edge). */
+export const fileStatusTone = (status: FileStatus): string => TONES[status];
+
 /** A file's or a unit's status, as these components name it. */
 export function fileStatus(status: string): FileStatus {
   return status === 'new' ? 'added' : (status as FileStatus);

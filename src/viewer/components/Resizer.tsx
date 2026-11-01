@@ -1,6 +1,5 @@
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { hiddenStyle } from '../shared.ts';
-import './Resizer.css';
 
 interface ResizerProps {
   id: string;
@@ -22,13 +21,13 @@ export function Resizer({ id, label, panelId, hidden, widthAt, onResized }: Resi
     down.preventDefault();
     const handle = down.currentTarget;
     handle.setPointerCapture(down.pointerId);
-    handle.classList.add('dragging');
+    handle.dataset.dragging = '';
     document.body.style.userSelect = 'none';
     const move = (event: PointerEvent) => {
       panel.style.width = widthAt(event, panel) + 'px';
     };
     const up = () => {
-      handle.classList.remove('dragging');
+      delete handle.dataset.dragging;
       document.body.style.userSelect = '';
       handle.removeEventListener('pointermove', move);
       handle.removeEventListener('pointerup', up);
@@ -42,7 +41,7 @@ export function Resizer({ id, label, panelId, hidden, widthAt, onResized }: Resi
 
   return (
     <div
-      className='resizer'
+      className='w-[9px] flex-none cursor-col-resize bg-line bg-clip-content px-1 [transition:background-color_var(--motion)] hover:bg-accent data-dragging:bg-accent'
       id={id}
       role='separator'
       aria-label={label}

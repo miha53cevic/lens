@@ -1,3 +1,4 @@
+import { LINE_NOTE } from './index.tsx';
 import { useState } from 'react';
 import clsx from 'clsx';
 import type { NoteKind } from '../../../cli-app/notes/store.ts';
@@ -28,11 +29,20 @@ export function NoteComposer({ draft }: { draft: NoteDraft }) {
     if (!blocked) void saveNote(kind, text);
   };
   return (
-    <div className={clsx('line-note', 'reader-note', 'composer', 'k-' + kind)} id='note-composer'>
-      <div className='rn-top'>
-        <b className='rn-kind eyebrow sm'>{draft.editing ? 'edit note' : 'your note'}</b>
-        <span className='rn-meta'>{draftPlace(draft)}</span>
-        <span className='rn-acts' role='group' aria-label='Kind'>
+    <div
+      data-part='line-note'
+      data-plain={kind === 'note' || undefined}
+      className={clsx(LINE_NOTE, 'k-' + kind)}
+      id='note-composer'
+    >
+      <div className='mb-1 flex flex-wrap items-center gap-x-2 gap-y-1'>
+        <b className='inline-flex items-center gap-1 text-(--k,var(--line-strong)) group-data-plain/note:text-muted eyebrow sm'>
+          {draft.editing ? 'edit note' : 'your note'}
+        </b>
+        <span data-part='rn-meta' className='min-w-0 font-mono text-2xs text-muted'>
+          {draftPlace(draft)}
+        </span>
+        <span className='ml-auto inline-flex flex-wrap items-center gap-1' role='group' aria-label='Kind'>
           {NOTE_KINDS.map((option) => (
             <Chip
               key={option.kind}
@@ -47,6 +57,7 @@ export function NoteComposer({ draft }: { draft: NoteDraft }) {
         </span>
       </div>
       <TextArea
+        className='mt-1 mb-2 w-full'
         id='note-input'
         rows={2}
         value={text}
@@ -66,8 +77,8 @@ export function NoteComposer({ draft }: { draft: NoteDraft }) {
           }
         }}
       />
-      <div className='rn-row'>
-        <span className='rn-hint'>
+      <div className='flex flex-wrap items-center gap-2'>
+        <span className='inline-flex min-w-0 flex-1 flex-wrap gap-3 text-xs text-muted'>
           <span>
             <Kbd size='sm' combo='↵' /> save
           </span>

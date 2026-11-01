@@ -1,4 +1,4 @@
-@layer legacy {
+@layer components {
   /*
  * The code's rows, in both views. Rows are memoized and their lines are prebuilt HTML:
  * keep these rules cheap (no :has() on rows) so big files stay fast.
@@ -338,5 +338,38 @@
   .code.split[data-side='left'] .half.right,
   .code.split[data-side='right'] .half.left {
     user-select: none;
+  }
+
+  /* the line a note is on: in its kind's color, a plain note's in neutral */
+  .row.noted {
+    background: color-mix(in oklab, var(--k, var(--line-strong)) var(--tint), transparent);
+  }
+  .row.noted .num {
+    color: var(--k, var(--text));
+    font-weight: 700;
+  }
+
+  /* a caller, in the peek at the code that calls it */
+  .row.call {
+    background: var(--del-bg);
+  }
+
+  /* what the summary adds to a change's rows */
+  .row.cited .num {
+    color: var(--accent);
+    font-weight: 700;
+  }
+  .row.hover-cite {
+    background: color-mix(in oklab, var(--accent) var(--tint), transparent);
+  }
+  .row.flagged {
+    background: color-mix(in oklab, var(--k) var(--tint), transparent);
+  }
+  .row.flagged .num {
+    color: var(--k);
+    font-weight: 700;
+  }
+  .unit-gap .num {
+    opacity: 0.6;
   }
 }

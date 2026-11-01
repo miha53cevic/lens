@@ -10,9 +10,11 @@ import { flip, growClosed, growOpen, places, riseInEach, stay } from '../../ui/m
 function flowSection(key: string): HTMLElement | null {
   return document.querySelector<HTMLElement>(`[data-inbox-flow="${CSS.escape(key)}"]`);
 }
-const flowBody = (key: string) => flowSection(key)?.querySelector<HTMLElement>(':scope > .inbox-body') ?? null;
-const readArea = (key: string) => flowSection(key)?.querySelector<HTMLElement>('.inbox-read') ?? null;
-const cardsIn = (root: Element | null) => (root ? [...root.querySelectorAll<HTMLElement>('.inbox-card')] : []);
+const flowBody = (key: string) =>
+  flowSection(key)?.querySelector<HTMLElement>(':scope > [data-part="inbox-body"]') ?? null;
+const readArea = (key: string) => flowSection(key)?.querySelector<HTMLElement>('[data-part="inbox-read"]') ?? null;
+const cardsIn = (root: Element | null) =>
+  root ? [...root.querySelectorAll<HTMLElement>('[data-part="inbox-card"]')] : [];
 const cardKey = (card: HTMLElement) => card.dataset.inboxUnit;
 
 function inboxFlow(state: LensState, key: string): InboxFlow | null {
@@ -92,9 +94,10 @@ export interface InboxMark {
 export function inboxMark(state: LensState, unit: Unit, viewedUnits: ReadonlySet<string>): InboxMark | null {
   const list = listModel(state);
   if (!list?.inbox || state.view !== 'summary') return null;
-  const rail = document.querySelector<HTMLElement>('.inbox-rail');
+  const rail = document.querySelector<HTMLElement>('[data-part="inbox-rail"]');
   const before = places(cardsIn(rail), cardKey);
-  const slide = () => flip(cardsIn(rail), cardKey, before, rail?.querySelector<HTMLElement>('.inbox-ghosts') ?? null);
+  const slide = () =>
+    flip(cardsIn(rail), cardKey, before, rail?.querySelector<HTMLElement>('[data-part="inbox-ghosts"]') ?? null);
   if (!viewedUnits.has(unitViewKey(unit))) return { patch: {}, done: slide };
 
   const isRead = (unitId: string) => {
