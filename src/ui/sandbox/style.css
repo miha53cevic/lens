@@ -1,114 +1,116 @@
-/* the sandbox's own layout: a column of sections, each a row of one primitive's states */
-.sandbox {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: var(--space-6) var(--space-7) var(--space-8);
-}
-.sandbox-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-}
-.sandbox-head h1 {
-  margin: 0;
-  font: 700 var(--text-xl) var(--font-serif);
-}
-.sandbox-section {
-  margin-top: var(--space-6);
-}
-.sandbox-section h2 {
-  margin: 0 0 var(--space-2);
-}
-.sandbox-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-4);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  background: var(--surface);
-}
-.sandbox-row .field {
-  width: 240px;
-}
-/* a row of tabs, and a list of rows, as their pages lay them out */
-.sandbox-tabs {
-  display: flex;
-  gap: var(--space-1);
-}
-.sandbox-rows {
-  display: grid;
-  gap: var(--space-1);
-  width: 260px;
-}
-.sandbox-rows .list-row {
-  padding: var(--space-1) var(--space-2);
-  font: var(--text-sm) var(--font-mono);
-}
-.sandbox-rows .disclosure {
-  color: var(--muted);
-  font: var(--text-sm) var(--font-mono);
-}
-.sandbox-note {
-  padding: 0 var(--space-6);
-  color: var(--faint);
-  font-size: var(--text-sm);
-}
-.sandbox-row .textarea {
-  width: 360px;
-}
-/* the bars, as wide as a page's */
-.sandbox-bars {
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-}
-/* a window's worth of the review's shape */
-.sandbox-review-skeleton {
-  display: flex;
-  height: 420px;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-}
-.sandbox-crash {
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-}
-.sandbox-skeleton-lines {
-  display: grid;
-  gap: var(--space-2);
-}
-.sandbox-space {
-  height: var(--space-4);
-  border-radius: var(--radius-xs);
-  background: var(--accent);
-}
-.sandbox-swatch {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  color: var(--muted);
-  font: var(--text-xs) var(--font-mono);
-}
-.sandbox-swatch i {
-  width: 24px;
-  height: 24px;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-sm);
-}
-.sandbox-lift {
-  display: inline-grid;
-  place-items: center;
-  width: 120px;
-  height: 56px;
-  margin: 0 var(--space-4) var(--space-5) 0;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-md);
-  background: var(--raised);
-  color: var(--muted);
-  font-size: var(--text-xs);
+@layer legacy {
+  /* the sandbox's own layout: a column of sections, each a row of one primitive's states */
+  .sandbox {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: var(--space-6) var(--space-7) var(--space-8);
+  }
+  .sandbox-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+  }
+  .sandbox-head h1 {
+    margin: 0;
+    font: 700 var(--text-xl) var(--font-serif);
+  }
+  .sandbox-section {
+    margin-top: var(--space-6);
+  }
+  .sandbox-section h2 {
+    margin: 0 0 var(--space-2);
+  }
+  .sandbox-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-4);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+  }
+  .sandbox-row .field {
+    width: 240px;
+  }
+  /* a row of tabs, and a list of rows, as their pages lay them out */
+  .sandbox-tabs {
+    display: flex;
+    gap: var(--space-1);
+  }
+  .sandbox-rows {
+    display: grid;
+    gap: var(--space-1);
+    width: 260px;
+  }
+  .sandbox-rows .list-row {
+    padding: var(--space-1) var(--space-2);
+    font: var(--text-sm) var(--font-mono);
+  }
+  .sandbox-rows .disclosure {
+    color: var(--muted);
+    font: var(--text-sm) var(--font-mono);
+  }
+  .sandbox-note {
+    padding: 0 var(--space-6);
+    color: var(--faint);
+    font-size: var(--text-sm);
+  }
+  .sandbox-row .textarea {
+    width: 360px;
+  }
+  /* the bars, as wide as a page's */
+  .sandbox-bars {
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+  }
+  /* a window's worth of the review's shape */
+  .sandbox-review-skeleton {
+    display: flex;
+    height: 420px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+  }
+  .sandbox-crash {
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+  }
+  .sandbox-skeleton-lines {
+    display: grid;
+    gap: var(--space-2);
+  }
+  .sandbox-space {
+    height: var(--space-4);
+    border-radius: var(--radius-xs);
+    background: var(--accent);
+  }
+  .sandbox-swatch {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    color: var(--muted);
+    font: var(--text-xs) var(--font-mono);
+  }
+  .sandbox-swatch i {
+    width: 24px;
+    height: 24px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+  }
+  .sandbox-lift {
+    display: inline-grid;
+    place-items: center;
+    width: 120px;
+    height: 56px;
+    margin: 0 var(--space-4) var(--space-5) 0;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-md);
+    background: var(--raised);
+    color: var(--muted);
+    font-size: var(--text-xs);
+  }
 }

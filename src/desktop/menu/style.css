@@ -1,5 +1,7 @@
-/* The page is a clear sheet over the whole window: only the menu on it is drawn. */
-html,
-body {
-  background: transparent;
+@layer legacy {
+  /* The page is a clear sheet over the whole window: only the menu on it is drawn. */
+  html,
+  body {
+    background: transparent;
+  }
 }

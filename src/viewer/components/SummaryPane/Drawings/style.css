@@ -1,151 +1,153 @@
-/* the agent's previews of the screens a change affects, and its sequence diagrams */
-.drawings {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-.drawings .section-label + .section-label,
-.drawing-card + .section-label {
-  margin-top: var(--space-2);
-}
-.drawing-card {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  background: var(--surface);
-  box-shadow: var(--elev-1);
-}
-.drawing-head {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: var(--control-h-lg);
-  padding: var(--space-2) var(--space-4);
-  border-bottom: 1px solid var(--line);
-  color: var(--muted);
-  font-size: var(--text-sm);
-}
-.drawing-head .spacer {
-  flex: 1;
-}
-.drawing-title {
-  overflow: hidden;
-  color: var(--text);
-  font-weight: 600;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-.drawing-stale {
-  color: var(--mod);
-}
-.drawing-foot {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-4);
-  padding: var(--space-2) var(--space-4);
-  border-top: 1px solid var(--line);
-}
-.drawing-note {
-  margin-left: auto;
-  color: var(--faint);
-  font-size: var(--text-xs);
-}
-.drawing-units {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-/* a preview: the agent's page in its own look, on the page's background */
-.preview-stage {
-  padding: var(--space-4);
-  background: var(--bg);
-}
-.preview-frame {
-  display: block;
-  width: 100%;
-  height: 360px;
-  border: 0;
-  border-radius: var(--radius-sm);
-  box-shadow: var(--elev-1);
-}
+@layer legacy {
+  /* the agent's previews of the screens a change affects, and its sequence diagrams */
+  .drawings {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+  .drawings .section-label + .section-label,
+  .drawing-card + .section-label {
+    margin-top: var(--space-2);
+  }
+  .drawing-card {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+    box-shadow: var(--elev-1);
+  }
+  .drawing-head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: var(--control-h-lg);
+    padding: var(--space-2) var(--space-4);
+    border-bottom: 1px solid var(--line);
+    color: var(--muted);
+    font-size: var(--text-sm);
+  }
+  .drawing-head .spacer {
+    flex: 1;
+  }
+  .drawing-title {
+    overflow: hidden;
+    color: var(--text);
+    font-weight: 600;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .drawing-stale {
+    color: var(--mod);
+  }
+  .drawing-foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-4);
+    padding: var(--space-2) var(--space-4);
+    border-top: 1px solid var(--line);
+  }
+  .drawing-note {
+    margin-left: auto;
+    color: var(--faint);
+    font-size: var(--text-xs);
+  }
+  .drawing-units {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+  /* a preview: the agent's page in its own look, on the page's background */
+  .preview-stage {
+    padding: var(--space-4);
+    background: var(--bg);
+  }
+  .preview-frame {
+    display: block;
+    width: 100%;
+    height: 360px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    box-shadow: var(--elev-1);
+  }
 
-/* a sequence: lanes as columns, steps as arrows; a step that opens its unit is a link */
-.sequence-stage {
-  overflow-x: auto;
-  padding: var(--space-3) var(--space-4);
-}
-.sequence {
-  display: block;
-  max-width: 100%;
-  height: auto;
-  margin: 0 auto;
-  font-family: var(--font-sans);
-}
-.seq-lane text {
-  fill: var(--text);
-  font-size: var(--text-sm);
-  font-weight: 600;
-}
-.seq-lane line {
-  stroke: var(--line);
-  stroke-dasharray: 3 4;
-}
-.seq-step line,
-.seq-step path {
-  fill: none;
-  stroke: var(--muted);
-  stroke-width: 1.3;
-}
-.seq-step text {
-  fill: var(--muted);
-  font-size: var(--text-xs);
-}
-.seq-head {
-  fill: var(--muted);
-  stroke: none;
-}
-.seq-step.added :is(line, path),
-.seq-step.changed :is(line, path),
-.seq-step.removed :is(line, path) {
-  stroke-width: 2;
-}
-.seq-step.added :is(line, path) {
-  stroke: var(--add);
-}
-.seq-step.changed :is(line, path) {
-  stroke: var(--mod);
-}
-.seq-step.removed :is(line, path) {
-  stroke: var(--del);
-  stroke-dasharray: 5 4;
-}
-.seq-head.added {
-  fill: var(--add);
-}
-.seq-head.changed {
-  fill: var(--mod);
-}
-.seq-head.removed {
-  fill: var(--del);
-}
-.seq-step.added text {
-  fill: var(--add);
-}
-.seq-step.changed text {
-  fill: var(--mod);
-}
-.seq-step.removed text {
-  fill: var(--del);
-}
-.seq-step.opens {
-  cursor: pointer;
-}
-.seq-step.opens:hover text {
-  text-decoration: underline;
-}
-.seq-step.mine text {
-  font-weight: 700;
+  /* a sequence: lanes as columns, steps as arrows; a step that opens its unit is a link */
+  .sequence-stage {
+    overflow-x: auto;
+    padding: var(--space-3) var(--space-4);
+  }
+  .sequence {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin: 0 auto;
+    font-family: var(--font-sans);
+  }
+  .seq-lane text {
+    fill: var(--text);
+    font-size: var(--text-sm);
+    font-weight: 600;
+  }
+  .seq-lane line {
+    stroke: var(--line);
+    stroke-dasharray: 3 4;
+  }
+  .seq-step line,
+  .seq-step path {
+    fill: none;
+    stroke: var(--muted);
+    stroke-width: 1.3;
+  }
+  .seq-step text {
+    fill: var(--muted);
+    font-size: var(--text-xs);
+  }
+  .seq-head {
+    fill: var(--muted);
+    stroke: none;
+  }
+  .seq-step.added :is(line, path),
+  .seq-step.changed :is(line, path),
+  .seq-step.removed :is(line, path) {
+    stroke-width: 2;
+  }
+  .seq-step.added :is(line, path) {
+    stroke: var(--add);
+  }
+  .seq-step.changed :is(line, path) {
+    stroke: var(--mod);
+  }
+  .seq-step.removed :is(line, path) {
+    stroke: var(--del);
+    stroke-dasharray: 5 4;
+  }
+  .seq-head.added {
+    fill: var(--add);
+  }
+  .seq-head.changed {
+    fill: var(--mod);
+  }
+  .seq-head.removed {
+    fill: var(--del);
+  }
+  .seq-step.added text {
+    fill: var(--add);
+  }
+  .seq-step.changed text {
+    fill: var(--mod);
+  }
+  .seq-step.removed text {
+    fill: var(--del);
+  }
+  .seq-step.opens {
+    cursor: pointer;
+  }
+  .seq-step.opens:hover text {
+    text-decoration: underline;
+  }
+  .seq-step.mine text {
+    font-weight: 700;
+  }
 }

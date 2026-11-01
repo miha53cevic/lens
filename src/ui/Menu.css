@@ -1,127 +1,129 @@
-.menu {
-  position: fixed;
-  inset: auto;
-  margin: 0;
-  width: 300px;
-  max-height: calc(var(--screen-h) - 80px);
-  overflow-y: auto;
-  padding: var(--space-2);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-lg);
-  background: var(--raised);
-  box-shadow: var(--elev-2);
-  color: var(--text);
-  font-size: var(--text-md);
-  /* it grows from its button's corner, and goes quicker than it came */
-  transform-origin: top right;
-  opacity: 0;
-  scale: 0.96;
-  translate: 0 -4px;
-  transition:
-    opacity var(--motion-exit),
-    scale var(--motion-exit),
-    translate var(--motion-exit),
-    display var(--motion-exit) allow-discrete,
-    overlay var(--motion-exit) allow-discrete;
-}
-.menu:popover-open {
-  opacity: 1;
-  scale: 1;
-  translate: 0 0;
-  transition:
-    opacity var(--motion-enter),
-    scale var(--motion-enter),
-    translate var(--motion-enter),
-    display var(--motion-enter) allow-discrete,
-    overlay var(--motion-enter) allow-discrete;
-}
-@starting-style {
-  .menu:popover-open {
+@layer legacy {
+  .menu {
+    position: fixed;
+    inset: auto;
+    margin: 0;
+    width: 300px;
+    max-height: calc(var(--screen-h) - 80px);
+    overflow-y: auto;
+    padding: var(--space-2);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-lg);
+    background: var(--raised);
+    box-shadow: var(--elev-2);
+    color: var(--text);
+    font-size: var(--text-md);
+    /* it grows from its button's corner, and goes quicker than it came */
+    transform-origin: top right;
     opacity: 0;
     scale: 0.96;
     translate: 0 -4px;
+    transition:
+      opacity var(--motion-exit),
+      scale var(--motion-exit),
+      translate var(--motion-exit),
+      display var(--motion-exit) allow-discrete,
+      overlay var(--motion-exit) allow-discrete;
   }
-}
-.menu-title {
-  padding: var(--space-2) var(--space-2) var(--space-1);
-}
-.menu-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  width: 100%;
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-md);
-  text-align: left;
-}
-.menu-item:hover:not(:disabled),
-.menu-item:focus-visible {
-  background: var(--hover-bg);
-}
-.menu-item:focus-visible {
-  outline-offset: -2px;
-}
-.menu-item kbd {
-  color: var(--muted);
-}
-.menu-item.danger {
-  color: var(--danger);
-}
-.menu-item.danger:hover:not(:disabled),
-.menu-item.danger:focus-visible {
-  background: color-mix(in oklab, var(--danger) var(--tint), transparent);
-}
-.menu-label {
-  flex: 1;
-  min-width: 0;
-}
-.menu-sep {
-  height: 1px;
-  margin: var(--space-1) 0;
-  background: var(--line);
-}
-.menu-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-1) var(--space-2);
-}
-/* beside a row's label, in its own size: what the setting is when left alone */
-.menu-aside {
-  margin-left: var(--space-2);
-  color: var(--faint);
-}
-.menu-hint {
-  padding: 0 var(--space-2) var(--space-1);
-  color: var(--faint);
-  font-size: var(--text-xs);
-  line-height: 1.45;
-}
+  .menu:popover-open {
+    opacity: 1;
+    scale: 1;
+    translate: 0 0;
+    transition:
+      opacity var(--motion-enter),
+      scale var(--motion-enter),
+      translate var(--motion-enter),
+      display var(--motion-enter) allow-discrete,
+      overlay var(--motion-enter) allow-discrete;
+  }
+  @starting-style {
+    .menu:popover-open {
+      opacity: 0;
+      scale: 0.96;
+      translate: 0 -4px;
+    }
+  }
+  .menu-title {
+    padding: var(--space-2) var(--space-2) var(--space-1);
+  }
+  .menu-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    width: 100%;
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-md);
+    text-align: left;
+  }
+  .menu-item:hover:not(:disabled),
+  .menu-item:focus-visible {
+    background: var(--hover-bg);
+  }
+  .menu-item:focus-visible {
+    outline-offset: -2px;
+  }
+  .menu-item kbd {
+    color: var(--muted);
+  }
+  .menu-item.danger {
+    color: var(--danger);
+  }
+  .menu-item.danger:hover:not(:disabled),
+  .menu-item.danger:focus-visible {
+    background: color-mix(in oklab, var(--danger) var(--tint), transparent);
+  }
+  .menu-label {
+    flex: 1;
+    min-width: 0;
+  }
+  .menu-sep {
+    height: 1px;
+    margin: var(--space-1) 0;
+    background: var(--line);
+  }
+  .menu-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-2);
+  }
+  /* beside a row's label, in its own size: what the setting is when left alone */
+  .menu-aside {
+    margin-left: var(--space-2);
+    color: var(--faint);
+  }
+  .menu-hint {
+    padding: 0 var(--space-2) var(--space-1);
+    color: var(--faint);
+    font-size: var(--text-xs);
+    line-height: 1.45;
+  }
 
-/* on / off, inside a menu item */
-.switch {
-  position: relative;
-  flex: none;
-  width: 26px;
-  height: 15px;
-  border-radius: var(--radius-full);
-  background: var(--line-strong);
-  transition: background var(--motion);
-}
-.switch::after {
-  content: '';
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 11px;
-  height: 11px;
-  border-radius: var(--radius-full);
-  background: var(--surface);
-  transition: left var(--motion);
-}
-.switch.on {
-  background: var(--accent);
-}
-.switch.on::after {
-  left: 13px;
+  /* on / off, inside a menu item */
+  .switch {
+    position: relative;
+    flex: none;
+    width: 26px;
+    height: 15px;
+    border-radius: var(--radius-full);
+    background: var(--line-strong);
+    transition: background var(--motion);
+  }
+  .switch::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 11px;
+    height: 11px;
+    border-radius: var(--radius-full);
+    background: var(--surface);
+    transition: left var(--motion);
+  }
+  .switch.on {
+    background: var(--accent);
+  }
+  .switch.on::after {
+    left: 13px;
+  }
 }

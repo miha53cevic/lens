@@ -1,40 +1,42 @@
-.chip {
-  --chip: var(--accent);
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  flex: none;
-  height: var(--control-h-xs);
-  padding: 0 var(--space-2);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-full);
-  color: var(--muted);
-  font-size: var(--text-sm);
-  white-space: nowrap;
-  cursor: pointer;
-  user-select: none;
-  transition:
-    background var(--motion),
-    border-color var(--motion),
-    color var(--motion);
-}
-.chip:hover {
-  color: var(--text);
-}
-.chip .dot {
-  --dot: var(--chip);
-}
-.chip:has(input:checked) {
-  border-color: color-mix(in oklab, var(--chip) var(--tint-line), transparent);
-  background: color-mix(in oklab, var(--chip) var(--tint), transparent);
-  color: var(--text);
-}
-.chip:has(input:focus-visible) {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
-}
-.chip input {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
+@layer legacy {
+  .chip {
+    --chip: var(--accent);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    flex: none;
+    height: var(--control-h-xs);
+    padding: 0 var(--space-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-full);
+    color: var(--muted);
+    font-size: var(--text-sm);
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+    transition:
+      background var(--motion),
+      border-color var(--motion),
+      color var(--motion);
+  }
+  .chip:hover {
+    color: var(--text);
+  }
+  .chip .dot {
+    --dot: var(--chip);
+  }
+  .chip:has(input:checked) {
+    border-color: color-mix(in oklab, var(--chip) var(--tint-line), transparent);
+    background: color-mix(in oklab, var(--chip) var(--tint), transparent);
+    color: var(--text);
+  }
+  .chip:has(input:focus-visible) {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+  .chip input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
 }

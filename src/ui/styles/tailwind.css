@@ -1,0 +1,100 @@
+/*
+ * Tailwind's entry: every page imports it first. The order of the layers is what lets the utilities
+ * replace the old stylesheets one at a time: `legacy` holds what hasn't moved yet, and any utility beats it.
+ * `reference` and `inline` make a utility read the design token itself (p-1 is padding: var(--space-1)), and
+ * add no variables: tokens.css stays the only place a token is set. `--*: initial` closes the scales, so a
+ * class with no token behind it gives no CSS (test/tokens.test.ts fails it).
+ */
+
+@layer theme, legacy, utilities;
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities) source(none);
+/* src/ui, src/viewer, src/desktop; class strings in .ts files count too */
+@source '../../ui';
+@source '../../viewer';
+@source '../../desktop';
+
+@custom-variant light (&:where([data-appearance='light'], [data-appearance='light'] *));
+
+@theme inline reference {
+  --*: initial;
+
+  --font-sans: var(--font-sans);
+  --font-serif: var(--font-serif);
+  --font-mono: var(--font-mono);
+
+  --text-2xs: var(--text-2xs);
+  --text-xs: var(--text-xs);
+  --text-sm: var(--text-sm);
+  --text-md: var(--text-md);
+  --text-base: var(--text-base);
+  --text-lg: var(--text-lg);
+  --text-xl: var(--text-xl);
+  --text-2xl: var(--text-2xl);
+  --text-3xl: var(--text-3xl);
+  --text-code: var(--text-code);
+
+  --spacing-1: var(--space-1);
+  --spacing-2: var(--space-2);
+  --spacing-3: var(--space-3);
+  --spacing-4: var(--space-4);
+  --spacing-5: var(--space-5);
+  --spacing-6: var(--space-6);
+  --spacing-7: var(--space-7);
+  --spacing-8: var(--space-8);
+  --spacing-control-xs: var(--control-h-xs);
+  --spacing-control-sm: var(--control-h-sm);
+  --spacing-control: var(--control-h);
+  --spacing-control-lg: var(--control-h-lg);
+  --spacing-screen-w: var(--screen-w);
+  --spacing-screen-h: var(--screen-h);
+
+  --radius-xs: var(--radius-xs);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-full: var(--radius-full);
+
+  --shadow-1: var(--elev-1);
+  --shadow-2: var(--elev-2);
+  --shadow-3: var(--elev-3);
+
+  --ease-out: var(--ease-out);
+  --ease-in: var(--ease-in);
+
+  --tracking-caps: var(--tracking-caps);
+
+  --color-code-bg: var(--code-bg);
+  --color-code-fg: var(--code-fg);
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-raised: var(--raised);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-selected-bg: var(--selected-bg);
+  --color-selected-ring: var(--selected-ring);
+  --color-focus: var(--focus);
+  --color-field-focus: var(--field-focus);
+  --color-hover-bg: var(--hover-bg);
+  --color-skeleton: var(--skeleton);
+  --color-skeleton-glint: var(--skeleton-glint);
+  --color-shadow: var(--shadow);
+  --color-scrim: var(--scrim);
+  --color-add: var(--add);
+  --color-add-bg: var(--add-bg);
+  --color-mod: var(--mod);
+  --color-del: var(--del);
+  --color-del-bg: var(--del-bg);
+  --color-danger: var(--danger);
+  --color-ren: var(--ren);
+  --color-bug: var(--bug);
+  --color-risk: var(--risk);
+  --color-question: var(--question);
+  --color-breaks: var(--breaks);
+}

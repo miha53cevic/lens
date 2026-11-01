@@ -1,6 +1,7 @@
 /// <reference path="./viewer-bundle.d.ts" />
 import { fileURLToPath } from 'node:url';
 import { join, dirname } from 'node:path';
+import tailwind from 'bun-plugin-tailwind';
 
 const webDir = dirname(fileURLToPath(import.meta.url));
 /** The viewer's page: src/viewer, beside src/cli-app. */
@@ -31,6 +32,7 @@ export async function bundlePage(entryPoint: string): Promise<ViewerBundle> {
     target: 'browser',
     jsx: { runtime: 'automatic' },
     define: { 'process.env.NODE_ENV': '"production"' },
+    plugins: [tailwind],
     throw: true,
   });
   const output = (extension: string) => result.outputs.find((file) => file.path.endsWith(extension))?.text() ?? '';

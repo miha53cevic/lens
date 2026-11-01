@@ -1,16 +1,18 @@
-.list-row {
-  border-radius: var(--radius-md);
-  color: var(--muted);
-  text-align: left;
-  transition: background var(--motion);
-}
-/* under the pointer, unless it is the selected one: that keeps its own look */
-.list-row:hover:not(.selected, .disabled, :disabled) {
-  background: var(--hover-bg);
-  color: var(--text);
-}
-.list-row.selected {
-  background: var(--selected-bg);
-  box-shadow: 0 0 0 1px var(--selected-ring);
-  color: var(--text);
+@layer legacy {
+  .list-row {
+    border-radius: var(--radius-md);
+    color: var(--muted);
+    text-align: left;
+    transition: background var(--motion);
+  }
+  /* under the pointer, unless it is the selected one: that keeps its own look */
+  .list-row:hover:not(.selected, .disabled, :disabled) {
+    background: var(--hover-bg);
+    color: var(--text);
+  }
+  .list-row.selected {
+    background: var(--selected-bg);
+    box-shadow: 0 0 0 1px var(--selected-ring);
+    color: var(--text);
+  }
 }

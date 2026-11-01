@@ -1,19 +1,21 @@
-/* the page under the header: sidebar | editor | Ask rail */
-.layout {
-  display: flex;
-  flex: 1;
-  min-height: 0;
-  /* a panel slides in from beyond the page's edge (slideIn) */
-  overflow: clip;
-}
+@layer legacy {
+  /* the page under the header: sidebar | editor | Ask rail */
+  .layout {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    /* a panel slides in from beyond the page's edge (slideIn) */
+    overflow: clip;
+  }
 
-/* the Code view or the Summary tab, with the review pill floating at its bottom */
-.editor {
-  position: relative;
-  /* the review pill shortens itself when this is narrow (ReviewPill.css) */
-  container: editor / inline-size;
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-width: 0;
+  /* the Code view or the Summary tab, with the review pill floating at its bottom */
+  .editor {
+    position: relative;
+    /* the review pill shortens itself when this is narrow (ReviewPill.css) */
+    container: editor / inline-size;
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+  }
 }

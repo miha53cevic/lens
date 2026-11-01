@@ -1,26 +1,28 @@
-/* The whole screen, with nothing to press: a review is on its way, and this is its shape. */
-.reopening {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-/*
+@layer legacy {
+  /* The whole screen, with nothing to press: a review is on its way, and this is its shape. */
+  .reopening {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  /*
  * Over the picker, once the wait is worth showing (the status bar waits as long to say it): a
  * review that starts at once never shows it. With less motion it shows at once.
  */
-.reopening-over {
-  position: absolute;
-  inset: 0;
-  z-index: var(--z-float);
-  animation: reopening-wait 150ms;
-}
-/* and then fades in, rather than popping over the picker */
-.motion .reopening-over {
-  transition-delay: 150ms;
-}
-@keyframes reopening-wait {
-  from,
-  to {
-    visibility: hidden;
+  .reopening-over {
+    position: absolute;
+    inset: 0;
+    z-index: var(--z-float);
+    animation: reopening-wait 150ms;
+  }
+  /* and then fades in, rather than popping over the picker */
+  .motion .reopening-over {
+    transition-delay: 150ms;
+  }
+  @keyframes reopening-wait {
+    from,
+    to {
+      visibility: hidden;
+    }
   }
 }

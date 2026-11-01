@@ -4,6 +4,7 @@
 
 import { createRoot } from 'react-dom/client';
 // the design tokens and the page's base styles come first: every component's own CSS builds on them
+import '../ui/styles/tailwind.css';
 import '../ui/styles/tokens.css';
 import '../ui/styles/base.css';
 import './styles/signals.css';

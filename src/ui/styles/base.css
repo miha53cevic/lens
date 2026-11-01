@@ -1,195 +1,197 @@
-/* The page itself: reset, type, focus, scrollbars, and the few helpers every area uses. */
+@layer legacy {
+  /* The page itself: reset, type, focus, scrollbars, and the few helpers every area uses. */
 
-* {
-  box-sizing: border-box;
-}
+  * {
+    box-sizing: border-box;
+  }
 
-body {
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  height: var(--screen-h);
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--font-sans);
-  font-size: var(--text-md);
-  -webkit-font-smoothing: antialiased;
-}
+  body {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    height: var(--screen-h);
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: var(--text-md);
+    -webkit-font-smoothing: antialiased;
+  }
 
-/* React's root: its children lay out as the body's own */
-#root {
-  display: contents;
-}
+  /* React's root: its children lay out as the body's own */
+  #root {
+    display: contents;
+  }
 
-button,
-input,
-select,
-textarea {
-  font: inherit;
-  color: inherit;
-}
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+    color: inherit;
+  }
 
-/* buttons look like nothing until a component styles them (ui/Button for the usual look) */
-button {
-  background: none;
-  border: 0;
-  padding: 0;
-  cursor: pointer;
-}
-button:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
+  /* buttons look like nothing until a component styles them (ui/Button for the usual look) */
+  button {
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+  }
+  button:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
 
-/* one focus ring for everything, on keyboard focus only */
-:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
-}
+  /* one focus ring for everything, on keyboard focus only */
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
 
-code {
-  font-family: var(--font-mono);
-}
+  code {
+    font-family: var(--font-mono);
+  }
 
-/* a key: its label centered in a keycap, in the UI font (mono fonts draw ⌘ ⇧ ↵ badly) */
-kbd {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-1);
-  box-sizing: border-box;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 var(--space-2);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-sm);
-  box-shadow: inset 0 -1px 0 var(--line-strong);
-  background: var(--surface);
-  color: var(--text);
-  font: 500 var(--text-xs)/1 var(--font-sans);
-  white-space: nowrap;
-  vertical-align: middle;
-  /* center the glyph, not the font's line box: the capitals' height, or a lowercase letter's x-height */
-  text-box: trim-both cap alphabetic;
-}
-kbd.lower {
-  text-box: trim-both ex alphabetic;
-}
+  /* a key: its label centered in a keycap, in the UI font (mono fonts draw ⌘ ⇧ ↵ badly) */
+  kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-1);
+    box-sizing: border-box;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 var(--space-2);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    box-shadow: inset 0 -1px 0 var(--line-strong);
+    background: var(--surface);
+    color: var(--text);
+    font: 500 var(--text-xs)/1 var(--font-sans);
+    white-space: nowrap;
+    vertical-align: middle;
+    /* center the glyph, not the font's line box: the capitals' height, or a lowercase letter's x-height */
+    text-box: trim-both cap alphabetic;
+  }
+  kbd.lower {
+    text-box: trim-both ex alphabetic;
+  }
 
-/* icons (lucide) take the text's color and sit on its line */
-svg.lucide {
-  flex: none;
-  vertical-align: -0.15em;
-}
+  /* icons (lucide) take the text's color and sit on its line */
+  svg.lucide {
+    flex: none;
+    vertical-align: -0.15em;
+  }
 
-/* a small round mark: a chip's color, something new waiting, a status */
-.dot {
-  flex: none;
-  width: 6px;
-  height: 6px;
-  border-radius: var(--radius-full);
-  background: var(--dot, currentColor);
-}
+  /* a small round mark: a chip's color, something new waiting, a status */
+  .dot {
+    flex: none;
+    width: 6px;
+    height: 6px;
+    border-radius: var(--radius-full);
+    background: var(--dot, currentColor);
+  }
 
-.spacer {
-  flex: 1;
-}
+  .spacer {
+    flex: 1;
+  }
 
-/* a label in small capitals over what it names: a section, a kind, a layer. A place sets only
+  /* a label in small capitals over what it names: a section, a kind, a layer. A place sets only
    its color and its spacing, which win over these (:where weighs nothing); .sm is the smaller
    one, inside a row or a note */
-:where(.eyebrow) {
-  color: var(--faint);
-  font-size: var(--text-xs);
-  font-weight: 600;
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
-}
-:where(.eyebrow.sm) {
-  font-size: var(--text-2xs);
-}
-
-/* a caret that turns when its section opens */
-.caret,
-.pk {
-  transition: transform var(--motion);
-}
-.caret.open,
-.pk.open {
-  transform: rotate(90deg);
-}
-
-.spin {
-  animation: spin 0.9s linear infinite;
-}
-
-/* a dot that says something is live (an agent listening, writing): its ring pulses */
-.dot.pulse {
-  box-shadow: 0 0 0 3px color-mix(in oklab, var(--dot) var(--tint-strong), transparent);
-  animation: dot-pulse 1.8s ease-out infinite;
-}
-@keyframes dot-pulse {
-  0% {
-    box-shadow: 0 0 0 0 color-mix(in oklab, var(--dot) 55%, transparent);
+  :where(.eyebrow) {
+    color: var(--faint);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    letter-spacing: var(--tracking-caps);
+    text-transform: uppercase;
   }
-  70%,
-  100% {
-    box-shadow: 0 0 0 6px color-mix(in oklab, var(--dot) 0%, transparent);
+  :where(.eyebrow.sm) {
+    font-size: var(--text-2xs);
   }
-}
 
-/* a theme switch cross-fades the whole page (crossFade in ui/motion.ts) */
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation-duration: 260ms;
-  animation-timing-function: ease-out;
-}
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
+  /* a caret that turns when its section opens */
+  .caret,
+  .pk {
+    transition: transform var(--motion);
   }
-}
-
-.ended {
-  display: grid;
-  place-items: center;
-  height: var(--screen-h);
-  color: var(--muted);
-}
-
-.empty {
-  padding: var(--space-8);
-  color: var(--muted);
-  text-align: center;
-}
-
-/* a list that came up empty: a filter or a search with nothing to show (italic is a preview tab's) */
-.no-match {
-  padding: var(--space-2) var(--space-3);
-  color: var(--muted);
-}
-
-::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-::-webkit-scrollbar-thumb {
-  background: var(--line-strong);
-  border: 2px solid var(--bg);
-  border-radius: var(--radius-sm);
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-/* less motion: no transitions or flourishes, but a spinner still turns and a live dot still pulses, since they say work is going on, and a jump still pops the line it lands on, so the eye finds it */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    transition: none !important;
+  .caret.open,
+  .pk.open {
+    transform: rotate(90deg);
   }
-  :not(.spin, .pulse, .row.flash) {
-    animation: none !important;
+
+  .spin {
+    animation: spin 0.9s linear infinite;
+  }
+
+  /* a dot that says something is live (an agent listening, writing): its ring pulses */
+  .dot.pulse {
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--dot) var(--tint-strong), transparent);
+    animation: dot-pulse 1.8s ease-out infinite;
+  }
+  @keyframes dot-pulse {
+    0% {
+      box-shadow: 0 0 0 0 color-mix(in oklab, var(--dot) 55%, transparent);
+    }
+    70%,
+    100% {
+      box-shadow: 0 0 0 6px color-mix(in oklab, var(--dot) 0%, transparent);
+    }
+  }
+
+  /* a theme switch cross-fades the whole page (crossFade in ui/motion.ts) */
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 260ms;
+    animation-timing-function: ease-out;
+  }
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .ended {
+    display: grid;
+    place-items: center;
+    height: var(--screen-h);
+    color: var(--muted);
+  }
+
+  .empty {
+    padding: var(--space-8);
+    color: var(--muted);
+    text-align: center;
+  }
+
+  /* a list that came up empty: a filter or a search with nothing to show (italic is a preview tab's) */
+  .no-match {
+    padding: var(--space-2) var(--space-3);
+    color: var(--muted);
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--line-strong);
+    border: 2px solid var(--bg);
+    border-radius: var(--radius-sm);
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  /* less motion: no transitions or flourishes, but a spinner still turns and a live dot still pulses, since they say work is going on, and a jump still pops the line it lands on, so the eye finds it */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition: none !important;
+    }
+    :not(.spin, .pulse, .row.flash) {
+      animation: none !important;
+    }
   }
 }

@@ -3,6 +3,7 @@
 // through window.lensApp; it reads no files and starts nothing itself.
 
 import { createRoot } from 'react-dom/client';
+import '../../ui/styles/tailwind.css';
 import '../../ui/styles/tokens.css';
 import '../../ui/styles/base.css';
 import { watch } from '../../ui/poll.ts';

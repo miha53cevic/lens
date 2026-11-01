@@ -1,35 +1,37 @@
-/* the tooltip: what a control does and its key, on hover and on keyboard focus, under the control */
-.tip {
-  position: absolute;
-  top: calc(100% + var(--space-2));
-  right: 0;
-  z-index: var(--z-tip);
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-md);
-  background: var(--raised);
-  box-shadow: var(--elev-1);
-  color: var(--text);
-  font: 400 var(--text-sm) / 1.3 var(--font-sans);
-  white-space: nowrap;
-  pointer-events: none;
-  opacity: 0;
-  /* it settles in from its control */
-  translate: 0 -3px;
-  transition:
-    opacity var(--motion),
-    translate var(--motion);
-}
-.tip-start {
-  right: auto;
-  left: 0;
-}
-:hover > .tip,
-:focus-visible > .tip {
-  opacity: 1;
-  translate: 0 0;
-  transition-delay: var(--tip-delay);
+@layer legacy {
+  /* the tooltip: what a control does and its key, on hover and on keyboard focus, under the control */
+  .tip {
+    position: absolute;
+    top: calc(100% + var(--space-2));
+    right: 0;
+    z-index: var(--z-tip);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-md);
+    background: var(--raised);
+    box-shadow: var(--elev-1);
+    color: var(--text);
+    font: 400 var(--text-sm) / 1.3 var(--font-sans);
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    /* it settles in from its control */
+    translate: 0 -3px;
+    transition:
+      opacity var(--motion),
+      translate var(--motion);
+  }
+  .tip-start {
+    right: auto;
+    left: 0;
+  }
+  :hover > .tip,
+  :focus-visible > .tip {
+    opacity: 1;
+    translate: 0 0;
+    transition-delay: var(--tip-delay);
+  }
 }

@@ -1,36 +1,38 @@
-/* A signal's color, shared by its marker, its chip and its concern: --sig, and --k on concerns. */
+@layer legacy {
+  /* A signal's color, shared by its marker, its chip and its concern: --sig, and --k on concerns. */
 
-.sig-bug {
-  --sig: var(--bug);
-}
-.sig-risk {
-  --sig: var(--risk);
-}
-.sig-question {
-  --sig: var(--question);
-}
-.sig-breaks {
-  --sig: var(--breaks);
-}
-.sig-dismissed {
-  --sig: var(--muted);
-}
+  .sig-bug {
+    --sig: var(--bug);
+  }
+  .sig-risk {
+    --sig: var(--risk);
+  }
+  .sig-question {
+    --sig: var(--question);
+  }
+  .sig-breaks {
+    --sig: var(--breaks);
+  }
+  .sig-dismissed {
+    --sig: var(--muted);
+  }
 
-.k-bug {
-  --k: var(--bug);
-}
-.k-risk {
-  --k: var(--risk);
-}
-.k-question {
-  --k: var(--question);
-}
+  .k-bug {
+    --k: var(--bug);
+  }
+  .k-risk {
+    --k: var(--risk);
+  }
+  .k-question {
+    --k: var(--question);
+  }
 
-/* the marker before a unit's name: its most serious signal */
-.sig {
-  display: inline-flex;
-  align-self: center;
-  justify-self: center;
-  color: var(--sig);
-  cursor: help;
+  /* the marker before a unit's name: its most serious signal */
+  .sig {
+    display: inline-flex;
+    align-self: center;
+    justify-self: center;
+    color: var(--sig);
+    cursor: help;
+  }
 }

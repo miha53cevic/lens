@@ -1,340 +1,342 @@
-/*
+@layer legacy {
+  /*
  * The code's rows, in both views. Rows are memoized and their lines are prebuilt HTML:
  * keep these rules cheap (no :has() on rows) so big files stay fast.
  */
 
-.code {
-  --row-h: 1.75;
-  min-width: max-content;
-  padding: var(--space-1) 0 var(--space-3);
-  color: var(--code-fg);
-  font: var(--text-code) / var(--row-h) var(--font-mono);
-}
-
-.row {
-  display: flex;
-  gap: 1.1rem;
-  padding: 0 var(--space-5) 0 var(--space-4);
-  white-space: pre;
-}
-.row:hover {
-  background: color-mix(in oklab, var(--code-fg) 5%, transparent);
-}
-.num {
-  flex: none;
-  min-width: 3.2ch;
-  color: var(--faint);
-  text-align: right;
-  user-select: none;
-}
-/* the changed-lines bar between the number and the code */
-.mark {
-  flex: none;
-  width: 3px;
-  margin: 0 -0.8rem 0 -0.35rem;
-  border-radius: var(--radius-xs);
-}
-.mark.changed {
-  background: var(--add);
-}
-
-.row.changed {
-  background: var(--add-bg);
-}
-.row.removed {
-  background: var(--del-bg);
-  color: color-mix(in oklab, var(--code-fg) 72%, var(--del));
-}
-.row.removed:hover {
-  background: color-mix(in oklab, var(--del) var(--tint-strong), transparent);
-}
-/* the old code keeps its theme's colors, a step back from the new: the new side leads */
-.row.removed > span:last-child {
-  opacity: 0.8;
-}
-.row.removed .num {
-  color: var(--del);
-}
-.row.removed .mark {
-  background: var(--del);
-  opacity: 0.7;
-}
-/* word diff: the words a replaced line changed, on both sides */
-.w-add {
-  background: color-mix(in oklab, var(--add) 32%, transparent);
-  border-radius: var(--radius-xs);
-}
-.w-del {
-  background: color-mix(in oklab, var(--del) 34%, transparent);
-  border-radius: var(--radius-xs);
-}
-
-/* hunks only: the hidden stretch, one click from showing */
-.row.gap {
-  margin: var(--space-1) 0;
-  border-block: 1px dashed var(--line);
-  background: color-mix(in oklab, var(--surface-2) 55%, transparent);
-  color: var(--faint);
-  font: var(--text-xs) / 2 var(--font-sans);
-  cursor: pointer;
-  user-select: none;
-}
-.row.gap:hover {
-  color: var(--text);
-}
-.row.gap .num,
-.unit-gap .num {
-  font-family: var(--font-mono);
-}
-
-/* a fold: a pill that quotes what it hides. A control, not code: its text can't be selected */
-.pill-row {
-  align-items: baseline;
-  cursor: pointer;
-  user-select: none;
-}
-/* baseline alignment collapses the empty gutter mark: stretch it back */
-.pill-row .mark {
-  align-self: stretch;
-}
-.pill {
-  --cat: var(--accent);
-  display: inline-flex;
-  align-items: baseline;
-  gap: 0.7ch;
-  padding: 0 var(--space-3);
-  border-radius: var(--radius-full);
-  background: var(--surface-2);
-  color: var(--muted);
-  font: var(--text-xs) / 1.75 var(--font-sans);
-  transition:
-    background var(--motion),
-    color var(--motion);
-}
-/* under the pointer it takes its category's tint, as a toned ui/Tag does */
-.pill-row:hover .pill {
-  background: color-mix(in oklab, var(--cat) var(--tint), var(--surface-2));
-  color: var(--text);
-}
-/* the caret and the category keep their width: a long description wraps, never them ("guar/d") */
-.pill .cat,
-.pill .caret {
-  flex: none;
-  white-space: nowrap;
-}
-.pill .cat {
-  color: var(--cat);
-}
-.pill .caret {
-  align-self: center;
-  color: var(--cat);
-}
-/* category hues are picked for dark backgrounds: darken small text on light ones */
-:root[data-appearance='light'] .pill .cat,
-:root[data-appearance='light'] .pill .caret {
-  color: color-mix(in oklab, var(--cat) 62%, var(--text));
-}
-.region.open .pill .caret {
-  transform: rotate(90deg);
-}
-.region .body {
-  display: none;
-}
-.region.open .body {
-  display: block;
-  opacity: 0.62;
-}
-.region.pinned > .pill-row {
-  display: none;
-}
-.region.pinned > .body {
-  display: block;
-  opacity: 1;
-}
-/* a summary concern's note lives in this fold: it stays open whatever the fold controls say */
-.region.has-note > .pill-row {
-  display: none;
-}
-.region.has-note > .body {
-  display: block;
-  opacity: 1;
-}
-
-/* a jump lands: the line flashes, then stays marked (an accent bar and number) until the next jump */
-.row.landed {
-  background: color-mix(in oklab, var(--accent) var(--tint), transparent);
-  box-shadow: inset 3px 0 0 var(--accent);
-}
-.row.landed .num {
-  color: var(--accent);
-  font-weight: 700;
-}
-.row.flash {
-  animation: line-flash 2.2s ease-out;
-}
-/* a smooth scroll is still moving: the pop waits for it to land */
-.row.flash.late {
-  animation-delay: 0.3s;
-}
-/* a slight pop, then it settles into the landed mark (a color change, not motion: it plays even with reduced motion) */
-@keyframes line-flash {
-  0%,
-  25% {
-    background: color-mix(in oklab, var(--accent) 34%, transparent);
-    box-shadow:
-      inset 3px 0 0 var(--accent),
-      inset 0 0 0 1px var(--selected-ring);
+  .code {
+    --row-h: 1.75;
+    min-width: max-content;
+    padding: var(--space-1) 0 var(--space-3);
+    color: var(--code-fg);
+    font: var(--text-code) / var(--row-h) var(--font-mono);
   }
-  100% {
+
+  .row {
+    display: flex;
+    gap: 1.1rem;
+    padding: 0 var(--space-5) 0 var(--space-4);
+    white-space: pre;
+  }
+  .row:hover {
+    background: color-mix(in oklab, var(--code-fg) 5%, transparent);
+  }
+  .num {
+    flex: none;
+    min-width: 3.2ch;
+    color: var(--faint);
+    text-align: right;
+    user-select: none;
+  }
+  /* the changed-lines bar between the number and the code */
+  .mark {
+    flex: none;
+    width: 3px;
+    margin: 0 -0.8rem 0 -0.35rem;
+    border-radius: var(--radius-xs);
+  }
+  .mark.changed {
+    background: var(--add);
+  }
+
+  .row.changed {
+    background: var(--add-bg);
+  }
+  .row.removed {
+    background: var(--del-bg);
+    color: color-mix(in oklab, var(--code-fg) 72%, var(--del));
+  }
+  .row.removed:hover {
+    background: color-mix(in oklab, var(--del) var(--tint-strong), transparent);
+  }
+  /* the old code keeps its theme's colors, a step back from the new: the new side leads */
+  .row.removed > span:last-child {
+    opacity: 0.8;
+  }
+  .row.removed .num {
+    color: var(--del);
+  }
+  .row.removed .mark {
+    background: var(--del);
+    opacity: 0.7;
+  }
+  /* word diff: the words a replaced line changed, on both sides */
+  .w-add {
+    background: color-mix(in oklab, var(--add) 32%, transparent);
+    border-radius: var(--radius-xs);
+  }
+  .w-del {
+    background: color-mix(in oklab, var(--del) 34%, transparent);
+    border-radius: var(--radius-xs);
+  }
+
+  /* hunks only: the hidden stretch, one click from showing */
+  .row.gap {
+    margin: var(--space-1) 0;
+    border-block: 1px dashed var(--line);
+    background: color-mix(in oklab, var(--surface-2) 55%, transparent);
+    color: var(--faint);
+    font: var(--text-xs) / 2 var(--font-sans);
+    cursor: pointer;
+    user-select: none;
+  }
+  .row.gap:hover {
+    color: var(--text);
+  }
+  .row.gap .num,
+  .unit-gap .num {
+    font-family: var(--font-mono);
+  }
+
+  /* a fold: a pill that quotes what it hides. A control, not code: its text can't be selected */
+  .pill-row {
+    align-items: baseline;
+    cursor: pointer;
+    user-select: none;
+  }
+  /* baseline alignment collapses the empty gutter mark: stretch it back */
+  .pill-row .mark {
+    align-self: stretch;
+  }
+  .pill {
+    --cat: var(--accent);
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.7ch;
+    padding: 0 var(--space-3);
+    border-radius: var(--radius-full);
+    background: var(--surface-2);
+    color: var(--muted);
+    font: var(--text-xs) / 1.75 var(--font-sans);
+    transition:
+      background var(--motion),
+      color var(--motion);
+  }
+  /* under the pointer it takes its category's tint, as a toned ui/Tag does */
+  .pill-row:hover .pill {
+    background: color-mix(in oklab, var(--cat) var(--tint), var(--surface-2));
+    color: var(--text);
+  }
+  /* the caret and the category keep their width: a long description wraps, never them ("guar/d") */
+  .pill .cat,
+  .pill .caret {
+    flex: none;
+    white-space: nowrap;
+  }
+  .pill .cat {
+    color: var(--cat);
+  }
+  .pill .caret {
+    align-self: center;
+    color: var(--cat);
+  }
+  /* category hues are picked for dark backgrounds: darken small text on light ones */
+  :root[data-appearance='light'] .pill .cat,
+  :root[data-appearance='light'] .pill .caret {
+    color: color-mix(in oklab, var(--cat) 62%, var(--text));
+  }
+  .region.open .pill .caret {
+    transform: rotate(90deg);
+  }
+  .region .body {
+    display: none;
+  }
+  .region.open .body {
+    display: block;
+    opacity: 0.62;
+  }
+  .region.pinned > .pill-row {
+    display: none;
+  }
+  .region.pinned > .body {
+    display: block;
+    opacity: 1;
+  }
+  /* a summary concern's note lives in this fold: it stays open whatever the fold controls say */
+  .region.has-note > .pill-row {
+    display: none;
+  }
+  .region.has-note > .body {
+    display: block;
+    opacity: 1;
+  }
+
+  /* a jump lands: the line flashes, then stays marked (an accent bar and number) until the next jump */
+  .row.landed {
     background: color-mix(in oklab, var(--accent) var(--tint), transparent);
     box-shadow: inset 3px 0 0 var(--accent);
   }
-}
+  .row.landed .num {
+    color: var(--accent);
+    font-weight: 700;
+  }
+  .row.flash {
+    animation: line-flash 2.2s ease-out;
+  }
+  /* a smooth scroll is still moving: the pop waits for it to land */
+  .row.flash.late {
+    animation-delay: 0.3s;
+  }
+  /* a slight pop, then it settles into the landed mark (a color change, not motion: it plays even with reduced motion) */
+  @keyframes line-flash {
+    0%,
+    25% {
+      background: color-mix(in oklab, var(--accent) 34%, transparent);
+      box-shadow:
+        inset 3px 0 0 var(--accent),
+        inset 0 0 0 1px var(--selected-ring);
+    }
+    100% {
+      background: color-mix(in oklab, var(--accent) var(--tint), transparent);
+      box-shadow: inset 3px 0 0 var(--accent);
+    }
+  }
 
-/* the reader's selection, kept for the Ask rail */
-.row.ask-sel {
-  background: color-mix(in oklab, var(--question) var(--tint-strong), transparent);
-}
-.row.ask-sel .num {
-  color: var(--question);
-}
+  /* the reader's selection, kept for the Ask rail */
+  .row.ask-sel {
+    background: color-mix(in oklab, var(--question) var(--tint-strong), transparent);
+  }
+  .row.ask-sel .num {
+    color: var(--question);
+  }
 
-/* full units: the rest of the file above and below the unit, each behind one bar until opened */
-/* a band a control high, so it reads as the way to more code and not as a blank line */
-.row.context-bar {
-  align-items: center;
-  height: var(--control-h);
-  border-block: 1px solid var(--line-strong);
-  background: var(--surface-2);
-  color: var(--text);
-  font: var(--text-xs) / 1 var(--font-sans);
-  cursor: pointer;
-  user-select: none;
-}
-.row.context-bar:hover {
-  background: color-mix(in oklab, var(--text) 7%, var(--surface-2));
-}
-/* the card's own edge is the bar's outer line (open, Above's body is over its bar) */
-.context.above:first-child:not(.open) > .context-bar {
-  margin-top: calc(-1 * var(--space-1));
-  border-top-color: transparent;
-}
-/* only while closed: open, the bar's body follows it and would slide up under it */
-.context.below:last-child:not(.open) > .context-bar {
-  margin-bottom: calc(-1 * var(--space-3));
-  border-bottom-color: transparent;
-}
-.context.above > .context-bar {
-  margin-bottom: var(--space-1);
-}
-.context.below:not(.open) > .context-bar {
-  margin-top: var(--space-1);
-}
-/* the gutter keeps its width (the padded number) and shows which way a click moves the code: closed,
+  /* full units: the rest of the file above and below the unit, each behind one bar until opened */
+  /* a band a control high, so it reads as the way to more code and not as a blank line */
+  .row.context-bar {
+    align-items: center;
+    height: var(--control-h);
+    border-block: 1px solid var(--line-strong);
+    background: var(--surface-2);
+    color: var(--text);
+    font: var(--text-xs) / 1 var(--font-sans);
+    cursor: pointer;
+    user-select: none;
+  }
+  .row.context-bar:hover {
+    background: color-mix(in oklab, var(--text) 7%, var(--surface-2));
+  }
+  /* the card's own edge is the bar's outer line (open, Above's body is over its bar) */
+  .context.above:first-child:not(.open) > .context-bar {
+    margin-top: calc(-1 * var(--space-1));
+    border-top-color: transparent;
+  }
+  /* only while closed: open, the bar's body follows it and would slide up under it */
+  .context.below:last-child:not(.open) > .context-bar {
+    margin-bottom: calc(-1 * var(--space-3));
+    border-bottom-color: transparent;
+  }
+  .context.above > .context-bar {
+    margin-bottom: var(--space-1);
+  }
+  .context.below:not(.open) > .context-bar {
+    margin-top: var(--space-1);
+  }
+  /* the gutter keeps its width (the padded number) and shows which way a click moves the code: closed,
    ⇡ or ⇣ to where the code is; open, the other way, back into the bar */
-.row.context-bar .num {
-  position: relative;
-  color: var(--muted);
-  font-family: var(--font-mono);
-}
-.context-arrow {
-  position: absolute;
-  top: 50%;
-  right: 0;
-  translate: 0 -50%;
-  transition: rotate var(--motion);
-}
-.context.open > .context-bar .context-arrow {
-  rotate: 180deg;
-}
-.row.context-bar:hover .context-arrow {
-  color: var(--accent);
-}
-.context-bar .mark {
-  align-self: stretch;
-  background: var(--line-strong);
-}
-.context-bar .mark.changed {
-  background: var(--add);
-}
-.context-label {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
-}
-/* the accent is picked for the code, not for small marks on a light band: darken it there */
-:root[data-appearance='light'] .row.context-bar:hover .context-arrow {
-  color: color-mix(in oklab, var(--accent) 80%, var(--text));
-}
-.context-names {
-  color: var(--muted);
-  font-family: var(--font-mono);
-}
-.context-count {
-  color: var(--muted);
-  font-family: var(--font-mono);
-}
-.context:not(.open) > .context-body {
-  display: none;
-}
+  .row.context-bar .num {
+    position: relative;
+    color: var(--muted);
+    font-family: var(--font-mono);
+  }
+  .context-arrow {
+    position: absolute;
+    top: 50%;
+    right: 0;
+    translate: 0 -50%;
+    transition: rotate var(--motion);
+  }
+  .context.open > .context-bar .context-arrow {
+    rotate: 180deg;
+  }
+  .row.context-bar:hover .context-arrow {
+    color: var(--accent);
+  }
+  .context-bar .mark {
+    align-self: stretch;
+    background: var(--line-strong);
+  }
+  .context-bar .mark.changed {
+    background: var(--add);
+  }
+  .context-label {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-width: 0;
+  }
+  /* the accent is picked for the code, not for small marks on a light band: darken it there */
+  :root[data-appearance='light'] .row.context-bar:hover .context-arrow {
+    color: color-mix(in oklab, var(--accent) 80%, var(--text));
+  }
+  .context-names {
+    color: var(--muted);
+    font-family: var(--font-mono);
+  }
+  .context-count {
+    color: var(--muted);
+    font-family: var(--font-mono);
+  }
+  .context:not(.open) > .context-body {
+    display: none;
+  }
 
-/* side by side: each row two halves, old on the left and new on the right; long lines wrap, so the halves stay level */
-.code.split {
-  min-width: 0;
-}
-.srow {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-}
-/* the right half comes first in the markup (lookups by line find the new side): placed by column */
-.srow > .left {
-  grid-area: 1 / 1;
-}
-.srow > .right {
-  grid-area: 1 / 2;
-  border-left: 1px solid var(--line);
-}
-.row.half {
-  min-width: 0;
-  padding: 0 var(--space-4) 0 var(--space-3);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-.row.half > :last-child {
-  flex: 1;
-  min-width: 0;
-}
-/* the side a line doesn't have: the hidden stretch's fill */
-.row.half.none,
-.row.half.none:hover {
-  background: color-mix(in oklab, var(--surface-2) 55%, transparent);
-}
-/* a fold: its pill on the new half, over the code it quotes; the old half says which of its lines
+  /* side by side: each row two halves, old on the left and new on the right; long lines wrap, so the halves stay level */
+  .code.split {
+    min-width: 0;
+  }
+  .srow {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  /* the right half comes first in the markup (lookups by line find the new side): placed by column */
+  .srow > .left {
+    grid-area: 1 / 1;
+  }
+  .srow > .right {
+    grid-area: 1 / 2;
+    border-left: 1px solid var(--line);
+  }
+  .row.half {
+    min-width: 0;
+    padding: 0 var(--space-4) 0 var(--space-3);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .row.half > :last-child {
+    flex: 1;
+    min-width: 0;
+  }
+  /* the side a line doesn't have: the hidden stretch's fill */
+  .row.half.none,
+  .row.half.none:hover {
+    background: color-mix(in oklab, var(--surface-2) 55%, transparent);
+  }
+  /* a fold: its pill on the new half, over the code it quotes; the old half says which of its lines
    are folded with it, and in red how many of them were removed */
-.srow.pill-row > .half {
-  align-items: baseline;
-}
-.srow.pill-row:hover > .half:not(.none) {
-  background: color-mix(in oklab, var(--code-fg) 5%, transparent);
-}
-.fold-old {
-  color: var(--faint);
-  font: var(--text-xs) / 1.75 var(--font-sans);
-}
-.fold-removed {
-  color: var(--del);
-}
-.mark.del {
-  background: var(--del);
-  opacity: 0.7;
-}
-/* hidden unchanged lines: each half numbers its own side's, and the row is one target */
-.srow.gap-row:hover > .half {
-  color: var(--text);
-}
-/* a drag selects one side's code (holdSelectionSide) */
-.code.split[data-side='left'] .half.right,
-.code.split[data-side='right'] .half.left {
-  user-select: none;
+  .srow.pill-row > .half {
+    align-items: baseline;
+  }
+  .srow.pill-row:hover > .half:not(.none) {
+    background: color-mix(in oklab, var(--code-fg) 5%, transparent);
+  }
+  .fold-old {
+    color: var(--faint);
+    font: var(--text-xs) / 1.75 var(--font-sans);
+  }
+  .fold-removed {
+    color: var(--del);
+  }
+  .mark.del {
+    background: var(--del);
+    opacity: 0.7;
+  }
+  /* hidden unchanged lines: each half numbers its own side's, and the row is one target */
+  .srow.gap-row:hover > .half {
+    color: var(--text);
+  }
+  /* a drag selects one side's code (holdSelectionSide) */
+  .code.split[data-side='left'] .half.right,
+  .code.split[data-side='right'] .half.left {
+    user-select: none;
+  }
 }
