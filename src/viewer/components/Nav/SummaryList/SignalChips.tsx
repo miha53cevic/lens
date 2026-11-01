@@ -18,7 +18,7 @@ export function SignalChips({ counts, signal }: SignalChipsProps) {
     <Tag
       key={id}
       data-part='sig-chip'
-      className={clsx(id !== 'any' && 'sig-' + id, '[&>span:first-child]:text-(--sig)')}
+      className={clsx(id !== 'any' && 'sig-' + id, '[&>[data-part=tag-icon]]:text-(--sig)')}
       data-sig={id}
       color={signal === id ? 'var(--sig)' : undefined}
       icon={id !== 'any' && <SignalIcon signal={id} size={11} />}

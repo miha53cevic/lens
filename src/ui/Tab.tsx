@@ -70,7 +70,7 @@ export function Tab({
       <button
         ref={mainRef}
         data-part='tab-main'
-        className='flex min-w-0 items-center gap-2 rounded-full py-1 pr-1 pl-3 text-inherit [font:inherit] [line-height:1.5] focus-visible:outline-none [&_svg]:flex-none'
+        className='flex min-w-0 items-center gap-2 rounded-full py-1 pr-1 pl-3 text-inherit leading-[1.5] focus-visible:outline-none [&_svg]:flex-none'
         role='tab'
         aria-selected={active}
         onClick={onSelect}

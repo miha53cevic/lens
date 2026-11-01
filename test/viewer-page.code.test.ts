@@ -654,6 +654,10 @@ pageTest('j / k keep the open file in sight in the tree', async () => {
   }
 });
 
+pageTest('the code clears the review pill, as the ruler does', async () => {
+  assert.ok($('#code').classList.contains('pb-[64px]'));
+});
+
 pageTest('removed lines keep their syntax colors, in both views', async () => {
   const colored = (selector: string) => $$(selector).filter((row) => row.querySelector('span[style*="color"]'));
   // the blank one has nothing to color

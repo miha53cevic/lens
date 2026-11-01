@@ -50,7 +50,11 @@ export function Tag({ children, color, dot, icon, mono, onClick, pressed, id, ti
   const inner = (
     <>
       {dot && <span className='dot' style={{ '--dot': dot } as CSSProperties} />}
-      {icon && <span className={cn('inline-flex flex-none', color && 'text-tone')}>{icon}</span>}
+      {icon && (
+        <span data-part='tag-icon' className={cn('inline-flex flex-none', color && 'text-tone')}>
+          {icon}
+        </span>
+      )}
       {children}
     </>
   );

@@ -6,10 +6,10 @@ import { Check, Copy } from 'lucide-react';
 const COPY_COMMAND =
   'max-w-full cursor-pointer items-center rounded-sm border text-text [transition:background_var(--motion),border-color_var(--motion)] [&_svg]:flex-none [&_svg]:text-muted hover:[&_svg]:text-accent';
 const INLINE =
-  'inline-flex gap-1 border-line-strong bg-surface-2 pr-1 pl-2 align-baseline font-mono text-sm/[1.6] hover:bg-[linear-gradient(var(--hover-bg),var(--hover-bg)),var(--surface-2)]';
+  'inline-flex gap-1 border-line-strong bg-surface-2 pr-1 pl-2 align-baseline font-mono text-sm/[1.6] hover:[background:linear-gradient(var(--hover-bg),var(--hover-bg)),var(--surface-2)]';
 // its own row
 const BLOCK =
-  'my-3 flex w-full justify-between gap-2 border-line bg-surface px-3 py-2 font-mono text-md/[1.6] hover:bg-[linear-gradient(var(--hover-bg),var(--hover-bg)),var(--surface)]';
+  'my-3 flex w-full justify-between gap-2 border-line bg-surface px-3 py-2 font-mono text-md/[1.6] hover:[background:linear-gradient(var(--hover-bg),var(--hover-bg)),var(--surface)]';
 
 interface CopyCommandProps {
   command: string;

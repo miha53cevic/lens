@@ -210,6 +210,9 @@ function classStrings(): { where: string; name: string }[] {
     const literal = /"([^"\n]*)"|'([^'\n]*)'/g;
     const blocks = [
       ...source.matchAll(/className=(?:'[^'\n]*'|"[^"\n]*")/g),
+      // a choice between classes, and classes in generated HTML
+      ...source.matchAll(/className=\{[^{}]*\}/g),
+      ...source.matchAll(/\bclass="[^"'\n]*"/g),
       ...source.matchAll(/\b(?:cn|clsx)\((?:[^()]|\([^()]*\))*\)/g),
       // only constants of class strings: the name says what they are for
       ...source.matchAll(
@@ -279,6 +282,28 @@ test('a transition in a class string takes its timing from the motion tokens', (
     return match !== null && /\d+m?s/.test(match[1]);
   };
   assert.equal(offenders(offScale), '');
+});
+
+// Tailwind writes bg-[gradient(…),color] as a background-image, where a color is invalid: no background at all
+test('a gradient over a color is [background:…], not bg-[…]', () => {
+  assert.equal(
+    offenders((name) => /(?:^|:)bg-\[(?:linear|radial|conic)-gradient\(.*\),var\(--[^()]*\)\]$/.test(name)),
+    '',
+  );
+});
+
+// a selector that names a part nothing draws silently does nothing
+test('every data-part a selector names is drawn', () => {
+  const files = ['src/ui', 'src/viewer', 'src/desktop'].flatMap((folder) => [
+    ...sources(join(ROOT, folder)),
+    ...stylesheets(join(ROOT, folder)),
+  ]);
+  const text = files.map((file) => readFileSync(join(ROOT, file), 'utf8')).join('\n');
+  const named = [...text.matchAll(/\[data-part=["']?([a-z][a-z-]*)/g)].map((match) => match[1]);
+  const drawn = new Set(
+    [...text.matchAll(/data-part(?:=|': |": )(?:\{)?["'`]([a-z][a-z-]*)/g)].map((match) => match[1]),
+  );
+  assert.deepEqual([...new Set(named)].filter((part) => !drawn.has(part)).sort(), []);
 });
 
 test('every class gives CSS: a typo or a step off the scales would otherwise do nothing, silently', async () => {

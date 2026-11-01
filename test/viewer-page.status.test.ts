@@ -367,6 +367,23 @@ pageTest('⌘⇧P finds a file by its path, its name first; ↵ opens it, and �
   assert.ok($$('#search-results [data-part="search-hit"]').length > 0);
 });
 
+pageTest('↑ and ↓ keep the selected search hit in sight', async () => {
+  await key('p', { ctrlKey: true });
+  await type($('#search-input'), 'order');
+  const scrolled: HTMLElement[] = [];
+  const original = HTMLElement.prototype.scrollIntoView;
+  HTMLElement.prototype.scrollIntoView = function (this: HTMLElement) {
+    scrolled.push(this);
+  };
+  try {
+    fireEvent.keyDown($('#search-input'), { key: 'ArrowDown' });
+    await settle();
+    assert.equal(scrolled.at(-1), $('[data-part="search-hit"][data-selected]'));
+  } finally {
+    HTMLElement.prototype.scrollIntoView = original;
+  }
+});
+
 pageTest('the row a jump lands on stays marked after the flash, until the next jump', async () => {
   const landed = () => $$('#code .row.landed').map((row) => row.dataset.line ?? '−' + row.dataset.old);
   await key('p', { ctrlKey: true });
@@ -410,6 +427,12 @@ pageTest('tabs: a double-click keeps a tab, w closes the active one, and a refre
     $$('[data-part="tab"] [data-part="tab-name"]').map((tab) => tab.textContent),
     ['orders.ts'],
   );
+});
+
+pageTest('a danger menu item has its own hover and focus tints, not the neutral ones', async () => {
+  const classes = [...$('#end-session').classList];
+  assert.ok(!classes.some((name) => name.endsWith(':bg-hover-bg')));
+  assert.equal(classes.filter((name) => name.includes('var(--danger)')).length, 2);
 });
 
 pageTest('⏻ end stops the server and leaves a note', async (page) => {

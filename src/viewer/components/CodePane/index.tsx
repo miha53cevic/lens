@@ -7,7 +7,7 @@ export function CodePane() {
   return (
     <main
       data-part='code-pane'
-      className='flex min-h-0 min-w-0 flex-1 flex-col bg-bg px-6 pb-4 [&_[data-part=code]]:pb-[64px] [&_[data-part=ruler]]:pb-[64px]'
+      className='flex min-h-0 min-w-0 flex-1 flex-col bg-bg px-6 pb-4 [&_[data-part=ruler]]:pb-[64px]'
       style={hiddenStyle(!shown)}
     >
       {shown && <FileCode />}

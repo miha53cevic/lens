@@ -1,7 +1,7 @@
 import { test } from 'bun:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { cpSync, mkdtempSync, readdirSync, renameSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { compileLens } from '../scripts/compile.ts';
@@ -55,3 +55,43 @@ test('the compiled lens runs on its own: info, folds, themes and the viewer page
     rmSync(repo, { recursive: true, force: true });
   }
 }, 120_000);
+
+// What the test above can't see: a native module left in the binary still loads while the checkout it
+// was compiled from is on disk, as it is on this machine, and not on the machine the app is installed on.
+test('the compiled lens runs once the checkout it was compiled from is gone', () => {
+  const root = join(import.meta.dirname, '..');
+  const checkout = mkdtempSync(join(tmpdir(), 'lens-checkout-'));
+  const out = mkdtempSync(join(tmpdir(), 'lens-compiled-'));
+  const repo = makeViewerRepo();
+  try {
+    for (const name of readdirSync(root)) {
+      if (['src', 'scripts', 'package.json', 'lens.defaults.json'].includes(name))
+        cpSync(join(root, name), join(checkout, name), { recursive: true });
+    }
+    // only what compiling doesn't use is left out: these are most of the folder's size
+    const unused = new Set([
+      'electron',
+      'bun',
+      '@electron',
+      '@electron-forge',
+      '@typescript',
+      'typescript',
+      'happy-dom',
+    ]);
+    for (const name of readdirSync(join(root, 'node_modules'))) {
+      if (!unused.has(name))
+        cpSync(join(root, 'node_modules', name), join(checkout, 'node_modules', name), { recursive: true });
+    }
+    execFileSync(process.execPath, ['scripts/compile.ts'], { cwd: checkout, stdio: 'pipe' });
+    const name = process.platform === 'win32' ? 'lens.exe' : 'lens';
+    renameSync(join(checkout, 'dist', 'lens', name), join(out, name));
+    rmSync(checkout, { recursive: true, force: true });
+
+    const info = JSON.parse(execFileSync(join(out, name), ['info', '--json'], { cwd: repo, encoding: 'utf8' }));
+    assert.equal(info.repo.changed, 2);
+  } finally {
+    rmSync(checkout, { recursive: true, force: true });
+    rmSync(out, { recursive: true, force: true });
+    rmSync(repo, { recursive: true, force: true });
+  }
+}, 180_000);

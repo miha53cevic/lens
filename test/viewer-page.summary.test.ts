@@ -447,6 +447,11 @@ pageTest('a caller it may break takes a verdict: dismissed drops the flag, real 
   await key('j');
   await key('j');
   assert.equal($('[data-part="sig-chip"][data-sig="breaks"] [data-part="n"]').textContent, '1');
+  assert.ok(
+    $('[data-part="sig-chip"][data-sig="breaks"] > [data-part="tag-icon"]'),
+    "the signal's color goes on its icon",
+  );
+  assert.ok(!document.querySelector('[data-part="sig-chip"][data-sig="any"] [data-part="tag-icon"]'), 'not on a count');
 
   await click($('[data-part="brk"] [data-part="vbtn"][data-mark="dismissed"]'));
   assert.ok($('[data-part=\"brk\"]').dataset.mark === 'dismissed');

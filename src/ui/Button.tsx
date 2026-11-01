@@ -8,15 +8,15 @@ const BUTTON =
 const VARIANTS = {
   // the hover tint over the button's own surface, so it stays opaque; on (a verdict given): the selected look
   default:
-    'border-line-strong bg-surface text-text not-disabled:hover:bg-[linear-gradient(var(--hover-bg),var(--hover-bg)),var(--surface)] aria-pressed:border-selected-ring aria-pressed:bg-selected-bg',
+    'border-line-strong bg-surface text-text not-disabled:not-aria-pressed:hover:[background:linear-gradient(var(--hover-bg),var(--hover-bg)),var(--surface)] aria-pressed:border-selected-ring aria-pressed:bg-selected-bg',
   // a ghost button has no box to show on in
   ghost: 'border-transparent bg-transparent text-muted not-disabled:hover:bg-hover-bg not-disabled:hover:text-text',
   // a key on it: its own colors would vanish into the accent
   primary:
-    'border-transparent bg-accent font-semibold text-accent-fg not-disabled:hover:bg-[color-mix(in_oklab,var(--accent)_88%,var(--text))] aria-pressed:border-selected-ring aria-pressed:bg-selected-bg [&_kbd]:border-[color-mix(in_oklab,var(--accent-fg)_var(--tint-line),transparent)] [&_kbd]:bg-transparent [&_kbd]:text-accent-fg [&_kbd]:shadow-none',
+    'border-transparent bg-accent font-semibold text-accent-fg not-disabled:not-aria-pressed:hover:bg-[color-mix(in_oklab,var(--accent)_88%,var(--text))] aria-pressed:border-selected-ring aria-pressed:bg-selected-bg [&_kbd]:border-[color-mix(in_oklab,var(--accent-fg)_var(--tint-line),transparent)] [&_kbd]:bg-transparent [&_kbd]:text-accent-fg [&_kbd]:shadow-none',
   // what deletes something, once the reader has seen what goes: the danger color, solid
   danger:
-    'border-transparent bg-danger font-semibold text-surface not-disabled:hover:bg-[color-mix(in_oklab,var(--danger)_88%,var(--text))] aria-pressed:border-selected-ring aria-pressed:bg-selected-bg',
+    'border-transparent bg-danger font-semibold text-surface not-disabled:not-aria-pressed:hover:bg-[color-mix(in_oklab,var(--danger)_88%,var(--text))] aria-pressed:border-selected-ring aria-pressed:bg-selected-bg',
 };
 
 const SIZES = {

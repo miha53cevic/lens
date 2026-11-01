@@ -116,7 +116,7 @@ export function MenuItem({ id, icon, shortcut, danger, disabled, onSelect, child
     <button
       id={id}
       role='menuitem'
-      className={clsx(ITEM, danger && DANGER)}
+      className={cn(ITEM, danger && DANGER)}
       disabled={disabled}
       onClick={(event) => {
         closeMenu(event.currentTarget);
