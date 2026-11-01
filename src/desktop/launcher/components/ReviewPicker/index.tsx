@@ -76,7 +76,7 @@ export function ReviewPicker() {
       <main className='min-h-0 flex-1 overflow-y-auto motion:[transition:opacity_var(--motion-move)] motion:starting:opacity-0'>
         <div className='mx-auto w-full max-w-[660px] px-5 pb-7'>
           {/* outside the form: a button in a form submits it */}
-          <div className='mt-6 mb-4 flex flex-wrap items-center gap-4'>
+          <div className='mt-6 mb-4 flex flex-wrap items-center gap-4 [&_h1]:m-0 [&_h1]:font-serif [&_h1]:text-xl/[1.2] [&_h1]:font-bold'>
             <h1>What do you want to review?</h1>
             <span className='flex-1' />
             <Segmented
