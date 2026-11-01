@@ -1,7 +1,6 @@
 import clsx from 'clsx';
 import { ReviewSkeleton } from '../../../ui/ReviewSkeleton.tsx';
 import { useApp } from '../store.ts';
-import './Reopening.css';
 
 /**
  * A review on its way to the tab, in the viewer's shape: a tab the app reopened, in place of
@@ -18,7 +17,15 @@ export function Reopening() {
   });
   return (
     <main
-      className={clsx('screen reopening', !reopening && 'reopening-over')}
+      data-part='reopening'
+      data-over={!reopening || undefined}
+      className={clsx(
+        // the whole screen, with nothing to press: a review is on its way, and this is its shape
+        'flex min-h-0 flex-1 flex-col overflow-hidden motion:[transition:opacity_var(--motion-move)] motion:starting:opacity-0',
+        // over the picker, once the wait is worth showing (the status bar waits as long to say it): a review
+        // that starts at once never shows it, and with less motion it shows at once; then it fades in
+        !reopening && 'absolute inset-0 z-(--z-float) animate-[reopening-wait_150ms] motion:delay-150',
+      )}
       id='reopening'
       aria-busy='true'
       aria-label={label}

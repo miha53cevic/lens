@@ -16,7 +16,6 @@ import { useApp } from '../../store.ts';
 import { Changes } from './Changes.tsx';
 import { PullRequest } from './PullRequest.tsx';
 import { emptyRange, startingRange, type Mode, type Range } from './util.ts';
-import './style.css';
 
 const MODES = [
   { value: 'changes' as Mode, label: 'Changes', icon: <FileDiff size={13} /> },
@@ -51,7 +50,7 @@ export function ReviewPicker() {
 
   return (
     <>
-      <TopBar className='picker-header'>
+      <TopBar data-part='picker-header'>
         <IconButton
           id='picker-back'
           label={current ? 'Back to the review' : 'Back to Start'}
@@ -61,24 +60,25 @@ export function ReviewPicker() {
         </IconButton>
         <Brand />
         <TopBarDivider />
-        <span className='repo-id'>
+        <span data-part='repo-id' className='flex min-w-0 items-center gap-2 [&>svg]:flex-none [&>svg]:text-muted'>
           <Folder size={15} />
-          <span className='repo-name'>{repo.name}</span>
-          <Tag className='repo-branch' icon={<GitBranch size={11} />}>
-            {repo.branch ?? 'detached at ' + (repo.head ?? 'no commit')}
-          </Tag>
+          <span className='flex-none font-semibold'>{repo.name}</span>
+          <Tag icon={<GitBranch size={11} />}>{repo.branch ?? 'detached at ' + (repo.head ?? 'no commit')}</Tag>
           {/* a long path is cut: the whole of it is in the title */}
-          <span className='repo-path' title={repo.root}>
+          <span
+            className='overflow-hidden font-mono text-sm text-ellipsis whitespace-nowrap text-faint'
+            title={repo.root}
+          >
             {repoPath}
           </span>
         </span>
       </TopBar>
-      <main className='screen'>
-        <div className='column'>
+      <main className='min-h-0 flex-1 overflow-y-auto motion:[transition:opacity_var(--motion-move)] motion:starting:opacity-0'>
+        <div className='mx-auto w-full max-w-[660px] px-5 pb-7'>
           {/* outside the form: a button in a form submits it */}
-          <div className='screen-head'>
+          <div className='mt-6 mb-4 flex flex-wrap items-center gap-4'>
             <h1>What do you want to review?</h1>
-            <span className='spacer' />
+            <span className='flex-1' />
             <Segmented
               id='picker-mode'
               label='What to review'
@@ -116,10 +116,17 @@ export function ReviewPicker() {
           </form>
         </div>
       </main>
-      <footer className='picker-foot'>
+      <footer className='flex flex-none items-center gap-3 border-t border-line bg-bg px-4 py-3'>
         <CopyCommand command={choiceCommand(choice)} />
-        <span className='spacer' />
-        {problem && <span className='picker-problem'>{problem}</span>}
+        <span className='flex-1' />
+        {problem && (
+          <span
+            data-part='picker-problem'
+            className='min-w-0 overflow-hidden text-sm text-ellipsis whitespace-nowrap text-muted'
+          >
+            {problem}
+          </span>
+        )}
         <Button id='open-review' variant='primary' type='submit' form='picker-form' disabled={busy || problem !== null}>
           Open review <Kbd combo='↵' />
         </Button>

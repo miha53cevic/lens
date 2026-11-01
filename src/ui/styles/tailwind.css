@@ -14,6 +14,8 @@
 @source '../../viewer';
 @source '../../desktop';
 
+/* a page whose first paint is over: what appears now may move (ui/motion.ts) */
+@custom-variant motion (.motion &);
 @custom-variant light (&:where([data-appearance='light'], [data-appearance='light'] *));
 
 @theme inline reference {

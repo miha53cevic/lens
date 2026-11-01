@@ -5,7 +5,6 @@ import { Tab, TAB_BUTTON } from '../../ui/Tab.tsx';
 import { narrowOut, widenIn } from '../../ui/motion.ts';
 import { THEME_TRIGGER, ThemeTrigger } from '../../ui/ThemeMenu.tsx';
 import { useStrip } from './store.ts';
-import './style.css';
 
 function TabIcon({ icon }: { icon: StripTab['icon'] }) {
   if (icon === 'folder') return <Folder size={13} />;
@@ -19,7 +18,7 @@ function TabIcon({ icon }: { icon: StripTab['icon'] }) {
  * tab's button, since the tab's own ref widens it in when it opens.
  */
 function keepInSight(button: HTMLElement | null) {
-  button?.closest('.rtab')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  button?.closest('[data-tab]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 }
 
 function RepoTab({ tab, active }: { tab: StripTab; active: boolean }) {
@@ -28,12 +27,11 @@ function RepoTab({ tab, active }: { tab: StripTab; active: boolean }) {
     <Tab
       tabRef={widenIn}
       mainRef={active ? keepInSight : undefined}
-      className='rtab'
       data-tab={tab.id}
       active={active}
       onSelect={() => strip.select(tab.id)}
       // it narrows out, and stays narrowed until the main process's answer takes it out
-      onClose={() => narrowOut(document.querySelector(`.rtab[data-tab="${tab.id}"]`), () => strip.close(tab.id), true)}
+      onClose={() => narrowOut(document.querySelector(`[data-tab="${tab.id}"]`), () => strip.close(tab.id), true)}
       closeLabel={'Close ' + tab.title}
       actions={
         // on every tab with a review, shown or not, so a tab keeps its width when another comes to the front
@@ -52,8 +50,8 @@ function RepoTab({ tab, active }: { tab: StripTab; active: boolean }) {
       }
     >
       <TabIcon icon={tab.icon} />
-      <span className='rtab-title'>{tab.title}</span>
-      {tab.detail && <span className='rtab-detail'>{tab.detail}</span>}
+      <span className='font-semibold'>{tab.title}</span>
+      {tab.detail && <span className='overflow-hidden text-ellipsis text-muted'>{tab.detail}</span>}
     </Tab>
   );
 }
@@ -65,9 +63,13 @@ export function Strip() {
   const { strip } = window.lensApp;
   return (
     // a click acts without taking the focus, which stays in the tab's page: the ring is for keys
-    <header className='tabstrip' onMouseDown={(event) => event.preventDefault()}>
+    <header
+      data-part='tabstrip'
+      className='flex h-[40px] items-center gap-1 bg-bg pr-[max(var(--space-3),calc(var(--screen-w)-env(titlebar-area-x,0px)-env(titlebar-area-width,var(--screen-w))))] pl-[max(var(--space-3),env(titlebar-area-x,0px))] select-none [-webkit-app-region:drag] [:root[data-platform=darwin]:not([data-fullscreen])_&]:pl-[max(78px,env(titlebar-area-x,0px))] [&_button]:[-webkit-app-region:no-drag] [&>span]:min-w-[48px]'
+      onMouseDown={(event) => event.preventDefault()}
+    >
       <div
-        className='rtabs'
+        className='-mx-1 flex min-w-0 gap-1 overflow-x-auto p-1 [scrollbar-width:none] [-webkit-app-region:no-drag]'
         role='tablist'
         // a mouse's wheel turns only up and down: here it moves the tabs sideways
         onWheel={(event) => {
@@ -81,7 +83,7 @@ export function Strip() {
       <IconButton id='new-tab' label='New tab' onClick={() => strip.add()}>
         <Plus size={14} />
       </IconButton>
-      <span className='spacer' />
+      <span className='flex-1' />
       <IconButton
         id='theme-btn'
         label={'Code theme: ' + state.theme.name}

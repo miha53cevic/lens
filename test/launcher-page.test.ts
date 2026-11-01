@@ -171,9 +171,9 @@ const choices = () =>
 // ---- Start ----
 
 pageTest('Start: one button, and the recent folders with none picked for you', 'launcher', START, async (page) => {
-  assert.equal(text('.start-tagline'), 'Code review for the agentic era.');
+  assert.equal(text('[data-part="start-tagline"]'), 'Code review for the agentic era.');
   assert.deepEqual(
-    $$('.recent-open').map((row) => row.textContent),
+    $$('[data-part="recent-open"]').map((row) => row.textContent),
     ['lens~/repos/lensmain · 2h ago', 'storefront~/repos/storefront'],
   );
   assert.equal(text('#open-repository'), 'Open repository ⌘O');
@@ -184,7 +184,7 @@ pageTest('Start: one button, and the recent folders with none picked for you', '
 
   await click($('#open-repository'));
   fireEvent.keyDown(document, { key: 'o', metaKey: true });
-  await click($$('.recent-open')[1]);
+  await click($$('[data-part="recent-open"]')[1]);
   await click($('[aria-label="Forget lens"]'));
   assert.deepEqual(page.calls, [
     ['openRepository'],
@@ -214,7 +214,7 @@ pageTest(
 
     const missing = { ...START.setup, cli: { state: 'missing' as const, where: '~/.local/bin/lens', note: null } };
     await page.push({ ...START, recents: [], setup: missing });
-    assert.equal($$('.recents').length, 0, 'no Recent section without recents');
+    assert.equal($$('[data-part="recents"]').length, 0, 'no Recent section without recents');
     await click($('#setup-notice'));
     assert.deepEqual(page.calls.at(-1), ['settings']);
 
@@ -241,7 +241,7 @@ pageTest(
   'launcher',
   PICKER,
   async (page) => {
-    assert.equal(text('.repo-id'), 'storefrontfeature~/repos/storefront');
+    assert.equal(text('[data-part="repo-id"]'), 'storefrontfeature~/repos/storefront');
     // nothing changed in the working tree, two files staged: Staged is where it starts
     assert.deepEqual(choices(), ['worktree', '*staged', 'branch', 'custom']);
     assert.deepEqual(
@@ -265,7 +265,7 @@ pageTest(
 
     // what was picked emptied since (committed in a terminal): it stays picked, and says why it can't open
     await page.push({ ...PICKER, repo: { ...REPO, changed: 0 } });
-    assert.equal(text('.picker-problem'), 'Nothing unstaged to review');
+    assert.equal(text('[data-part="picker-problem"]'), 'Nothing unstaged to review');
     assert.equal(($('#open-review') as HTMLButtonElement).disabled, true);
   },
 );
@@ -301,7 +301,7 @@ pageTest(
 
     // a lens flag is not a git diff argument: said, and not opened
     await type($('#picker-custom'), 'HEAD~1 --json');
-    assert.equal(text('.picker-problem'), '--json is a lens flag, not a git diff argument');
+    assert.equal(text('[data-part="picker-problem"]'), '--json is a lens flag, not a git diff argument');
     assert.equal(($('#open-review') as HTMLButtonElement).disabled, true);
   },
 );
@@ -336,8 +336,11 @@ pageTest('Start and Settings have nothing to ask again', 'launcher', START, asyn
 pageTest('the picker: a pull request by number, on the remote it names', 'launcher', PICKER, async (page) => {
   await click($('#picker-mode [data-value="pr"]'));
   assert.equal($$('[data-part="choice"]').length, 0);
-  assert.match(text('.pr-panel .hint'), /^On origin → github\.com\/acme\/storefront\. Fetched with plain git/);
-  assert.equal(text('.picker-problem'), 'Enter a PR number or URL');
+  assert.match(
+    text('[data-part="pr-panel"] [data-part="hint"]'),
+    /^On origin → github\.com\/acme\/storefront\. Fetched with plain git/,
+  );
+  assert.equal(text('[data-part="picker-problem"]'), 'Enter a PR number or URL');
   assert.equal(($('#open-review') as HTMLButtonElement).disabled, true);
 
   await type($('#picker-pr'), '482');
@@ -346,7 +349,7 @@ pageTest('the picker: a pull request by number, on the remote it names', 'launch
   assert.deepEqual(page.calls, [['open', { kind: 'pr', ref: '482' }]]);
 
   await page.push({ ...PICKER, repo: { ...REPO, github: null } });
-  assert.match(text('.pr-panel .hint'), /^No remote here points at GitHub/);
+  assert.match(text('[data-part="pr-panel"] [data-part="hint"]'), /^No remote here points at GitHub/);
 });
 
 pageTest(
@@ -424,13 +427,13 @@ pageTest(
       'lens.',
       'what is known is real: only the rest is a placeholder',
     );
-    assert.ok(!$('#reopening').classList.contains('reopening-over'), 'the whole screen, at once');
-    assert.deepEqual($$('#open-repository, .recent, #picker-back, #open-review'), []);
+    assert.ok(!$('#reopening').hasAttribute('data-over'), 'the whole screen, at once');
+    assert.deepEqual($$('#open-repository, [data-part="recent"], #picker-back, #open-review'), []);
 
     // read: its review starts, and the picker stays out of sight
     await page.push(REOPENING);
     assert.deepEqual(reopening(), ['Reopening storefront, working tree', 'true', true, 0]);
-    assert.deepEqual($$('#picker-back, #open-review, .picker-header'), []);
+    assert.deepEqual($$('#picker-back, #open-review, [data-part="picker-header"]'), []);
     assert.deepEqual(status(), ['Opening working tree…']);
     await click($('#status-action'));
     assert.deepEqual(page.calls.at(-1), ['cancel']);
@@ -461,7 +464,7 @@ pageTest(
     };
     await page.push(opening);
     assert.deepEqual(reopening(), ['Opening the review', 'true', true, 0]);
-    assert.ok($('#reopening').classList.contains('reopening-over'), 'over the picker, once the wait is worth showing');
+    assert.ok($('#reopening').hasAttribute('data-over'), 'over the picker, once the wait is worth showing');
     assert.ok($('#open-review'), 'the picker is still there');
     assert.deepEqual(status(), ['Opening staged changes…']);
 
@@ -492,7 +495,7 @@ pageTest(
   'launcher',
   SETTINGS,
   async (page) => {
-    assert.equal(text('.settings-version'), 'lens 0.1.0');
+    assert.equal(text('[data-part="settings-version"]'), 'lens 0.1.0');
     assert.equal($$('#setup-notice').length, 0, 'the notice leads here: it is not shown here');
     await click($('#setup-cli button'));
     await click($('#setup-skills button'));
@@ -550,7 +553,7 @@ pageTest(
   async (page) => {
     const count = (selector: string) => $$(selector).length;
     assert.equal(text('main h1'), 'Sandbox');
-    assert.equal(count('.settings, .start'), 0, 'the screen is its own');
+    assert.equal(count('[data-part="settings"], [data-part="start"]'), 0, 'the screen is its own');
     assert.equal(count('#g-button [data-part="btn"]'), 9);
     assert.equal(count('#g-button [data-variant="primary"]'), 1);
     assert.equal(count('#g-button [data-part="btn"][data-size="xs"]'), 1, 'the size a card row uses');
@@ -692,17 +695,17 @@ pageTest(
   STRIP,
   async (page) => {
     assert.deepEqual(
-      $$('.rtab').map((tab) => (tab.hasAttribute('data-active') ? '*' : '') + tab.textContent),
+      $$('[data-tab]').map((tab) => (tab.hasAttribute('data-active') ? '*' : '') + tab.textContent),
       ['*lensstaged changes', 'storefrontPR #482', 'New tab'],
     );
     assert.equal(document.documentElement.dataset.platform, 'darwin');
     assert.deepEqual(
-      $$('.rtab').map((tab) => tab.querySelectorAll('[aria-label="Change what\'s reviewed"]').length),
+      $$('[data-tab]').map((tab) => tab.querySelectorAll('[aria-label="Change what\'s reviewed"]').length),
       [1, 1, 0],
       'every tab with a review can change it, in front or not: a tab keeps its width when another comes forward',
     );
 
-    await click($$('.rtab [data-part="tab-main"]')[1]);
+    await click($$('[data-tab] [data-part="tab-main"]')[1]);
     await click($('[aria-label="Change what\'s reviewed"]'));
     await click($('[aria-label="Close storefront"]'));
     await click($('#new-tab'));
@@ -720,7 +723,7 @@ pageTest(
       sighted.push(this.dataset.tab);
     };
     await page.push({ ...STRIP, activeId: 2, theme: LIGHT, fullscreen: true });
-    assert.ok($$('.rtab')[1].hasAttribute('data-active'));
+    assert.ok($$('[data-tab]')[1].hasAttribute('data-active'));
     assert.deepEqual(sighted, ['2']);
     assert.equal(document.documentElement.dataset.appearance, 'light');
     assert.ok(document.documentElement.hasAttribute('data-fullscreen'));

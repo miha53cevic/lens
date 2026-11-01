@@ -3,7 +3,6 @@ import { Check, GitBranch, MessageSquare, Shapes, Terminal } from 'lucide-react'
 import type { SetupItem, SetupPart } from '../../shared/api.ts';
 import { Button } from '../../../ui/Button.tsx';
 import { useApp } from '../store.ts';
-import './Settings.css';
 
 interface SetupRowProps {
   part: SetupPart;
@@ -18,17 +17,21 @@ interface SetupRowProps {
 function SetupRow({ part, icon, name, what, item, busy }: SetupRowProps) {
   const { launcher } = window.lensApp;
   return (
-    <li className='setup-item' id={'setup-' + part} data-state={item.state}>
+    <li
+      className='grid grid-cols-[16px_minmax(0,1fr)_auto] items-start gap-3 rounded-lg border border-line bg-surface p-4 [&>svg]:mt-0 [&>svg]:text-muted'
+      id={'setup-' + part}
+      data-state={item.state}
+    >
       {icon}
-      <span className='setup-text'>
-        <span className='setup-name'>{name}</span>
-        <span className='setup-sub'>{what}</span>
-        <span className='setup-where'>
+      <span className='grid min-w-0 gap-1'>
+        <span className='leading-[1.4] font-semibold'>{name}</span>
+        <span className='text-sm leading-[1.55] [overflow-wrap:anywhere] text-muted [&_code]:text-text'>{what}</span>
+        <span className='mt-1 text-xs/[1.5] [overflow-wrap:anywhere] text-faint'>
           <code>{item.where}</code>
           {item.note && ' · ' + item.note}
         </span>
       </span>
-      <span className='setup-actions'>
+      <span className='flex items-center gap-3 self-center'>
         {item.state === 'missing' && (
           <Button variant='primary' disabled={busy} onClick={() => launcher.install(part)}>
             Install
@@ -36,7 +39,7 @@ function SetupRow({ part, icon, name, what, item, busy }: SetupRowProps) {
         )}
         {item.state === 'installed' && (
           <>
-            <span className='setup-ok'>
+            <span className='inline-flex items-center gap-1 text-sm whitespace-nowrap text-add'>
               <Check size={13} />
               Installed
             </span>
@@ -45,7 +48,7 @@ function SetupRow({ part, icon, name, what, item, busy }: SetupRowProps) {
             </Button>
           </>
         )}
-        {item.state === 'external' && <span className='setup-external'>Not the app's</span>}
+        {item.state === 'external' && <span className='text-sm whitespace-nowrap text-muted'>Not the app's</span>}
       </span>
     </li>
   );
@@ -58,15 +61,20 @@ export function Settings() {
   const version = useApp((state) => state.version);
   const busy = useApp((state) => state.status.kind === 'working');
   return (
-    <main className='screen settings'>
-      <div className='column'>
-        <div className='screen-head'>
+    <main
+      data-part='settings'
+      className='min-h-0 flex-1 overflow-y-auto motion:[transition:opacity_var(--motion-move)] motion:starting:opacity-0'
+    >
+      <div className='mx-auto w-full max-w-[660px] px-5 pb-7'>
+        <div className='mt-6 mb-4 flex flex-wrap items-center gap-4'>
           <h1>Settings</h1>
-          <span className='spacer' />
-          <span className='settings-version'>lens {version}</span>
+          <span className='flex-1' />
+          <span data-part='settings-version' className='text-faint'>
+            lens {version}
+          </span>
         </div>
-        <h2 className='section-title eyebrow'>Agent</h2>
-        <ul className='setup'>
+        <h2 className='mt-6 mb-2 px-2 eyebrow'>Agent</h2>
+        <ul className='m-0 grid list-none gap-3 p-0'>
           <SetupRow
             part='cli'
             icon={<Terminal size={16} />}
@@ -92,15 +100,20 @@ export function Settings() {
             item={setup.skills}
             busy={busy}
           />
-          <li className='setup-item' id='setup-git'>
+          <li
+            className='grid grid-cols-[16px_minmax(0,1fr)_auto] items-start gap-3 rounded-lg border border-line bg-surface p-4 [&>svg]:mt-0 [&>svg]:text-muted'
+            id='setup-git'
+          >
             <GitBranch size={16} />
-            <span className='setup-text'>
-              <span className='setup-name'>git</span>
-              <span className='setup-sub'>lens reads changes and pull requests through it.</span>
+            <span className='grid min-w-0 gap-1'>
+              <span className='leading-[1.4] font-semibold'>git</span>
+              <span className='text-sm leading-[1.55] [overflow-wrap:anywhere] text-muted [&_code]:text-text'>
+                lens reads changes and pull requests through it.
+              </span>
             </span>
-            <span className='setup-actions'>
+            <span className='flex items-center gap-3 self-center'>
               {git ? (
-                <span className='setup-ok'>
+                <span className='inline-flex items-center gap-1 text-sm whitespace-nowrap text-add'>
                   <Check size={13} />
                   {git}
                 </span>
@@ -112,21 +125,24 @@ export function Settings() {
             </span>
           </li>
         </ul>
-        <p className='hint'>
+        <p data-part='hint' className='mx-2 mt-4 mb-0 text-sm/[1.5] text-muted'>
           Uninstall removes only what the app installed. A <code>lens</code> command or a skill folder that came from
           somewhere else is never touched.
         </p>
-        <h2 className='section-title eyebrow'>Design system</h2>
-        <ul className='setup'>
-          <li className='setup-item' id='setup-sandbox'>
+        <h2 className='mt-6 mb-2 px-2 eyebrow'>Design system</h2>
+        <ul className='m-0 grid list-none gap-3 p-0'>
+          <li
+            className='grid grid-cols-[16px_minmax(0,1fr)_auto] items-start gap-3 rounded-lg border border-line bg-surface p-4 [&>svg]:mt-0 [&>svg]:text-muted'
+            id='setup-sandbox'
+          >
             <Shapes size={16} />
-            <span className='setup-text'>
-              <span className='setup-name'>Sandbox</span>
-              <span className='setup-sub'>
+            <span className='grid min-w-0 gap-1'>
+              <span className='leading-[1.4] font-semibold'>Sandbox</span>
+              <span className='text-sm leading-[1.55] [overflow-wrap:anywhere] text-muted [&_code]:text-text'>
                 Every control lens is built from, in each of its states. It follows the code theme.
               </span>
             </span>
-            <span className='setup-actions'>
+            <span className='flex items-center gap-3 self-center'>
               <Button size='sm' onClick={() => window.lensApp.launcher.sandbox()}>
                 Open
               </Button>

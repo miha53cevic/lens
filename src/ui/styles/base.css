@@ -208,6 +208,13 @@
       calc(var(--screen-w) * 2) 100% fixed;
     animation: skeleton-sweep 1.8s linear infinite;
   }
+  /* over the picker, hidden until the wait is worth showing (Reopening.tsx) */
+  @keyframes reopening-wait {
+    from,
+    to {
+      visibility: hidden;
+    }
+  }
   @keyframes skeleton-sweep {
     to {
       background-position: calc(var(--screen-w) * -2) 0;

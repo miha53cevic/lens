@@ -1,7 +1,6 @@
 import { MenuPanel } from '../../ui/Menu.tsx';
 import { ThemeList } from '../../ui/ThemeMenu.tsx';
 import { useMenu } from './store.ts';
-import './style.css';
 
 /** Places the menu where the strip's button is and opens it; the browser closes it on Esc or a click outside. */
 function open(panel: HTMLDivElement | null, at: { right: number; top: number } | null) {
@@ -19,7 +18,7 @@ export function ThemeMenuSheet() {
   return (
     <MenuPanel
       id='theme-menu'
-      className='theme-menu'
+      className='w-[240px]'
       // opened as it is put in the page: a ref callback, not an effect
       panelRef={(panel) => open(panel, at)}
       onToggle={(isOpen) => {

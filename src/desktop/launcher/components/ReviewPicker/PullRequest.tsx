@@ -12,7 +12,7 @@ interface PullRequestProps {
 export function PullRequest({ repo, value, onChange }: PullRequestProps) {
   const { github } = repo;
   return (
-    <div className='pr-panel'>
+    <div data-part='pr-panel'>
       <Field
         size='lg'
         icon={<GitPullRequest size={16} />}
@@ -23,7 +23,7 @@ export function PullRequest({ repo, value, onChange }: PullRequestProps) {
         value={value}
         onChange={(event) => onChange(event.target.value)}
       />
-      <p className='hint'>
+      <p data-part='hint' className='mx-2 mt-2 mb-0 text-sm/[1.5] text-muted'>
         {github ? (
           <>
             On <b>{github.remote}</b> → github.com/{github.owner}/{github.repo}. Fetched with plain git, so it uses your
