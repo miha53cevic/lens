@@ -18,7 +18,7 @@ import { INITIAL_DATA, readPref } from './shared.ts';
 import { CODE_SIZE_DEFAULT, savedCodeSize } from './codeSize.ts';
 import { savedZoom, UI_ZOOM_DEFAULT } from '../cli-app/zoom.ts';
 
-export type View = 'code' | 'summary';
+export type View = 'code' | 'summary' | 'plan';
 export type { ConcernMark };
 export type SignalId = ConcernKind | 'breaks';
 /** What the list's chips filter by: a signal, any of them, or the concerns the reader dismissed */
@@ -117,6 +117,8 @@ export interface LensState {
   changedOnDisk: boolean;
   /** The agent's summary run, as the last stamp poll found it; null: none is going */
   summaryBuild: BuildProgress | null;
+  /** The whole change, while `data` shows only what changed since the last round (actions/rounds.ts); null: it shows all */
+  beforeRound: ViewerPayload | null;
   /** Asking the server for a newer summary: the overview holds off on "not written yet" until it knows */
   summaryChecking: boolean;
   /** The list filter's text (transient) */
@@ -222,6 +224,7 @@ const initialState: LensState = {
   summaryDot: false,
   changedOnDisk: false,
   summaryBuild: null,
+  beforeRound: null,
   summaryChecking: false,
   sumQuery: '',
   sumSignal: null,
@@ -282,7 +285,7 @@ export const scrollStore = createStore<{
   files: Readonly<Record<string, { top: number; left: number }>>;
   /** The sidebar's scroll per view: the tree and the summary list share one scroller */
   nav: Readonly<Record<View, number>>;
-}>()(() => ({ files: {}, nav: { code: 0, summary: 0 } }));
+}>()(() => ({ files: {}, nav: { code: 0, summary: 0, plan: 0 } }));
 
 /** A copy of the set with `key` added or removed. */
 export function toggled<T>(set: ReadonlySet<T>, key: T, on?: boolean): Set<T> {

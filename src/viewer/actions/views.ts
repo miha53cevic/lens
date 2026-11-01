@@ -18,6 +18,7 @@ function viewChange(state: LensState, view: View): Partial<LensState> {
 export function setView(view: View): void {
   const state = getState();
   if (view === 'summary' && !state.data.summary) return;
+  if (view === 'plan' && !state.data.summary?.plan) return;
   update({ ...viewChange(state, view), ...(view === 'summary' && { summaryChecking: true }) });
   if (view === 'summary') {
     if (state.summaryDot) loadSummary().finally(() => update({ summaryChecking: false }));
@@ -32,7 +33,10 @@ async function loadSummary(branch = false): Promise<void> {
     async () => {
       const summary = await api('GET /api/summary');
       // only once it's loaded: a failed load is tried again
-      update((state) => ({ summaryDot: false, data: summary ? { ...state.data, summary } : state.data }));
+      update((state) => {
+        const whole = state.beforeRound ?? state.data;
+        return { summaryDot: false, beforeRound: null, data: summary ? { ...whole, summary } : whole };
+      });
       if (branch) noteDone('Another branch is checked out: the summary is read for it');
       else noteDone(summary && summary.stamp === null ? 'The summary was cleared' : 'New summary loaded');
     },

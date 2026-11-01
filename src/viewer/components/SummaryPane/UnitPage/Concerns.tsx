@@ -4,6 +4,7 @@ import { concernLabel, findingMark, findings, isConcern, type Unit } from '../..
 import { SignalIcon } from '../../SignalIcon.tsx';
 import { Cite } from './Cite.tsx';
 import { Verdict } from './Verdict.tsx';
+import { AgentText } from '../../AgentText.tsx';
 
 /** The agent's concerns, each a callout with the reader's verdict. */
 export function Concerns({ unit }: { unit: Unit }) {
@@ -38,7 +39,7 @@ export function Concerns({ unit }: { unit: Unit }) {
                 data-part='text'
                 className='text-base/[1.55] text-text group-data-[mark=dismissed]/concern:min-w-0 group-data-[mark=dismissed]/concern:flex-1 group-data-[mark=dismissed]/concern:overflow-hidden group-data-[mark=dismissed]/concern:text-sm group-data-[mark=dismissed]/concern:text-ellipsis group-data-[mark=dismissed]/concern:whitespace-nowrap group-data-[mark=dismissed]/concern:text-muted group-data-[mark=dismissed]/concern:line-through group-data-[mark=dismissed]/concern:[&_.cite]:hidden'
               >
-                {concern.text}
+                <AgentText text={concern.text} />
               </div>
               <Verdict finding={finding} mark={mark} />
             </div>

@@ -2,6 +2,7 @@
 // edited and resolved in place. Only the reader writes them; lens copies the ones with a kind for
 // the agent when the reader asks (model/realConcerns.ts) and sends nothing anywhere itself.
 
+import { sendRound, sentFindings } from './rounds.ts';
 import type { NoteKind, ReaderNote } from '../../cli-app/notes/store.ts';
 import type { NewNote } from '../../cli-app/api/contract.ts';
 import { commit, getState, update } from '../store.ts';
@@ -100,6 +101,7 @@ export async function resolveNote(note: ReaderNote): Promise<void> {
 export async function copyForAgent(handoff: RealConcerns): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(handoff.text);
+    if (getState().data.summary) await sendRound(sentFindings(handoff));
     noteDone('Copied ' + confirmedLabel(handoff), 'paste them to your agent');
     return true;
   } catch (error) {

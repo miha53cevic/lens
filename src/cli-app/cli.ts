@@ -24,7 +24,7 @@ usage:
                               changes (--base <ref> to compare against, --themes for the themes' colors)
 
 summary mode (written by your own coding agent — see skills/lens-review):
-  lens summary prepare [diff-args | pr <url|N>]
+  lens summary prepare [diff-args | pr <url|N>] [--plan <file>]
                               write a task bundle for the agent (.lens/summary/<key>/)
   lens summary submit <bundle-dir | result.json>
                               validate the agent's result.json and store it for the viewer

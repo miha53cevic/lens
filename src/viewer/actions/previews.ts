@@ -23,6 +23,21 @@ export function setBuildPreviews(on: boolean): Promise<boolean> {
   );
 }
 
+/** The switch: summary mode asks the agent for questions to check your understanding with. */
+export function setSelfChecks(on: boolean): Promise<boolean> {
+  return tracked(
+    { id: 'self-checks', label: 'Saving Check yourself…', failed: "Couldn't save Check yourself" },
+    async () => {
+      await api('POST /api/settings', { body: { selfChecks: on } });
+      update((state) => ({ data: { ...state.data, selfChecks: on } }));
+      noteDone(
+        on ? 'Check yourself on' : 'Check yourself off',
+        on ? 'your agent writes them on its next summary' : undefined,
+      );
+    },
+  );
+}
+
 /**
  * A message from a preview's frame (its script is lens's, summary/previews.ts): its height. Only a
  * preview frame of this page is heard.

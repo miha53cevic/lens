@@ -3,6 +3,7 @@ import { Check, Copy } from 'lucide-react';
 import { useLens } from '../../../store.ts';
 import { confirmedLabel, realConcerns } from '../../../model/realConcerns.ts';
 import { noteDone } from '../../../actions/status.ts';
+import { sendRound, sentFindings } from '../../../actions/rounds.ts';
 import { plural } from '../../../shared.ts';
 import { Button } from '../../../../ui/Button.tsx';
 
@@ -26,6 +27,7 @@ export function RealConcerns() {
       await navigator.clipboard.writeText(real.text);
       setCopied(true);
       setTimeout(() => setCopied(false), 1200);
+      await sendRound(sentFindings(real));
       noteDone('Copied ' + confirmedLabel(real), 'paste them to your agent');
     } catch {
       setShown(true);

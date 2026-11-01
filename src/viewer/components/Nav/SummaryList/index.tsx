@@ -13,6 +13,7 @@ import { ListRow } from '../../../../ui/ListRow.tsx';
 import { Disclosure } from '../../../../ui/Disclosure.tsx';
 import { stepHeadings } from './util.ts';
 import { InboxRail } from './InboxRail/index.tsx';
+import { AgentText } from '../../AgentText.tsx';
 
 /**
  * The Summary tab's list: flows (the agent's priority orders them), then the changes in no flow, by file;
@@ -71,7 +72,7 @@ export function SummaryList() {
               </Disclosure>
               {!folded && flow.why && (
                 <div data-part='sum-section-why' className='px-2 pb-1 text-xs/[1.4] text-muted'>
-                  {flow.why}
+                  <AgentText text={flow.why} />
                 </div>
               )}
               {!folded &&

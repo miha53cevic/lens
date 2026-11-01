@@ -4,9 +4,11 @@
 
 import { test } from 'bun:test';
 import assert from 'node:assert/strict';
+import type { ViewerPayload } from '../src/cli-app/render/web/server.ts';
 import { fireEvent } from '@testing-library/dom';
 import {
   payload,
+  findOrdersId,
   withMarks,
   postedMarks,
   open,
@@ -397,6 +399,233 @@ pageTest("a unit's code has the Code view's folds and toolbar keys, but shows wh
   assert.deepEqual(rows(code), ['5', 'R6', '−9', 'R9', '10', '11', '12'], 'h changes nothing here');
   await key('x');
   assert.deepEqual(rows(code), ['5', 'R6', 'R9', '10', '11', '12']);
+});
+
+test("the agent's title heads the overview; its backticks read as code, and stay out of what goes to the agent", async () => {
+  const summary = payload.summary!;
+  const units = summary.units.map((unit) =>
+    unit.summary?.concerns.length
+      ? {
+          ...unit,
+          summary: {
+            ...unit.summary,
+            headline: 'Calls `fetchPage` first',
+            concerns: [{ ...unit.summary.concerns[0], text: 'Empty `ids` <b>throws</b>' }],
+          },
+        }
+      : unit,
+  );
+  const overview = { what: 'Adds `limit`.', title: 'Orders page by default', stale: false };
+  const data = { ...payload, summary: { ...summary, units, overview } };
+  await open({}, '', '', data);
+  try {
+    await key('v');
+    await settle();
+    const headline = $('#summary-pane [data-part="sum-headline"]');
+    assert.equal(headline.textContent, 'Orders page by default');
+    const code = [...$('#summary-pane').querySelectorAll('p code')].map((part) => part.textContent);
+    assert.deepEqual(code, ['limit']);
+    assert.ok(!$('#summary-pane').textContent!.includes('`limit`'));
+    await key('j');
+    await settle();
+    const text = $('[data-part="concern"] [data-part="text"]');
+    assert.equal(text.querySelector('code')?.textContent, 'ids');
+    assert.equal(text.querySelector('b'), null, "the agent's text stays text");
+    assert.match(text.textContent!, /<b>throws<\/b>/);
+    assert.equal($('[data-part="sum-headline"] code').textContent, 'fetchPage');
+  } finally {
+    await close();
+  }
+});
+
+function planned(): ViewerPayload {
+  const summary = payload.summary!;
+  const unit = findOrdersId();
+  return {
+    ...payload,
+    selfChecks: true,
+    summary: {
+      ...summary,
+      plan: {
+        file: '.lavish/plan.html',
+        items: [
+          { text: 'Orders page by default', quote: 'page by default', status: 'done', units: [unit] },
+          { text: 'An empty state', quote: 'empty state', status: 'missing', units: [], note: 'Never added' },
+        ],
+        unplanned: [{ unit, note: 'Also renamed a helper' }],
+        stale: false,
+      },
+      checks: [
+        {
+          flow: 'Orders',
+          question: 'What does a bigger limit get?',
+          answer: 'The first 50.',
+          unit,
+          line: 'N10',
+          stale: false,
+        },
+      ],
+      flows: [{ title: 'Orders', path: 'a', units: { [unit]: 'a' }, priority: 1, why: 'x' }, ...summary.flows],
+    },
+  };
+}
+
+test('the Plan tab: only with a plan, what was built and what was not asked for; real ones go to the agent', async () => {
+  await open({}, '', '', planned());
+  try {
+    assert.ok($('#view-plan'), 'a third tab');
+    await key('p');
+    await settle();
+    assert.match(
+      $('[data-part="plan-headline"]').textContent!,
+      /1 of 2 plan items built\. 1 change wasn't asked for\./,
+    );
+    assert.deepEqual(
+      $$('[data-part="plan-item"]').map((item) => item.dataset.status),
+      ['done', 'missing'],
+    );
+    assert.equal($('[data-part="summary-pane"]').style.display, 'none');
+    assert.equal($('#nav').style.display, 'none', 'the plan takes the page');
+    assert.equal($$('[data-part="plan-handoff"]').length, 0);
+    // a done item takes no verdict; a missing one and what's off plan do
+    assert.equal($$('[data-part="plan-item"][data-status="done"] [data-part="plan-verdict"]').length, 0);
+    await click($('[data-part="plan-unplanned"] [data-mark="real"]'));
+    assert.ok($('[data-part="plan-handoff"]'), 'something for the agent now');
+    // a unit opens on the Summary tab
+    await click($('[data-part="plan-item"] [data-part="tag"][title]:not([data-toned])'));
+    await settle();
+    assert.equal($('[data-part="summary-pane"]').dataset.unit, findOrdersId());
+  } finally {
+    await close();
+  }
+});
+
+pageTest('no plan, no Plan tab, and p does nothing', async () => {
+  assert.equal($$('#view-plan').length, 0);
+  await key('p');
+  await settle();
+  assert.equal($$('[data-part="plan-headline"]').length, 0);
+});
+
+test('Check yourself: on the overview while on, the answer behind a click; off, none', async () => {
+  await open({}, '', '', planned());
+  try {
+    await key('v');
+    await settle();
+    assert.match($('[data-part="self-check"]').textContent!, /What does a bigger limit get\?/);
+    assert.equal($$('[data-part="self-check-answer"]').length, 0, 'the answer is hidden');
+    await click($('[data-part="self-check"] [data-part="disclosure"]'));
+    assert.match($('[data-part="self-check-answer"]').textContent!, /The first 50\./);
+  } finally {
+    await close();
+  }
+  await open({}, '', '', { ...planned(), selfChecks: false });
+  try {
+    await key('v');
+    await settle();
+    assert.equal($$('[data-part="self-checks"]').length, 0);
+  } finally {
+    await close();
+  }
+});
+
+function inRound(): ViewerPayload {
+  const summary = payload.summary!;
+  const unit = findOrdersId();
+  const file = summary.units.find((candidate) => candidate.id === unit)!.displayFile;
+  const finding = { kind: 'bug', unit, file, displayFile: file, line: 10, how: null };
+  return {
+    ...payload,
+    summary: {
+      ...summary,
+      round: {
+        round: 2,
+        sentAt: 1,
+        units: [unit],
+        files: [{ file, changedLines: [10], removals: [{ afterLine: 10, oldStart: 12, lines: ['  gone();'] }] }],
+        findings: [
+          { ...finding, key: 'a', text: 'Lines moved', state: 'changed' },
+          { ...finding, key: 'b', text: 'Agent fixed it', state: 'fixed', how: 'The key has the limit' },
+          { ...finding, key: 'c', text: 'Nothing happened', state: 'untouched', line: 40 },
+        ],
+      },
+    },
+  };
+}
+
+test('a round: what became of each finding, and a switch both views read to only what changed since', async () => {
+  const data = inRound();
+  await open({}, '', '', data);
+  try {
+    await key('v');
+    await settle();
+    assert.deepEqual(
+      $$('[data-part="round-finding"]').map((row) => [
+        row.dataset.state,
+        row.querySelector('[data-part="tag"]')!.textContent,
+      ]),
+      [
+        ['changed', 'Lines changed'],
+        ['fixed', 'Fixed'],
+        ['untouched', 'Untouched'],
+      ],
+    );
+    assert.match($('[data-part="round-count"]').textContent!, /1 change since your last look/);
+    const before = $$('[data-part="sum-item"]').length;
+    assert.ok(before > 1);
+    await click($('#round-since'));
+    await settle();
+    // the list, and the code's marks: the unit shows the delta, its other changed lines aren't marked
+    assert.equal($$('[data-part="sum-item"]').length, 1);
+    await key('j');
+    await settle();
+    assert.equal($('[data-part="summary-pane"]').dataset.unit, findOrdersId());
+    assert.deepEqual(
+      $$('[data-part="unit-code"] .row[data-line]')
+        .filter((row) => row.querySelector('.mark.changed'))
+        .map((row) => row.dataset.line),
+      ['10'],
+      'the line that changed since, not the others of the change',
+    );
+    assert.ok($('[data-part="unit-code"]').textContent!.includes('gone();'), 'its removal since, drawn plain');
+    // the Code view reads the same state: only the file that changed since is in the tree
+    await key('v');
+    await settle();
+    assert.equal($$('#nav [data-part="file"]').length, 1);
+    await key('v');
+    await key('g');
+    await click($('#round-all'));
+    await settle();
+    assert.equal($$('[data-part="sum-item"]').length, before, 'back to the whole change');
+  } finally {
+    await close();
+  }
+});
+
+test('copying findings for the agent keeps a round, with where each one is', async () => {
+  const unit = findOrdersId();
+  const key0 = payload.summary!.units.find((candidate) => candidate.id === unit)!;
+  assert.ok(key0.summary?.concerns.length);
+  const page = await open({}, '', '', payload);
+  try {
+    await key('v');
+    await key('j');
+    await settle();
+    await click($('[data-part="concern"] [data-part="vbtn"][data-mark="real"]'));
+    await key('g');
+    await settle();
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText: async () => {} }, configurable: true });
+    await click($('[data-part="ov-real-copy"]'));
+    await settle();
+    const posted = page.requests.find((request) => request.path === '/api/rounds')?.body as {
+      findings: { kind: string; unit: string; line: number | null }[];
+    };
+    assert.equal(posted.findings[0].unit, unit);
+    assert.equal(posted.findings[0].kind, key0.summary!.concerns[0].kind);
+    assert.equal(posted.findings[0].line, Number(key0.summary!.concerns[0].line.slice(1)));
+  } finally {
+    await close();
+  }
 });
 
 pageTest("a concern sits under its line; dismissing it drops the note and the unit's flag", async (page) => {

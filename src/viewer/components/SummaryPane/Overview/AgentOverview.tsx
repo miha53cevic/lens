@@ -1,6 +1,10 @@
 import type { SummaryView } from '../../../../cli-app/summary/view.ts';
 import { CopyCommand } from '../../../../ui/CopyCommand.tsx';
 import { CheckoutFirst } from '../CheckoutFirst.tsx';
+import { RunProgress } from './RunProgress.tsx';
+import { useLens } from '../../../store.ts';
+import { runGoing } from '../../../model/status.ts';
+import { AgentText } from '../../AgentText.tsx';
 
 interface AgentOverviewProps {
   summary: SummaryView;
@@ -12,6 +16,7 @@ interface AgentOverviewProps {
 /** The agent's account of the whole diff, or what to run to get one. */
 export function AgentOverview({ summary, anySummarized, checking }: AgentOverviewProps) {
   const overview = summary.overview;
+  const build = useLens((state) => runGoing(state));
   if (!overview && summary.checkout) {
     return (
       <div
@@ -27,6 +32,8 @@ export function AgentOverview({ summary, anySummarized, checking }: AgentOvervie
       </div>
     );
   }
+  // the agent is on it: where it has got to, not what to run
+  if (!overview && build) return <RunProgress build={build} showText />;
   if (!overview && anySummarized) {
     return (
       <div data-part='sum-note' className='rounded-md border border-line bg-surface px-3 py-2 text-md/[1.5] text-muted'>
@@ -64,10 +71,13 @@ export function AgentOverview({ summary, anySummarized, checking }: AgentOvervie
           Agent summary
         </div>
         {overview.what.split('\n\n').map((paragraph, paragraphIndex) => (
-          <p key={paragraphIndex}>{paragraph}</p>
+          <p key={paragraphIndex}>
+            <AgentText text={paragraph} />
+          </p>
         ))}
       </div>
-      {overview.stale && (
+      {build && <RunProgress build={build} showText={false} />}
+      {overview.stale && !build && (
         <div
           data-part='sum-note'
           data-stale=''

@@ -21,6 +21,7 @@ import {
   readStored,
   writeStored,
   unitSetHash,
+  wholeDiffLeft,
   type Bundle,
 } from '../src/cli-app/summary/store.ts';
 import { runSummary } from '../src/cli-app/summary/command.ts';
@@ -469,7 +470,7 @@ test('a submit that asks for fixes keeps the run shown until one that asks for n
       JSON.stringify({ units: { 'package.json#(file)': unit }, overview, flows: [{ title: 'x' }] }),
     );
     await runSummary(['submit', folder], dir);
-    assert.deepEqual(read(), { done: 1, total: 1, finalPass: true }, 'the agent was told to fix and submit again');
+    assert.equal(read()?.stage, 'fixes', 'the agent was told to fix and submit again');
 
     writeFileSync(join(folder, 'result.json'), JSON.stringify({ units: {}, overview }));
     await runSummary(['submit', folder], dir);
@@ -1012,6 +1013,80 @@ test('validate: a whole-diff pass replaces the stored flows; other passes merge 
   assert.equal(noFlows.stored.flows.length, 2, 'a submit without flows leaves them alone');
 });
 
+test('validate: a plan needs quotes that are in the plan file and units that are in the diff', () => {
+  const root = mkdtempSync(join(tmpdir(), 'lens-plan-'));
+  try {
+    writeFileSync(
+      join(root, 'plan.html'),
+      '<h1>Plan</h1><style>p{}</style><p>Orders page by <b>default</b> &amp; keep limits.</p>',
+    );
+    const planned: Bundle = { ...BUNDLE, plan: 'plan.html' };
+    const [findOrders, toOrder] = BUNDLE.units.map((unit) => unit.id);
+    const result = {
+      units: {},
+      plan: {
+        items: [
+          { text: 'Paging', quote: 'orders page by default & keep', status: 'done', units: [findOrders] },
+          { text: 'Invented', quote: 'not in the plan at all', status: 'done', units: [findOrders] },
+          { text: 'No units', quote: 'Plan', status: 'done', units: [] },
+          { text: 'Silent', quote: 'keep limits', status: 'partly', units: [findOrders] },
+          { text: 'Limits', quote: 'keep limits', status: 'missing', units: [], note: 'never added' },
+        ],
+        unplanned: [{ unit: 'nope#x', note: 'x' }],
+      },
+    };
+    const outcome = validateResult(planned, result, root, null);
+    assert.deepEqual(
+      outcome.stored.plan?.items.map((item) => item.text),
+      ['Paging', 'Limits'],
+    );
+    assert.equal(outcome.stored.plan?.file, 'plan.html');
+    assert.equal(outcome.stored.plan?.hash, unitSetHash(BUNDLE.units));
+    assert.ok(outcome.dropped.some((reason) => /isn't in plan\.html/.test(reason)));
+    assert.ok(outcome.dropped.some((reason) => /names the units that do it/.test(reason)));
+    assert.ok(outcome.dropped.some((reason) => /says what's left/.test(reason)));
+    assert.ok(outcome.dropped.some((reason) => /unplanned\[0\]: unknown unit/.test(reason)));
+    assert.ok(outcome.planOutside.includes(toOrder), 'a unit placed nowhere is named back');
+    const hash = unitSetHash(BUNDLE.units);
+    const story = { flows: [{ title: 'F', path: 'a', units: {} }], overview: { what: 'x', hash } };
+    assert.equal(wholeDiffLeft(planned, { ...outcome.stored, ...story }), false, 'the plan is in');
+    assert.equal(wholeDiffLeft(planned, { ...outcome.stored, ...story, plan: undefined }), true, 'the plan is left');
+
+    const noPass = validateResult(BUNDLE, result, root, null);
+    assert.equal(noPass.stored.plan, undefined, 'only when this pass asks for one');
+    assert.match(noPass.dropped[0], /^plan:/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('validate: self-checks name a flow and a line of a unit, at most three a flow; a sent finding gets its claim', () => {
+  const flow = { title: 'Paging', path: 'a', units: { [BUNDLE.units[0].id]: 'a', [BUNDLE.units[1].id]: 'b' } };
+  const previous = { version: 1 as const, updatedAt: '', units: {}, flows: [flow] };
+  const unit = BUNDLE.units[0].id;
+  const good = { flow: 'Paging', question: 'What now?', answer: 'The first 50.', unit, line: 'N5' };
+  const outcome = validateResult(
+    { ...BUNDLE, checks: true, wholeDiff: true, sent: ['key-one'] },
+    {
+      units: {},
+      checks: [good, good, good, good, { ...good, flow: 'Other' }, { ...good, line: 'N999' }],
+      sent: {
+        '1': { fixed: true, how: 'The key has the limit now', unit, line: 'N6' },
+        '2': { fixed: true, how: 'No such one', unit, line: 'N6' },
+      },
+    },
+    '/nonexistent',
+    previous,
+  );
+  assert.equal(outcome.acceptedChecks, 3);
+  assert.equal(outcome.stored.checked, unitSetHash(BUNDLE.units));
+  assert.ok(outcome.dropped.some((reason) => /has its 3 already/.test(reason)));
+  assert.ok(outcome.dropped.some((reason) => /isn't one of the flows/.test(reason)));
+  assert.equal(outcome.acceptedSent, 1);
+  assert.deepEqual(Object.keys(outcome.stored.sentChecks ?? {}), ['key-one']);
+  assert.ok(outcome.dropped.some((reason) => /no finding with that number/.test(reason)));
+});
+
 test("validate: the overview is stored with the diff's hash; an over-long one is dropped", () => {
   const good = validateResult(
     BUNDLE,
@@ -1024,6 +1099,21 @@ test("validate: the overview is stored with the diff's hash; an over-long one is
   const bad = validateResult(BUNDLE, { units: {}, overview: { what: 'x'.repeat(2001) } }, '/nonexistent', good.stored);
   assert.equal(bad.acceptedOverview, false);
   assert.match(bad.dropped[0], /^overview: what/);
+  const titled = validateResult(
+    BUNDLE,
+    { units: {}, overview: { what: 'x', title: '  Orders   page by default ' } },
+    '/nonexistent',
+    null,
+  );
+  assert.equal(titled.stored.overview?.title, 'Orders page by default');
+  const long = validateResult(
+    BUNDLE,
+    { units: {}, overview: { what: 'x', title: 'y'.repeat(61) } },
+    '/nonexistent',
+    null,
+  );
+  assert.equal(long.stored.overview?.title, undefined, 'the overview stays, without its title');
+  assert.match(long.dropped[0], /^overview: title/);
   assert.equal(bad.stored.overview?.what, 'Pages orders by default.', 'a rejected overview keeps the earlier one');
   assert.notEqual(unitSetHash(BUNDLE.units), unitSetHash(BUNDLE.units.slice(1)));
   const multi = validateResult(
@@ -1124,7 +1214,7 @@ test('prepare → submit → view round trip, with re-prepare skipping done unit
     const view = buildSummaryView({ root: diff.root, cwd: dir, command: 'diff', args: ['--staged'], units });
     const v = view.units.find((u) => u.id === 'src/repo.ts#findOrders')!;
     assert.equal(view.command, '/lens-review --staged');
-    assert.deepEqual(view.overview, { what: 'Pages orders by default.', stale: false });
+    assert.deepEqual(view.overview, { what: 'Pages orders by default.', title: null, stale: false });
     assert.equal(v.stale, false);
     assert.equal(v.summary?.breaks[0].callers[0].lines.find((l) => l.n === 2)?.text, 'const o = await findOrders(u);');
     // removed blocks arrive with the shown line they display after (removalAnchors)
@@ -1904,7 +1994,11 @@ test("a summary run's progress: units in, then the final pass, then nothing; a s
     };
     mkdirSync(join(root, '.lens', 'summary', key), { recursive: true });
     writeFileSync(join(root, '.lens', 'summary', key, 'bundle.json'), JSON.stringify(bundle));
-    assert.deepEqual(read(), { done: 0, total: 3, finalPass: false });
+    const where = () => {
+      const build = read();
+      return build && { done: build.done, total: build.total, stage: build.stage };
+    };
+    assert.deepEqual(where(), { done: 0, total: 3, stage: 'changes' });
 
     const summary = (headline: string, hash: string) => ({
       headline,
@@ -1918,16 +2012,24 @@ test("a summary run's progress: units in, then the final pass, then nothing; a s
     });
     const units = { a: summary('A', 'h-a'), b: summary('B', 'h-b'), c: summary('C', 'stale') };
     writeStored(root, key, { version: 1, updatedAt: '', units, flows: [] });
-    assert.deepEqual(read(), { done: 2, total: 3, finalPass: false }, "a summary for other code doesn't count");
+    assert.deepEqual(where(), { done: 2, total: 3, stage: 'changes' }, "a summary for other code doesn't count");
 
     units.c = summary('C', 'h-c');
     writeStored(root, key, { version: 1, updatedAt: '', units, flows: [] });
-    assert.deepEqual(read(), { done: 3, total: 3, finalPass: true }, 'every unit in: flows and the overview left');
+    assert.deepEqual(where(), { done: 3, total: 3, stage: 'story' }, 'every unit in: flows and the overview left');
 
     const flow = { title: 'Orders', path: 'a → b', units: { a: 'repo', b: 'route', c: 'route' } };
     const overview = { what: 'x', hash: unitSetHash(bundle.units) };
     writeStored(root, key, { version: 1, updatedAt: '1', units, flows: [flow], overview });
     assert.equal(read(), null, 'the final pass is in: done');
+
+    // what lens writes itself isn't the agent's work, and the run says how long the agent has been quiet
+    const filed = { ...bundle, units: [...bundle.units, { ...unit('d'), importsOnly: true }], drawings: true };
+    writeFileSync(join(root, '.lens', 'summary', key, 'bundle.json'), JSON.stringify(filed));
+    writeStored(root, key, { version: 1, updatedAt: '2', units: { d: summary('D', 'h-d') }, flows: [] });
+    const quiet = read();
+    assert.deepEqual([quiet?.done, quiet?.total, quiet?.drawings], [0, 3, true]);
+    assert.ok(quiet!.quietMs >= 0 && quiet!.quietMs < 60_000, 'written just now');
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

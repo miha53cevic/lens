@@ -3,6 +3,7 @@ import { basename, join } from 'node:path';
 import { buildProgressReader } from './summary/progress.ts';
 import { NOTES_DIR, OLD_NOTES_PATH, readStoredNotes } from './notes/store.ts';
 import { countMarks, MARKS_DIR, readStoredMarks } from './marks/store.ts';
+import { readRounds, ROUNDS_DIR } from './rounds/store.ts';
 import { countText } from './text.ts';
 
 // What lens keeps on disk that the reader can clear: one entry per kind in CLEAR_KINDS. The
@@ -163,7 +164,14 @@ const marks = perReview(
   (root, review) => countMarks(readStoredMarks(root, review)),
 );
 
-export const CLEAR_KINDS: ClearKind[] = [summaries, notes, marks];
+/** The code and findings kept each time the reader sends findings to the agent, one file per review. */
+const rounds = perReview(
+  { id: 'rounds', label: 'Rounds', unit: ['round', 'rounds'] },
+  ROUNDS_DIR,
+  (root, review) => readRounds(root, review).length,
+);
+
+export const CLEAR_KINDS: ClearKind[] = [summaries, notes, marks, rounds];
 
 export function clearKind(id: string): ClearKind | undefined {
   return CLEAR_KINDS.find((kind) => kind.id === id);

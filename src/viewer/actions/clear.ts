@@ -52,7 +52,10 @@ export async function clearData(picks: ClearPicks): Promise<void> {
       const answer = await api('POST /api/clear', { body });
       update((state) => ({
         summaryDot: false,
-        data: answer.summary ? { ...state.data, summary: answer.summary } : state.data,
+        beforeRound: null,
+        data: answer.summary
+          ? { ...(state.beforeRound ?? state.data), summary: answer.summary }
+          : (state.beforeRound ?? state.data),
         // "this review" or "all": either way the open review's are gone
         ...(answer.cleared.notes && { notes: [], noteDraft: null }),
         ...(answer.cleared.marks && { viewedFiles: new Set(), viewedUnits: new Set(), concernMarks: new Map() }),

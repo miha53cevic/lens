@@ -25,7 +25,7 @@ import { Menu, MenuItem, MenuSection, MenuSeparator, MenuSwitch } from '../../..
 import { Segmented } from '../../../ui/Segmented.tsx';
 import { Stepper } from '../../../ui/Stepper.tsx';
 import { foldLevelHint } from './util.ts';
-import { setBuildPreviews } from '../../actions/previews.ts';
+import { setBuildPreviews, setSelfChecks } from '../../actions/previews.ts';
 import { openClearData } from '../../actions/clear.ts';
 
 const LEVELS = [
@@ -56,6 +56,7 @@ export function MoreMenu() {
     uiZoom: state.uiZoom,
     hasSummary: state.data.summary !== null,
     buildPreviews: state.data.buildPreviews,
+    selfChecks: state.data.selfChecks,
     fullUnits: state.fullUnits,
     summaryInbox: state.summaryInbox,
   }));
@@ -166,6 +167,9 @@ export function MoreMenu() {
           <MenuSection title='Summary'>
             <MenuSwitch id='build-previews' checked={more.buildPreviews} onChange={setBuildPreviews}>
               Build previews
+            </MenuSwitch>
+            <MenuSwitch id='self-checks' checked={more.selfChecks} onChange={setSelfChecks}>
+              Check yourself
             </MenuSwitch>
             <MenuSwitch id='full-units' checked={more.fullUnits} onChange={setFullUnits}>
               Full units

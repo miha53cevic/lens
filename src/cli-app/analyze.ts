@@ -11,7 +11,8 @@ import type { FileFoldModel, LensConfig } from './model.ts';
 import { loadDiff, collectUnits, type LoadedDiff } from './summary/collect.ts';
 import { reviewKey, summaryStamp } from './summary/store.ts';
 import { buildSummaryView, type SummaryView } from './summary/view.ts';
-import { buildPreviewsOn } from './summary/settings.ts';
+import { buildPreviewsOn, selfChecksOn } from './summary/settings.ts';
+import { ROUNDS_DIR } from './rounds/store.ts';
 
 const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build', 'out', 'coverage']);
 
@@ -113,13 +114,20 @@ export async function analyze(
     try {
       const units = await collectUnits(diff, config, cwd);
       const { root } = diff;
-      const build = () => buildSummaryView({ root, cwd, command, args, units });
+      const sources = new Map([...diff.sources].map(([abs, text]) => [relPath(root, abs), text]));
+      const build = () => buildSummaryView({ root, cwd, command, args, units, sources });
+      const roundStamp = (key: string) =>
+        statSync(join(root, ROUNDS_DIR, key + '.json'), { throwIfNoEntry: false })?.mtimeMs;
       let view = build();
-      // rebuilt only after a submit (summary.json's mtime), or on another branch: a diff's key names
-      // the branch, and what must be checked out first is measured from HEAD (checkoutFirst)
+      let viewRound = roundStamp(view.key);
+      // rebuilt only after a submit (summary.json's mtime), a send to the agent (its round's), or on another
+      // branch: a diff's key names the branch, and what must be checked out first is measured from HEAD (checkoutFirst)
       latestSummary = () => {
         const key = reviewKey(root, command, args);
-        return key === view.key && summaryStamp(root, key) === view.stamp ? view : (view = build());
+        if (key === view.key && summaryStamp(root, key) === view.stamp && roundStamp(key) === viewRound) return view;
+        view = build();
+        viewRound = roundStamp(key);
+        return view;
       };
       summary = view;
     } catch (err) {
@@ -141,6 +149,7 @@ export async function analyze(
     config,
     configSource: findConfigPath(cwd),
     buildPreviews: buildPreviewsOn(root, config),
+    selfChecks: selfChecksOn(root, config),
     label: diff ? diff.label : null,
     guessedBase: diff ? diff.guessedBase : null,
     summary,

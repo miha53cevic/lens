@@ -124,7 +124,7 @@ pageTest('a standing notice shows only while it has something to say, and leads 
 
 pageTest("the agent's summary run shows as a notice while it goes: units in, then the final pass", async () => {
   const notices = () => $$('#status-bar [data-part="status-notices"] > *').map((notice) => notice.textContent);
-  let building: unknown = { done: 12, total: 30, finalPass: false };
+  let building: unknown = { done: 12, total: 30, stage: 'changes', drawings: false, quietMs: 1000 };
   const undo = answering((path) =>
     path === '/api/stamp'
       ? new Response(JSON.stringify({ summary: payload.summary!.stamp, change: payload.changeStamp, building }))
@@ -137,15 +137,65 @@ pageTest("the agent's summary run shows as a notice while it goes: units in, the
     $('#status-bar [data-part="notice-dot"]').classList.contains('pulse'),
     'a live notice pulses, as the Ask dot does',
   );
-  building = { done: 30, total: 30, finalPass: true };
+  building = { done: 30, total: 30, stage: 'story', drawings: false, quietMs: 1000 };
   window.dispatchEvent(new Event('focus'));
   await settle();
-  assert.deepEqual(notices(), ['Agent writing summary · final pass']);
+  assert.deepEqual(notices(), ['Agent writing summary · writing the story']);
   building = null;
   window.dispatchEvent(new Event('focus'));
   await settle();
   undo();
   assert.deepEqual(notices(), [], 'the run is done');
+});
+
+test('a run going over a written overview shows too, and a stalled one goes back to saying what to run', async () => {
+  const summary = payload.summary!;
+  const data: ViewerPayload = {
+    ...payload,
+    summary: { ...summary, overview: { what: 'x', title: null, stale: true } },
+  };
+  await open({}, '', '', data);
+  try {
+    let quietMs = 1000;
+    const undo = answering((path) =>
+      path === '/api/stamp'
+        ? new Response(
+            JSON.stringify({
+              summary: summary.stamp,
+              change: payload.changeStamp,
+              building: { done: 3, total: 61, stage: 'changes', drawings: false, quietMs },
+            }),
+          )
+        : undefined,
+    );
+    await key('v');
+    window.dispatchEvent(new Event('focus'));
+    await settle();
+    assert.ok($('#summary-pane [data-part="run-progress"]'));
+    assert.equal($$('#summary-pane [data-part="sum-note"][data-stale]').length, 0, "it's being written: no command");
+    quietMs = 60 * 60 * 1000;
+    window.dispatchEvent(new Event('focus'));
+    await settle();
+    undo();
+    assert.equal($$('#summary-pane [data-part="run-progress"]').length, 0);
+    assert.ok($('#summary-pane [data-part="sum-note"][data-stale]'));
+  } finally {
+    await close();
+  }
+});
+
+pageTest("a run with no write for a long time says that, and doesn't say an agent is writing", async () => {
+  const notices = () => $$('#status-bar [data-part="status-notices"] > *').map((notice) => notice.textContent);
+  const building = { done: 3, total: 61, stage: 'changes', drawings: false, quietMs: 2 * 60 * 60 * 1000 };
+  const undo = answering((path) =>
+    path === '/api/stamp'
+      ? new Response(JSON.stringify({ summary: payload.summary!.stamp, change: payload.changeStamp, building }))
+      : undefined,
+  );
+  window.dispatchEvent(new Event('focus'));
+  await settle();
+  undo();
+  assert.deepEqual(notices(), ['Summary unfinished · 3 of 61 units · last write 2 h ago']);
 });
 
 test("a first run: the page opened before any summary, and shows the agent's run and then its summary", async () => {
@@ -160,12 +210,34 @@ test("a first run: the page opened before any summary, and shows the agent's run
     let stamp: unknown = {
       summary: null,
       change: payload.changeStamp,
-      building: { done: 0, total: 2, finalPass: false },
+      building: { done: 0, total: 2, stage: 'changes', drawings: true, quietMs: 5000 },
     };
     const undo = answering((path) => (path === '/api/stamp' ? new Response(JSON.stringify(stamp)) : undefined));
     window.dispatchEvent(new Event('focus'));
     await settle();
     assert.deepEqual(notices(), ['Agent writing summary · 0 of 2 units']);
+    // the page says where the run is, and doesn't ask for what is already running
+    await click($('#view-summary'));
+    await settle();
+    const run = $('#summary-pane [data-part="run-progress"]');
+    assert.ok(run, 'the overview shows the run');
+    assert.match(run.textContent!, /Your agent is writing this/);
+    assert.match(run.textContent!, /last write 5 s ago/);
+    assert.deepEqual(
+      $$('#summary-pane [data-part="run-step"]').map((step) => [step.textContent, step.dataset.active !== undefined]),
+      [
+        ['Changes 0 of 2', true],
+        ['Story', false],
+        ['Drawings', false],
+      ],
+    );
+    assert.equal($$('#no-summary').length, 0, 'no command to run');
+    await key('j');
+    await settle();
+    assert.match($('#summary-pane [data-part="sum-note"]').textContent!, /^On its way: your agent is writing/);
+    await key('g');
+    await key('v');
+    await settle();
     // the first submit: summary.json is there now, where there was none
     stamp = { summary: summary.stamp, change: payload.changeStamp, building: null };
     window.dispatchEvent(new Event('focus'));

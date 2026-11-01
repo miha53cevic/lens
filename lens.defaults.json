@@ -50,6 +50,7 @@
   "testFilePatterns": ["*.spec.*", "*.test.*", "__tests__/**"],
 
   "buildPreviews": true,
+  "selfChecks": false,
 
   "exclude": ["package-lock.json", "yarn.lock", "pnpm-lock.yaml", "bun.lock", "bun.lockb", "*.min.js", "*.min.css", "*.map"]
 }

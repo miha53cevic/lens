@@ -107,6 +107,7 @@ export function SettingsDialog() {
                 )}
               </>,
             ],
+            ['Check yourself', onOff(data.selfChecks)],
           ]}
         />
         <Section

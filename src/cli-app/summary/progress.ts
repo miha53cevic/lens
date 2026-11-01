@@ -1,17 +1,23 @@
 import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { readStored, summaryPath, wholeDiffLeft, type Bundle } from './store.ts';
+import { isHousekeeping, readStored, summaryPath, unitSetHash, wholeDiffLeft, type Bundle } from './store.ts';
 
 // How far the agent's summary run has got, from what it leaves on disk: the bundle `prepare`
 // wrote, the summary its submits merged into, and whether the last submit asked for another.
 // lens never sees the agent itself.
 
+/** Where a run is: the units, then the story (flows, overview), then the drawings, or the last submit's fixes */
+export type BuildStage = 'changes' | 'story' | 'drawings' | 'fixes';
+
 export interface BuildProgress {
-  /** The bundle's units with a summary for their code */
+  /** The agent's own units with a summary for their code: what lens files itself isn't its work */
   done: number;
   total: number;
-  /** Every unit is in: the flows, the overview (and the drawings) are left, or the last submit's fixes */
-  finalPass: boolean;
+  stage: BuildStage;
+  /** This run asks for previews and sequences */
+  drawings: boolean;
+  /** How long ago the agent last wrote anything, as of this read: lens can't see the agent, only this */
+  quietMs: number;
 }
 
 /** What the last submit of a bundle told the agent: `again` when it asked for fixes and another submit */
@@ -37,12 +43,16 @@ export function buildProgressReader(root: string, key: string): () => BuildProgr
   const dir = dirname(summaryPath(root, key));
   const bundlePath = join(dir, 'bundle.json');
   const submitPath = join(dir, SUBMIT_FILE);
-  let held: { stamps: string; progress: BuildProgress | null } | null = null;
+  let held: { stamps: string; progress: Omit<BuildProgress, 'quietMs'> | null; wrote: number } | null = null;
   return () => {
     if (!existsSync(bundlePath)) return null;
-    const stamps = [bundlePath, summaryPath(root, key), submitPath].map(fileStamp).join('|');
-    if (held?.stamps !== stamps) held = { stamps, progress: progressOf(bundlePath, submitPath, root, key) };
-    return held.progress;
+    const paths = [bundlePath, summaryPath(root, key), submitPath];
+    const stamps = paths.map(fileStamp).join('|');
+    if (held?.stamps !== stamps) {
+      const wrote = Math.max(...paths.map((path) => statSync(path, { throwIfNoEntry: false })?.mtimeMs ?? 0));
+      held = { stamps, progress: progressOf(bundlePath, submitPath, root, key), wrote };
+    }
+    return held.progress && { ...held.progress, quietMs: Math.max(0, Date.now() - held.wrote) };
   };
 }
 
@@ -52,7 +62,12 @@ function fileStamp(path: string): string {
   return stats ? stats.mtimeMs + ':' + stats.size : 'none';
 }
 
-function progressOf(bundlePath: string, submitPath: string, root: string, key: string): BuildProgress | null {
+function progressOf(
+  bundlePath: string,
+  submitPath: string,
+  root: string,
+  key: string,
+): Omit<BuildProgress, 'quietMs'> | null {
   let bundle: Bundle;
   try {
     bundle = JSON.parse(readFileSync(bundlePath, 'utf8'));
@@ -61,12 +76,20 @@ function progressOf(bundlePath: string, submitPath: string, root: string, key: s
   }
   if (bundle?.version !== 1 || !Array.isArray(bundle.units) || bundle.units.length === 0) return null;
   const stored = readStored(root, key);
-  const done = bundle.units.filter((unit) => stored?.units[unit.id]?.hash === unit.hash).length;
-  const total = bundle.units.length;
-  if (done < total) return { done, total, finalPass: false };
+  const own = bundle.units.filter((unit) => !isHousekeeping(unit));
+  const done = own.filter((unit) => stored?.units[unit.id]?.hash === unit.hash).length;
+  const total = own.length;
+  const drawings = !!bundle.drawings;
+  // lens's own units count too here: a stored one that no longer fits is prepare's to write again
+  const allIn = bundle.units.every((unit) => stored?.units[unit.id]?.hash === unit.hash);
+  if (!allIn) return { done, total, stage: 'changes', drawings };
   // the whole-diff work can be in while the agent fixes what the submit rejected or left out of the flows
-  const going = stored ? wholeDiffLeft(bundle, stored) : false;
-  return going || askedAgain(submitPath, bundle) ? { done, total, finalPass: true } : null;
+  if (stored && wholeDiffLeft(bundle, stored)) {
+    const story = stored.overview?.hash === unitSetHash(bundle.units) && stored.flows.length > 0;
+    // past the story with no drawings asked for, what's left (the plan, the self-checks) is still its pass
+    return { done, total, stage: story && drawings ? 'drawings' : 'story', drawings };
+  }
+  return askedAgain(submitPath, bundle) ? { done, total, stage: 'fixes', drawings } : null;
 }
 
 function askedAgain(submitPath: string, bundle: Bundle): boolean {

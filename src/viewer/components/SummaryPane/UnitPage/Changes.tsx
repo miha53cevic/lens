@@ -1,6 +1,7 @@
 import { ArrowRight } from 'lucide-react';
 import type { ChangeRow } from '../../../../cli-app/summary/store.ts';
 import { Cite } from './Cite.tsx';
+import { AgentText } from '../../AgentText.tsx';
 
 interface ChangesProps {
   changes: ChangeRow[];
@@ -24,10 +25,15 @@ export function Changes({ changes, onHover }: ChangesProps) {
           onMouseEnter={() => onHover(change.line)}
           onMouseLeave={() => onHover(null)}
         >
-          <span className='font-serif text-muted italic'>When {change.when}:</span>{' '}
+          <span className='font-serif text-muted italic'>
+            When <AgentText text={change.when} />:
+          </span>{' '}
           {change.before ? (
             <>
-              <del>{change.before}</del> <ArrowRight size={12} className='align-[-1px] text-faint' />{' '}
+              <del>
+                <AgentText text={change.before} />
+              </del>{' '}
+              <ArrowRight size={12} className='align-[-1px] text-faint' />{' '}
             </>
           ) : (
             <span
@@ -37,7 +43,10 @@ export function Changes({ changes, onHover }: ChangesProps) {
               new
             </span>
           )}
-          <ins>{change.now}</ins> <Cite label={change.line} />
+          <ins>
+            <AgentText text={change.now} />
+          </ins>{' '}
+          <Cite label={change.line} />
         </p>
       ))}
     </div>

@@ -37,7 +37,7 @@ export function ReviewPill() {
     const file = activeFile(state);
     const shown = codeView ? !!file && !(state.hideTests && isTestFile(file.file)) : true;
     let stage: Stage = 'hidden';
-    if (progress && progress.total > 0 && shown) {
+    if (progress && progress.total > 0 && shown && state.view !== 'plan') {
       if (page === 'overview') stage = 'start';
       else if (progress.done === progress.total) stage = 'all';
       else if (progress.currentDone) stage = 'done';

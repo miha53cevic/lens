@@ -97,4 +97,5 @@ export interface LensConfig {
   exclude: string[];
   /** Summary mode asks the agent for previews of changed screens and sequence diagrams */
   buildPreviews: boolean;
+  selfChecks: boolean;
 }

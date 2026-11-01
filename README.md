@@ -66,7 +66,7 @@ Or open the desktop app, pick the repository and what to review.
 | `lens pr 123` / `lens pr <url>` | a GitHub PR, fetched with plain git (no API, no gh) |
 | `lens info` | what could be reviewed here: the branch, its changes, the PR remote |
 | `lens config` | the effective config and where it comes from |
-| `lens clear` | what lens keeps in `.lens/`, by kind; `lens clear <kind> --all` (or one review's `<key>`) clears it: `summaries`, `notes`, `marks` |
+| `lens clear` | what lens keeps in `.lens/`, by kind; `lens clear <kind> --all` (or one review's `<key>`) clears it: `summaries`, `notes`, `marks`, `rounds` |
 
 | flag | meaning |
 | --- | --- |
@@ -135,6 +135,19 @@ cover, and go stale with their code.
 /lens-review --staged           # in your agent; or: pr 87
 ```
 
+**Rounds**: copying your findings for the agent keeps the code as it is then. Your next read can be
+only what changed since (the overview's switch, both views), with what became of each finding:
+*lines changed*, *nearby changed* or *untouched* is lens's own measure, and *fixed* or *not fixed*
+is your agent's claim on its next summary. Kept per review in `.lens/rounds/`.
+
+**Plan tab**: `lens summary prepare --plan <file>` measures the diff against the plan the build
+followed: each item done, partly or missing with the units that do it, and what was built that the
+plan didn't ask for. It's the agent's reading: lens checks each quote is in the plan and each unit in
+the diff. `/lens-build-review` passes its plan file along.
+
+**Check yourself** (the ⋯ menu, off by default): your agent also writes a few questions per flow, with
+the answer behind a click, for checking you understood the change. No score and no gate.
+
 The skill runs `lens summary prepare` (splits the diff into units, writes the agent's
 instructions) and `lens summary submit` (checks the agent's result and stores it). Any
 agent with a shell can follow `prepare`'s printed instructions. `submit` drops any claim
@@ -200,6 +213,7 @@ extend. `"base": false` makes your file the whole rule set.
 | `testFilePatterns` | what *hide tests* hides, and what summary mode treats as tests |
 | `exclude` | listed in a diff as `⊘` without being read; skipped in directory walks |
 | `buildPreviews` | summary mode asks for previews and sequences (default `true`); the ⋯ menu's switch overrides it for you, in `.lens/settings.json` |
+| `selfChecks` | summary mode asks for questions to check your understanding with (default `false`); the ⋯ menu's switch overrides it, as above |
 
 Patterns: `*` matches within a path segment, `**` across them, and a pattern matches
 anywhere in the path.

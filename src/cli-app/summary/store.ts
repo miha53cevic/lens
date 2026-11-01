@@ -99,13 +99,63 @@ export interface StoredPreview {
 }
 
 export interface Overview {
+  /** What to call the change: the overview's headline */
+  title?: string;
   /** What the whole diff does, sized to it; paragraphs split by blank lines */
   what: string;
   /** unitSetHash of the diff it was written for; another one makes it stale */
   hash: string;
 }
 
+/** A question the reader can check their understanding with: the answer is behind a click, with where it shows */
+export interface SelfCheck {
+  /** The flow it's about, by title */
+  flow: string;
+  question: string;
+  answer: string;
+  /** The unit and line the answer shows at; `hash` is the unit's placed hash when written */
+  unit: string;
+  line: string;
+  hash: string;
+}
+
+export const PLAN_STATUSES = ['done', 'partly', 'missing'] as const;
+/** How far the diff got with something the plan asks: the agent's reading, not a check */
+export type PlanStatus = (typeof PLAN_STATUSES)[number];
+
+export interface PlanItem {
+  text: string;
+  /** Copied from the plan file: submit checks it's there */
+  quote: string;
+  status: PlanStatus;
+  /** The units that do it */
+  units: string[];
+  /** What's left and why; a done item needs none */
+  note?: string;
+}
+
+/** The diff against the plan the build followed. */
+export interface StoredPlan {
+  /** Repo-relative, `/`-separated */
+  file: string;
+  items: PlanItem[];
+  /** What was built that no plan item needs */
+  unplanned: { unit: string; note: string }[];
+  /** unitSetHash of the diff it was written for */
+  hash: string;
+}
+
 export type StoredUnit = UnitSummary & { hash: string; anchor: Anchor };
+
+/** The agent's reading of a finding the reader sent back: whether the code now fixes it. */
+export interface SentCheck {
+  fixed: boolean;
+  how: string;
+  unit: string;
+  line: string;
+  /** The unit's placed hash when written: code that moved on takes it back */
+  hash: string;
+}
 
 export interface StoredSummary {
   version: 1;
@@ -122,6 +172,12 @@ export interface StoredSummary {
   drawingsPass?: string;
   /** unitSetHash of the diff a whole-diff pass that asked for drawings was submitted for */
   drawn?: string;
+  plan?: StoredPlan;
+  checks?: SelfCheck[];
+  /** unitSetHash of the diff a whole-diff pass that asked for self-checks was submitted for */
+  checked?: string;
+  /** What the agent says of each finding the reader sent, by the finding's key */
+  sentChecks?: Record<string, SentCheck>;
 }
 
 /** One hash for the whole diff: any unit added, dropped, changed or moved moves it. */
@@ -166,6 +222,12 @@ export interface Bundle {
   wholeDiff?: boolean;
   /** This pass asks for previews and sequences (Build previews is on) */
   drawings?: boolean;
+  /** The plan the build followed, repo-relative: the whole-diff pass measures the diff against it */
+  plan?: string;
+  /** This pass asks for self-checks (the reader turned them on) */
+  checks?: boolean;
+  /** The keys of the findings the reader last sent: this pass may say whether each is fixed */
+  sent?: string[];
 }
 
 /** A diff needs flows once two of its units tell a story: lens's own Housekeeping units don't. */
@@ -178,7 +240,9 @@ export function wholeDiffLeft(bundle: Bundle, stored: StoredSummary): boolean {
   const hash = unitSetHash(bundle.units);
   const flowsMissing = stored.flows.length === 0 && needsFlows(bundle.units);
   const undrawn = !!bundle.drawings && stored.drawn !== hash;
-  return stored.overview?.hash !== hash || flowsMissing || undrawn;
+  const unplanned = !!bundle.plan && (stored.plan?.hash !== hash || stored.plan.file !== bundle.plan);
+  const unchecked = !!bundle.checks && stored.checked !== hash;
+  return stored.overview?.hash !== hash || flowsMissing || undrawn || unplanned || unchecked;
 }
 
 export function lensDir(root: string): string {

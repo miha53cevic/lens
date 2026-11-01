@@ -35,11 +35,20 @@ export const LIMITS = {
   layer: 12,
   why: 100,
   overview: 2000,
+  overviewTitle: 60,
   previewTitle: 40,
   lane: 20,
   lanes: 6,
   stepLabel: 40,
   steps: 16,
+  planItems: 40,
+  planText: 120,
+  planQuote: 200,
+  planNote: 160,
+  checksPerFlow: 3,
+  checkQuestion: 160,
+  checkAnswer: 300,
+  sentHow: 120,
 };
 
 /** The biggest preview file, as the instructions say it */
@@ -61,6 +70,12 @@ export interface PrepareInput {
   sources: Map<string, string>;
   /** Build previews is on: the whole-diff pass asks for previews of changed screens and sequences */
   drawings?: boolean;
+  /** The plan the build followed, repo-relative (`--plan`, or the last prepare's): the whole-diff pass measures the diff against it */
+  plan?: string;
+  /** Self-checks are on: the whole-diff pass asks for them */
+  checks?: boolean;
+  /** The findings the reader last sent back, and the code they were sent on (rounds/) */
+  sent?: { key: string; text: string; place: string }[];
 }
 
 /** Files that draw UI without being a component or a hook lens can name */
@@ -129,6 +144,9 @@ export function prepareBundle(input: PrepareInput): PrepareResult {
     createdAt: new Date().toISOString(),
     units: bundleUnits,
     ...(input.drawings ? { drawings: true } : {}),
+    ...(input.plan ? { plan: input.plan } : {}),
+    ...(input.checks ? { checks: true } : {}),
+    ...(input.sent?.length ? { sent: input.sent.map((finding) => finding.key) } : {}),
   };
 
   // Stale task files from a bigger earlier diff must not linger, nor an earlier pass's preview files.
@@ -162,7 +180,10 @@ export function prepareBundle(input: PrepareInput): PrepareResult {
     summaries?.overview?.hash === unitSetHash(bundleUnits) && (summaries.flows.length > 0 || !needsFlows(bundleUnits));
   // with Build previews on, the whole-diff pass also draws: done once a pass that asked was submitted for this diff
   const drawingsDone = !input.drawings || summaries?.drawn === unitSetHash(bundleUnits);
-  const wholeDone = storyDone && drawingsDone;
+  const planDone =
+    !input.plan || (summaries?.plan?.hash === unitSetHash(bundleUnits) && summaries.plan.file === input.plan);
+  const checksDone = !input.checks || summaries?.checked === unitSetHash(bundleUnits);
+  const wholeDone = storyDone && drawingsDone && planDone && checksDone;
   const finalPass = todo.length === 0 && summaries !== null && !wholeDone;
   if (finalPass && summaries) {
     const name = join(dir, 'tasks.md');
@@ -187,7 +208,7 @@ export function prepareBundle(input: PrepareInput): PrepareResult {
   writeFileSync(join(dir, 'schema.json'), JSON.stringify(RESULT_SCHEMA, null, 2) + '\n');
   const doneCount = bundleUnits.filter((u) => u.done).length;
   const instructions = finalPass
-    ? renderFinalPassInstructions(input, dir, taskFiles[0], storyDone)
+    ? renderFinalPassInstructions(input, dir, taskFiles[0], storyDone, drawingsDone, planDone, checksDone)
     : renderInstructions(input, dir, taskFiles, todo.length, prior, housekeeping, wholeDone);
   writeFileSync(join(dir, 'instructions.md'), instructions);
   return { dir, taskFiles, todo: todo.length, done: doneCount, instructions };
@@ -415,8 +436,8 @@ ${FLOWS_RULE}
 
 ## Overview
 ${OVERVIEW_RULE}
-${drawingRules(input, dir)}`
-}
+${drawingRules(input, dir)}${planRules(input)}${checkRules(input)}`
+}${sentRules(input)}
 Keep everything terse: the viewer shows it in a small table next to the code.
 `;
 }
@@ -442,17 +463,31 @@ const FLOWS_RULE = `Flows are how the reviewer reads the diff: they open a flow 
   3 = mechanical (renames, moves, types, tests). The viewer sorts by it and folds the 3s.
 - \`why\`: why a reviewer should care, e.g. "default page size changes every caller".`;
 
-const OVERVIEW_RULE = `\`overview\`: {what (≤${LIMITS.overview} chars)} — what the whole diff does and why, for a
+const OVERVIEW_RULE = `\`overview\`: {title (≤${LIMITS.overviewTitle} chars), what (≤${LIMITS.overview} chars)}. \`title\` names the change the way
+you'd title a PR, "The Summary list becomes an inbox": the viewer's biggest text. \`what\`: what the whole diff does and why, for a
 reviewer seeing it for the first time. Size it to what the diff does, not to its
 line count: a sentence or two for one focused change; a short paragraph per distinct
 change when it does several things (blank line between paragraphs). Name behavior,
 not files; don't repeat unit headlines or walk through the diff file by file.`;
 
-function renderFinalPassInstructions(input: PrepareInput, dir: string, tasks: string, storyDone: boolean): string {
+function renderFinalPassInstructions(
+  input: PrepareInput,
+  dir: string,
+  tasks: string,
+  storyDone: boolean,
+  drawingsDone: boolean,
+  planDone: boolean,
+  checksDone: boolean,
+): string {
   const rel = (p: string) => relPath(input.cwd, p);
-  const asked = [...(storyDone ? [] : ['"flows": [ … ]', '"overview": {"what": "…"}']), ...drawingFields(input)];
+  const asked = [
+    ...(storyDone ? [] : ['"flows": [ … ]', '"overview": {"title": "…", "what": "…"}']),
+    ...(drawingsDone ? [] : drawingFields(input)),
+    ...(planDone ? [] : ['"plan": { … }']),
+    ...(checksDone ? [] : ['"checks": [ … ]']),
+  ];
   const what = storyDone
-    ? 'the drawings of the whole diff (its flows and overview are written)'
+    ? `${planDone && checksDone ? 'the drawings' : 'the rest of the work'} of the whole diff (its flows and overview are written)`
     : 'the flows and\nthe overview of the whole diff';
   return `# lens summary — instructions for the agent
 
@@ -474,7 +509,49 @@ ${FLOWS_RULE}
 ## Overview
 ${OVERVIEW_RULE}
 `
-}${drawingRules(input, dir)}`;
+}${drawingsDone ? '' : drawingRules(input, dir)}${planDone ? '' : planRules(input)}${checksDone ? '' : checkRules(input)}${sentRules(input)}`;
+}
+
+/** The diff against the plan, while the review knows one. */
+function planRules(input: PrepareInput): string {
+  if (!input.plan) return '';
+  return `
+## Plan
+The build followed \`${input.plan}\`. Read it, then measure the diff against it.
+- \`plan.items\`: one per thing the plan asks for, up to ${LIMITS.planItems}, in its order: {text (≤${LIMITS.planText}), quote
+  (≤${LIMITS.planQuote}), status, units, note}. \`quote\` is copied word for word from the plan's text, and submit checks it's
+  there: it's how the reader finds the item. \`text\` says it in plain words.
+- \`status\`: "done", "partly" or "missing", as you read the code, not as commits say. \`units\` lists the units that do
+  it (none for a missing item). \`note\` (≤${LIMITS.planNote}), required unless it's done: what's left, and why if you can tell.
+- \`plan.unplanned\`: {unit, note (≤${LIMITS.planNote})} for each unit no plan item needs: what it does beyond the plan.
+- Every unit goes in an item or in unplanned, but for the ones lens files itself. A helper an item needs is part of
+  that item, not unplanned. Don't soften this list: it's what the reader reads this for.
+`;
+}
+
+/** Questions the reader can check their understanding with, while they've turned them on. */
+function checkRules(input: PrepareInput): string {
+  if (!input.checks) return '';
+  return `
+## Check yourself
+\`checks\`: up to ${LIMITS.checksPerFlow} per flow, for flows a reviewer must understand (not "${HOUSEKEEPING}"): {flow (its title), question
+(≤${LIMITS.checkQuestion}), answer (≤${LIMITS.checkAnswer}), unit, line}. Ask what someone who read the change can answer and someone who
+skimmed it can't: what happens in a concrete situation, what would break if a line went. Not trivia about names, and
+not a quiz on the plan. \`line\` is a line of \`unit\` (N… or O…) where the answer shows.
+`;
+}
+
+/** The findings the reader sent back: the agent says whether the code fixes each now. */
+function sentRules(input: PrepareInput): string {
+  if (!input.sent?.length) return '';
+  const list = input.sent.map((finding, i) => `${i + 1}. ${finding.place}: ${finding.text}`).join('\n');
+  return `
+## What the reviewer sent back
+The reviewer sent these for fixing. Lens sees only whether their lines changed; you say whether each is really fixed.
+${list}
+\`sent\`: {"<number above>": {fixed (true or false), how (≤${LIMITS.sentHow}), unit, line}}: \`how\` says what fixes it or what's still
+wrong, \`unit\` and \`line\` (N… or O…) where that shows. Leave out one that the code doesn't touch.
+`;
 }
 
 /** The result fields the drawings add, for the final pass's one-line shape */
@@ -602,7 +679,10 @@ export const RESULT_SCHEMA = {
     overview: {
       type: 'object',
       required: ['what'],
-      properties: { what: { type: 'string', maxLength: LIMITS.overview } },
+      properties: {
+        title: { type: 'string', maxLength: LIMITS.overviewTitle },
+        what: { type: 'string', maxLength: LIMITS.overview },
+      },
     },
     previews: {
       type: 'array',
@@ -650,6 +730,69 @@ export const RESULT_SCHEMA = {
               },
             },
           },
+        },
+      },
+    },
+    plan: {
+      type: 'object',
+      description: 'only while the instructions ask for it',
+      required: ['items', 'unplanned'],
+      properties: {
+        items: {
+          type: 'array',
+          maxItems: LIMITS.planItems,
+          items: {
+            type: 'object',
+            required: ['text', 'quote', 'status', 'units'],
+            properties: {
+              text: { type: 'string', maxLength: LIMITS.planText },
+              quote: { type: 'string', maxLength: LIMITS.planQuote },
+              status: { enum: ['done', 'partly', 'missing'] },
+              units: { type: 'array', items: { type: 'string' } },
+              note: { type: 'string', maxLength: LIMITS.planNote },
+            },
+          },
+        },
+        unplanned: {
+          type: 'array',
+          items: {
+            type: 'object',
+            required: ['unit', 'note'],
+            properties: {
+              unit: { type: 'string' },
+              note: { type: 'string', maxLength: LIMITS.planNote },
+            },
+          },
+        },
+      },
+    },
+    checks: {
+      type: 'array',
+      description: 'only while the instructions ask for them',
+      items: {
+        type: 'object',
+        required: ['flow', 'question', 'answer', 'unit', 'line'],
+        properties: {
+          flow: { type: 'string' },
+          question: { type: 'string', maxLength: LIMITS.checkQuestion },
+          answer: { type: 'string', maxLength: LIMITS.checkAnswer },
+          unit: { type: 'string' },
+          line: { type: 'string', pattern: '^[NO][0-9]+$' },
+        },
+      },
+    },
+    sent: {
+      type: 'object',
+      description:
+        'only while the instructions list findings the reviewer sent back: their number → what the code does now',
+      additionalProperties: {
+        type: 'object',
+        required: ['fixed', 'how', 'unit', 'line'],
+        properties: {
+          fixed: { type: 'boolean' },
+          how: { type: 'string', maxLength: LIMITS.sentHow },
+          unit: { type: 'string' },
+          line: { type: 'string', pattern: '^[NO][0-9]+$' },
         },
       },
     },

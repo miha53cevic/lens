@@ -97,6 +97,7 @@ export function refresh(theme = getState().data.theme): Promise<boolean> {
         view: data.summary ? state.view : 'code',
         summaryDot: false, // the analysis came with the newest summary: none waits
         changedOnDisk: false, // and with the code as it is now
+        beforeRound: null, // a new analysis comes whole
       };
     });
     noteDone('Refreshed', changeNote(before, contentKeys(data)));

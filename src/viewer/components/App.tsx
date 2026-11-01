@@ -9,6 +9,7 @@ import { Nav } from './Nav/index.tsx';
 import { Tabs } from './Tabs.tsx';
 import { CodePane } from './CodePane/index.tsx';
 import { SummaryPane } from './SummaryPane/index.tsx';
+import { PlanPane } from './PlanPane/index.tsx';
 import { AskRail } from './AskRail/index.tsx';
 import { Resizer } from './Resizer.tsx';
 import { SettingsDialog } from './SettingsDialog.tsx';
@@ -52,6 +53,7 @@ export function App() {
           <Tabs />
           <CodePane />
           <SummaryPane />
+          <PlanPane />
           <ReviewPill />
         </div>
         <Resizer
