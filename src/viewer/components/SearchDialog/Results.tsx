@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { useLens } from '../../store.ts';
 import { sourceLines } from '../../shared.ts';
 import { jumpToHit } from '../../actions/dialogs.ts';
-import { listRowClass } from '../../../ui/ListRow.tsx';
+import { listRow } from '../../../ui/ListRow.tsx';
 import { SEARCH_LIMIT, type SearchHit } from './util.ts';
 
 interface ResultsProps {
@@ -53,7 +53,7 @@ export function Results({ query, hits, selected }: ResultsProps) {
     rows.push(
       <div
         key={hitIndex}
-        className={listRowClass(hitIndex === selected, 'search-hit')}
+        {...listRow(hitIndex === selected, 'search-hit')}
         onClick={() => jumpToHit(hit.fileIndex, hit.line)}
       >
         <span className='ln'>{hit.line}</span>

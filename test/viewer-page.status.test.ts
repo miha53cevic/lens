@@ -103,7 +103,7 @@ pageTest('a refresh says how many files it changed', async () => {
 });
 
 pageTest('a standing notice shows only while it has something to say, and leads to it', async () => {
-  const notices = () => $$('#status-bar .status-notices > *').map((notice) => notice.textContent);
+  const notices = () => $$('#status-bar [data-part="status-notices"] > *').map((notice) => notice.textContent);
   assert.deepEqual(notices(), []);
   // the agent submitted a summary while the reader was away
   const undo = answering((path) =>
@@ -115,7 +115,7 @@ pageTest('a standing notice shows only while it has something to say, and leads 
   await settle();
   undo();
   assert.deepEqual(notices(), ['New summary waiting']);
-  await click($('#status-bar .status-notice'));
+  await click($('#status-bar [data-part="status-notice"]'));
   await settle();
   assert.ok($('#summary-pane .sum-headline'), 'the Summary tab, with the summary loaded');
   assert.deepEqual(notices(), []);
@@ -123,7 +123,7 @@ pageTest('a standing notice shows only while it has something to say, and leads 
 });
 
 pageTest("the agent's summary run shows as a notice while it goes: units in, then the final pass", async () => {
-  const notices = () => $$('#status-bar .status-notices > *').map((notice) => notice.textContent);
+  const notices = () => $$('#status-bar [data-part="status-notices"] > *').map((notice) => notice.textContent);
   let building: unknown = { done: 12, total: 30, finalPass: false };
   const undo = answering((path) =>
     path === '/api/stamp'
@@ -133,7 +133,10 @@ pageTest("the agent's summary run shows as a notice while it goes: units in, the
   window.dispatchEvent(new Event('focus'));
   await settle();
   assert.deepEqual(notices(), ['Agent writing summary · 12 of 30 units']);
-  assert.ok($('#status-bar .notice-dot').classList.contains('pulse'), 'a live notice pulses, as the Ask dot does');
+  assert.ok(
+    $('#status-bar [data-part="notice-dot"]').classList.contains('pulse'),
+    'a live notice pulses, as the Ask dot does',
+  );
   building = { done: 30, total: 30, finalPass: true };
   window.dispatchEvent(new Event('focus'));
   await settle();
@@ -153,7 +156,7 @@ test("a first run: the page opened before any summary, and shows the agent's run
   };
   await open({}, '', '', fresh);
   try {
-    const notices = () => $$('#status-bar .status-notices > *').map((notice) => notice.textContent);
+    const notices = () => $$('#status-bar [data-part="status-notices"] > *').map((notice) => notice.textContent);
     let stamp: unknown = {
       summary: null,
       change: payload.changeStamp,
@@ -169,7 +172,7 @@ test("a first run: the page opened before any summary, and shows the agent's run
     await settle();
     undo();
     assert.deepEqual(notices(), ['New summary waiting']);
-    await click($('#status-bar .status-notice'));
+    await click($('#status-bar [data-part="status-notice"]'));
     await settle();
     assert.ok($('#summary-pane .sum-headline'), 'the Summary tab, with the summary loaded');
   } finally {
@@ -189,7 +192,7 @@ pageTest('the stamp poll is what notices a stopped server is back', async () => 
 });
 
 test('a PR diffed against a guessed base says so, and one with its own base says nothing', async () => {
-  const notices = () => $$('#status-bar .status-notices > *').map((notice) => notice.textContent);
+  const notices = () => $$('#status-bar [data-part="status-notices"] > *').map((notice) => notice.textContent);
   await open({}, '', '', { ...payload, label: 'a/b#7', guessedBase: 'main' });
   try {
     assert.deepEqual(notices(), ['PR base unknown · diffed against main']);
@@ -207,7 +210,7 @@ test('a PR diffed against a guessed base says so, and one with its own base says
 pageTest(
   'code that changed on disk shows as a notice: undoing the change takes it back, a click refreshes',
   async () => {
-    const notices = () => $$('#status-bar .status-notices > *').map((notice) => notice.textContent);
+    const notices = () => $$('#status-bar [data-part="status-notices"] > *').map((notice) => notice.textContent);
     assert.ok(payload.changeStamp, 'a diff has a fingerprint');
     let change = 'the fingerprint after an edit';
     const undo = answering((path) =>
@@ -225,7 +228,7 @@ pageTest(
     window.dispatchEvent(new Event('focus'));
     await settle();
     undo();
-    await click($('#status-bar .status-notice'));
+    await click($('#status-bar [data-part="status-notice"]'));
     await settle();
     assert.deepEqual(notices(), []);
     assert.deepEqual(status(), { kind: 'done', label: 'Refreshed', detail: 'nothing changed' });
@@ -233,7 +236,7 @@ pageTest(
 );
 
 pageTest('a refresh brings the newest summary: none is left waiting', async () => {
-  const notices = () => $$('#status-bar .status-notices > *').map((notice) => notice.textContent);
+  const notices = () => $$('#status-bar [data-part="status-notices"] > *').map((notice) => notice.textContent);
   const undo = answering((path) =>
     path === '/api/stamp'
       ? new Response(JSON.stringify({ summary: payload.summary!.stamp! + 1, change: payload.changeStamp }))
@@ -355,7 +358,7 @@ pageTest('⌘⇧P finds a file by its path, its name first; ↵ opens it, and �
   fireEvent.keyDown($('#search-input'), { key: 'Enter' });
   await settle();
   assert.ok(!($('#search-modal') as HTMLDialogElement).open);
-  assert.equal($('.tab.active .tab-name').textContent, 'orders.test.ts');
+  assert.equal($('[data-part="tab"][data-active] .tab-name').textContent, 'orders.test.ts');
 
   await key('p', { ctrlKey: true });
   assert.ok(($('#search-files') as HTMLInputElement).checked, 'the palette opens as it was left');
@@ -387,20 +390,20 @@ pageTest('tabs: a double-click keeps a tab, w closes the active one, and a refre
   fireEvent.dblClick($$('#tree .file').find((file) => file.textContent!.includes('orders.test.ts'))!);
   await settle();
   assert.deepEqual(
-    $$('.tab .tab-name').map((tab) => tab.textContent),
+    $$('[data-part="tab"] .tab-name').map((tab) => tab.textContent),
     ['orders.ts', 'orders.test.ts'],
   );
   await click($('#refresh'));
   await settle();
   assert.ok(page.requests.some((request) => request.path === '/api/refresh'));
   assert.deepEqual(
-    $$('.tab .tab-name').map((tab) => tab.textContent),
+    $$('[data-part="tab"] .tab-name').map((tab) => tab.textContent),
     ['orders.ts', 'orders.test.ts'],
   );
-  assert.equal($('.tab.active .tab-name').textContent, 'orders.test.ts');
+  assert.equal($('[data-part="tab"][data-active] .tab-name').textContent, 'orders.test.ts');
   await key('w');
   assert.deepEqual(
-    $$('.tab .tab-name').map((tab) => tab.textContent),
+    $$('[data-part="tab"] .tab-name').map((tab) => tab.textContent),
     ['orders.ts'],
   );
 });
@@ -439,11 +442,11 @@ pageTest(
       'this',
       'the scope is in sight from the start',
     );
-    assert.equal($('.choice[data-kind="marks"] .choice-sub').textContent, '1 mark');
-    assert.ok(!$('.choice[data-kind="summaries"]').classList.contains('checked'));
+    assert.equal($('[data-part="choice"][data-kind="marks"] [data-part="choice-sub"]').textContent, '1 mark');
+    assert.ok(!$('[data-part="choice"][data-kind="summaries"]').hasAttribute('data-checked'));
 
-    await click($('.choice[data-kind="summaries"]'));
-    assert.ok($('.choice[data-kind="summaries"]').classList.contains('checked'), 'the whole row ticks it');
+    await click($('[data-part="choice"][data-kind="summaries"]'));
+    assert.ok($('[data-part="choice"][data-kind="summaries"]').hasAttribute('data-checked'), 'the whole row ticks it');
     assert.deepEqual(
       $$('.clear-gone li').map((item) => item.textContent),
       ['.lens/summary/diff@main/'],
@@ -451,7 +454,7 @@ pageTest(
     fireEvent.change($('#clear-scope-summaries'), { target: { value: 'all' } });
     await settle();
     assert.ok(
-      $('.choice[data-kind="summaries"]').classList.contains('checked'),
+      $('[data-part="choice"][data-kind="summaries"]').hasAttribute('data-checked'),
       'picking the scope leaves the tick as it was',
     );
     await click($('#clear-marks'));
@@ -471,7 +474,7 @@ pageTest(
     );
     assert.ok(!($('#clear-modal') as HTMLDialogElement).open);
     assert.equal(
-      $('#status .status-label').textContent,
+      $('#status [data-part="status-label"]').textContent,
       'Cleared summaries (2 reviews) and viewed and concern marks (1 mark)',
     );
     assert.ok(!$('#root').textContent!.includes('skips deleted orders'), 'no summary is shown any more');
@@ -494,7 +497,7 @@ test('a summary cleared from elsewhere (another viewer, `lens clear`) leaves thi
     await key('v');
     await settle();
     assert.ok($('#no-summary'), 'the overview says what to run');
-    assert.equal($('#status .status-label').textContent, 'The summary was cleared');
+    assert.equal($('#status [data-part="status-label"]').textContent, 'The summary was cleared');
   } finally {
     payload.summary = fresh;
     await close();

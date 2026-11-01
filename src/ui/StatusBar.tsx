@@ -7,7 +7,6 @@ import clsx from 'clsx';
 import { Button } from './Button.tsx';
 import { riseIn } from './motion.ts';
 import { Spinner } from './Spinner.tsx';
-import './StatusBar.css';
 
 export type StatusKind = 'gone' | 'failed' | 'working' | 'waiting' | 'done' | 'idle';
 
@@ -37,36 +36,80 @@ export interface BarNotice {
   buttonId?: string;
 }
 
+// the color carries meaning only on the icon and the label; the reason after it is ordinary muted text
+const ICON_COLORS: Record<StatusKind, string> = {
+  gone: 'text-danger',
+  failed: 'text-danger',
+  working: 'text-accent',
+  waiting: 'text-question',
+  done: 'text-add',
+  idle: '',
+};
+// at rest: deliberately dull, so any other status stands out against it
+const LABEL_COLORS: Record<StatusKind, string> = {
+  gone: 'text-danger font-semibold',
+  failed: 'text-danger font-semibold',
+  working: 'text-text font-semibold',
+  waiting: 'text-text font-semibold',
+  done: 'text-text font-semibold',
+  idle: 'text-muted font-normal',
+};
+// ui/Button, at the bar's size
+const BAR_BUTTON = 'h-[20px] px-3 text-xs';
+const NOTICE_DOTS: Record<BarNotice['tone'], string> = {
+  warn: '[--dot:var(--risk)]',
+  live: '[--dot:var(--add)]',
+  accent: '[--dot:var(--accent)]',
+  plain: '',
+};
+
 function StatusIcon({ kind }: { kind: StatusKind }) {
+  const ICON = 'flex-none ' + ICON_COLORS[kind];
   switch (kind) {
     case 'gone':
-      return <Unplug size={13} className='status-icon' />;
+      return <Unplug size={13} className={ICON} />;
     case 'failed':
-      return <CircleAlert size={13} className='status-icon' />;
+      return <CircleAlert size={13} className={ICON} />;
     case 'working':
-      return <Spinner className='status-icon' />;
+      return <Spinner className={ICON} />;
     case 'waiting':
-      return <MessageSquare size={13} className='status-icon' />;
+      return <MessageSquare size={13} className={ICON} />;
     case 'done':
-      return <Check size={13} className='status-icon' />;
+      return <Check size={13} className={ICON} />;
     case 'idle':
-      return <span className='dot status-dot' />;
+      return <span className='dot mx-1 [--dot:var(--faint)]' />;
   }
 }
 
 export function StatusBar({ status, notices }: { status: BarStatus; notices: BarNotice[] }) {
   return (
-    <footer className='status-bar' id='status-bar'>
+    <footer
+      data-part='status-bar'
+      className='flex h-[28px] flex-none items-center gap-2 border-t border-line bg-bg px-3 text-xs whitespace-nowrap text-muted'
+      id='status-bar'
+    >
       {/* polite: a screen reader hears what the bar says, without being interrupted */}
-      <div className={clsx('status', 'status-' + status.kind)} id='status' role='status' aria-live='polite'>
+      {/* the status gives way last: a long reason is cut, never the notices' fault */}
+      <div
+        className='flex min-w-0 items-center gap-2'
+        data-kind={status.kind}
+        id='status'
+        role='status'
+        aria-live='polite'
+      >
         <StatusIcon kind={status.kind} />
         {/* a new status rises into place, so it's noticed from the corner of the eye */}
-        <span key={status.kind + ' ' + status.label} ref={riseIn} className='status-label'>
+        <span
+          key={status.kind + ' ' + status.label}
+          ref={riseIn}
+          data-part='status-label'
+          className={'flex-none ' + LABEL_COLORS[status.kind]}
+        >
           {status.label}
         </span>
         {/* a long reason is cut: the whole of it is in the title */}
         {status.detail && (
-          <span className='status-detail' title={status.detail}>
+          <span data-part='status-detail' className='min-w-0 overflow-hidden text-ellipsis' title={status.detail}>
             {status.detail}
           </span>
         )}
@@ -75,30 +118,36 @@ export function StatusBar({ status, notices }: { status: BarStatus; notices: Bar
         <Button
           id='status-action'
           size='sm'
+          className={BAR_BUTTON}
           variant={status.action.primary ? 'primary' : 'default'}
           onClick={status.action.run}
         >
           {status.action.label}
         </Button>
       )}
-      <div className='status-notices'>
+      <div data-part='status-notices' className='ml-auto flex min-w-0 items-center gap-2 overflow-hidden'>
         {notices.map((notice) => {
           const dot = notice.tone !== 'plain' && (
-            <span className={clsx('dot notice-dot', notice.tone === 'live' && 'pulse')} />
+            <span
+              data-part='notice-dot'
+              className={clsx('dot', NOTICE_DOTS[notice.tone], notice.tone === 'live' && 'pulse')}
+            />
           );
           return notice.run ? (
             <Button
               key={notice.id}
               id={notice.buttonId}
               size='sm'
-              className={clsx('status-notice', notice.tone)}
+              data-part='status-notice'
+              className={clsx(BAR_BUTTON, 'border-line text-muted hover:text-text')}
+              data-tone={notice.tone}
               onClick={notice.run}
             >
               {dot}
               {notice.text}
             </Button>
           ) : (
-            <span key={notice.id} className={clsx('status-fact', notice.tone)}>
+            <span key={notice.id} className='inline-flex flex-none items-center gap-2 px-1' data-tone={notice.tone}>
               {dot}
               {notice.text}
             </span>

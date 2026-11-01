@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react';
-import './ProgressRing.css';
 
 const RADIUS = 17;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
@@ -17,13 +16,19 @@ interface ProgressRingProps {
 export function ProgressRing({ done, total, label, children }: ProgressRingProps) {
   const filled = total > 0 ? (CIRCUMFERENCE * done) / total : 0;
   return (
-    <div className='progress'>
-      <svg viewBox='0 0 42 42' aria-hidden>
-        <circle className='track' cx='21' cy='21' r={RADIUS} />
-        <circle className='fill' cx='21' cy='21' r={RADIUS} strokeDasharray={filled + ' ' + CIRCUMFERENCE} />
+    <div className='flex items-center gap-3 px-2 pt-1 pb-3'>
+      <svg className='size-[40px] flex-none -rotate-90' viewBox='0 0 42 42' aria-hidden>
+        <circle className='fill-none stroke-line stroke-4' cx='21' cy='21' r={RADIUS} />
+        <circle
+          className='fill-none stroke-add stroke-4 [stroke-linecap:round] [transition:stroke-dasharray_var(--motion-slow)]'
+          cx='21'
+          cy='21'
+          r={RADIUS}
+          strokeDasharray={filled + ' ' + CIRCUMFERENCE}
+        />
       </svg>
-      <div className='progress-text'>
-        <b className='progress-count'>
+      <div data-part='progress' className='flex min-w-0 flex-col text-sm leading-[1.35] text-muted'>
+        <b data-part='progress-count' className='text-lg text-text'>
           {done} of {total}
         </b>
         <span>{label}</span>

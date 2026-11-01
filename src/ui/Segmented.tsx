@@ -1,6 +1,5 @@
 import { useCallback, type ReactNode } from 'react';
 import clsx from 'clsx';
-import './Segmented.css';
 
 interface Option<T> {
   value: T;
@@ -52,12 +51,22 @@ export function Segmented<T extends string | number>({
   return (
     <div
       ref={followPick}
-      className={clsx('seg', size === 'lg' && 'seg-lg')}
+      data-part='seg'
+      data-size={size}
+      className={clsx(
+        'group/seg relative inline-flex flex-none rounded-full bg-surface-2 p-1',
+        size === 'lg' ? 'h-control-lg' : 'h-control-sm',
+      )}
       id={id}
       role={tabs ? 'tablist' : 'radiogroup'}
       aria-label={label}
     >
-      <span className='seg-highlight' aria-hidden />
+      {/* the picked option's highlight, which slides from one option to the next (placeHighlight); positioned, the options paint over it */}
+      <span
+        data-part='seg-highlight'
+        className='invisible absolute top-1 bottom-1 rounded-full bg-accent group-data-placed/seg:visible group-data-placed/seg:[transition:left_var(--motion-move),width_var(--motion-move)]'
+        aria-hidden
+      />
       {options.map((option) => (
         <button
           key={option.value}
@@ -66,6 +75,10 @@ export function Segmented<T extends string | number>({
           aria-checked={tabs ? undefined : option.value === value}
           aria-selected={tabs ? option.value === value : undefined}
           data-value={option.value}
+          className={clsx(
+            'relative inline-flex min-w-[26px] items-center justify-center gap-2 rounded-full text-sm text-muted [transition:background_var(--motion),color_var(--motion)] hover:text-text aria-checked:bg-accent aria-checked:font-semibold aria-checked:text-accent-fg aria-selected:bg-accent aria-selected:font-semibold aria-selected:text-accent-fg group-data-placed/seg:aria-checked:bg-transparent group-data-placed/seg:aria-selected:bg-transparent',
+            size === 'lg' ? 'px-4 font-medium' : 'px-2',
+          )}
           title={option.title}
           onClick={() => onChange(option.value)}
         >
@@ -83,13 +96,13 @@ export function Segmented<T extends string | number>({
  * hidden), the option draws its own, without moving.
  */
 function placeHighlight(group: HTMLElement) {
-  const highlight = group.querySelector<HTMLElement>('.seg-highlight');
+  const highlight = group.querySelector<HTMLElement>('[data-part="seg-highlight"]');
   const picked = group.querySelector<HTMLElement>('[aria-checked="true"], [aria-selected="true"]');
   if (!highlight || !picked || picked.offsetWidth === 0) {
-    group.classList.remove('seg-placed');
+    delete group.dataset.placed;
     return;
   }
   highlight.style.left = picked.offsetLeft + 'px';
   highlight.style.width = picked.offsetWidth + 'px';
-  group.classList.add('seg-placed');
+  group.dataset.placed = '';
 }

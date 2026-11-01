@@ -1,7 +1,7 @@
 import { useLens } from '../../store.ts';
 import { openFoundFile } from '../../actions/dialogs.ts';
 import { StatusLetter } from '../../../ui/FileStatus.tsx';
-import { listRowClass } from '../../../ui/ListRow.tsx';
+import { listRow } from '../../../ui/ListRow.tsx';
 import { FILE_LIMIT } from './util.ts';
 
 interface FileResultsProps {
@@ -27,7 +27,7 @@ export function FileResults({ query, found, selected }: FileResultsProps) {
         return (
           <div
             key={fileIndex}
-            className={listRowClass(rowIndex === selected, 'search-hit search-path')}
+            {...listRow(rowIndex === selected, 'search-hit search-path')}
             onClick={() => openFoundFile(fileIndex)}
           >
             {file.status && <StatusLetter status={file.status} />}

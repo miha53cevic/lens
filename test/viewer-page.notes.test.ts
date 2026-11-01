@@ -32,7 +32,7 @@ pageTest('a right-click on a line selects it and opens the code menu; Add a note
   await rightClick(line(10));
   assert.ok(line(10).classList.contains('ask-sel'), 'the line under the pointer is the selection now');
   assert.deepEqual(
-    $$('#code-menu .menu-label').map((label) => label.textContent),
+    $$('#code-menu [role="menuitem"] > span:first-of-type').map((label) => label.textContent),
     ['Ask about these lines', 'Add a note', 'Copy lines', 'Copy file:line'],
   );
 

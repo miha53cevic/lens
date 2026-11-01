@@ -1,5 +1,5 @@
 import { Fragment } from 'react';
-import './Kbd.css';
+import clsx from 'clsx';
 
 const MODIFIERS = new Set(['⌘', '⇧', '⌥', '⌃']);
 
@@ -15,7 +15,14 @@ function parts(combo: string): { key: string; text?: boolean }[] {
 /** A keyboard shortcut, each key a keycap: md beside a control, sm in a line of small text (a hint). */
 export function Kbd({ combo, size = 'md' }: { combo: string; size?: 'md' | 'sm' }) {
   return (
-    <span className={size === 'sm' ? 'kbd-combo kbd-sm' : 'kbd-combo'}>
+    <span
+      data-part='kbd-combo'
+      data-size={size}
+      className={clsx(
+        'inline-flex items-center gap-1 align-middle whitespace-nowrap',
+        size === 'sm' && '[&_kbd]:h-[18px] [&_kbd]:min-w-[18px] [&_kbd]:px-1',
+      )}
+    >
       {parts(combo).map((part, partIndex) => (
         <Fragment key={partIndex}>
           {part.text ? (

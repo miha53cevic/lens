@@ -1,9 +1,9 @@
 import { ArrowLeftRight, Folder, Plus, Settings, Shapes } from 'lucide-react';
 import type { StripTab } from '../shared/api.ts';
 import { IconButton } from '../../ui/IconButton.tsx';
-import { Tab } from '../../ui/Tab.tsx';
+import { Tab, TAB_BUTTON } from '../../ui/Tab.tsx';
 import { narrowOut, widenIn } from '../../ui/motion.ts';
-import { ThemeTrigger } from '../../ui/ThemeMenu.tsx';
+import { THEME_TRIGGER, ThemeTrigger } from '../../ui/ThemeMenu.tsx';
 import { useStrip } from './store.ts';
 import './style.css';
 
@@ -41,7 +41,7 @@ function RepoTab({ tab, active }: { tab: StripTab; active: boolean }) {
           // an icon alone: the title says what it swaps
           <IconButton
             size='sm'
-            className='tab-btn'
+            className={TAB_BUTTON}
             label="Change what's reviewed"
             title="Change what's reviewed"
             onClick={() => strip.change(tab.id)}
@@ -85,7 +85,7 @@ export function Strip() {
       <IconButton
         id='theme-btn'
         label={'Code theme: ' + state.theme.name}
-        className='theme-trigger'
+        className={THEME_TRIGGER}
         // the viewer's own theme menu (ui/ThemeMenu), with its button here and its list in a view
         // of its own over the tab's page: a popover of this page would open underneath that
         onClick={(event) => {

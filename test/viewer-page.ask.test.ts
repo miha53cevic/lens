@@ -52,11 +52,11 @@ pageTest('Ask without an agent copies the question as a prompt', async (page) =>
 
 pageTest('a command to run copies on click, and its icon turns into a check', async () => {
   await key('\\');
-  const command = $('.ask-empty .copy-cmd');
+  const command = $('.ask-empty [data-part="copy-cmd"]');
   assert.equal(command.textContent, '/lens-ask');
   await click(command);
   assert.equal(await navigator.clipboard.readText(), '/lens-ask');
-  assert.ok(command.classList.contains('copied'));
+  assert.ok(command.hasAttribute('data-copied'));
   assert.ok(command.querySelector('.lucide-check'));
 });
 

@@ -1,8 +1,11 @@
 import type { MouseEvent, ReactNode, Ref } from 'react';
-import clsx from 'clsx';
+import { cn } from './cn.ts';
 import { X } from 'lucide-react';
 import { IconButton } from './IconButton.tsx';
-import './Tab.css';
+
+/** A button on a tab, shown on the tab in front and on the one under the pointer. */
+export const TAB_BUTTON =
+  'invisible group-hover/tab:visible group-focus-within/tab:visible group-data-active/tab:visible';
 
 interface TabProps {
   active: boolean;
@@ -50,8 +53,15 @@ export function Tab({
   return (
     <div
       {...data}
+      data-part='tab'
+      data-active={active || undefined}
       ref={tabRef}
-      className={clsx('tab', active && 'active', mono && 'tab-mono', className)}
+      className={cn(
+        // the focus ring goes around the whole tab, its buttons included
+        'group/tab flex max-w-[280px] flex-none items-center rounded-full border border-transparent pr-1 text-sm whitespace-nowrap text-muted select-none hover:text-text has-[[role=tab]:focus-visible]:outline-2 has-[[role=tab]:focus-visible]:outline-offset-2 has-[[role=tab]:focus-visible]:outline-focus data-active:border-selected-ring data-active:bg-selected-bg data-active:text-text',
+        mono && 'font-mono',
+        className,
+      )}
       title={title}
       onAuxClick={(event: MouseEvent) => {
         if (event.button === 1) onClose();
@@ -59,7 +69,8 @@ export function Tab({
     >
       <button
         ref={mainRef}
-        className='tab-main'
+        data-part='tab-main'
+        className='flex min-w-0 items-center gap-2 rounded-full py-1 pr-1 pl-3 text-inherit [font:inherit] [line-height:1.5] focus-visible:outline-none [&_svg]:flex-none'
         role='tab'
         aria-selected={active}
         onClick={onSelect}
@@ -70,7 +81,8 @@ export function Tab({
       {actions}
       <IconButton
         size='sm'
-        className='tab-btn tab-close'
+        className={TAB_BUTTON}
+        data-part='tab-close'
         label={closeLabel}
         onClick={(event) => {
           event.stopPropagation();

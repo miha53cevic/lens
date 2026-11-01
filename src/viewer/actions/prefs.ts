@@ -161,5 +161,5 @@ export function toggleUnitViewed(unit: Unit | null): void {
 function confirmMark(before: Progress | null, after: Progress | null, open: boolean) {
   if (!before || !after || after.done <= before.done) return;
   if (open) pop(document.getElementById('review-pill'));
-  if (after.done === after.total) pop(document.querySelector('#nav .progress svg'));
+  if (after.done === after.total) pop(document.querySelector('#nav [data-part="progress"] svg'));
 }

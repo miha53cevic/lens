@@ -46,7 +46,7 @@ export function openFile(fileIndex: number, pin?: boolean): void {
   widenIn(tabElement(fileIndex));
 }
 
-const tabElement = (fileIndex: number) => document.querySelector(`#tabbar .tab[data-file="${fileIndex}"]`);
+const tabElement = (fileIndex: number) => document.querySelector(`#tabbar [data-part="tab"][data-file="${fileIndex}"]`);
 
 function withoutTab(state: LensState, fileIndex: number): Partial<LensState> {
   const at = state.tabs.findIndex((tab) => tab.index === fileIndex);

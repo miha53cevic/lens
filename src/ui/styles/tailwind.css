@@ -6,7 +6,7 @@
  * class with no token behind it gives no CSS (test/tokens.test.ts fails it).
  */
 
-@layer theme, legacy, utilities;
+@layer theme, base, legacy, utilities;
 @import 'tailwindcss/theme.css' layer(theme);
 @import 'tailwindcss/utilities.css' layer(utilities) source(none);
 /* src/ui, src/viewer, src/desktop; class strings in .ts files count too */
@@ -34,6 +34,12 @@
   --text-3xl: var(--text-3xl);
   --text-code: var(--text-code);
 
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --spacing-0: 0px;
   --spacing-1: var(--space-1);
   --spacing-2: var(--space-2);
   --spacing-3: var(--space-3);
@@ -97,4 +103,21 @@
   --color-risk: var(--risk);
   --color-question: var(--question);
   --color-breaks: var(--breaks);
+  /* a part's own color (--tone, set where it's known) as a tint, or on a border */
+  --color-tone: var(--tone);
+  --color-tone-tint: color-mix(in oklab, var(--tone) var(--tint), transparent);
+  --color-tone-tint-strong: color-mix(in oklab, var(--tone) var(--tint-strong), transparent);
+  --color-tone-line: color-mix(in oklab, var(--tone) var(--tint-line), transparent);
+  --color-tone-line-strong: color-mix(in oklab, var(--tone) var(--tint-line-strong), transparent);
+}
+
+/* a hover's timing, on what a control changes */
+@utility motion-bg {
+  transition: background var(--motion);
+}
+@utility motion-colors {
+  transition:
+    background var(--motion),
+    border-color var(--motion),
+    color var(--motion);
 }

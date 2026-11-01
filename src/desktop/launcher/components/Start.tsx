@@ -4,7 +4,7 @@ import { Kbd } from '../../../ui/Kbd.tsx';
 import { IconButton } from '../../../ui/IconButton.tsx';
 import { Brand } from '../../../ui/Brand.tsx';
 import { useApp } from '../store.ts';
-import { listRowClass } from '../../../ui/ListRow.tsx';
+import { listRow } from '../../../ui/ListRow.tsx';
 import './Start.css';
 
 const MINUTE = 60_000;
@@ -50,7 +50,7 @@ export function Start() {
             <h2 className='section-title eyebrow'>Recent</h2>
             <ul className='recents'>
               {recents.map((recent) => (
-                <li key={recent.root} className={listRowClass(false, 'recent')}>
+                <li key={recent.root} {...listRow(false, 'recent')}>
                   <button className='recent-open' disabled={busy} onClick={() => launcher.openRecent(recent.root)}>
                     <Folder size={15} />
                     <span className='recent-text'>

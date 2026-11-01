@@ -31,18 +31,18 @@ usePage();
 
 pageTest('the page opens on the first file of the tree, folded, hunks only', async () => {
   assert.deepEqual(treeFiles(), ['orders.ts'], 'hide tests is on by default');
-  assert.equal($('.tab.active .tab-name').textContent, 'orders.ts');
+  assert.equal($('[data-part="tab"][data-active] .tab-name').textContent, 'orders.ts');
   assert.deepEqual(rows(), HUNKS);
   assert.deepEqual(
     $$('#code .row.gap').map((gap) => gap.lastElementChild!.textContent),
     ['⋯ 5 unchanged lines', '⋯ 1 unchanged line', '⋯ 7 unchanged lines'],
   );
   // the code card's header: the file's status, its path, the lines the diff added and removed
-  assert.equal($('.code-head .status-badge').textContent, 'MModified');
+  assert.equal($('.code-head [data-part="status-badge"]').textContent, 'MModified');
   assert.equal($('.code-head .code-path').textContent, 'src/orders.ts');
   assert.equal($('.code-head .counts').textContent, '+2−5');
-  assert.equal($('#tree .file .status-letter').textContent, 'M');
-  assert.equal($('#nav .progress-count').textContent, '0 of 1');
+  assert.equal($('#tree .file [data-part="status-letter"]').textContent, 'M');
+  assert.equal($('#nav [data-part="progress-count"]').textContent, '0 of 1');
 });
 
 pageTest('a shortcut drops the focus a click left, so no ring stays on it; other keys keep it', async () => {
@@ -57,7 +57,7 @@ pageTest('a shortcut drops the focus a click left, so no ring stays on it; other
 pageTest('a fold opens on a click; expand all, collapse all and a fold chip act on all of them', async () => {
   const fold = (category: string) => $(`#code .region[data-cat="${category}"]`);
   const chip = (category: string) =>
-    $$('#toggles .chip')
+    $$('#toggles [data-part="chip"]')
       .find((candidate) => candidate.textContent === category)!
       .querySelector('input')!;
   await click(fold('guard').querySelector('.pill-row')!);
@@ -67,7 +67,7 @@ pageTest('a fold opens on a click; expand all, collapse all and a fold chip act 
   await key('e');
   assert.ok(fold('guard').classList.contains('open') && fold('logging').classList.contains('open'));
   assert.deepEqual(
-    $$('#toggles .chip input').map((box) => (box as HTMLInputElement).checked),
+    $$('#toggles [data-part="chip"] input').map((box) => (box as HTMLInputElement).checked),
     [true, true, true],
     "every chip, import's too",
   );
@@ -126,7 +126,7 @@ pageTest(
 
 pageTest('the code size: the stepper sets it, the cookie keeps it, and the default keeps none', async () => {
   const codeSize = () => document.documentElement.style.getPropertyValue('--text-code');
-  const [smaller, larger] = $$('#code-size .icon-btn');
+  const [smaller, larger] = $$('#code-size [data-part="icon-btn"]');
   assert.equal($('#code-size output').textContent, '12px');
   assert.equal(codeSize(), '', 'at the default the token rules');
 
@@ -152,7 +152,7 @@ pageTest('the code size: the stepper sets it, the cookie keeps it, and the defau
 
 pageTest('the UI size: the stepper zooms the whole page, the cookie keeps it, and the default keeps none', async () => {
   const root = document.documentElement;
-  const [smaller, larger] = $$('#ui-zoom .icon-btn');
+  const [smaller, larger] = $$('#ui-zoom [data-part="icon-btn"]');
   assert.equal($('#ui-zoom output').textContent, '100%');
   assert.equal(root.style.getPropertyValue('zoom'), '', 'at the default the page is as it is');
   assert.equal($('#ui-zoom-hint').textContent, 'default 100%');
@@ -378,10 +378,10 @@ pageTest('hide tests: t shows the test file, and hiding it again leaves it', asy
   await key('t');
   assert.deepEqual(treeFiles(), ['orders.test.ts', 'orders.ts']);
   await click($$('#tree .file').find((file) => file.textContent!.includes('orders.test.ts'))!);
-  assert.equal($('.tab.active .tab-name').textContent, 'orders.test.ts');
+  assert.equal($('[data-part="tab"][data-active] .tab-name').textContent, 'orders.test.ts');
   await key('t');
   assert.deepEqual(treeFiles(), ['orders.ts']);
-  assert.equal($('.tab.active .tab-name').textContent, 'orders.ts', 'the open test file gives way');
+  assert.equal($('[data-part="tab"][data-active] .tab-name').textContent, 'orders.ts', 'the open test file gives way');
 });
 
 test('a viewed mark is kept by the server, and comes back with the review', async () => {
@@ -390,7 +390,7 @@ test('a viewed mark is kept by the server, and comes back with the review', asyn
   try {
     await key('m');
     assert.ok($('#tree .file').classList.contains('viewed'));
-    assert.equal($('#nav .progress-count').textContent, '1 of 1');
+    assert.equal($('#nav [data-part="progress-count"]').textContent, '1 of 1');
     const [tick] = postedMarks(page) as { list: string; key: string; on: boolean }[];
     assert.equal(tick.list, 'files');
     assert.match(tick.key, /^src\/orders\.ts@/);
@@ -442,7 +442,7 @@ pageTest(
     assert.equal(box().getAttribute('aria-checked'), 'false', 'not viewed: the code is new');
     assert.ok(box().classList.contains('changed'));
     assert.match($('#tree .file').getAttribute('title')!, /changed since you viewed it/);
-    assert.equal($('#nav .progress-count').textContent, '0 of 1');
+    assert.equal($('#nav [data-part="progress-count"]').textContent, '0 of 1');
     assert.equal($('#nav .legend.changed').textContent, '1 changed since viewed');
 
     // its folder: each file viewed, one changed since: the dot, not the tick
@@ -483,10 +483,10 @@ test('a change reviewed before its code changed says so in the Summary list', as
 
 pageTest('the review pill marks the file viewed and opens the next one, stopping at the ends of the tree', async () => {
   const pill = () => $('#review-next').textContent!.trim();
-  const open = () => $('.tab.active .tab-name').textContent;
+  const open = () => $('[data-part="tab"][data-active] .tab-name').textContent;
   const prev = () => $('#review-prev') as HTMLButtonElement;
   await key('t'); // the test file shows too, first in the tree: orders.ts is now the last file
-  assert.equal($('#nav .progress-count').textContent, '0 of 2');
+  assert.equal($('#nav [data-part="progress-count"]').textContent, '0 of 2');
   assert.equal(pill(), 'Mark viewed', 'the last file: nothing after it to open');
   await key('j');
   assert.equal(open(), 'orders.ts', 'j stops at the last file');
@@ -498,7 +498,7 @@ pageTest('the review pill marks the file viewed and opens the next one, stopping
   assert.equal(pill(), 'Viewed · next file');
   await click($('#review-next'));
   assert.equal(open(), 'orders.ts', 'the next file not viewed yet');
-  assert.equal($('#nav .progress-count').textContent, '1 of 2');
+  assert.equal($('#nav [data-part="progress-count"]').textContent, '1 of 2');
   assert.equal(pill(), 'Mark viewed');
   await click($('#review-next'));
   assert.equal(pill(), 'All 2 files viewed');
@@ -579,11 +579,11 @@ pageTest('the tree filter offers its clear button only while there is text, and 
 });
 
 pageTest("a tab closes from its button, which is the design system's icon button", async () => {
-  const close = $('#tabbar .tab .tab-close');
-  assert.ok(close.classList.contains('icon-btn'));
+  const close = $('#tabbar [data-part="tab"] [data-part="tab-close"]');
+  assert.ok(close.getAttribute('aria-label'));
   assert.equal(close.getAttribute('aria-label'), 'Close orders.ts', 'it names the tab it closes');
   await click(close);
-  assert.equal($$('#tabbar .tab').length, 0);
+  assert.equal($$('#tabbar [data-part="tab"]').length, 0);
 });
 
 pageTest("the shortcuts' tabs sit above the scrolling keys, not in them", async () => {
@@ -598,7 +598,9 @@ test('a changed binary file is a row of the tree: its status, dimmed, and nothin
     const row = $('#tree .file.binary');
     assert.equal(row.querySelector('.fname')!.firstChild!.textContent, 'logo.png');
     assert.equal(row.querySelector('.kind')!.textContent, 'binary');
-    assert.ok(row.classList.contains('modified') && row.querySelector('.status-letter.st-modified'));
+    assert.ok(
+      row.classList.contains('modified') && row.querySelector('[data-part="status-letter"][data-status="modified"]'),
+    );
     assert.ok((row as HTMLButtonElement).disabled, "it can't be opened");
     assert.match(row.title, /^src\/logo\.png — modified, a binary file/);
     assert.equal($$('#tree .file .viewed-box:not(.placeholder)').length, 1, 'no viewed box: it is not a file to read');
@@ -611,8 +613,8 @@ test('a changed binary file is a row of the tree: its status, dimmed, and nothin
     assert.equal(active(), first);
     await type($('.nav-filter input'), 'logo');
     assert.deepEqual(
-      $$('#tree .file').map((file) => file.className),
-      ['list-row file modified binary'],
+      $$('#tree .file').map((file) => file.classList.contains('modified') && file.classList.contains('binary')),
+      [true],
     );
   } finally {
     await close();

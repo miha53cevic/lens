@@ -9,7 +9,7 @@ import { toggleUnitViewed } from '../../../../actions/prefs.ts';
 import { baseName } from '../../../../shared.ts';
 import { SignalIcon } from '../../../SignalIcon.tsx';
 import { Button } from '../../../../../ui/Button.tsx';
-import { listRowClass } from '../../../../../ui/ListRow.tsx';
+import { listRow } from '../../../../../ui/ListRow.tsx';
 
 /** The open card stays in sight as the reader steps through the inbox. */
 function keepInSight(card: HTMLElement | null) {
@@ -28,7 +28,7 @@ export function UnitCard({ unit, active }: { unit: Unit; active: boolean }) {
   return (
     <div
       ref={active ? keepInSight : undefined}
-      className={listRowClass(active, 'inbox-card', read && 'read', !summary && 'pending')}
+      {...listRow(active, clsx('inbox-card', read && 'read', !summary && 'pending'))}
       data-inbox-unit={unit.id}
       role='button'
       onClick={() => openSummaryUnit(unit.id)}

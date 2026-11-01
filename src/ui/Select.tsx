@@ -1,5 +1,4 @@
 import { ChevronDown } from 'lucide-react';
-import './Select.css';
 
 interface SelectOption {
   value: string;
@@ -23,8 +22,9 @@ interface SelectProps {
 export function Select({ id, label, value, options, onChange, disabled }: SelectProps) {
   return (
     // the select is the chip; the caret lies over it
-    <span className='select'>
+    <span data-part='select' className='relative inline-flex max-w-[260px] min-w-0 items-center'>
       <select
+        className='h-control-xs max-w-full cursor-pointer appearance-none overflow-hidden rounded-full border border-line-strong bg-surface pr-6 pl-3 text-sm font-normal text-ellipsis whitespace-nowrap text-text [field-sizing:content] [transition:border-color_var(--motion)] not-disabled:hover:border-field-focus focus:border-field-focus focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-default disabled:opacity-50'
         id={id}
         aria-label={label}
         value={value}
@@ -40,7 +40,7 @@ export function Select({ id, label, value, options, onChange, disabled }: Select
           );
         })}
       </select>
-      <ChevronDown size={11} />
+      <ChevronDown className='pointer-events-none absolute right-[9px] text-muted' size={11} />
     </span>
   );
 }
