@@ -1,7 +1,7 @@
 // The Code view and the Summary tab: switching between them, jumping to a line.
 
 import type { StampResponse } from '../../cli-app/api/contract.ts';
-import { commit, getState, type LensState, toggled, update, type View } from '../store.ts';
+import { commit, getState, type LensState, toggled, update, type View, wholeData } from '../store.ts';
 import { flashRow } from '../shared.ts';
 import { fileSpans } from '../rows.ts';
 import { revealIfTest, visibleActive, withTab } from './tabs.ts';
@@ -32,7 +32,10 @@ async function loadSummary(branch = false): Promise<void> {
     async () => {
       const summary = await api('GET /api/summary');
       // only once it's loaded: a failed load is tried again
-      update((state) => ({ summaryDot: false, data: summary ? { ...state.data, summary } : state.data }));
+      update((state) => {
+        const whole = wholeData(state);
+        return { summaryDot: false, beforeRound: null, data: summary ? { ...whole, summary } : whole };
+      });
       if (branch) noteDone('Another branch is checked out: the summary is read for it');
       else noteDone(summary && summary.stamp === null ? 'The summary was cleared' : 'New summary loaded');
     },

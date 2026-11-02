@@ -33,6 +33,7 @@ payload.config.keepCommentMarkers[]: string
 payload.config.keepDirective: string
 payload.config.scores: object
 payload.config.scores{}: number
+payload.config.selfChecks: boolean
 payload.config.testFilePatterns: array
 payload.config.testFilePatterns[]: string
 payload.config.theme: string
@@ -87,13 +88,16 @@ payload.marks: object
 payload.notes: array
 payload.renamed: array
 payload.review: string
+payload.selfChecks: boolean
 payload.summary.checkout: null
+payload.summary.checks: array
 payload.summary.cli: string
 payload.summary.command: string
 payload.summary.flows: array
 payload.summary.key: string
 payload.summary.overview: null
 payload.summary.previews: array
+payload.summary.round: null
 payload.summary.sequences: array
 payload.summary.stamp: number
 payload.summary.units: array

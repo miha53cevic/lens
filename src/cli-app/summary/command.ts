@@ -15,7 +15,8 @@ import {
   type Bundle,
 } from './store.ts';
 import { relPath } from '../paths.ts';
-import { buildPreviewsOn } from './settings.ts';
+import { buildPreviewsOn, selfChecksOn } from './settings.ts';
+import { sentForAgent } from '../rounds/store.ts';
 import { writeAssets } from './previews.ts';
 import { recordSubmit } from './progress.ts';
 
@@ -44,10 +45,11 @@ export async function runSummary(rest: string[], cwd: string): Promise<void> {
       console.log('lens: nothing to summarize — this diff has no changed text files');
       return;
     }
+    const key = reviewKey(diff.root, command, args);
     const result = prepareBundle({
       root: diff.root,
       cwd,
-      key: reviewKey(diff.root, command, args),
+      key,
       command,
       args,
       label: diff.label,
@@ -55,6 +57,8 @@ export async function runSummary(rest: string[], cwd: string): Promise<void> {
       units,
       sources: new Map([...diff.sources].map(([abs, src]) => [relPath(diff.root, abs), src])),
       drawings: buildPreviewsOn(diff.root, config),
+      checks: selfChecksOn(diff.root, config),
+      sent: sentForAgent(diff.root, key),
     });
     console.log(result.instructions);
     return;
@@ -95,7 +99,11 @@ export async function runSummary(rest: string[], cwd: string): Promise<void> {
           : '') +
         (outcome.acceptedSequences
           ? `, ${outcome.acceptedSequences} sequence${outcome.acceptedSequences === 1 ? '' : 's'}`
-          : ''),
+          : '') +
+        (outcome.acceptedChecks
+          ? `, ${outcome.acceptedChecks} self-check${outcome.acceptedChecks === 1 ? '' : 's'}`
+          : '') +
+        (outcome.acceptedSent ? `, ${outcome.acceptedSent} sent finding${outcome.acceptedSent === 1 ? '' : 's'}` : ''),
     );
     if (outcome.dropped.length > 0) {
       console.log(
@@ -132,7 +140,7 @@ export async function runSummary(rest: string[], cwd: string): Promise<void> {
     }
     const undrawn = !!bundle.drawings && outcome.stored.drawn !== unitSetHash(bundle.units);
     if (missing.length === 0 && wholeDiffLeft(bundle, outcome.stored)) {
-      const what = undrawn ? 'flows, the overview and the drawings' : 'flows and the overview';
+      const what = undrawn ? 'flows, the overview and the drawings' : 'the whole-diff work';
       console.log(`\nevery unit is summarized — run \`${prepareCommand(bundle)}\` for the final pass (${what})`);
     }
     // what was printed above as "fix these" (not the advice, which is only worth a look): the viewer
@@ -145,7 +153,9 @@ export async function runSummary(rest: string[], cwd: string): Promise<void> {
       outcome.accepted.length > 0 ||
       outcome.acceptedOverview ||
       outcome.acceptedPreviews > 0 ||
-      outcome.acceptedSequences > 0;
+      outcome.acceptedSequences > 0 ||
+      outcome.acceptedChecks > 0 ||
+      outcome.acceptedSent > 0;
     if (!acceptedAny && (submitted > 0 || outcome.dropped.length > 0)) process.exitCode = 1;
     return;
   }

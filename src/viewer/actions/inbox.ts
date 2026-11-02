@@ -18,7 +18,7 @@ const cardsIn = (root: Element | null) =>
 const cardKey = (card: HTMLElement) => card.dataset.inboxUnit;
 
 function inboxFlow(state: LensState, key: string): InboxFlow | null {
-  return listModel(state)?.inbox?.find((flow) => flow.key === key) ?? null;
+  return listModel(state)?.inbox.find((flow) => flow.key === key) ?? null;
 }
 
 function setFlowOpen(key: string, open: boolean | null): void {
@@ -89,11 +89,11 @@ export interface InboxMark {
 /**
  * A change marked in the inbox (`m`, its Read button). Marked read, the next change to read after
  * it opens (then from the top; none left: the overview), its flow unfolding, and a flow with nothing
- * left to read folds once its last card has slid into Read. Null when the list isn't the inbox.
+ * left to read folds once its last card has slid into Read. Null outside the Summary tab.
  */
 export function inboxMark(state: LensState, unit: Unit, viewedUnits: ReadonlySet<string>): InboxMark | null {
   const list = listModel(state);
-  if (!list?.inbox || state.view !== 'summary') return null;
+  if (!list || state.view !== 'summary') return null;
   const rail = document.querySelector<HTMLElement>('[data-part="inbox-rail"]');
   const before = places(cardsIn(rail), cardKey);
   const slide = () =>

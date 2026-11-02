@@ -16,6 +16,8 @@ import {
   type Concern,
   type ConcernKind,
   type Flow,
+  type SelfCheck,
+  type SentCheck,
   type SequenceStep,
   type StepChange,
   type StoredPreview,
@@ -37,6 +39,8 @@ export interface SubmitOutcome {
   acceptedSequences: number;
   /** Previews that look like parts of one screen, as advice the agent can act on (never enforced) */
   previewAdvice: string[];
+  acceptedChecks: number;
+  acceptedSent: number;
   /** The accepted previews' files, by the asset name the stored previews give them: for writeAssets */
   assets: Map<string, string>;
   dropped: string[];
@@ -72,6 +76,8 @@ export function hasUnits(result: unknown): result is {
   overview?: unknown;
   previews?: unknown;
   sequences?: unknown;
+  checks?: unknown;
+  sent?: unknown;
 } {
   if (typeof result !== 'object' || result === null) return false;
   const units = (result as { units?: unknown }).units;
@@ -100,6 +106,8 @@ export function validateResult(
       acceptedOverview: false,
       acceptedPreviews: 0,
       acceptedSequences: 0,
+      acceptedChecks: 0,
+      acceptedSent: 0,
       previewAdvice: [],
       assets: new Map(),
       dropped: ['result must be an object with a "units" object'],
@@ -151,11 +159,15 @@ export function validateResult(
   }
   let acceptedOverview = false;
   if (raw.overview !== undefined) {
-    const what = paragraphs((raw.overview as { what?: unknown } | null)?.what, LIMITS.overview);
-    if (!what)
-      dropped.push(`overview: what ${describe((raw.overview as { what?: unknown } | null)?.what, LIMITS.overview)}`);
+    const entry = (raw.overview ?? {}) as { what?: unknown; title?: unknown };
+    const what = paragraphs(entry.what, LIMITS.overview);
+    if (!what) dropped.push(`overview: what ${describe(entry.what, LIMITS.overview)}`);
     else {
-      stored.overview = { what, hash: unitSetHash(bundle.units) };
+      const title = text(entry.title, LIMITS.overviewTitle);
+      if (!title && entry.title !== undefined && entry.title !== null) {
+        dropped.push(`overview: title ${describe(entry.title, LIMITS.overviewTitle)} — left out`);
+      }
+      stored.overview = { what, hash: unitSetHash(bundle.units), ...(title ? { title } : {}) };
       acceptedOverview = true;
     }
   }
@@ -178,6 +190,9 @@ export function validateResult(
   // a pass that asked for drawings, answered: none is an answer too, so the final pass isn't asked again
   if (bundle.wholeDiff && bundle.drawings) stored.drawn = unitSetHash(bundle.units);
   if (sequences.length > 0) stored.sequences = byTitle(stored.sequences ?? [], sequences);
+  const acceptedChecks = keepChecks(listOf(raw.checks, 'checks', dropped), stored, byId, dropped);
+  if (bundle.wholeDiff && bundle.checks) stored.checked = unitSetHash(bundle.units);
+  const acceptedSent = keepSent(raw.sent, bundle, stored, byId, dropped);
   stored.updatedAt = new Date().toISOString();
   return {
     stored,
@@ -186,11 +201,84 @@ export function validateResult(
     acceptedOverview,
     acceptedPreviews: new Set(previews.map((p) => p.title)).size,
     acceptedSequences: new Set(sequences.map((q) => q.title)).size,
+    acceptedChecks,
+    acceptedSent,
     previewAdvice: previewAdvice(stored),
     assets,
     dropped,
     coverage: coverageOf(bundle, stored),
   };
+}
+
+/** The self-checks of this submit, in place of the stored ones. Returns how many were kept. */
+function keepChecks(raw: unknown[], stored: StoredSummary, byId: Map<string, BundleUnit>, dropped: string[]): number {
+  const titles = new Set(stored.flows.map((flow) => flow.title));
+  const perFlow = new Map<string, number>();
+  const checks: SelfCheck[] = [];
+  raw.forEach((entry, i) => {
+    const where = `checks[${i}]`;
+    const check = (entry ?? {}) as Record<string, unknown>;
+    const flow = typeof check.flow === 'string' ? check.flow.trim() : '';
+    if (!titles.has(flow))
+      return void dropped.push(`${where}: flow ${JSON.stringify(check.flow)} isn't one of the flows`);
+    if ((perFlow.get(flow) ?? 0) >= LIMITS.checksPerFlow) {
+      return void dropped.push(`${where}: "${flow}" has its ${LIMITS.checksPerFlow} already`);
+    }
+    const question = text(check.question, LIMITS.checkQuestion);
+    if (!question) return void dropped.push(`${where}: question ${describe(check.question, LIMITS.checkQuestion)}`);
+    const answer = text(check.answer, LIMITS.checkAnswer);
+    if (!answer) return void dropped.push(`${where}: answer ${describe(check.answer, LIMITS.checkAnswer)}`);
+    const unit = typeof check.unit === 'string' ? byId.get(check.unit) : undefined;
+    if (!unit) return void dropped.push(`${where}: unknown unit ${JSON.stringify(check.unit)}`);
+    const line = typeof check.line === 'string' ? check.line.trim().toUpperCase() : '';
+    if (!isShownLine(unit, line))
+      return void dropped.push(`${where}: line "${check.line}" is not a line of ${unit.id}`);
+    perFlow.set(flow, (perFlow.get(flow) ?? 0) + 1);
+    checks.push({ flow, question, answer, unit: unit.id, line, hash: placedHash(unit) });
+  });
+  if (checks.length > 0) stored.checks = checks;
+  return checks.length;
+}
+
+/** What the agent says of the findings the reader sent back, kept by their keys. Returns how many were kept. */
+function keepSent(
+  raw: unknown,
+  bundle: Bundle,
+  stored: StoredSummary,
+  byId: Map<string, BundleUnit>,
+  dropped: string[],
+): number {
+  if (raw === undefined || raw === null) return 0;
+  if (typeof raw !== 'object' || Array.isArray(raw)) {
+    dropped.push("sent: must be an object, a finding's number → what the code does now");
+    return 0;
+  }
+  let kept = 0;
+  for (const [number, entry] of Object.entries(raw)) {
+    const where = `sent["${number}"]`;
+    const key = bundle.sent?.[Number(number) - 1];
+    if (!key) {
+      dropped.push(`${where}: no finding with that number`);
+      continue;
+    }
+    const check = (entry ?? {}) as Record<string, unknown>;
+    if (typeof check.fixed !== 'boolean') {
+      dropped.push(`${where}: fixed must be true or false`);
+      continue;
+    }
+    const how = text(check.how, LIMITS.sentHow);
+    const unit = typeof check.unit === 'string' ? byId.get(check.unit) : undefined;
+    const line = typeof check.line === 'string' ? check.line.trim().toUpperCase() : '';
+    if (!how) dropped.push(`${where}: how ${describe(check.how, LIMITS.sentHow)}`);
+    else if (!unit) dropped.push(`${where}: unknown unit ${JSON.stringify(check.unit)}`);
+    else if (!isShownLine(unit, line)) dropped.push(`${where}: line "${check.line}" is not a line of ${unit.id}`);
+    else {
+      const claim: SentCheck = { fixed: check.fixed, how, unit: unit.id, line, hash: placedHash(unit) };
+      stored.sentChecks = { ...stored.sentChecks, [key]: claim };
+      kept++;
+    }
+  }
+  return kept;
 }
 
 /**

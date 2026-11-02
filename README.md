@@ -41,11 +41,7 @@ In the app, **Settings → Agent** installs the `lens` command and the agent ski
 
 ## Quick start
 
-In a repository with changes:
-
-```bash
-lens diff               # open your uncommitted changes in the viewer
-```
+Open the desktop app, pick the repository and what to review.
 
 In your agent, to get the Summary tab written:
 
@@ -53,9 +49,17 @@ In your agent, to get the Summary tab written:
 /lens-review            # same arguments as `lens diff`
 ```
 
-Or open the desktop app, pick the repository and what to review.
+## Desktop app
 
-## Commands
+The preferred way to use lens: one tab per repository, a picker for what to review
+(working tree, staged, branch vs a base, custom `git diff` arguments, a PR), and the viewer
+in the tab. It reopens as you left it. The viewer runs sandboxed, since it shows code you
+didn't write.
+
+## Command line
+
+The app runs the `lens` command for you, and your agent's skills call it too. You can also
+run it yourself in a terminal (install it from the app's Settings → Agent).
 
 | command | what it opens or prints |
 | --- | --- |
@@ -66,7 +70,7 @@ Or open the desktop app, pick the repository and what to review.
 | `lens pr 123` / `lens pr <url>` | a GitHub PR, fetched with plain git (no API, no gh) |
 | `lens info` | what could be reviewed here: the branch, its changes, the PR remote |
 | `lens config` | the effective config and where it comes from |
-| `lens clear` | what lens keeps in `.lens/`, by kind; `lens clear <kind> --all` (or one review's `<key>`) clears it: `summaries`, `notes`, `marks` |
+| `lens clear` | what lens keeps in `.lens/`, by kind; `lens clear <kind> --all` (or one review's `<key>`) clears it: `summaries`, `notes`, `marks`, `rounds` |
 
 | flag | meaning |
 | --- | --- |
@@ -78,15 +82,7 @@ Or open the desktop app, pick the repository and what to review.
 | `--json` | print the fold model as JSON, for debugging |
 | `--version` | print lens's version |
 
-Loose files and these flags are CLI-only; the desktop app's picker covers the diff and PR
-modes.
-
-## Desktop app
-
-The same lens, with screens in place of arguments: one tab per repository, a picker for
-what to review (working tree, staged, branch vs a base, custom `git diff` arguments, a PR),
-and the viewer in the tab. It reopens as you left it. The viewer runs sandboxed, since it
-shows code you didn't write.
+Loose files and these flags are CLI-only; the app's picker covers the diff and PR modes.
 
 ## The viewer
 
@@ -117,11 +113,10 @@ what triggers it and the smallest fix), what behaves differently, and callers it
 break. You mark each concern and possible break *real* or *dismiss* it, and copy the real
 ones back to your agent. Units are grouped into **flows**: one story each, read step by step, ranked P1 to
 P3, with each unit in one flow and import-only or formatting-only changes under
-Housekeeping, even before a summary is written. The units in no flow are listed by file. An overview of the whole diff sits on top. With **Full units** on (the ⋯ menu),
+Housekeeping, even before a summary is written. The units in no flow come last. An overview of the whole diff sits on top. With **Full units** on (the ⋯ menu),
 the rest of a unit's file sits above and below it, behind a bar that says what it holds.
-With **Inbox layout** on (the ⋯ menu), the list is an inbox instead: each flow a section of
-cards, and a change you mark read moves down into its flow's folded Read area while the next one
-opens; a flow with nothing left to read folds itself.
+The list is an inbox: each flow a section of cards, and a change you mark read moves down into
+its flow's folded Read area while the next one opens; a flow with nothing left to read folds itself.
 
 With **Build previews** on (the ⋯ menu, on by default), the agent also draws what the
 change looks like: **previews** of the screens a UI diff changes, in your project's own
@@ -134,6 +129,14 @@ cover, and go stale with their code.
 ```bash
 /lens-review --staged           # in your agent; or: pr 87
 ```
+
+**Rounds**: copying your findings for the agent keeps the code as it is then. Your next read can be
+only what changed since (the overview's switch, both views), with what became of each finding:
+*lines changed*, *nearby changed* or *untouched* is lens's own measure, and *fixed* or *not fixed*
+is your agent's claim on its next summary. Kept per review in `.lens/rounds/`.
+
+**Check yourself** (the ⋯ menu, off by default): your agent also writes a few questions per flow, with
+the answer behind a click, for checking you understood the change. No score and no gate.
 
 The skill runs `lens summary prepare` (splits the diff into units, writes the agent's
 instructions) and `lens summary submit` (checks the agent's result and stores it). Any
@@ -200,6 +203,7 @@ extend. `"base": false` makes your file the whole rule set.
 | `testFilePatterns` | what *hide tests* hides, and what summary mode treats as tests |
 | `exclude` | listed in a diff as `⊘` without being read; skipped in directory walks |
 | `buildPreviews` | summary mode asks for previews and sequences (default `true`); the ⋯ menu's switch overrides it for you, in `.lens/settings.json` |
+| `selfChecks` | summary mode asks for questions to check your understanding with (default `false`); the ⋯ menu's switch overrides it, as above |
 
 Patterns: `*` matches within a path segment, `**` across them, and a pattern matches
 anywhere in the path.

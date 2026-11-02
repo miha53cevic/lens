@@ -86,8 +86,6 @@ export interface LensState {
   hunksOnly: boolean;
   /** The Summary tab shows each unit inside its whole file */
   fullUnits: boolean;
-  /** The Summary tab's list as an inbox (⋯ → Summary): each flow's changes as cards, the read ones folded under them */
-  summaryInbox: boolean;
   /** Mark the words a replaced line changed (wordDiff.ts) */
   wordDiff: boolean;
   /** Diffs show old and new side by side (isSplit in model/plans.ts: a diff only) */
@@ -117,15 +115,13 @@ export interface LensState {
   changedOnDisk: boolean;
   /** The agent's summary run, as the last stamp poll found it; null: none is going */
   summaryBuild: BuildProgress | null;
+  /** The whole change, while `data` shows only what changed since the last round (actions/rounds.ts); null: it shows all */
+  beforeRound: ViewerPayload | null;
   /** Asking the server for a newer summary: the overview holds off on "not written yet" until it knows */
   summaryChecking: boolean;
   /** The list filter's text (transient) */
   sumQuery: string;
   sumSignal: SignalFilter;
-  /** Flow title -> open, once the reader toggled it */
-  flowOpen: ReadonlyMap<string, boolean>;
-  /** The files the reader folded in the summary list's changes in no flow */
-  closedUnitFiles: ReadonlySet<string>;
   /** The inbox's flows (model/inbox.ts keys) the reader or a step opened or folded; any other is open while it has a change to read */
   inboxFlowOpen: ReadonlyMap<string, boolean>;
   /** The inbox's flows whose Read area is open */
@@ -205,7 +201,6 @@ const initialState: LensState = {
   hideTests: readPref('lens.hideTests') !== '0', // on by default
   hunksOnly: readPref('lens.hunksOnly') !== '0', // on by default
   fullUnits: readPref('lens.fullUnits') === '1', // off by default
-  summaryInbox: readPref('lens.summaryInbox') === '1', // off by default
   wordDiff: readPref('lens.wordDiff') !== '0', // on by default
   sideBySide: readPref('lens.sideBySide') === '1', // off by default
   codeSize: loadCodeSize(),
@@ -222,11 +217,10 @@ const initialState: LensState = {
   summaryDot: false,
   changedOnDisk: false,
   summaryBuild: null,
+  beforeRound: null,
   summaryChecking: false,
   sumQuery: '',
   sumSignal: null,
-  flowOpen: new Map(),
-  closedUnitFiles: new Set(),
   inboxFlowOpen: new Map(),
   inboxReadOpen: new Set(),
   concernMarks: new Map(Object.entries(INITIAL_DATA.marks.concerns)),
@@ -283,6 +277,11 @@ export const scrollStore = createStore<{
   /** The sidebar's scroll per view: the tree and the summary list share one scroller */
   nav: Readonly<Record<View, number>>;
 }>()(() => ({ files: {}, nav: { code: 0, summary: 0 } }));
+
+/** The whole change, whether or not `data` shows only what changed since the last round. */
+export function wholeData(state: LensState): ViewerPayload {
+  return state.beforeRound ?? state.data;
+}
 
 /** A copy of the set with `key` added or removed. */
 export function toggled<T>(set: ReadonlySet<T>, key: T, on?: boolean): Set<T> {

@@ -469,7 +469,7 @@ test('a submit that asks for fixes keeps the run shown until one that asks for n
       JSON.stringify({ units: { 'package.json#(file)': unit }, overview, flows: [{ title: 'x' }] }),
     );
     await runSummary(['submit', folder], dir);
-    assert.deepEqual(read(), { done: 1, total: 1, finalPass: true }, 'the agent was told to fix and submit again');
+    assert.equal(read()?.stage, 'fixes', 'the agent was told to fix and submit again');
 
     writeFileSync(join(folder, 'result.json'), JSON.stringify({ units: {}, overview }));
     await runSummary(['submit', folder], dir);
@@ -1012,6 +1012,33 @@ test('validate: a whole-diff pass replaces the stored flows; other passes merge 
   assert.equal(noFlows.stored.flows.length, 2, 'a submit without flows leaves them alone');
 });
 
+test('validate: self-checks name a flow and a line of a unit, at most three a flow; a sent finding gets its claim', () => {
+  const flow = { title: 'Paging', path: 'a', units: { [BUNDLE.units[0].id]: 'a', [BUNDLE.units[1].id]: 'b' } };
+  const previous = { version: 1 as const, updatedAt: '', units: {}, flows: [flow] };
+  const unit = BUNDLE.units[0].id;
+  const good = { flow: 'Paging', question: 'What now?', answer: 'The first 50.', unit, line: 'N5' };
+  const outcome = validateResult(
+    { ...BUNDLE, checks: true, wholeDiff: true, sent: ['key-one'] },
+    {
+      units: {},
+      checks: [good, good, good, good, { ...good, flow: 'Other' }, { ...good, line: 'N999' }],
+      sent: {
+        '1': { fixed: true, how: 'The key has the limit now', unit, line: 'N6' },
+        '2': { fixed: true, how: 'No such one', unit, line: 'N6' },
+      },
+    },
+    '/nonexistent',
+    previous,
+  );
+  assert.equal(outcome.acceptedChecks, 3);
+  assert.equal(outcome.stored.checked, unitSetHash(BUNDLE.units));
+  assert.ok(outcome.dropped.some((reason) => /has its 3 already/.test(reason)));
+  assert.ok(outcome.dropped.some((reason) => /isn't one of the flows/.test(reason)));
+  assert.equal(outcome.acceptedSent, 1);
+  assert.deepEqual(Object.keys(outcome.stored.sentChecks ?? {}), ['key-one']);
+  assert.ok(outcome.dropped.some((reason) => /no finding with that number/.test(reason)));
+});
+
 test("validate: the overview is stored with the diff's hash; an over-long one is dropped", () => {
   const good = validateResult(
     BUNDLE,
@@ -1024,6 +1051,21 @@ test("validate: the overview is stored with the diff's hash; an over-long one is
   const bad = validateResult(BUNDLE, { units: {}, overview: { what: 'x'.repeat(2001) } }, '/nonexistent', good.stored);
   assert.equal(bad.acceptedOverview, false);
   assert.match(bad.dropped[0], /^overview: what/);
+  const titled = validateResult(
+    BUNDLE,
+    { units: {}, overview: { what: 'x', title: '  Orders   page by default ' } },
+    '/nonexistent',
+    null,
+  );
+  assert.equal(titled.stored.overview?.title, 'Orders page by default');
+  const long = validateResult(
+    BUNDLE,
+    { units: {}, overview: { what: 'x', title: 'y'.repeat(61) } },
+    '/nonexistent',
+    null,
+  );
+  assert.equal(long.stored.overview?.title, undefined, 'the overview stays, without its title');
+  assert.match(long.dropped[0], /^overview: title/);
   assert.equal(bad.stored.overview?.what, 'Pages orders by default.', 'a rejected overview keeps the earlier one');
   assert.notEqual(unitSetHash(BUNDLE.units), unitSetHash(BUNDLE.units.slice(1)));
   const multi = validateResult(
@@ -1124,7 +1166,7 @@ test('prepare → submit → view round trip, with re-prepare skipping done unit
     const view = buildSummaryView({ root: diff.root, cwd: dir, command: 'diff', args: ['--staged'], units });
     const v = view.units.find((u) => u.id === 'src/repo.ts#findOrders')!;
     assert.equal(view.command, '/lens-review --staged');
-    assert.deepEqual(view.overview, { what: 'Pages orders by default.', stale: false });
+    assert.deepEqual(view.overview, { what: 'Pages orders by default.', title: null, stale: false });
     assert.equal(v.stale, false);
     assert.equal(v.summary?.breaks[0].callers[0].lines.find((l) => l.n === 2)?.text, 'const o = await findOrders(u);');
     // removed blocks arrive with the shown line they display after (removalAnchors)
@@ -1904,7 +1946,11 @@ test("a summary run's progress: units in, then the final pass, then nothing; a s
     };
     mkdirSync(join(root, '.lens', 'summary', key), { recursive: true });
     writeFileSync(join(root, '.lens', 'summary', key, 'bundle.json'), JSON.stringify(bundle));
-    assert.deepEqual(read(), { done: 0, total: 3, finalPass: false });
+    const where = () => {
+      const build = read();
+      return build && { done: build.done, total: build.total, stage: build.stage };
+    };
+    assert.deepEqual(where(), { done: 0, total: 3, stage: 'changes' });
 
     const summary = (headline: string, hash: string) => ({
       headline,
@@ -1918,16 +1964,32 @@ test("a summary run's progress: units in, then the final pass, then nothing; a s
     });
     const units = { a: summary('A', 'h-a'), b: summary('B', 'h-b'), c: summary('C', 'stale') };
     writeStored(root, key, { version: 1, updatedAt: '', units, flows: [] });
-    assert.deepEqual(read(), { done: 2, total: 3, finalPass: false }, "a summary for other code doesn't count");
+    assert.deepEqual(where(), { done: 2, total: 3, stage: 'changes' }, "a summary for other code doesn't count");
 
     units.c = summary('C', 'h-c');
     writeStored(root, key, { version: 1, updatedAt: '', units, flows: [] });
-    assert.deepEqual(read(), { done: 3, total: 3, finalPass: true }, 'every unit in: flows and the overview left');
+    assert.deepEqual(where(), { done: 3, total: 3, stage: 'story' }, 'every unit in: flows and the overview left');
 
     const flow = { title: 'Orders', path: 'a → b', units: { a: 'repo', b: 'route', c: 'route' } };
     const overview = { what: 'x', hash: unitSetHash(bundle.units) };
     writeStored(root, key, { version: 1, updatedAt: '1', units, flows: [flow], overview });
     assert.equal(read(), null, 'the final pass is in: done');
+
+    // what's left names what the agent is on: drawings once the story is in, and not once they are
+    const left = { ...bundle, drawings: true, checks: true };
+    writeFileSync(join(root, '.lens', 'summary', key, 'bundle.json'), JSON.stringify(left));
+    assert.equal(where()?.stage, 'drawings');
+    const drawn = unitSetHash(bundle.units);
+    writeStored(root, key, { version: 1, updatedAt: '1b', units, flows: [flow], overview, drawn });
+    assert.equal(where()?.stage, 'story', 'only the self-checks left: still the story pass');
+
+    // what lens writes itself isn't the agent's work, and the run says how long the agent has been quiet
+    const filed = { ...bundle, units: [...bundle.units, { ...unit('d'), importsOnly: true }], drawings: true };
+    writeFileSync(join(root, '.lens', 'summary', key, 'bundle.json'), JSON.stringify(filed));
+    writeStored(root, key, { version: 1, updatedAt: '2', units: { d: summary('D', 'h-d') }, flows: [] });
+    const quiet = read();
+    assert.deepEqual([quiet?.done, quiet?.total, quiet?.drawings], [0, 3, true]);
+    assert.ok(quiet!.quietMs >= 0 && quiet!.quietMs < 60_000, 'written just now');
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

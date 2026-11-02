@@ -1,4 +1,5 @@
-import type { InboxFlow } from '../../../../model/inbox.ts';
+import { Fragment } from 'react';
+import { stepHeadings, type InboxFlow } from '../../../../model/inbox.ts';
 import { toggleInboxFlow, toggleInboxRead } from '../../../../actions/inbox.ts';
 import { Disclosure } from '../../../../../ui/Disclosure.tsx';
 import { UnitCard } from './UnitCard.tsx';
@@ -12,6 +13,7 @@ interface FlowSectionProps {
 export function FlowSection({ flow, isActive }: FlowSectionProps) {
   const { key, toRead, read, open, readOpen } = flow;
   const total = toRead.length + read.length;
+  const headings = stepHeadings(flow);
   return (
     <section
       data-part='inbox-flow'
@@ -58,7 +60,14 @@ export function FlowSection({ flow, isActive }: FlowSectionProps) {
       {open && (
         <div data-part='inbox-body' className='flex flex-col gap-2 px-2 pb-2'>
           {toRead.map((unit) => (
-            <UnitCard key={unit.id} unit={unit} active={isActive(unit.id)} />
+            <Fragment key={unit.id}>
+              {headings.has(unit.id) && (
+                <div data-part='inbox-step' className='px-1 pt-1 eyebrow sm'>
+                  {headings.get(unit.id)}
+                </div>
+              )}
+              <UnitCard unit={unit} active={isActive(unit.id)} />
+            </Fragment>
           ))}
           {read.length > 0 && (
             <Disclosure

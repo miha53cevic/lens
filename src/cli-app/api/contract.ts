@@ -4,6 +4,8 @@
 // other's typecheck instead of the page. `lens ask`'s own endpoints and the preview frames aren't
 // the page's calls, so they aren't here.
 
+import type { SentFinding } from '../rounds/store.ts';
+import type { RoundView } from '../rounds/view.ts';
 import type { AskQuestion, AskSelection, AskState } from '../ask/session.ts';
 import type { ClearKindInfo, ClearPlan, ClearScope } from '../clear.ts';
 import type { MarkChange } from '../marks/store.ts';
@@ -36,6 +38,8 @@ export interface ApiRoutes {
   'POST /api/clear': Endpoint<ClearRequest, ClearResponse>;
   /** ⏻ end: the server stops once it has answered */
   'POST /api/shutdown': Endpoint<null, Ok>;
+  /** Findings handed to the agent: the code as it is now is what the next read is measured against */
+  'POST /api/rounds': Endpoint<RoundRequest, RoundResponse>;
   /** One viewed mark or verdict changed */
   'POST /api/marks': Endpoint<MarkChange, Ok>;
   'POST /api/notes': Endpoint<NewNote, NotesResponse>;
@@ -65,6 +69,7 @@ export const API_ROUTES: { readonly [R in ApiRoute]: true } = {
   'GET /api/clear': true,
   'POST /api/clear': true,
   'POST /api/shutdown': true,
+  'POST /api/rounds': true,
   'POST /api/marks': true,
   'POST /api/notes': true,
   'POST /api/notes/:id': true,
@@ -95,7 +100,16 @@ export interface StampResponse {
 }
 
 export interface SettingsRequest {
-  buildPreviews: boolean;
+  buildPreviews?: boolean;
+  selfChecks?: boolean;
+}
+
+export interface RoundRequest {
+  findings: SentFinding[];
+}
+
+export interface RoundResponse {
+  round: RoundView | null;
 }
 
 /** What GET /api/clear answers: what each kind would remove */

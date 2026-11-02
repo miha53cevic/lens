@@ -6,6 +6,7 @@ import { hiddenStyle } from '../../../shared.ts';
 import { findingMark, findings, isBreak, type Unit } from '../../../model/signals.ts';
 import { Verdict } from './Verdict.tsx';
 import { Disclosure } from '../../../../ui/Disclosure.tsx';
+import { AgentText } from '../../AgentText.tsx';
 
 /**
  * Callers outside the diff the change may break: each opens its callers, each caller a peek at the
@@ -47,7 +48,7 @@ export function Breaks({ unit }: { unit: Unit }) {
               >
                 <ArrowUpRight size={12} />{' '}
                 <span className='group-data-[mark=dismissed]/brk:overflow-hidden group-data-[mark=dismissed]/brk:text-ellipsis group-data-[mark=dismissed]/brk:whitespace-nowrap group-data-[mark=dismissed]/brk:line-through'>
-                  {possibleBreak.summary}
+                  <AgentText text={possibleBreak.summary} />
                 </span>
               </Disclosure>
               <Verdict finding={finding} mark={mark} />

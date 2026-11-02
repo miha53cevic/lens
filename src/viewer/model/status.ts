@@ -4,6 +4,7 @@
 
 import type { LensState } from '../store.ts';
 import { plural } from '../shared.ts';
+import type { BuildProgress, BuildStage } from '../../cli-app/summary/progress.ts';
 import { listModel } from './summaryList.ts';
 
 export type StatusKind = 'gone' | 'failed' | 'working' | 'waiting' | 'done' | 'idle';
@@ -84,7 +85,7 @@ export function barStatus(state: LensState): Status {
 }
 
 export type NoticeTone = 'warn' | 'accent' | 'live';
-export type NoticeActionId = 'openOverview' | 'openSummary' | 'refresh';
+export type NoticeActionId = 'openOverview' | 'openSummary' | 'refresh' | 'showWholeChange';
 
 export interface Notice {
   id: string;
@@ -113,6 +114,17 @@ const changedOnDisk: NoticeSource = (state) =>
 const newSummary: NoticeSource = (state) =>
   state.summaryDot ? { id: 'new-summary', text: 'New summary waiting', tone: 'accent', action: 'openSummary' } : null;
 
+const sinceRound: NoticeSource = (state) =>
+  // the tree and the list are cut down to it on either tab, and only the overview has the switch
+  state.beforeRound
+    ? {
+        id: 'since-round',
+        text: 'Only what changed since you sent · Show all',
+        tone: 'accent',
+        action: 'showWholeChange',
+      }
+    : null;
+
 const agentListening: NoticeSource = (state) => {
   // only while the chat is polled (the rail is open, or a question waits): otherwise it's a guess
   const live = state.ask.open || waitingQuestion(state) !== null;
@@ -121,11 +133,47 @@ const agentListening: NoticeSource = (state) => {
     : null;
 };
 
+/** No write for this long and a run reads as stopped. A big diff's one submit can take minutes, so it's generous. */
+const RUN_QUIET_MS = 20 * 60 * 1000;
+
+/** A run left unfinished: lens can't see the agent, so this says only that nothing has been written for a long time. */
+export function buildStalled(build: BuildProgress): boolean {
+  return build.quietMs > RUN_QUIET_MS;
+}
+
+/** A duration as the status says it: "12 s", "3 min", "2 h", "5 days" */
+export function agoText(ms: number): string {
+  const seconds = Math.round(ms / 1000);
+  if (seconds < 60) return seconds + ' s';
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return minutes + ' min';
+  const hours = Math.round(minutes / 60);
+  if (hours < 48) return hours + ' h';
+  return Math.round(hours / 24) + ' days';
+}
+
+/** The run under way: not one left unfinished. */
+export function runGoing(state: LensState): BuildProgress | null {
+  const build = state.summaryBuild;
+  return build && !buildStalled(build) && !state.serverGone ? build : null;
+}
+
+const STAGE_TEXT: Record<Exclude<BuildStage, 'changes'>, string> = {
+  story: 'writing the story',
+  drawings: 'drawing',
+  fixes: 'fixing what submit rejected',
+};
+
 const summaryBuilding: NoticeSource = (state) => {
-  // known only from the stamp poll, which sets it and takes it back once the run is done (an agent that stopped leaves it shown)
+  // known only from the stamp poll, which sets it and takes it back once the run is done
   const build = state.summaryBuild;
   if (!build || state.serverGone) return null;
-  const progress = build.finalPass ? 'final pass' : build.done + ' of ' + plural(build.total, 'unit');
+  const count = build.done + ' of ' + plural(build.total, 'unit');
+  if (buildStalled(build)) {
+    const text = 'Summary unfinished · ' + count + ' · last write ' + agoText(build.quietMs) + ' ago';
+    return { id: 'summary-build', text, tone: 'warn', action: null };
+  }
+  const progress = build.stage === 'changes' ? count : STAGE_TEXT[build.stage];
   return { id: 'summary-build', text: 'Agent writing summary · ' + progress, tone: 'live', action: null };
 };
 
@@ -142,6 +190,7 @@ const guessedBase: NoticeSource = (state) =>
 
 const NOTICE_SOURCES: NoticeSource[] = [
   guessedBase,
+  sinceRound,
   changedOnDisk,
   staleSummaries,
   newSummary,

@@ -8,6 +8,7 @@ import { createAskRoutes } from '../../ask/routes.ts';
 import { createNoteRoutes } from '../../notes/routes.ts';
 import { notesFor, type ReaderNote } from '../../notes/store.ts';
 import { createMarkRoutes } from '../../marks/routes.ts';
+import { createRoundRoutes } from '../../rounds/routes.ts';
 import { marksFor, type ReviewMarks } from '../../marks/store.ts';
 import { isLocalRequest, readCookie, sendJson } from './http.ts';
 import type { ClearRequest, SettingsRequest, StampResponse, TokensResponse } from '../../api/contract.ts';
@@ -60,6 +61,8 @@ export interface ViewerInput {
   configSource: string | null;
   /** Build previews, as summary mode follows it: the reader's switch (.lens/settings.json), else the config's */
   buildPreviews: boolean;
+  /** Check yourself, the same way */
+  selfChecks: boolean;
   /** PR mode: "owner/repo#N — title", shown in the viewer header */
   label: string | null;
   /** PR mode: the default branch it was diffed against, when GitHub no longer says the PR's base */
@@ -249,6 +252,13 @@ export async function serveViewer(
     () => current,
     () => savedVersion++,
   );
+  const rounds = createRoundRoutes(
+    () => current,
+    () => {
+      savedVersion++;
+      syncSummary();
+    },
+  );
   // the root of the analysis that wrote server.json — a refresh can't move it
   const infoRoot = input.root;
   const stop = () => {
@@ -429,7 +439,7 @@ export async function serveViewer(
     })
     .json('POST /api/settings', parseSettings, (settings) => {
       writeSettings(current.root, settings);
-      current = { ...current, buildPreviews: settings.buildPreviews };
+      current = { ...current, ...settings };
       return settings;
     })
     .json('GET /api/clear', noBody, () => {
@@ -447,7 +457,7 @@ export async function serveViewer(
       }
       // the stored summary is gone: the view is made again, with no unit summarized
       syncSummary();
-      if (cleared.notes || cleared.marks) savedVersion++;
+      if (cleared.notes || cleared.marks || cleared.rounds) savedVersion++;
       return { cleared, summary: current.summary };
     })
     .raw('POST /api/shutdown', ({ res }) => {
@@ -460,6 +470,7 @@ export async function serveViewer(
     })
     .use(notes)
     .use(marks)
+    .use(rounds)
     .use(ask);
 
   const server = createServer(async (req, res) => {
@@ -509,9 +520,14 @@ export async function serveViewer(
 }
 
 function parseSettings(raw: unknown): SettingsRequest | { error: string } {
-  const { buildPreviews } = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
-  if (typeof buildPreviews !== 'boolean') return { error: 'buildPreviews must be true or false' };
-  return { buildPreviews };
+  const { buildPreviews, selfChecks } = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const given = {
+    ...(buildPreviews !== undefined && { buildPreviews }),
+    ...(selfChecks !== undefined && { selfChecks }),
+  };
+  if (Object.keys(given).length === 0) return { error: 'name buildPreviews or selfChecks' };
+  if (Object.values(given).some((on) => typeof on !== 'boolean')) return { error: 'a switch must be true or false' };
+  return given as SettingsRequest;
 }
 
 function parseClear(raw: unknown): ClearRequest | { error: string } {

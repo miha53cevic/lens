@@ -12,9 +12,8 @@ import { ChangesProgress, FilesProgress } from './Progress.tsx';
 import { hiddenStyle } from '../../shared.ts';
 
 export function Nav() {
-  const { view, shown, width, navQuery, sumQuery, inbox } = useLens((state) => ({
+  const { view, shown, width, navQuery, sumQuery } = useLens((state) => ({
     view: state.view,
-    inbox: state.view === 'summary' && state.summaryInbox,
     shown: navShown(state),
     width: state.navWidth,
     navQuery: state.navQuery,
@@ -27,9 +26,7 @@ export function Nav() {
     (nav: HTMLElement | null) => {
       if (!nav) return;
       nav.scrollTop = scrollStore.getState().nav[view];
-      nav
-        .querySelector('[data-part="sum-item"][data-active], [data-part="file"][data-active]')
-        ?.scrollIntoView({ block: 'nearest' });
+      nav.querySelector('[data-part="file"][data-active]')?.scrollIntoView({ block: 'nearest' });
     },
     [view],
   );
@@ -41,8 +38,8 @@ export function Nav() {
       className={clsx(
         // a row scrolled into sight from below the top stops under the sticky filter, not behind it
         'w-[270px] flex-none overflow-x-hidden overflow-y-auto bg-bg px-3 pt-4 pb-6 scroll-pt-[calc(var(--control-h)+var(--space-2))] text-sm',
-        // the Summary list as an inbox: its cards need the room
-        inbox ? 'min-w-[340px]' : 'min-w-0',
+        // the Summary list's cards need the room
+        summaryView ? 'min-w-[340px]' : 'min-w-0',
       )}
       ref={restoreScroll}
       style={{ display: shown ? undefined : 'none', width: width ? width + 'px' : undefined }}

@@ -14,11 +14,13 @@ import {
   type ChangeRow,
   type Concern,
   type Flow,
+  type SelfCheck,
   type SequenceStep,
   type StoredSummary,
 } from './store.ts';
 import { citeableLabels, placedHash, removalAnchors, type Unit } from './units.ts';
 import { fitStored } from './fit.ts';
+import { roundView, type RoundView } from '../rounds/view.ts';
 import type { RemovedBlock } from '../model.ts';
 
 // What the viewer's Summary tab renders: the diff's current units, each with
@@ -89,10 +91,19 @@ export interface SummaryView {
   units: ViewUnit[];
   flows: Flow[];
   /** stale: written for other code — the diff changed since */
-  overview: { what: string; stale: boolean } | null;
+  overview: { what: string; title: string | null; stale: boolean } | null;
   previews: PreviewView[];
   sequences: SequenceView[];
+  /** Questions to check your understanding with, in the flows' order */
+  checks: SelfCheckView[];
+  /** What changed since the reader last sent findings to the agent; null before they have */
+  round: RoundView | null;
 }
+
+export type SelfCheckView = Omit<SelfCheck, 'hash'> & {
+  /** The unit changed since: the answer may no longer hold */
+  stale: boolean;
+};
 
 export function buildSummaryView(opts: {
   root: string;
@@ -100,6 +111,8 @@ export function buildSummaryView(opts: {
   command: 'diff' | 'pr';
   args: string[];
   units: Unit[];
+  /** Repo-relative path → the text this analysis read */
+  sources?: ReadonlyMap<string, string>;
 }): SummaryView {
   const key = reviewKey(opts.root, opts.command, opts.args);
   // the arguments as the user passes them to /lens-review or `lens summary prepare`
@@ -148,10 +161,33 @@ export function buildSummaryView(opts: {
     units: visible,
     flows,
     overview: stored?.overview
-      ? { what: stored.overview.what, stale: stored.overview.hash !== unitSetHash(opts.units) }
+      ? {
+          what: stored.overview.what,
+          title: stored.overview.title ?? null,
+          stale: stored.overview.hash !== unitSetHash(opts.units),
+        }
       : null,
     ...drawings(stored, opts.units),
+    checks: checkViews(stored, opts.units, flows),
+    round: roundView({
+      root: opts.root,
+      review: key,
+      units: opts.units,
+      sources: opts.sources ?? new Map(),
+      shown: (file) => relPath(opts.cwd, join(opts.root, file)),
+      sentChecks: stored?.sentChecks,
+    }),
   };
+}
+
+/** The stored self-checks whose unit and flow are still there. */
+function checkViews(stored: StoredSummary | null, units: Unit[], flows: Flow[]): SelfCheckView[] {
+  const hashes = new Map(units.map((unit) => [unit.id, placedHash(unit)]));
+  const order = new Map(flows.map((flow, flowIndex) => [flow.title, flowIndex]));
+  return (stored?.checks ?? [])
+    .filter((check) => hashes.has(check.unit) && order.has(check.flow))
+    .toSorted((one, other) => order.get(one.flow)! - order.get(other.flow)!)
+    .map(({ hash, ...check }) => ({ ...check, stale: hashes.get(check.unit) !== hash }));
 }
 
 /** The URL a preview's file is served at (server.ts) */

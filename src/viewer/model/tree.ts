@@ -37,8 +37,17 @@ export interface TreeModel {
   filter: string;
 }
 
+const hasChanges = (file: LensState['data']['files'][number]) =>
+  (file.changedLines?.length ?? 0) > 0 || (file.removals?.length ?? 0) > 0;
+
 const buildTree = memo(
-  (data: LensState['data'], hideTests: boolean, query: string, closedDirs: ReadonlySet<string>): TreeModel => {
+  (
+    data: LensState['data'],
+    hideTests: boolean,
+    query: string,
+    closedDirs: ReadonlySet<string>,
+    sinceRound: boolean,
+  ): TreeModel => {
     const filter = query.trim().toLowerCase();
     const visible = (path: string) => !(hideTests && isTestFile(path));
     const shown = (path: string) => visible(path) && (filter === '' || path.toLowerCase().includes(filter));
@@ -54,7 +63,9 @@ const buildTree = memo(
 
     const entries: Omit<TreeFile, 'name'>[] = data.files
       .map((file, fileIndex) => ({ path: file.file, index: fileIndex, status: file.status || null }))
-      .filter((entry) => shown(entry.path));
+      .filter((entry) => shown(entry.path))
+      // since the last round: only what changed since
+      .filter((entry) => !sinceRound || hasChanges(data.files[entry.index]));
     for (const path of (data.deleted || []).filter(shown)) entries.push({ path, index: null, status: 'deleted' });
     for (const path of (data.excluded || []).filter(shown)) entries.push({ path, index: null, status: 'excluded' });
     for (const rename of renamed.filter((candidate) => shown(candidate.to))) {
@@ -93,7 +104,7 @@ const buildTree = memo(
 );
 
 export function treeModel(state: LensState): TreeModel {
-  return buildTree(state.data, state.hideTests, state.navQuery, state.closedDirs);
+  return buildTree(state.data, state.hideTests, state.navQuery, state.closedDirs, state.beforeRound !== null);
 }
 
 // Merge single-child directory chains ("src" > "render" > "web" → "src/render/web").

@@ -1,13 +1,17 @@
 // The Summary tab: the open unit, the list's filters, the reader's verdicts.
 
 import { type ConcernMark, getState, type SignalFilter, update } from '../store.ts';
-import type { Unit } from '../model/signals.ts';
+import { type Unit, unitById } from '../model/signals.ts';
 import { currentUnit, listModel } from '../model/summaryList.ts';
 import { jumpToLine, landOn } from './views.ts';
 import { saveMark } from './marks.ts';
 import { openInInbox } from './inbox.ts';
+import { setSinceRound } from './rounds.ts';
 
 export function openSummaryUnit(unitId: string): void {
+  // a unit that didn't change since the round isn't in that read: the whole change holds it
+  const state = getState();
+  if (state.beforeRound && !unitById(state.data.summary, unitId)) setSinceRound(false);
   if (!openInInbox(unitId)) update({ summaryUnit: unitId });
 }
 
@@ -36,19 +40,6 @@ export function openUnitInCode(unit: Unit | null): void {
 
 export function setSignalFilter(signal: SignalFilter): void {
   update((state) => ({ sumSignal: listModel(state)?.signal === signal ? null : signal }));
-}
-
-export function toggleFlow(title: string, open: boolean): void {
-  update((state) => ({ flowOpen: new Map(state.flowOpen).set(title, open) }));
-}
-
-/** Folds or unfolds a file's changes in the list's changes in no flow. */
-export function toggleUnitFile(file: string): void {
-  update((state) => {
-    const closed = new Set(state.closedUnitFiles);
-    if (!closed.delete(file)) closed.add(file);
-    return { closedUnitFiles: closed };
-  });
 }
 
 // The agent's findings are suspicions; the reader decides: "real" or "dismissed", kept for the

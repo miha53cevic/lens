@@ -47,7 +47,7 @@ export function toggleDir(path: string): void {
   if (!getState().closedDirs.has(path)) growOpen(document.querySelector(`[data-dir-files="${CSS.escape(path)}"]`));
 }
 
-// The view settings: hunks only, full units, the inbox, removed lines, word diff, side by side, hide tests, the fold level.
+// The view settings: hunks only, full units, removed lines, word diff, side by side, hide tests, the fold level.
 
 export function setHunksOnly(on: boolean): void {
   writePref('lens.hunksOnly', on ? '1' : '0');
@@ -57,11 +57,6 @@ export function setHunksOnly(on: boolean): void {
 export function setFullUnits(on: boolean): void {
   writePref('lens.fullUnits', on ? '1' : '0');
   update({ fullUnits: on });
-}
-
-export function setSummaryInbox(on: boolean): void {
-  writePref('lens.summaryInbox', on ? '1' : '0');
-  update({ summaryInbox: on });
 }
 
 export function setHideTests(on: boolean): void {

@@ -18,6 +18,7 @@ const EMPTY_CONFIG: LensConfig = {
   testFilePatterns: [],
   exclude: [],
   buildPreviews: true,
+  selfChecks: false,
 };
 
 const strings = (v: unknown[]) => v.filter((x): x is string => typeof x === 'string');
@@ -50,6 +51,7 @@ function sanitize(raw: unknown, from: string): Partial<LensConfig> & { base?: bo
   if (Array.isArray(r.testFilePatterns)) out.testFilePatterns = strings(r.testFilePatterns);
   if (Array.isArray(r.exclude)) out.exclude = strings(r.exclude);
   if (typeof r.buildPreviews === 'boolean') out.buildPreviews = r.buildPreviews;
+  if (typeof r.selfChecks === 'boolean') out.selfChecks = r.selfChecks;
   if (Array.isArray(r.callPatterns)) {
     out.callPatterns = r.callPatterns.filter((p): p is CallPattern => {
       const ok =
@@ -81,6 +83,7 @@ function merge(base: LensConfig, over: Partial<LensConfig>): LensConfig {
     testFilePatterns: [...base.testFilePatterns, ...(over.testFilePatterns ?? [])],
     exclude: [...base.exclude, ...(over.exclude ?? [])],
     buildPreviews: over.buildPreviews ?? base.buildPreviews,
+    selfChecks: over.selfChecks ?? base.selfChecks,
   };
 }
 

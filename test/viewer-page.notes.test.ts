@@ -186,10 +186,13 @@ test('your notes are marked in the tree and the summary list, and ⇧N steps thr
     await key('N', { shiftKey: true });
     assert.deepEqual(landed(), ['−17'], 'no file after it holds one');
 
-    // the summary list marks each change by the notes on its own lines
     await key('v');
+    // the summary list marks each change by the notes on its own lines
     const units = Object.fromEntries(
-      $$('#nav [data-part="sum-item"]').map((row) => [row.querySelector('[data-part="name"]')!.textContent, mark(row)]),
+      $$('#nav [data-part="inbox-card"]').map((card) => [
+        card.querySelector('[data-part="caption-unit"]')!.textContent,
+        mark(card),
+      ]),
     );
     assert.equal(units['findOrders'], '');
     assert.equal(units['legacyTotal'], '');

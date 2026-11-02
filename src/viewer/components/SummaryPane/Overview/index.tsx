@@ -8,6 +8,8 @@ import { setSignalFilter } from '../../../actions/summary.ts';
 import { plural } from '../../../shared.ts';
 import { AgentOverview } from './AgentOverview.tsx';
 import { RealConcerns } from './RealConcerns.tsx';
+import { Rounds } from './Rounds.tsx';
+import { SelfChecks } from './SelfChecks.tsx';
 import { Drawings } from '../Drawings/index.tsx';
 import { SignalIcon } from '../../SignalIcon.tsx';
 import { Tag } from '../../../../ui/Tag.tsx';
@@ -39,7 +41,7 @@ export function Overview() {
         data-part='sum-headline'
         className='m-0 font-serif text-2xl/[1.22] font-bold tracking-[-0.015em] text-balance text-text'
       >
-        {label ?? 'The changes'}
+        {summary.overview?.title ?? label ?? 'The changes'}
       </h1>
       {flagged.length > 0 && (
         <div className='-mt-2 flex flex-wrap gap-2'>
@@ -60,9 +62,11 @@ export function Overview() {
           ))}
         </div>
       )}
+      <Rounds />
       <RealConcerns />
       <AgentOverview summary={summary} anySummarized={list.summarized > 0} checking={checking} />
       <Drawings unitId={null} />
+      <SelfChecks />
     </div>
   );
 }

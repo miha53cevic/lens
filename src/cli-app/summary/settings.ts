@@ -8,6 +8,7 @@ import { lensDir } from './store.ts';
 
 export interface LocalSettings {
   buildPreviews?: boolean;
+  selfChecks?: boolean;
 }
 
 function settingsPath(root: string): string {
@@ -19,7 +20,10 @@ export function readSettings(root: string): LocalSettings {
   if (!existsSync(path)) return {};
   try {
     const raw = JSON.parse(readFileSync(path, 'utf8'));
-    return typeof raw?.buildPreviews === 'boolean' ? { buildPreviews: raw.buildPreviews } : {};
+    return {
+      ...(typeof raw?.buildPreviews === 'boolean' ? { buildPreviews: raw.buildPreviews } : {}),
+      ...(typeof raw?.selfChecks === 'boolean' ? { selfChecks: raw.selfChecks } : {}),
+    };
   } catch {
     return {};
   }
@@ -35,4 +39,9 @@ export function writeSettings(root: string, patch: LocalSettings): LocalSettings
 /** Whether summary mode asks for previews and sequences here: the reader's switch, else the config's. */
 export function buildPreviewsOn(root: string, config: LensConfig): boolean {
   return readSettings(root).buildPreviews ?? config.buildPreviews;
+}
+
+/** Whether summary mode asks for questions the reader can check themselves with: off unless they turn it on. */
+export function selfChecksOn(root: string, config: LensConfig): boolean {
+  return readSettings(root).selfChecks ?? config.selfChecks;
 }
