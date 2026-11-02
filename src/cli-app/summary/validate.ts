@@ -7,7 +7,6 @@ import { assetName, CHANGE_MARKS, PREVIEW_MAX_BYTES, previewProblems } from './p
 import {
   HOUSEKEEPING,
   isHousekeeping,
-  PLAN_STATUSES,
   PREVIEWS_DIR,
   unitSetHash,
   type Break,
@@ -17,13 +16,10 @@ import {
   type Concern,
   type ConcernKind,
   type Flow,
-  type PlanItem,
-  type PlanStatus,
   type SelfCheck,
   type SentCheck,
   type SequenceStep,
   type StepChange,
-  type StoredPlan,
   type StoredPreview,
   type StoredSequence,
   type StoredSummary,
@@ -43,11 +39,8 @@ export interface SubmitOutcome {
   acceptedSequences: number;
   /** Previews that look like parts of one screen, as advice the agent can act on (never enforced) */
   previewAdvice: string[];
-  acceptedPlan: boolean;
   acceptedChecks: number;
   acceptedSent: number;
-  /** Units the plan's items and its unplanned list leave out: the agent is told to place them */
-  planOutside: string[];
   /** The accepted previews' files, by the asset name the stored previews give them: for writeAssets */
   assets: Map<string, string>;
   dropped: string[];
@@ -83,7 +76,6 @@ export function hasUnits(result: unknown): result is {
   overview?: unknown;
   previews?: unknown;
   sequences?: unknown;
-  plan?: unknown;
   checks?: unknown;
   sent?: unknown;
 } {
@@ -114,10 +106,8 @@ export function validateResult(
       acceptedOverview: false,
       acceptedPreviews: 0,
       acceptedSequences: 0,
-      acceptedPlan: false,
       acceptedChecks: 0,
       acceptedSent: 0,
-      planOutside: [],
       previewAdvice: [],
       assets: new Map(),
       dropped: ['result must be an object with a "units" object'],
@@ -200,9 +190,6 @@ export function validateResult(
   // a pass that asked for drawings, answered: none is an answer too, so the final pass isn't asked again
   if (bundle.wholeDiff && bundle.drawings) stored.drawn = unitSetHash(bundle.units);
   if (sequences.length > 0) stored.sequences = byTitle(stored.sequences ?? [], sequences);
-  const plan = raw.plan === undefined ? null : checkPlan(raw.plan, bundle, byId, root, dropped);
-  if (plan) stored.plan = plan;
-  const planOutside = plan ? outsidePlan(plan, bundle) : [];
   const acceptedChecks = keepChecks(listOf(raw.checks, 'checks', dropped), stored, byId, dropped);
   if (bundle.wholeDiff && bundle.checks) stored.checked = unitSetHash(bundle.units);
   const acceptedSent = keepSent(raw.sent, bundle, stored, byId, dropped);
@@ -214,106 +201,13 @@ export function validateResult(
     acceptedOverview,
     acceptedPreviews: new Set(previews.map((p) => p.title)).size,
     acceptedSequences: new Set(sequences.map((q) => q.title)).size,
-    acceptedPlan: plan !== null,
     acceptedChecks,
     acceptedSent,
-    planOutside,
     previewAdvice: previewAdvice(stored),
     assets,
     dropped,
     coverage: coverageOf(bundle, stored),
   };
-}
-
-/** A plan's text as a quote is matched against it: without its markup (a plan can be HTML) or spacing. */
-function planWords(text: string): string {
-  return text
-    .replace(/<(style|script)[\s\S]*?<\/\1>/gi, ' ')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase();
-}
-
-function checkPlan(
-  raw: unknown,
-  bundle: Bundle,
-  byId: Map<string, BundleUnit>,
-  root: string,
-  dropped: string[],
-): StoredPlan | null {
-  if (!bundle.plan) {
-    dropped.push("plan: this pass doesn't ask for one (`lens summary prepare --plan <file>`)");
-    return null;
-  }
-  let words: string;
-  try {
-    words = planWords(readFileSync(join(root, bundle.plan), 'utf8'));
-  } catch {
-    dropped.push(`plan: can't read ${bundle.plan}`);
-    return null;
-  }
-  const r = (raw ?? {}) as Record<string, unknown>;
-  const items: PlanItem[] = [];
-  const rawItems = listOf(r.items, 'plan.items', dropped);
-  if (rawItems.length > LIMITS.planItems) dropped.push(`plan.items: only the first ${LIMITS.planItems} are kept`);
-  rawItems.slice(0, LIMITS.planItems).forEach((entry, i) => {
-    const where = `plan.items[${i}]`;
-    const item = (entry ?? {}) as Record<string, unknown>;
-    const itemText = text(item.text, LIMITS.planText);
-    if (!itemText) return void dropped.push(`${where}: text ${describe(item.text, LIMITS.planText)}`);
-    const quote = text(item.quote, LIMITS.planQuote);
-    if (!quote) return void dropped.push(`${where}: quote ${describe(item.quote, LIMITS.planQuote)}`);
-    if (!words.includes(planWords(quote))) {
-      return void dropped.push(`${where}: quote "${quote}" isn't in ${bundle.plan} — copy it word for word`);
-    }
-    if (!(PLAN_STATUSES as readonly unknown[]).includes(item.status)) {
-      return void dropped.push(`${where}: status must be one of ${PLAN_STATUSES.join(', ')}`);
-    }
-    const status = item.status as PlanStatus;
-    const units: string[] = [];
-    for (const id of Array.isArray(item.units) ? item.units : []) {
-      if (typeof id === 'string' && byId.has(id)) units.push(id);
-      else dropped.push(`${where}: unknown unit ${JSON.stringify(id)} (copy ids from the tasks file)`);
-    }
-    if (status !== 'missing' && units.length === 0) {
-      return void dropped.push(`${where}: a ${status} item names the units that do it`);
-    }
-    const note = text(item.note, LIMITS.planNote);
-    if (status !== 'done' && !note) {
-      return void dropped.push(
-        `${where}: a ${status} item says what's left: note ${describe(item.note, LIMITS.planNote)}`,
-      );
-    }
-    items.push({ text: itemText, quote, status, units, ...(note ? { note } : {}) });
-  });
-  const unplanned: StoredPlan['unplanned'] = [];
-  listOf(r.unplanned, 'plan.unplanned', dropped).forEach((entry, i) => {
-    const where = `plan.unplanned[${i}]`;
-    const item = (entry ?? {}) as Record<string, unknown>;
-    if (typeof item.unit !== 'string' || !byId.has(item.unit)) {
-      return void dropped.push(`${where}: unknown unit ${JSON.stringify(item.unit)}`);
-    }
-    const note = text(item.note, LIMITS.planNote);
-    if (!note) return void dropped.push(`${where}: note ${describe(item.note, LIMITS.planNote)}`);
-    unplanned.push({ unit: item.unit, note });
-  });
-  if (items.length === 0) {
-    dropped.push('plan: no item left — plan dropped');
-    return null;
-  }
-  return { file: bundle.plan, items, unplanned, hash: unitSetHash(bundle.units) };
-}
-
-/** The agent's own units in no plan item and not in unplanned: they'd vanish from what the reader reads this for. */
-function outsidePlan(plan: StoredPlan, bundle: Bundle): string[] {
-  const placed = new Set([...plan.items.flatMap((item) => item.units), ...plan.unplanned.map((entry) => entry.unit)]);
-  return bundle.units.filter((unit) => !isHousekeeping(unit) && !placed.has(unit.id)).map((unit) => unit.id);
 }
 
 /** The self-checks of this submit, in place of the stored ones. Returns how many were kept. */

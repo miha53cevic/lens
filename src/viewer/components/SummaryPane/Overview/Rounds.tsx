@@ -1,5 +1,5 @@
 import type { FindingState, RoundFinding } from '../../../../cli-app/rounds/view.ts';
-import { useLens } from '../../../store.ts';
+import { useLens, wholeData } from '../../../store.ts';
 import { openSummaryUnit } from '../../../actions/summary.ts';
 import { setSinceRound } from '../../../actions/rounds.ts';
 import { plural } from '../../../shared.ts';
@@ -51,7 +51,7 @@ function Sent({ finding }: { finding: RoundFinding }) {
 /** What changed since the reader last sent findings, and what became of each. */
 export function Rounds() {
   const { round, since, total } = useLens((state) => {
-    const whole = state.beforeRound ?? state.data;
+    const whole = wholeData(state);
     return {
       round: whole.summary?.round ?? null,
       since: state.beforeRound !== null,

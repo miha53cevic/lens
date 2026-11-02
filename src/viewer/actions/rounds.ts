@@ -1,10 +1,11 @@
 // A round: findings handed to the agent keep the code as it is then (the server's rounds/), and the
 // next read can show only what changed since. That read is the whole page's: `data` holds the
 // change since, the whole change waits in `beforeRound`, and both views render from `data` as ever.
+// Something that changes the page's data changes the whole change (`changeData`): `data` follows.
 
 import type { SentFinding } from '../../cli-app/rounds/store.ts';
 import type { RoundView } from '../../cli-app/rounds/view.ts';
-import { getState, update, type LensState } from '../store.ts';
+import { getState, update, wholeData, type LensState } from '../store.ts';
 import { isConcern } from '../model/signals.ts';
 import type { RealConcerns } from '../model/realConcerns.ts';
 import { api, tracked } from './status.ts';
@@ -30,6 +31,7 @@ export function sentFindings(real: RealConcerns): SentFinding[] {
       unit: null,
       file: note.file,
       line: note.side === 'old' ? null : note.start,
+      ...(note.side === 'old' ? {} : { endLine: note.end }),
     })),
   ];
 }
@@ -40,7 +42,7 @@ export function sendRound(findings: SentFinding[]): Promise<boolean> {
   return tracked({ id: 'round', label: 'Keeping this round…', failed: "Couldn't keep this round" }, async () => {
     const { round } = await api('POST /api/rounds', { body: { findings } });
     update((state) => {
-      const whole = state.beforeRound ?? state.data;
+      const whole = wholeData(state);
       return {
         beforeRound: null,
         data: whole.summary ? { ...whole, summary: { ...whole.summary, round } } : whole,
@@ -79,9 +81,21 @@ function sinceRound(data: LensState['data'], round: RoundView): LensState['data'
   };
 }
 
+/** A change to the page's data that isn't a new analysis (a theme, a switch), made to the whole change. */
+export function changeData(
+  state: LensState,
+  change: (whole: LensState['data']) => LensState['data'],
+): Pick<LensState, 'data' | 'beforeRound'> {
+  const whole = change(wholeData(state));
+  const round = whole.summary?.round;
+  return state.beforeRound && round
+    ? { beforeRound: whole, data: sinceRound(whole, round) }
+    : { data: whole, beforeRound: null };
+}
+
 export function setSinceRound(on: boolean): void {
   const state = getState();
-  const round = (state.beforeRound ?? state.data).summary?.round;
+  const round = wholeData(state).summary?.round;
   if (on && round && !state.beforeRound) {
     update({ beforeRound: state.data, data: sinceRound(state.data, round), summaryUnit: null });
   } else if (!on && state.beforeRound) {

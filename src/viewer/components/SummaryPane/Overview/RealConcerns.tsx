@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Check, Copy } from 'lucide-react';
-import { useLens } from '../../../store.ts';
+import { useLens, wholeData } from '../../../store.ts';
 import { confirmedLabel, realConcerns } from '../../../model/realConcerns.ts';
 import { noteDone } from '../../../actions/status.ts';
 import { sendRound, sentFindings } from '../../../actions/rounds.ts';
@@ -13,9 +13,11 @@ import { Button } from '../../../../ui/Button.tsx';
  * on code that changed since. lens fixes nothing itself.
  */
 export function RealConcerns() {
-  const real = useLens((state) =>
-    realConcerns(state.data.summary!.units, state.concernMarks, state.notes, state.data.files),
-  );
+  // of the whole change, whichever read is on: what the agent left untouched still goes along
+  const real = useLens((state) => {
+    const whole = wholeData(state);
+    return realConcerns(whole.summary!.units, state.concernMarks, state.notes, whole.files);
+  });
   const [copied, setCopied] = useState(false);
   // no clipboard (an insecure origin, a denied permission): the text itself, to select and copy
   const [shown, setShown] = useState(false);

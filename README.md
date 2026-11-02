@@ -135,11 +135,6 @@ only what changed since (the overview's switch, both views), with what became of
 *lines changed*, *nearby changed* or *untouched* is lens's own measure, and *fixed* or *not fixed*
 is your agent's claim on its next summary. Kept per review in `.lens/rounds/`.
 
-**Plan tab**: `lens summary prepare --plan <file>` measures the diff against the plan the build
-followed: each item done, partly or missing with the units that do it, and what was built that the
-plan didn't ask for. It's the agent's reading: lens checks each quote is in the plan and each unit in
-the diff. `/lens-build-review` passes its plan file along.
-
 **Check yourself** (the ⋯ menu, off by default): your agent also writes a few questions per flow, with
 the answer behind a click, for checking you understood the change. No score and no gate.
 

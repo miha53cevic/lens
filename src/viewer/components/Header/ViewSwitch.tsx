@@ -4,11 +4,10 @@ import { Segmented } from '../../../ui/Segmented.tsx';
 
 /** Code | Summary, in diff and PR mode. The Summary tab gets a dot when a newer summary waits. */
 export function ViewSwitch() {
-  const { view, hasSummary, summaryDot, hasPlan } = useLens((state) => ({
+  const { view, hasSummary, summaryDot } = useLens((state) => ({
     view: state.view,
     hasSummary: !!state.data.summary,
     summaryDot: state.summaryDot,
-    hasPlan: !!state.data.summary?.plan,
   }));
   if (!hasSummary) return null;
 
@@ -27,7 +26,6 @@ export function ViewSwitch() {
           id: 'view-summary',
           badge: summaryDot && <span className='dot' id='summary-dot' />,
         },
-        ...(hasPlan ? [{ value: 'plan' as const, label: 'Plan', id: 'view-plan' }] : []),
       ]}
     />
   );

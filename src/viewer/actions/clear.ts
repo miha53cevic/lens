@@ -4,7 +4,7 @@
 
 import type { ClearRequest } from '../../cli-app/api/contract.ts';
 import type { ClearScope } from '../../cli-app/clear.ts';
-import { commit, getState, type LensState, update } from '../store.ts';
+import { commit, getState, type LensState, update, wholeData } from '../store.ts';
 import { countText } from '../../cli-app/text.ts';
 import { dialog } from './dialogs.ts';
 import { api, noteDone, tracked } from './status.ts';
@@ -53,9 +53,7 @@ export async function clearData(picks: ClearPicks): Promise<void> {
       update((state) => ({
         summaryDot: false,
         beforeRound: null,
-        data: answer.summary
-          ? { ...(state.beforeRound ?? state.data), summary: answer.summary }
-          : (state.beforeRound ?? state.data),
+        data: answer.summary ? { ...wholeData(state), summary: answer.summary } : wholeData(state),
         // "this review" or "all": either way the open review's are gone
         ...(answer.cleared.notes && { notes: [], noteDraft: null }),
         ...(answer.cleared.marks && { viewedFiles: new Set(), viewedUnits: new Set(), concernMarks: new Map() }),

@@ -1,6 +1,14 @@
 import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { isHousekeeping, readStored, summaryPath, unitSetHash, wholeDiffLeft, type Bundle } from './store.ts';
+import {
+  isHousekeeping,
+  needsFlows,
+  readStored,
+  summaryPath,
+  unitSetHash,
+  wholeDiffLeft,
+  type Bundle,
+} from './store.ts';
 
 // How far the agent's summary run has got, from what it leaves on disk: the bundle `prepare`
 // wrote, the summary its submits merged into, and whether the last submit asked for another.
@@ -85,9 +93,10 @@ function progressOf(
   if (!allIn) return { done, total, stage: 'changes', drawings };
   // the whole-diff work can be in while the agent fixes what the submit rejected or left out of the flows
   if (stored && wholeDiffLeft(bundle, stored)) {
-    const story = stored.overview?.hash === unitSetHash(bundle.units) && stored.flows.length > 0;
-    // past the story with no drawings asked for, what's left (the plan, the self-checks) is still its pass
-    return { done, total, stage: story && drawings ? 'drawings' : 'story', drawings };
+    const hash = unitSetHash(bundle.units);
+    const story = stored.overview?.hash === hash && (stored.flows.length > 0 || !needsFlows(bundle.units));
+    // past the story and the drawings, what's left (the self-checks) is still the story's pass
+    return { done, total, stage: story && drawings && stored.drawn !== hash ? 'drawings' : 'story', drawings };
   }
   return askedAgain(submitPath, bundle) ? { done, total, stage: 'fixes', drawings } : null;
 }

@@ -96,7 +96,6 @@ payload.summary.command: string
 payload.summary.flows: array
 payload.summary.key: string
 payload.summary.overview: null
-payload.summary.plan: null
 payload.summary.previews: array
 payload.summary.round: null
 payload.summary.sequences: array

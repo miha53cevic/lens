@@ -1,13 +1,17 @@
 // The Summary tab: the open unit, the list's filters, the reader's verdicts.
 
 import { type ConcernMark, getState, type SignalFilter, update } from '../store.ts';
-import type { Unit } from '../model/signals.ts';
+import { type Unit, unitById } from '../model/signals.ts';
 import { currentUnit, listModel } from '../model/summaryList.ts';
 import { jumpToLine, landOn } from './views.ts';
 import { saveMark } from './marks.ts';
 import { openInInbox } from './inbox.ts';
+import { setSinceRound } from './rounds.ts';
 
 export function openSummaryUnit(unitId: string): void {
+  // a unit that didn't change since the round isn't in that read: the whole change holds it
+  const state = getState();
+  if (state.beforeRound && !unitById(state.data.summary, unitId)) setSinceRound(false);
   if (!openInInbox(unitId)) update({ summaryUnit: unitId });
 }
 

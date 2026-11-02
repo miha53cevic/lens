@@ -14,7 +14,7 @@ export function Tabs() {
     tabs: state.tabs,
     active: state.active,
     files: state.data.files,
-    hidden: state.tabs.length === 0 || state.view !== 'code',
+    hidden: state.tabs.length === 0 || state.view === 'summary',
   }));
   // basenames shared by several open tabs get their directory as a suffix
   const baseNameCounts = new Map<string, number>();

@@ -43,6 +43,11 @@ function unitTouched(unit: Unit, delta: FileDelta): boolean {
   );
 }
 
+function linesChanged(delta: FileDelta, first: number, last: number): boolean {
+  for (let line = first; line <= last; line++) if (delta.oldLines.has(line)) return true;
+  return false;
+}
+
 export function roundView(opts: {
   root: string;
   review: string;
@@ -77,8 +82,13 @@ export function roundView(opts: {
     const delta = deltas.get(finding.file);
     // its file left the diff, or the code it was on did
     if (!delta) return { ...base, state: 'changed', how: null };
-    if (finding.line !== null && delta.oldLines.has(finding.line)) return { ...base, state: 'changed', how: null };
-    const moved = finding.unit ? changedUnits.has(finding.unit) || !unitsById.has(finding.unit) : false;
+    if (finding.line !== null && linesChanged(delta, finding.line, finding.endLine ?? finding.line)) {
+      return { ...base, state: 'changed', how: null };
+    }
+    // no unit and no line to check (a note on removed lines): all that can be said is of its file
+    const moved = finding.unit
+      ? changedUnits.has(finding.unit) || !unitsById.has(finding.unit)
+      : finding.line === null && (delta.changedLines.length > 0 || delta.removals.length > 0);
     return { ...base, state: moved ? 'nearby' : 'untouched', how: null };
   });
   return {

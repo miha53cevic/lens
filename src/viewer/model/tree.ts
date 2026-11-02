@@ -131,7 +131,7 @@ function sortTree(node: TreeDir) {
 
 /** The sidebar shows: the Summary tab's list always (unless collapsed), the tree when it has files. */
 export function navShown(state: LensState): boolean {
-  return !state.navCollapsed && state.view !== 'plan' && (state.view === 'summary' || treeModel(state).hasTree);
+  return !state.navCollapsed && (state.view === 'summary' || treeModel(state).hasTree);
 }
 
 /**

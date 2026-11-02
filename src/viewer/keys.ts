@@ -29,9 +29,7 @@ import { isDiffMode } from './shared.ts';
 /** The keys that also work on the Summary tab: the view settings' keys act on the open unit's code. */
 const SUMMARY_KEYS = ['?', 'x', 'd', 'l', 's', 'r', 'e', 'c', '[', ']', 'h', 't', 'a', 'N', '\\'];
 /** Every key a shortcut takes, on either tab. */
-const SHORTCUT_KEYS = [...SUMMARY_KEYS, 'v', 'p', 'j', 'k', 'w', 'm', 'o', 'g', '/'];
-/** The keys that work on the Plan tab: it has no code of its own for the rest to act on */
-const PLAN_KEYS = ['?', 'v', 'p', 'a', '\\', 'r'];
+const SHORTCUT_KEYS = [...SUMMARY_KEYS, 'v', 'j', 'k', 'w', 'm', 'o', 'g', '/'];
 
 /** Shows the nav (if it's collapsed, and remembers that) and focuses one of its filters. */
 function focusFilter(selector: string) {
@@ -61,11 +59,6 @@ export function onKeyDown(event: KeyboardEvent): void {
     setView(state.view === 'summary' ? 'code' : 'summary');
     return;
   }
-  if (event.key === 'p' && state.data.summary?.plan) {
-    setView(state.view === 'plan' ? 'summary' : 'plan');
-    return;
-  }
-  if (state.view === 'plan' && !PLAN_KEYS.includes(event.key)) return;
   if (state.view === 'summary') {
     switch (event.key) {
       case 'j':

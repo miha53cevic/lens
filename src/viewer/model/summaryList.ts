@@ -16,14 +16,14 @@ import {
 } from './signals.ts';
 import { type InboxFlow, inboxFlows, inboxOrder } from './inbox.ts';
 
-export interface Section {
+interface Section {
   flow: Flow;
   order: number;
   members: Unit[];
 }
 
 /** The units in no flow from one file, under that file's name */
-export interface FileGroup {
+interface FileGroup {
   file: string;
   members: Unit[];
 }

@@ -355,7 +355,7 @@ test("the agent's title heads the overview; its backticks read as code, and stay
   }
 });
 
-function planned(): ViewerPayload {
+function withChecks(): ViewerPayload {
   const summary = payload.summary!;
   const unit = findOrdersId();
   return {
@@ -363,15 +363,6 @@ function planned(): ViewerPayload {
     selfChecks: true,
     summary: {
       ...summary,
-      plan: {
-        file: '.lavish/plan.html',
-        items: [
-          { text: 'Orders page by default', quote: 'page by default', status: 'done', units: [unit] },
-          { text: 'An empty state', quote: 'empty state', status: 'missing', units: [], note: 'Never added' },
-        ],
-        unplanned: [{ unit, note: 'Also renamed a helper' }],
-        stale: false,
-      },
       checks: [
         {
           flow: 'Orders',
@@ -387,45 +378,8 @@ function planned(): ViewerPayload {
   };
 }
 
-test('the Plan tab: only with a plan, what was built and what was not asked for; real ones go to the agent', async () => {
-  await open({}, '', '', planned());
-  try {
-    assert.ok($('#view-plan'), 'a third tab');
-    await key('p');
-    await settle();
-    assert.match(
-      $('[data-part="plan-headline"]').textContent!,
-      /1 of 2 plan items built\. 1 change wasn't asked for\./,
-    );
-    assert.deepEqual(
-      $$('[data-part="plan-item"]').map((item) => item.dataset.status),
-      ['done', 'missing'],
-    );
-    assert.equal($('[data-part="summary-pane"]').style.display, 'none');
-    assert.equal($('#nav').style.display, 'none', 'the plan takes the page');
-    assert.equal($$('[data-part="plan-handoff"]').length, 0);
-    // a done item takes no verdict; a missing one and what's off plan do
-    assert.equal($$('[data-part="plan-item"][data-status="done"] [data-part="plan-verdict"]').length, 0);
-    await click($('[data-part="plan-unplanned"] [data-mark="real"]'));
-    assert.ok($('[data-part="plan-handoff"]'), 'something for the agent now');
-    // a unit opens on the Summary tab
-    await click($('[data-part="plan-item"] [data-part="tag"][title]:not([data-toned])'));
-    await settle();
-    assert.equal($('[data-part="summary-pane"]').dataset.unit, findOrdersId());
-  } finally {
-    await close();
-  }
-});
-
-pageTest('no plan, no Plan tab, and p does nothing', async () => {
-  assert.equal($$('#view-plan').length, 0);
-  await key('p');
-  await settle();
-  assert.equal($$('[data-part="plan-headline"]').length, 0);
-});
-
 test('Check yourself: on the overview while on, the answer behind a click; off, none', async () => {
-  await open({}, '', '', planned());
+  await open({}, '', '', withChecks());
   try {
     await key('v');
     await settle();
@@ -436,7 +390,7 @@ test('Check yourself: on the overview while on, the answer behind a click; off, 
   } finally {
     await close();
   }
-  await open({}, '', '', { ...planned(), selfChecks: false });
+  await open({}, '', '', { ...withChecks(), selfChecks: false });
   try {
     await key('v');
     await settle();
@@ -514,6 +468,69 @@ test('a round: what became of each finding, and a switch both views read to only
     await click($('#round-all'));
     await settle();
     assert.equal($$('[data-part="inbox-card"]').length, before, 'back to the whole change');
+  } finally {
+    await close();
+  }
+});
+
+test('since the round: a switch, a theme or a unit outside that read keeps the whole change', async () => {
+  const data = inRound();
+  const other = data.summary!.units.find((unit) => unit.id !== findOrdersId())!;
+  const summary = data.summary!;
+  const round = summary.round!;
+  const finding = { ...round.findings[2], key: 'd', unit: other.id, file: other.displayFile, line: null };
+  await open({}, '', '', { ...data, summary: { ...summary, round: { ...round, findings: [finding] } } });
+  try {
+    await key('v');
+    await settle();
+    await click($('#round-since'));
+    await settle();
+    await click($('#build-previews'));
+    await settle();
+    await click($('#round-all'));
+    await settle();
+    assert.equal($('#build-previews').getAttribute('aria-checked'), 'false', "leaving the read doesn't undo it");
+
+    await click($('#round-since'));
+    await settle();
+    assert.equal($$('[data-part="inbox-card"]').length, 1);
+    await click($('[data-part="round-finding"] [data-part="tag"][title]:not([data-toned])'));
+    await settle();
+    assert.equal(
+      $('[data-part="summary-pane"]').dataset.unit,
+      other.id,
+      'the unit asked for, not the first in the read',
+    );
+    assert.ok($$('[data-part="inbox-card"]').length > 1, 'the whole change holds it');
+  } finally {
+    await close();
+  }
+});
+
+test("a flow's steps head its cards to read; one step over every change has none", async () => {
+  const summary = payload.summary!;
+  const id = (name: string) => summary.units.find((unit) => unit.name === name)!.id;
+  const steps = () => $$('[data-part="inbox-step"]').map((heading) => heading.textContent);
+  const flow = { path: 'a', priority: 1 as const, why: 'x' };
+  const units = { [id('findOrders')]: 'repo', [id('legacyTotal')]: 'cleanup' };
+  await open({}, '', '', { ...payload, summary: { ...summary, flows: [{ ...flow, title: 'Orders', units }] } });
+  try {
+    await key('v');
+    await settle();
+    assert.deepEqual(steps(), ['repo', 'cleanup']);
+    const firstCard = $(`[data-inbox-unit="${id('findOrders')}"]`);
+    await click(firstCard.querySelector('[data-part="inbox-read-btn"]')!);
+    await settle();
+    assert.deepEqual(steps(), ['cleanup'], 'a read card takes its heading along, and the flow still has two steps');
+  } finally {
+    await close();
+  }
+  const oneStep = { [id('findOrders')]: 'repo', [id('legacyTotal')]: 'repo' };
+  await open({}, '', '', { ...payload, summary: { ...summary, flows: [{ ...flow, title: 'Twice', units: oneStep }] } });
+  try {
+    await key('v');
+    await settle();
+    assert.deepEqual(steps(), []);
   } finally {
     await close();
   }

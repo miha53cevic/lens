@@ -1,7 +1,7 @@
 // The Code view and the Summary tab: switching between them, jumping to a line.
 
 import type { StampResponse } from '../../cli-app/api/contract.ts';
-import { commit, getState, type LensState, toggled, update, type View } from '../store.ts';
+import { commit, getState, type LensState, toggled, update, type View, wholeData } from '../store.ts';
 import { flashRow } from '../shared.ts';
 import { fileSpans } from '../rows.ts';
 import { revealIfTest, visibleActive, withTab } from './tabs.ts';
@@ -18,7 +18,6 @@ function viewChange(state: LensState, view: View): Partial<LensState> {
 export function setView(view: View): void {
   const state = getState();
   if (view === 'summary' && !state.data.summary) return;
-  if (view === 'plan' && !state.data.summary?.plan) return;
   update({ ...viewChange(state, view), ...(view === 'summary' && { summaryChecking: true }) });
   if (view === 'summary') {
     if (state.summaryDot) loadSummary().finally(() => update({ summaryChecking: false }));
@@ -34,7 +33,7 @@ async function loadSummary(branch = false): Promise<void> {
       const summary = await api('GET /api/summary');
       // only once it's loaded: a failed load is tried again
       update((state) => {
-        const whole = state.beforeRound ?? state.data;
+        const whole = wholeData(state);
         return { summaryDot: false, beforeRound: null, data: summary ? { ...whole, summary } : whole };
       });
       if (branch) noteDone('Another branch is checked out: the summary is read for it');

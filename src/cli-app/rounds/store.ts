@@ -12,9 +12,6 @@ import { lensDir } from '../summary/store.ts';
 
 export const ROUNDS_DIR = '.lens/rounds';
 
-/** How many rounds a review keeps the text of: an old round's text is only ever disk */
-const KEPT_TEXTS = 1;
-
 /** A finding or a note the reader sent, as the page posts it */
 export interface SentFinding {
   /** The finding's key (signals.ts), or `note:<id>` */
@@ -27,6 +24,8 @@ export interface SentFinding {
   file: string;
   /** New-side line (1-based) in the text kept with the round; null on a removed line */
   line: number | null;
+  /** The last line when it takes several (a note); else only `line` */
+  endLine?: number;
 }
 
 export interface Round {
@@ -58,8 +57,8 @@ export function readRounds(root: string, review: string): Round[] {
 }
 
 /**
- * A new round, or the last one again when nothing changed in between: copying twice is one send.
- * Older rounds let their text go.
+ * A new round, or the last one again when nothing changed in between: copying twice is one send, so
+ * it holds what both sent. Older rounds let their text go: only the latest is measured against.
  */
 export function addRound(
   root: string,
@@ -70,10 +69,10 @@ export function addRound(
   const rounds = readRounds(root, review);
   const last = rounds[rounds.length - 1];
   const same = !!last && JSON.stringify(last.files) === JSON.stringify(files);
-  const kept = same ? rounds.slice(0, -1) : rounds;
-  const next = [...kept, { at: Date.now(), files, findings }].map((round, roundIndex, all) =>
-    roundIndex < all.length - KEPT_TEXTS ? { ...round, files: {} } : round,
-  );
+  const sent = new Map(findings.map((finding) => [finding.key, finding]));
+  const earlier = same ? last.findings.filter((finding) => !sent.has(finding.key)) : [];
+  const older = (same ? rounds.slice(0, -1) : rounds).map((round) => ({ ...round, files: {} }));
+  const next = [...older, { at: Date.now(), files, findings: [...earlier, ...findings] }];
   mkdirSync(join(lensDir(root), 'rounds'), { recursive: true });
   const stored: StoredRounds = { version: 1, rounds: next };
   writeFileSync(roundsFile(root, review), JSON.stringify(stored) + '\n');
@@ -109,13 +108,18 @@ export function fileDelta(before: string, after: string): FileDelta {
     writeFileSync(join(dir, 'b'), after);
     let patch = '';
     try {
-      execFileSync('git', ['diff', '--no-index', '--no-color', '-U0', 'a', 'b'], {
-        cwd: dir,
-        encoding: 'utf8',
-        maxBuffer: 256 * 1024 * 1024,
-      });
+      execFileSync(
+        'git',
+        ['diff', '--no-index', '--no-color', '--no-ext-diff', '-U0', '--inter-hunk-context=0', 'a', 'b'],
+        {
+          cwd: dir,
+          encoding: 'utf8',
+          maxBuffer: 256 * 1024 * 1024,
+        },
+      );
     } catch (err) {
-      // exit 1 is how --no-index says the files differ
+      // exit 1 is how --no-index says the files differ; any other failure must not read as "nothing changed"
+      if ((err as { status?: number }).status !== 1) throw err;
       patch = (err as { stdout?: string }).stdout ?? '';
     }
     let oldLine = 0;

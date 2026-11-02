@@ -17,11 +17,21 @@ const isText = (value: unknown): value is string =>
 
 function parseFinding(raw: unknown): SentFinding | null {
   if (!raw || typeof raw !== 'object') return null;
-  const { key, kind, text, unit, file, line } = raw as Record<string, unknown>;
+  const { key, kind, text, unit, file, line, endLine } = raw as Record<string, unknown>;
   if (!isText(key) || !isText(kind) || !isText(text) || !isText(file)) return null;
   if (unit !== null && !isText(unit)) return null;
   if (line !== null && (!Number.isInteger(line) || (line as number) < 1)) return null;
-  return { key, kind, text, unit, file, line: line as number | null };
+  if (endLine !== undefined && (line === null || !Number.isInteger(endLine) || (endLine as number) < (line as number)))
+    return null;
+  return {
+    key,
+    kind,
+    text,
+    unit,
+    file,
+    line: line as number | null,
+    ...(endLine !== undefined && { endLine: endLine as number }),
+  };
 }
 
 export function parseRound(raw: unknown): { findings: SentFinding[] } | { error: string } {

@@ -187,6 +187,15 @@ test('your notes are marked in the tree and the summary list, and ⇧N steps thr
     assert.deepEqual(landed(), ['−17'], 'no file after it holds one');
 
     await key('v');
+    // the summary list marks each change by the notes on its own lines
+    const units = Object.fromEntries(
+      $$('#nav [data-part="inbox-card"]').map((card) => [
+        card.querySelector('[data-part="caption-unit"]')!.textContent,
+        mark(card),
+      ]),
+    );
+    assert.equal(units['findOrders'], '');
+    assert.equal(units['legacyTotal'], '');
     // from the overview: the first change in the list's order with a note, on that note
     await key('N', { shiftKey: true });
     assert.equal($('[data-part="summary-pane"] h1').textContent, 'legacyTotal is gone');

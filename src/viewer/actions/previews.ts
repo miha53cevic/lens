@@ -1,6 +1,7 @@
 // Build previews: the reader's switch, and what the preview frames tell the page.
 
 import { commit, update } from '../store.ts';
+import { changeData } from './rounds.ts';
 import { api, noteDone, tracked } from './status.ts';
 import { cssPx } from '../../ui/zoom.ts';
 
@@ -14,7 +15,7 @@ export function setBuildPreviews(on: boolean): Promise<boolean> {
     { id: 'build-previews', label: 'Saving Build previews…', failed: "Couldn't save Build previews" },
     async () => {
       await api('POST /api/settings', { body: { buildPreviews: on } });
-      update((state) => ({ data: { ...state.data, buildPreviews: on } }));
+      update((state) => changeData(state, (whole) => ({ ...whole, buildPreviews: on })));
       noteDone(
         on ? 'Build previews on' : 'Build previews off',
         on ? 'your agent draws them on its next summary' : undefined,
@@ -29,7 +30,7 @@ export function setSelfChecks(on: boolean): Promise<boolean> {
     { id: 'self-checks', label: 'Saving Check yourself…', failed: "Couldn't save Check yourself" },
     async () => {
       await api('POST /api/settings', { body: { selfChecks: on } });
-      update((state) => ({ data: { ...state.data, selfChecks: on } }));
+      update((state) => changeData(state, (whole) => ({ ...whole, selfChecks: on })));
       noteDone(
         on ? 'Check yourself on' : 'Check yourself off',
         on ? 'your agent writes them on its next summary' : undefined,

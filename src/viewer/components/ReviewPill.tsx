@@ -2,7 +2,7 @@
 // viewed on the way. Progress itself is the sidebar's ring.
 
 import { ArrowLeft, ArrowRight, Check, Copy } from 'lucide-react';
-import { getState, useLens, type LensState } from '../store.ts';
+import { getState, useLens, wholeData, type LensState } from '../store.ts';
 import { activeFile } from '../model/plans.ts';
 import { fileProgress, unitProgress } from '../model/progress.ts';
 import { currentUnit, summaryPage } from '../model/summaryList.ts';
@@ -24,9 +24,10 @@ type Stage = 'hidden' | 'start' | 'todo' | 'last' | 'done' | 'all';
  * findings marked real too (as the overview copies them).
  */
 function handoff(state: LensState) {
-  return state.data.summary
-    ? realConcerns(state.data.summary.units, state.concernMarks, state.notes, state.data.files)
-    : notesForAgent(state.notes, state.data.files);
+  const whole = wholeData(state);
+  return whole.summary
+    ? realConcerns(whole.summary.units, state.concernMarks, state.notes, whole.files)
+    : notesForAgent(state.notes, whole.files);
 }
 
 export function ReviewPill() {
@@ -37,7 +38,7 @@ export function ReviewPill() {
     const file = activeFile(state);
     const shown = codeView ? !!file && !(state.hideTests && isTestFile(file.file)) : true;
     let stage: Stage = 'hidden';
-    if (progress && progress.total > 0 && shown && state.view !== 'plan') {
+    if (progress && progress.total > 0 && shown) {
       if (page === 'overview') stage = 'start';
       else if (progress.done === progress.total) stage = 'all';
       else if (progress.currentDone) stage = 'done';

@@ -35,8 +35,18 @@ test('a send keeps the code once; the same code again is the same round, and an 
     addRound(root, 'r', { 'a.ts': 'one' }, [finding('first')]);
     addRound(root, 'r', { 'a.ts': 'one' }, [finding('again')]);
     assert.deepEqual(
-      readRounds(root, 'r').map((round) => round.findings[0].key),
-      ['again'],
+      readRounds(root, 'r').map((round) => round.findings.map((sent) => sent.key)),
+      [['first', 'again']],
+      'it holds what both sends sent',
+    );
+    addRound(root, 'r', { 'a.ts': 'one' }, [{ ...finding('first'), text: 'reworded' }]);
+    assert.deepEqual(
+      readRounds(root, 'r')[0].findings.map((sent) => [sent.key, sent.text]),
+      [
+        ['again', 'again'],
+        ['first', 'reworded'],
+      ],
+      'the same finding again is the one finding',
     );
     addRound(root, 'r', { 'a.ts': 'two' }, [finding('second')]);
     const rounds = readRounds(root, 'r');
@@ -58,6 +68,9 @@ test('POST /api/rounds takes findings with a place, and nothing else', () => {
   assert.ok('error' in parseRound({ findings: [{ ...good, line: 0 }] }));
   assert.ok('error' in parseRound({ findings: [{ ...good, line: '3' }] }));
   assert.ok('error' in parseRound({ findings: [{ ...good, key: '' }] }));
+  assert.deepEqual(parseRound({ findings: [{ ...good, endLine: 5 }] }), { findings: [{ ...good, endLine: 5 }] });
+  assert.ok('error' in parseRound({ findings: [{ ...good, endLine: 2 }] }), 'it ends before it starts');
+  assert.ok('error' in parseRound({ findings: [{ ...good, line: null, endLine: 5 }] }));
 });
 
 test('rounds are a kind of saved data: per review, cleared by kind', () => {
@@ -112,14 +125,30 @@ test('through the analysis: only what changed since the round counts, and each f
     });
     const onOne: SentFinding = { key: 'fixed-it', kind: 'bug', text: 'one', unit: 'a.ts#one', file: 'a.ts', line: 2 };
     const onTwo: SentFinding = { key: 'beside-it', kind: 'risk', text: 'two', unit: 'a.ts#two', file: 'a.ts', line: 5 };
-    addRound(dir, first.review, { 'a.ts': SOURCE }, [onOne, onTwo, onThree('left-alone', 10)]);
+    const note = (key: string, line: number | null, endLine?: number): SentFinding => ({
+      key,
+      kind: 'bug',
+      text: key,
+      unit: null,
+      file: 'a.ts',
+      line,
+      ...(endLine === undefined ? {} : { endLine }),
+    });
+    addRound(dir, first.review, { 'a.ts': SOURCE }, [
+      onOne,
+      onTwo,
+      onThree('left-alone', 10),
+      note('note-to-its-end', 1, 2),
+      note('note-above-it', 1, 1),
+      note('note-on-removed-lines', null),
+    ]);
 
     // the same code: nothing changed since
     const same = await analyze('diff', [], dir, config);
     assert.deepEqual(same.summary?.round?.units, []);
     assert.deepEqual(
       same.summary?.round?.findings.map((finding) => finding.state),
-      ['untouched', 'untouched', 'untouched'],
+      ['untouched', 'untouched', 'untouched', 'untouched', 'untouched', 'untouched'],
     );
 
     // the agent changes one's flagged line, and another line of two
@@ -135,6 +164,9 @@ test('through the analysis: only what changed since the round counts, and each f
         ['fixed-it', 'changed'],
         ['beside-it', 'nearby'],
         ['left-alone', 'untouched'],
+        ['note-to-its-end', 'changed'],
+        ['note-above-it', 'untouched'],
+        ['note-on-removed-lines', 'nearby'],
       ],
     );
   } finally {

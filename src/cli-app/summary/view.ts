@@ -14,7 +14,6 @@ import {
   type ChangeRow,
   type Concern,
   type Flow,
-  type PlanItem,
   type SelfCheck,
   type SequenceStep,
   type StoredSummary,
@@ -95,20 +94,10 @@ export interface SummaryView {
   overview: { what: string; title: string | null; stale: boolean } | null;
   previews: PreviewView[];
   sequences: SequenceView[];
-  /** The diff against the plan the build followed; null when the review knows no plan */
-  plan: PlanView | null;
   /** Questions to check your understanding with, in the flows' order */
   checks: SelfCheckView[];
   /** What changed since the reader last sent findings to the agent; null before they have */
   round: RoundView | null;
-}
-
-export interface PlanView {
-  file: string;
-  items: PlanItem[];
-  unplanned: { unit: string; note: string }[];
-  /** The diff changed since it was written */
-  stale: boolean;
 }
 
 export type SelfCheckView = Omit<SelfCheck, 'hash'> & {
@@ -179,7 +168,6 @@ export function buildSummaryView(opts: {
         }
       : null,
     ...drawings(stored, opts.units),
-    plan: planView(stored, opts.units),
     checks: checkViews(stored, opts.units, flows),
     round: roundView({
       root: opts.root,
@@ -189,19 +177,6 @@ export function buildSummaryView(opts: {
       shown: (file) => relPath(opts.cwd, join(opts.root, file)),
       sentChecks: stored?.sentChecks,
     }),
-  };
-}
-
-/** The stored plan over the diff as it is now: units that left the diff are left out of it. */
-function planView(stored: StoredSummary | null, units: Unit[]): PlanView | null {
-  const plan = stored?.plan;
-  if (!plan) return null;
-  const ids = new Set(units.map((unit) => unit.id));
-  return {
-    file: plan.file,
-    items: plan.items.map((item) => ({ ...item, units: item.units.filter((id) => ids.has(id)) })),
-    unplanned: plan.unplanned.filter((entry) => ids.has(entry.unit)),
-    stale: plan.hash !== unitSetHash(units),
   };
 }
 

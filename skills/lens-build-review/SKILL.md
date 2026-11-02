@@ -24,13 +24,15 @@ Call the diff arguments `<diff>` below (e.g. `HEAD` or `3f2a91c`).
 Spawn a subagent (a fresh context, not this session — you wrote the code, a fresh
 reviewer doesn't share your blind spots) with this task:
 
-> Run `lens summary prepare <diff>` (and `--plan <plan file>` if there is one) in `<repo root>` and follow the instructions it
+> Run `lens summary prepare <diff>` in `<repo root>` and follow the instructions it
 > prints exactly: read the tasks, research callers in the repo, write result.json, run
 > `lens summary submit`, fix anything it rejects and submit once more. If the tasks come
 > in parts, do them one after another yourself, then finish with the final pass (flows and
 > the overview) the instructions describe. Don't spawn subagents of your own.
 > Every bug or risk you notice goes into the unit's `concerns` — the user reads the
 > viewer, not your reply.
+> [If there is a plan file: "The build implemented `<plan file>`. When a unit does
+> something the plan didn't ask for, add a question concern saying so."]
 > Reply with only: the concerns you recorded (unit id, kind and one line each), and
 > anything submit still rejected.
 

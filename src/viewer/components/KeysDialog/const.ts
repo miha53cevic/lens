@@ -18,7 +18,6 @@ export const KEY_TABS: { id: KeyTab; label: string; keys: KeyHelp[] }[] = [
       { keys: ['⌘⇧P', 'Ctrl ⇧P'], action: 'find a file by its path' },
       { keys: ['⌥ click'], action: 'find usages of the clicked identifier' },
       { keys: ['v'], action: 'switch Code / Summary', note: '(diff mode)' },
-      { keys: ['p'], action: 'the Plan tab', note: '(when the review knows its plan)' },
       { keys: ['s'], action: 'toggle the sidebar' },
       { keys: ['e', 'c'], action: 'expand / collapse all folds of the open file or change' },
       { keys: ['[', ']'], action: 'fold threshold down / up' },

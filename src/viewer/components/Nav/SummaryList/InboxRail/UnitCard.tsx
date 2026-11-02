@@ -4,10 +4,12 @@ import { useLens } from '../../../../store.ts';
 import { signalTip, type Unit, unitLabel, unitSignals, unitViewKey } from '../../../../model/signals.ts';
 import { changedSinceViewed } from '../../../../model/viewed.ts';
 import { drawnUnits } from '../../../../model/drawings.ts';
+import { fileByPath, unitNoteCount } from '../../../../model/notes.ts';
 import { openSummaryUnit } from '../../../../actions/summary.ts';
 import { toggleUnitViewed } from '../../../../actions/prefs.ts';
 import { baseName } from '../../../../shared.ts';
 import { SignalIcon } from '../../../SignalIcon.tsx';
+import { NoteMark } from '../../NoteMark.tsx';
 import { Button } from '../../../../../ui/Button.tsx';
 import { listRow } from '../../../../../ui/ListRow.tsx';
 
@@ -18,11 +20,12 @@ function keepInSight(card: HTMLElement | null) {
 
 /** One change as a card: its headline, where it is, and its open findings' and preview's icons. */
 export function UnitCard({ unit, active }: { unit: Unit; active: boolean }) {
-  const { marks, read, changed, drawn } = useLens((state) => ({
+  const { marks, read, changed, drawn, notes } = useLens((state) => ({
     marks: state.concernMarks,
     read: state.viewedUnits.has(unitViewKey(unit)),
     changed: changedSinceViewed(state.viewedUnits, unitViewKey(unit)),
     drawn: drawnUnits(state.data.summary, state.data.buildPreviews).has(unit.id),
+    notes: unitNoteCount(state.notes, fileByPath(state.data, unit.displayFile), unit),
   }));
   const summary = unit.summary;
   return (
@@ -73,6 +76,7 @@ export function UnitCard({ unit, active }: { unit: Unit; active: boolean }) {
         </span>
       </span>
       <span data-part='icons' className='inline-flex items-center justify-end gap-1 group-data-read/card:opacity-60'>
+        <NoteMark count={notes} />
         {unitSignals(marks, unit).map((signal) => (
           <span
             key={signal}

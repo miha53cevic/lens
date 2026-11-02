@@ -21,7 +21,6 @@ import {
   readStored,
   writeStored,
   unitSetHash,
-  wholeDiffLeft,
   type Bundle,
 } from '../src/cli-app/summary/store.ts';
 import { runSummary } from '../src/cli-app/summary/command.ts';
@@ -1013,53 +1012,6 @@ test('validate: a whole-diff pass replaces the stored flows; other passes merge 
   assert.equal(noFlows.stored.flows.length, 2, 'a submit without flows leaves them alone');
 });
 
-test('validate: a plan needs quotes that are in the plan file and units that are in the diff', () => {
-  const root = mkdtempSync(join(tmpdir(), 'lens-plan-'));
-  try {
-    writeFileSync(
-      join(root, 'plan.html'),
-      '<h1>Plan</h1><style>p{}</style><p>Orders page by <b>default</b> &amp; keep limits.</p>',
-    );
-    const planned: Bundle = { ...BUNDLE, plan: 'plan.html' };
-    const [findOrders, toOrder] = BUNDLE.units.map((unit) => unit.id);
-    const result = {
-      units: {},
-      plan: {
-        items: [
-          { text: 'Paging', quote: 'orders page by default & keep', status: 'done', units: [findOrders] },
-          { text: 'Invented', quote: 'not in the plan at all', status: 'done', units: [findOrders] },
-          { text: 'No units', quote: 'Plan', status: 'done', units: [] },
-          { text: 'Silent', quote: 'keep limits', status: 'partly', units: [findOrders] },
-          { text: 'Limits', quote: 'keep limits', status: 'missing', units: [], note: 'never added' },
-        ],
-        unplanned: [{ unit: 'nope#x', note: 'x' }],
-      },
-    };
-    const outcome = validateResult(planned, result, root, null);
-    assert.deepEqual(
-      outcome.stored.plan?.items.map((item) => item.text),
-      ['Paging', 'Limits'],
-    );
-    assert.equal(outcome.stored.plan?.file, 'plan.html');
-    assert.equal(outcome.stored.plan?.hash, unitSetHash(BUNDLE.units));
-    assert.ok(outcome.dropped.some((reason) => /isn't in plan\.html/.test(reason)));
-    assert.ok(outcome.dropped.some((reason) => /names the units that do it/.test(reason)));
-    assert.ok(outcome.dropped.some((reason) => /says what's left/.test(reason)));
-    assert.ok(outcome.dropped.some((reason) => /unplanned\[0\]: unknown unit/.test(reason)));
-    assert.ok(outcome.planOutside.includes(toOrder), 'a unit placed nowhere is named back');
-    const hash = unitSetHash(BUNDLE.units);
-    const story = { flows: [{ title: 'F', path: 'a', units: {} }], overview: { what: 'x', hash } };
-    assert.equal(wholeDiffLeft(planned, { ...outcome.stored, ...story }), false, 'the plan is in');
-    assert.equal(wholeDiffLeft(planned, { ...outcome.stored, ...story, plan: undefined }), true, 'the plan is left');
-
-    const noPass = validateResult(BUNDLE, result, root, null);
-    assert.equal(noPass.stored.plan, undefined, 'only when this pass asks for one');
-    assert.match(noPass.dropped[0], /^plan:/);
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
-});
-
 test('validate: self-checks name a flow and a line of a unit, at most three a flow; a sent finding gets its claim', () => {
   const flow = { title: 'Paging', path: 'a', units: { [BUNDLE.units[0].id]: 'a', [BUNDLE.units[1].id]: 'b' } };
   const previous = { version: 1 as const, updatedAt: '', units: {}, flows: [flow] };
@@ -2022,6 +1974,14 @@ test("a summary run's progress: units in, then the final pass, then nothing; a s
     const overview = { what: 'x', hash: unitSetHash(bundle.units) };
     writeStored(root, key, { version: 1, updatedAt: '1', units, flows: [flow], overview });
     assert.equal(read(), null, 'the final pass is in: done');
+
+    // what's left names what the agent is on: drawings once the story is in, and not once they are
+    const left = { ...bundle, drawings: true, checks: true };
+    writeFileSync(join(root, '.lens', 'summary', key, 'bundle.json'), JSON.stringify(left));
+    assert.equal(where()?.stage, 'drawings');
+    const drawn = unitSetHash(bundle.units);
+    writeStored(root, key, { version: 1, updatedAt: '1b', units, flows: [flow], overview, drawn });
+    assert.equal(where()?.stage, 'story', 'only the self-checks left: still the story pass');
 
     // what lens writes itself isn't the agent's work, and the run says how long the agent has been quiet
     const filed = { ...bundle, units: [...bundle.units, { ...unit('d'), importsOnly: true }], drawings: true };
