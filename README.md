@@ -41,11 +41,7 @@ In the app, **Settings → Agent** installs the `lens` command and the agent ski
 
 ## Quick start
 
-In a repository with changes:
-
-```bash
-lens diff               # open your uncommitted changes in the viewer
-```
+Open the desktop app, pick the repository and what to review.
 
 In your agent, to get the Summary tab written:
 
@@ -53,9 +49,17 @@ In your agent, to get the Summary tab written:
 /lens-review            # same arguments as `lens diff`
 ```
 
-Or open the desktop app, pick the repository and what to review.
+## Desktop app
 
-## Commands
+The preferred way to use lens: one tab per repository, a picker for what to review
+(working tree, staged, branch vs a base, custom `git diff` arguments, a PR), and the viewer
+in the tab. It reopens as you left it. The viewer runs sandboxed, since it shows code you
+didn't write.
+
+## Command line
+
+The app runs the `lens` command for you, and your agent's skills call it too. You can also
+run it yourself in a terminal (install it from the app's Settings → Agent).
 
 | command | what it opens or prints |
 | --- | --- |
@@ -78,15 +82,7 @@ Or open the desktop app, pick the repository and what to review.
 | `--json` | print the fold model as JSON, for debugging |
 | `--version` | print lens's version |
 
-Loose files and these flags are CLI-only; the desktop app's picker covers the diff and PR
-modes.
-
-## Desktop app
-
-The same lens, with screens in place of arguments: one tab per repository, a picker for
-what to review (working tree, staged, branch vs a base, custom `git diff` arguments, a PR),
-and the viewer in the tab. It reopens as you left it. The viewer runs sandboxed, since it
-shows code you didn't write.
+Loose files and these flags are CLI-only; the app's picker covers the diff and PR modes.
 
 ## The viewer
 
