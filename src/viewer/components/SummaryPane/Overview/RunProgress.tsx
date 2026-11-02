@@ -1,6 +1,7 @@
 import { Check } from 'lucide-react';
 import type { BuildProgress } from '../../../../cli-app/summary/progress.ts';
 import { Skeleton } from '../../../../ui/Skeleton.tsx';
+import { CopyCommand } from '../../../../ui/CopyCommand.tsx';
 import { Tag } from '../../../../ui/Tag.tsx';
 import { agoText } from '../../../model/status.ts';
 
@@ -14,7 +15,15 @@ function steps(build: BuildProgress): { stage: BuildProgress['stage']; label: st
 }
 
 /** What the agent is on while it writes this summary, in place of what to run. */
-export function RunProgress({ build, showText }: { build: BuildProgress; showText: boolean }) {
+export function RunProgress({
+  build,
+  showText,
+  command,
+}: {
+  build: BuildProgress;
+  showText: boolean;
+  command: string;
+}) {
   // the fixes come after the last step: every step is behind them
   const current =
     build.stage === 'fixes' ? steps(build).length : steps(build).findIndex((step) => step.stage === build.stage);
@@ -38,6 +47,10 @@ export function RunProgress({ build, showText }: { build: BuildProgress; showTex
           </Tag>
         ))}
         {build.stage === 'fixes' && <Tag data-part='run-step'>Fixing what submit rejected</Tag>}
+      </div>
+      {/* lens can't see the agent: if it died, the way to start it again must still be there */}
+      <div data-part='run-restart' className='text-sm text-muted'>
+        Agent stopped? Run <CopyCommand command={command} /> again.
       </div>
       {showText && (
         <div className='flex flex-col gap-2 text-lg'>
