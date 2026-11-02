@@ -4,7 +4,6 @@ import { treeModel } from '../../model/tree.ts';
 import { collapseAll, expandAll } from '../../actions/folds.ts';
 import {
   setFullUnits,
-  setSummaryInbox,
   setHideTests,
   setHunksOnly,
   setShowRemoved,
@@ -58,7 +57,6 @@ export function MoreMenu() {
     buildPreviews: state.data.buildPreviews,
     selfChecks: state.data.selfChecks,
     fullUnits: state.fullUnits,
-    summaryInbox: state.summaryInbox,
   }));
 
   return (
@@ -173,9 +171,6 @@ export function MoreMenu() {
             </MenuSwitch>
             <MenuSwitch id='full-units' checked={more.fullUnits} onChange={setFullUnits}>
               Full units
-            </MenuSwitch>
-            <MenuSwitch id='summary-inbox' checked={more.summaryInbox} onChange={setSummaryInbox}>
-              Inbox layout
             </MenuSwitch>
           </MenuSection>
         </>

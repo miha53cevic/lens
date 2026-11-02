@@ -478,12 +478,10 @@ test('a change reviewed before its code changed says so in the Summary list', as
   await open({}, '', '', withMarks({ units: [unit.id + '@old'] }));
   try {
     await key('v');
-    const item = $$('[data-part="sum-item"]').find(
-      (candidate) => candidate.querySelector('[data-part="name"]')!.textContent === 'findOrders',
+    const item = $$('[data-part="inbox-card"]').find(
+      (candidate) => candidate.querySelector('[data-part="caption-unit"]')!.textContent === 'findOrders',
     )!;
-    assert.ok(item.querySelector('[data-part="viewed-box"][data-changed]'));
-    assert.equal(item.querySelector('[data-part="gist"]')!.textContent, 'changed since you reviewed it');
-    assert.equal($('#nav [data-part="legend"][data-changed]').textContent, '1 changed since viewed');
+    assert.ok(item.textContent!.includes('changed since you read it'));
   } finally {
     await close();
   }

@@ -38,19 +38,6 @@ export function setSignalFilter(signal: SignalFilter): void {
   update((state) => ({ sumSignal: listModel(state)?.signal === signal ? null : signal }));
 }
 
-export function toggleFlow(title: string, open: boolean): void {
-  update((state) => ({ flowOpen: new Map(state.flowOpen).set(title, open) }));
-}
-
-/** Folds or unfolds a file's changes in the list's changes in no flow. */
-export function toggleUnitFile(file: string): void {
-  update((state) => {
-    const closed = new Set(state.closedUnitFiles);
-    if (!closed.delete(file)) closed.add(file);
-    return { closedUnitFiles: closed };
-  });
-}
-
 // The agent's findings are suspicions; the reader decides: "real" or "dismissed", kept for the
 // review by the server. The same mark again takes it back. `key` is the finding's (`findings` in
 // model/signals.ts).

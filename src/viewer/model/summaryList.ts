@@ -71,16 +71,10 @@ export interface ListModel {
   counts: Record<NonNullable<SignalFilter>, number>;
   /** The signal filter in effect: one whose last unit went away (dismissed) lifts */
   signal: SignalFilter;
-  sections: Section[];
-  /** The units in no flow, by file: each file where its first unit falls in the list's order */
-  otherFiles: FileGroup[];
-  folded: Set<string>;
-  /** The files of `otherFiles` the reader folded (a filter unfolds them) */
-  foldedFiles: Set<string>;
-  /** Unit ids in list order, as j/k walks them: what's visible (the inbox's: inboxOrder) */
+  /** The list as an inbox: each flow's changes as cards, the read ones folded under them */
+  inbox: InboxFlow[];
+  /** Unit ids in list order, as j/k walks them: what's visible (inboxOrder) */
   order: string[];
-  /** The list as an inbox, when the reader turned it on (⋯ → Summary); null: the classic list */
-  inbox: InboxFlow[] | null;
   /** The open unit: the reader's, or the first in the list */
   activeId: string | null;
   summarized: number;
@@ -94,10 +88,7 @@ const buildList = memo(
     hideTests: boolean,
     query: string,
     sumSignal: SignalFilter,
-    flowOpen: ReadonlyMap<string, boolean>,
-    closedUnitFiles: ReadonlySet<string>,
     summaryUnit: string | null,
-    inboxOn: boolean,
     viewedUnits: ReadonlySet<string>,
     inboxFlowOpen: ReadonlyMap<string, boolean>,
     inboxReadOpen: ReadonlySet<string>,
@@ -130,35 +121,14 @@ const buildList = memo(
       return haystack.toLowerCase().includes(text);
     };
     const { sections, others } = groupUnits(summary, matches);
-    // P3 flows start folded; a click on the flow's title flips it. A filter, or the open unit sitting inside, unfolds it.
-    const isFolded = (section: Section) => {
-      if (text !== '' || signal !== null) return false;
-      const explicit = flowOpen.get(section.flow.title);
-      if (explicit !== undefined) return !explicit;
-      const holdsOpenUnit = section.members.some(isOpenUnit);
-      return flowPriority(section.flow) === 3 && !holdsOpenUnit;
-    };
-    const folded = new Set(sections.filter(isFolded).map((section) => section.flow.title));
-    const otherFiles = byFile(others);
-    const filtering = text !== '' || signal !== null;
-    const foldedFiles = new Set(
-      filtering ? [] : otherFiles.filter((group) => closedUnitFiles.has(group.file)).map((group) => group.file),
+    // the changes in no flow are one more flow, after the flows
+    const inbox = inboxFlows(
+      [...sections, { flow: null, members: byFile(others).flatMap((group) => group.members) }],
+      viewedUnits,
+      inboxFlowOpen,
+      inboxReadOpen,
     );
-    // the inbox holds the changes in no flow as one more flow, after the flows, as the list does
-    const inbox = inboxOn
-      ? inboxFlows(
-          [...sections, { flow: null, members: otherFiles.flatMap((group) => group.members) }],
-          viewedUnits,
-          inboxFlowOpen,
-          inboxReadOpen,
-        )
-      : null;
-    const order = inbox
-      ? inboxOrder(inbox)
-      : [
-          ...sections.filter((section) => !folded.has(section.flow.title)).flatMap((section) => section.members),
-          ...otherFiles.filter((group) => !foldedFiles.has(group.file)).flatMap((group) => group.members),
-        ].map((unit) => unit.id);
+    const order = inboxOrder(inbox);
     // a unit the filter hides stays open in the pane
     const activeId = summaryUnit && unitById(summary, summaryUnit) ? summaryUnit : order[0] || null;
     const listed = [...sections.flatMap((section) => section.members), ...others];
@@ -166,10 +136,6 @@ const buildList = memo(
       units,
       counts,
       signal,
-      sections,
-      otherFiles,
-      folded,
-      foldedFiles,
       order,
       inbox,
       activeId,
@@ -178,8 +144,6 @@ const buildList = memo(
     };
   },
 );
-
-const NOTHING: ReadonlySet<string> = new Set();
 
 export function listModel(state: LensState): ListModel | null {
   const summary = state.data.summary;
@@ -190,12 +154,8 @@ export function listModel(state: LensState): ListModel | null {
     state.hideTests,
     state.sumQuery,
     state.sumSignal,
-    state.flowOpen,
-    state.closedUnitFiles,
     state.summaryUnit,
-    state.summaryInbox,
-    // the classic list doesn't read the marks: it keeps its memo while the reader marks changes
-    state.summaryInbox ? state.viewedUnits : NOTHING,
+    state.viewedUnits,
     state.inboxFlowOpen,
     state.inboxReadOpen,
   );

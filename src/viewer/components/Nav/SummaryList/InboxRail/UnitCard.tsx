@@ -45,7 +45,7 @@ export function UnitCard({ unit, active }: { unit: Unit; active: boolean }) {
       role='button'
       onClick={() => openSummaryUnit(unit.id)}
     >
-      <span className='self-baseline text-md leading-[1.35] font-semibold text-text group-data-pending/card:font-normal group-data-pending/card:text-faint group-data-pending/card:italic group-data-read/card:font-medium group-data-read/card:text-muted'>
+      <span className='min-w-0 self-baseline text-md leading-[1.35] font-semibold [overflow-wrap:anywhere] text-text group-data-pending/card:font-normal group-data-pending/card:text-faint group-data-pending/card:italic group-data-read/card:font-medium group-data-read/card:text-muted'>
         {summary ? summary.headline : unitLabel(unit)}
       </span>
       <Button

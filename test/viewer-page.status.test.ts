@@ -518,9 +518,10 @@ pageTest(
   'clear saved data: nothing goes until a kind is ticked, and a cleared summary leaves the Summary tab without it',
   async (page) => {
     await key('v');
-    await click($('[data-part="sum-item"]'));
+    await click($('[data-part="inbox-card"]'));
     assert.equal($('[data-part="sum-headline"]').textContent, 'findOrders skips deleted orders');
-    const changedSince = () => $$('[data-part="sum-item"] [data-part="viewed-box"][data-changed]').length;
+    const changedSince = () =>
+      $$('[data-part="inbox-card"]').filter((card) => card.textContent!.includes('changed since you read it')).length;
     assert.equal(changedSince(), 1, 'reviewed before its code changed');
 
     page.clearInfo.kinds.push({

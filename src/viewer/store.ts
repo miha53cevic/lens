@@ -86,8 +86,6 @@ export interface LensState {
   hunksOnly: boolean;
   /** The Summary tab shows each unit inside its whole file */
   fullUnits: boolean;
-  /** The Summary tab's list as an inbox (⋯ → Summary): each flow's changes as cards, the read ones folded under them */
-  summaryInbox: boolean;
   /** Mark the words a replaced line changed (wordDiff.ts) */
   wordDiff: boolean;
   /** Diffs show old and new side by side (isSplit in model/plans.ts: a diff only) */
@@ -124,10 +122,6 @@ export interface LensState {
   /** The list filter's text (transient) */
   sumQuery: string;
   sumSignal: SignalFilter;
-  /** Flow title -> open, once the reader toggled it */
-  flowOpen: ReadonlyMap<string, boolean>;
-  /** The files the reader folded in the summary list's changes in no flow */
-  closedUnitFiles: ReadonlySet<string>;
   /** The inbox's flows (model/inbox.ts keys) the reader or a step opened or folded; any other is open while it has a change to read */
   inboxFlowOpen: ReadonlyMap<string, boolean>;
   /** The inbox's flows whose Read area is open */
@@ -207,7 +201,6 @@ const initialState: LensState = {
   hideTests: readPref('lens.hideTests') !== '0', // on by default
   hunksOnly: readPref('lens.hunksOnly') !== '0', // on by default
   fullUnits: readPref('lens.fullUnits') === '1', // off by default
-  summaryInbox: readPref('lens.summaryInbox') === '1', // off by default
   wordDiff: readPref('lens.wordDiff') !== '0', // on by default
   sideBySide: readPref('lens.sideBySide') === '1', // off by default
   codeSize: loadCodeSize(),
@@ -228,8 +221,6 @@ const initialState: LensState = {
   summaryChecking: false,
   sumQuery: '',
   sumSignal: null,
-  flowOpen: new Map(),
-  closedUnitFiles: new Set(),
   inboxFlowOpen: new Map(),
   inboxReadOpen: new Set(),
   concernMarks: new Map(Object.entries(INITIAL_DATA.marks.concerns)),
