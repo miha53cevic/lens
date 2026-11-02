@@ -93,6 +93,12 @@ export function changeData(
     : { data: whole, beforeRound: null };
 }
 
+/** Out of the since read, staying where the reader is: the open unit is in the whole change too. */
+export function showWholeChange(): void {
+  const { beforeRound } = getState();
+  if (beforeRound) update({ data: beforeRound, beforeRound: null });
+}
+
 export function setSinceRound(on: boolean): void {
   const state = getState();
   const round = wholeData(state).summary?.round;

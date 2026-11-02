@@ -507,6 +507,40 @@ test('since the round: a switch, a theme or a unit outside that read keeps the w
   }
 });
 
+test('since the round: the status bar says so on either tab, and shows all from where the reader is', async () => {
+  await open({}, '', '', inRound());
+  try {
+    const notice = () =>
+      $$('#status-bar [data-part="status-notice"]').find((n) => n.textContent!.includes('since you'));
+    await key('v');
+    await settle();
+    const cards = $$('[data-part="inbox-card"]').length;
+    assert.equal(notice(), undefined, 'the whole change: nothing to say');
+    await click($('#round-since'));
+    await key('j');
+    await settle();
+    assert.equal(notice()!.textContent, 'Only what changed since you sent · Show all');
+    await click(notice()!);
+    await settle();
+    assert.equal(notice(), undefined);
+    assert.equal($$('[data-part="inbox-card"]').length, cards, 'the whole change');
+    assert.equal($('[data-part="summary-pane"]').dataset.unit, findOrdersId(), 'the same unit stays open');
+
+    await key('g');
+    await settle();
+    await click($('#round-since'));
+    await key('v');
+    await settle();
+    const changed = () => $$('#code .row[data-line]').filter((row) => row.querySelector('.mark.changed')).length;
+    assert.equal(changed(), 1, 'the Code tab reads it too');
+    await click(notice()!);
+    await settle();
+    assert.ok(changed() > 1, 'still on the Code tab, with the whole change marked');
+  } finally {
+    await close();
+  }
+});
+
 test("a flow's steps head its cards to read; one step over every change has none", async () => {
   const summary = payload.summary!;
   const id = (name: string) => summary.units.find((unit) => unit.name === name)!.id;
