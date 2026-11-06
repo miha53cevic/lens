@@ -25,7 +25,7 @@ interface SegmentedProps<T extends string | number> {
   size?: 'md' | 'lg';
   /** The options are tabs: each shows a panel of its own (the ? help's) */
   tabs?: boolean;
-  /** The options share the whole width (a filter along a sidebar) */
+  /** The options share the whole width (a filter along a sidebar), at a control's full height: a row of its own */
   fill?: boolean;
 }
 
@@ -64,7 +64,7 @@ export function Segmented<T extends string | number>({
       className={clsx(
         'group/seg relative rounded-full bg-surface-2 p-1',
         fill ? 'flex w-full' : 'inline-flex flex-none',
-        size === 'lg' ? 'h-control-lg' : 'h-control-sm',
+        size === 'lg' ? 'h-control-lg' : fill ? 'h-control' : 'h-control-sm',
       )}
       id={id}
       role={tabs ? 'tablist' : 'radiogroup'}

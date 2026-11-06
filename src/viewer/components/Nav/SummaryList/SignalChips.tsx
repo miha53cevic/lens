@@ -53,7 +53,7 @@ export function SignalChips({ counts, signal }: SignalChipsProps) {
               data-part='sig-icon'
               className={'sig-' + id + ' inline-flex text-(--sig) in-aria-checked:text-inherit'}
             >
-              <SignalIcon signal={id} size={11} />
+              <SignalIcon signal={id} size={12} />
             </span>
           ),
           label: id === 'any' ? <>All {count(id)}</> : count(id),
