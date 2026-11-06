@@ -10,7 +10,7 @@ import { GlobalRegistrator } from '@happy-dom/global-registrator';
 import { fireEvent } from '@testing-library/dom';
 import { bundleViewer } from '../../src/cli-app/render/web/bundle.ts';
 import { highlightFiles, viewerPayload, type ViewerPayload } from '../../src/cli-app/render/web/server.ts';
-import type { ClearInfoResponse, ClearResponse } from '../../src/cli-app/api/contract.ts';
+import type { ClearInfoResponse, ClearResponse, PlansResponse } from '../../src/cli-app/api/contract.ts';
 import { themeSwatch } from '../../src/cli-app/render/highlight.ts';
 import type { AskState } from '../../src/cli-app/ask/session.ts';
 import type { ReaderNote } from '../../src/cli-app/notes/store.ts';
@@ -32,6 +32,29 @@ export interface Page {
   clearInfo: ClearInfoResponse;
   /** The notes the server keeps: what /api/notes changes and answers */
   notes: ReaderNote[];
+  /** What GET /api/plans answers (its stamp is what /api/stamp?plans says) */
+  plans: PlansResponse;
+}
+
+/** Lavish set up, and the plans the Plan tab lists: one an agent polls, one nobody does, one the reader ended */
+export function lavishPlans(patch: Partial<PlansResponse> = {}): PlansResponse {
+  const session = { status: 'open' as const, endedByUser: false, revision: 2, pending: 0, listening: false };
+  return {
+    setup: { skill: '~/.claude/skills/lavish', node: '24.11.1', nodeNeeded: 22, cli: 'npx' },
+    plans: [
+      { file: '.lavish/plan-tab.html', title: 'Plan tab', modified: 3, session: { ...session, listening: true } },
+      { file: '.lavish/cache.html', title: null, modified: 2, session: { ...session, pending: 2 } },
+      {
+        file: '.lavish/old.html',
+        title: 'An old plan',
+        modified: 1,
+        session: { ...session, status: 'ended', endedByUser: true },
+      },
+      { file: '.lavish/sketch/index.html', title: 'A sketch', modified: 0, session: null },
+    ],
+    stamp: 's1',
+    ...patch,
+  };
 }
 
 /** The payload, with these of the review's marks kept (.lens/marks/<review>.json) */
@@ -74,6 +97,7 @@ export async function open(prefs: Record<string, string> = {}, hash = '', cookie
       ],
     },
     notes: [],
+    plans: lavishPlans(),
   };
   globalThis.fetch = (async (input: string | URL, init?: RequestInit) => {
     const url = new URL(String(input), 'http://127.0.0.1:5326');
@@ -100,7 +124,26 @@ export async function open(prefs: Record<string, string> = {}, hash = '', cookie
       case 'POST /api/ask/prompt':
         return reply({ text: 'the prompt' });
       case 'GET /api/stamp':
-        return reply({ summary: payload.summary!.stamp, key: payload.summary!.key, change: payload.changeStamp });
+        return reply({
+          summary: payload.summary!.stamp,
+          key: payload.summary!.key,
+          change: payload.changeStamp,
+          plans: url.searchParams.has('plans') ? page.plans.stamp : null,
+        });
+      case 'GET /api/plans':
+        return reply(page.plans);
+      case 'POST /api/plans/end': {
+        // Lavish ends it as an agent would: the list says ended, by no one in particular
+        const plans = page.plans.plans.map((plan) =>
+          plan.file === body.file && plan.session
+            ? { ...plan, session: { ...plan.session, status: 'ended' as const, endedByUser: false, listening: false } }
+            : plan,
+        );
+        page.plans = { ...page.plans, plans, stamp: page.plans.stamp + '+' };
+        return reply({ ok: true });
+      }
+      case 'POST /api/plans/open':
+        return reply({ url: 'http://127.0.0.1:49999/session/' + encodeURIComponent(body.file) });
       case 'GET /api/summary':
         return reply(payload.summary);
       case 'GET /api/refresh':

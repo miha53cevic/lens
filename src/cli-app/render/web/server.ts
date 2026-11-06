@@ -9,6 +9,9 @@ import { createAskRoutes } from '../../ask/routes.ts';
 import { createNoteRoutes } from '../../notes/routes.ts';
 import { notesFor, type ReaderNote } from '../../notes/store.ts';
 import { createMarkRoutes } from '../../marks/routes.ts';
+import { createPlanRoutes, plansNow } from '../../plan/routes.ts';
+import { hostEnv } from '../../plan/lavish.ts';
+import { startPlanProxy } from '../../plan/proxy.ts';
 import { marksFor, type ReviewMarks } from '../../marks/store.ts';
 import { isLocalRequest, readCookie, sendJson } from './http.ts';
 import type { ClearRequest, SettingsRequest, StampResponse, TokensResponse } from '../../api/contract.ts';
@@ -64,6 +67,8 @@ export interface ViewerInput {
   buildPreviews: boolean;
   /** Check yourself, the same way */
   selfChecks: boolean;
+  /** The Plan tab, the same way: a feature still behind its switch */
+  planTab: boolean;
   /** PR mode: "owner/repo#N — title", shown in the viewer header */
   label: string | null;
   /** PR mode: the default branch it was diffed against, when GitHub no longer says the PR's base */
@@ -253,6 +258,9 @@ export async function serveViewer(
     () => current,
     () => savedVersion++,
   );
+  // the Plan tab's frame loads Lavish's page through this (plan/proxy.ts)
+  const planProxy = await startPlanProxy(opts.port);
+  const plans = createPlanRoutes(() => current.root, planProxy);
   // the root of the analysis that wrote server.json — a refresh can't move it
   const infoRoot = input.root;
   const stop = () => {
@@ -415,13 +423,15 @@ export async function serveViewer(
       syncSummary();
       return current.summary;
     })
-    .json('GET /api/stamp', noBody, async () => {
+    .json('GET /api/stamp', noBody, async (_, { url }) => {
       syncSummary();
       const stamp: StampResponse = {
         summary: current.summary?.stamp ?? null,
         key: current.summary?.key ?? null,
         change: await changeNow(),
         building: buildingNow(),
+        // only the Plan tab asks: the list reads Lavish's state and asks its server
+        plans: url.searchParams.has('plans') ? (await plansNow(current.root, hostEnv())).stamp : null,
       };
       return stamp;
     })
@@ -464,6 +474,7 @@ export async function serveViewer(
     })
     .use(notes)
     .use(marks)
+    .use(plans)
     .use(ask);
 
   const server = createServer(async (req, res) => {
@@ -491,7 +502,7 @@ export async function serveViewer(
   });
   server.listen(opts.port, '127.0.0.1', () => {
     const url = `http://127.0.0.1:${opts.port}/`;
-    writeServerInfo(infoRoot, opts.port); // before the banner: whoever waits for it can `lens ask` right away
+    writeServerInfo(infoRoot, opts.port, planProxy.port); // before the banner: whoever waits for it can `lens ask` right away
     console.log(`lens viewer on ${url}  (ctrl-c to stop)`);
     process.on('SIGINT', stop);
     process.on('SIGTERM', stop);
@@ -513,12 +524,13 @@ export async function serveViewer(
 }
 
 function parseSettings(raw: unknown): SettingsRequest | { error: string } {
-  const { buildPreviews, selfChecks } = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const { buildPreviews, selfChecks, planTab } = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
   const given = {
     ...(buildPreviews !== undefined && { buildPreviews }),
     ...(selfChecks !== undefined && { selfChecks }),
+    ...(planTab !== undefined && { planTab }),
   };
-  if (Object.keys(given).length === 0) return { error: 'name buildPreviews or selfChecks' };
+  if (Object.keys(given).length === 0) return { error: 'name buildPreviews, selfChecks or planTab' };
   if (Object.values(given).some((on) => typeof on !== 'boolean')) return { error: 'a switch must be true or false' };
   return given as SettingsRequest;
 }

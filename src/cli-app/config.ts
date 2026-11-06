@@ -41,12 +41,13 @@ const EMPTY_CONFIG: LensConfig = {
   exclude: [],
   buildPreviews: true,
   selfChecks: false,
+  planTab: false,
 };
 
 type Field = keyof LensConfig;
 const STRING_LISTS = ['keepCommentMarkers', 'testFilePatterns', 'exclude'] as const;
 type StringList = (typeof STRING_LISTS)[number];
-const BOOLEANS = ['buildPreviews', 'selfChecks'] as const;
+const BOOLEANS = ['buildPreviews', 'selfChecks', 'planTab'] as const;
 const STRINGS = ['theme', 'keepDirective'] as const;
 /** Names a file may still use, read as the new ones with a problem saying to move */
 const RENAMED: Record<string, string> = { threshold: 'foldLevel', categories: 'folds', scores: 'folds' };

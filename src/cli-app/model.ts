@@ -96,4 +96,6 @@ export interface LensConfig {
   /** Summary mode asks the agent for previews of changed screens and sequence diagrams */
   buildPreviews: boolean;
   selfChecks: boolean;
+  /** The viewer shows the Plan tab (Lavish plans): off until it's turned on */
+  planTab: boolean;
 }

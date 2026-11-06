@@ -117,7 +117,7 @@ test('every shortcut key is in the ? help, and a Summary key is on its Global or
   const shortcutKeys: string[] = new Function('SUMMARY_KEYS', `return ${list('SHORTCUT_KEYS')}`)(summaryKeys);
   const helped = (tabs: string[]) =>
     new Set(KEY_TABS.filter((tab) => tabs.includes(tab.id)).flatMap((tab) => tab.keys.flatMap((row) => row.keys)));
-  const anywhere = helped(['global', 'code', 'summary']);
+  const anywhere = helped(['global', 'code', 'summary', 'plan']);
   assert.deepEqual(
     shortcutKeys.filter((key) => !anywhere.has(key)),
     [],

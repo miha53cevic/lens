@@ -41,6 +41,7 @@ function lines(loaded: LoadedConfig): string[] {
   out.push(row(0, 'keepDirective', config.keepDirective, 'keepDirective'));
   out.push(row(0, 'buildPreviews', String(config.buildPreviews), 'buildPreviews'));
   out.push(row(0, 'selfChecks', String(config.selfChecks), 'selfChecks'));
+  out.push(row(0, 'planTab', String(config.planTab), 'planTab'));
   return out;
 }
 

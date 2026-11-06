@@ -8,16 +8,18 @@ import { lensDir } from '../summary/store.ts';
 export interface ServerInfo {
   port: number;
   pid: number;
+  /** The Plan tab's proxy (plan/proxy.ts): the desktop app lets the viewer frame it */
+  planPort?: number;
 }
 
 export function serverInfoPath(root: string): string {
   return join(root, '.lens', 'server.json');
 }
 
-export function writeServerInfo(root: string, port: number): void {
+export function writeServerInfo(root: string, port: number, planPort?: number): void {
   writeFileSync(
     join(lensDir(root), 'server.json'),
-    JSON.stringify({ port, pid: process.pid } satisfies ServerInfo) + '\n',
+    JSON.stringify({ port, pid: process.pid, planPort } satisfies ServerInfo) + '\n',
   );
 }
 

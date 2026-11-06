@@ -15,11 +15,18 @@ interface CopyCommandProps {
   command: string;
   /** its own row (the empty Summary page) instead of inline in a sentence */
   block?: boolean;
+  /** a block that grows to as many lines as the command needs (a long one the reader should read first) instead of cutting it off */
+  wrap?: boolean;
+  /** what it shows, when the whole command is too long for its place (a header's row); the whole command is copied, and its tooltip */
+  shown?: string;
 }
 
 /** A command to run in the agent: click it to copy it. The copy icon turns into a check once it's copied. */
-export function CopyCommand({ command, block = false }: CopyCommandProps) {
+export function CopyCommand({ command, block = false, wrap = false, shown }: CopyCommandProps) {
   const [copied, setCopied] = useState(false);
+  const lines = block && wrap;
+  // wrapped, the icon sits on the first line: its line height less the icon's, halved
+  const Icon = copied ? Check : Copy;
   const copy = async (event: MouseEvent<HTMLButtonElement>) => {
     const text = event.currentTarget.firstElementChild!;
     try {
@@ -36,13 +43,26 @@ export function CopyCommand({ command, block = false }: CopyCommandProps) {
       type='button'
       data-part='copy-cmd'
       data-copied={copied || undefined}
-      className={clsx(COPY_COMMAND, block ? BLOCK : INLINE, copied && '[&_svg]:text-add hover:[&_svg]:text-add')}
+      data-wrap={lines || undefined}
+      title={shown && command}
+      className={clsx(
+        COPY_COMMAND,
+        block ? BLOCK : INLINE,
+        lines && 'items-start text-left',
+        copied && '[&_svg]:text-add hover:[&_svg]:text-add',
+      )}
       onClick={copy}
     >
-      <span data-part='copy-cmd-text' className='overflow-hidden text-ellipsis whitespace-nowrap select-text'>
-        {command}
+      <span
+        data-part='copy-cmd-text'
+        className={clsx(
+          'select-text',
+          lines ? 'min-w-0 wrap-anywhere whitespace-pre-wrap' : 'overflow-hidden text-ellipsis whitespace-nowrap',
+        )}
+      >
+        {shown ?? command}
       </span>
-      {copied ? <Check size={block ? 14 : 12} /> : <Copy size={block ? 14 : 12} />}
+      <Icon size={block ? 14 : 12} className={clsx(lines && 'mt-1')} />
     </button>
   );
 }

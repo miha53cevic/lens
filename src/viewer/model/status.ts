@@ -6,6 +6,7 @@ import type { LensState } from '../store.ts';
 import { plural } from '../shared.ts';
 import type { BuildProgress, BuildStage } from '../../cli-app/summary/progress.ts';
 import { listModel } from './summaryList.ts';
+import { pickedPlan, planName } from './planTab.ts';
 
 export type StatusKind = 'gone' | 'failed' | 'working' | 'waiting' | 'done' | 'idle';
 /** What the status's button does (the handlers are in components/StatusBar/const.ts) */
@@ -190,6 +191,15 @@ const configProblems: NoticeSource = (state) => {
   };
 };
 
+const planAgent: NoticeSource = (state) => {
+  // the list is read again only while the Plan tab shows: elsewhere who polls isn't known
+  const plan = state.view === 'plan' ? pickedPlan(state) : null;
+  if (!plan || state.plan.frame?.file !== plan.file || plan.session?.status !== 'open' || state.serverGone) return null;
+  return plan.session.listening
+    ? { id: 'plan-agent', text: 'Agent listening on ' + planName(plan), tone: 'live', action: null }
+    : { id: 'plan-agent', text: 'No agent on this plan', tone: 'warn', action: null };
+};
+
 const NOTICE_SOURCES: NoticeSource[] = [
   configProblems,
   guessedBase,
@@ -198,6 +208,7 @@ const NOTICE_SOURCES: NoticeSource[] = [
   newSummary,
   summaryBuilding,
   agentListening,
+  planAgent,
 ];
 
 // The last list: the same array comes back while what it says stays the same, so the bar's

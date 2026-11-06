@@ -617,7 +617,8 @@ pageTest(
     assert.equal(count('#g-status [data-part="status-badge"]'), 5);
     assert.equal(count('#g-kbd [data-part="kbd-combo"]'), 5);
     assert.equal(count('#g-kbd [data-variant="primary"] kbd'), 2, 'keycaps on a primary button');
-    assert.equal(count('#g-kbd [data-part="copy-cmd"]'), 1);
+    assert.equal(count('#g-kbd [data-part="copy-cmd"]'), 2);
+    assert.equal(count('#g-kbd [data-part="copy-cmd"][data-wrap]'), 1, 'a block that wraps its command');
     assert.equal(count('#g-kbd [data-part="progress"]'), 1);
     assert.equal(count('#g-skeleton .skeleton'), 8);
     assert.equal(count('#g-skeleton [data-round]'), 2);

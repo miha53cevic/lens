@@ -26,7 +26,9 @@ export function ReviewPill() {
     const page = codeView ? null : summaryPage(state);
     const progress = codeView ? fileProgress(state) : unitProgress(state);
     const file = activeFile(state);
-    const shown = codeView ? !!file && !(state.hideTests && isTestFile(file.file)) : true;
+    // the Plan tab has nothing to review
+    const shown =
+      state.view === 'plan' ? false : codeView ? !!file && !(state.hideTests && isTestFile(file.file)) : true;
     let stage: Stage = 'hidden';
     if (progress && progress.total > 0 && shown) {
       // all reviewed: there's nothing left to start, and the read cards are folded out of the list's order

@@ -13,6 +13,7 @@ agent questions while you read.
 | **Code view** | Folds what carries no review signal (imports, doc comments, input guards, logging, defensive boilerplate), so you see the lines where the behavior lives. | lens: parsing and rules (tree-sitter), no AI |
 | **Summary view** | One changed function at a time: a headline, concerns, what behaves differently, callers it may break. | your agent writes it, lens checks it |
 | **Ask** | A rail where you ask about the code you're reading. Answers cite `path:line`. | your agent answers, lens checks the cites |
+| **Plan view** | Your [Lavish](https://github.com/kunchenguid/lavish-axi) plans inside lens: annotate them, answer their questions, press Build it. | your agent writes them with Lavish, lens shows Lavish's editor |
 
 lens never calls an AI itself and needs no API key. The summaries and answers come from
 the agent you already use, on your existing subscription.
@@ -148,6 +149,22 @@ unit's open concerns and possible breaks along. Run `/lens-ask` in your agent to
 edits. Answers cite `path:line`, and lens checks each cite. With no agent listening, a
 question can be copied as a prompt for any chat.
 
+## Plan mode
+
+The Plan tab (`p`; turn it on in the ⋯ menu, or with `planTab` in the config) lists the plans in the repository's `.lavish/`, each with its
+[Lavish](https://github.com/kunchenguid/lavish-axi) session: whether an agent is listening
+to it, and how much of your feedback is still pending for the agent. Pick one and Lavish's own editor opens in the tab, so the
+loop of annotating the plan, sending feedback and pressing its **Build it** happens without
+leaving lens. **New plan** turns what you type into a `/lavish …` command to paste into your
+agent; the new plan shows up in the list once the agent runs Lavish. The list filters by name or path, and by
+session (All, Active: open in Lavish, Pending: feedback waiting); `f` shows the open plan full screen.
+
+It needs Lavish's skill (`npx skills add kunchenguid/lavish-axi --skill lavish -g`) and
+Node 22 or newer. Without them the tab says what's missing. Lavish's page refuses to be
+framed, so each lens server runs a small loopback proxy to it that lets only its own viewer
+frame it, and only the plans of its repository. lens reads Lavish's state and runs
+`lavish-axi <plan> --no-open`; the agent's side of Lavish is unchanged.
+
 ## How folding works
 
 Each region gets a category and a score (0–3) and folds when its score ≤ the fold level
@@ -203,6 +220,7 @@ under the config in effect.
 | `exclude` | listed in a diff as `⊘` without being read; skipped in directory walks |
 | `buildPreviews` | summary mode asks for previews and sequences (default `true`); the ⋯ menu's switch overrides it for you, in `.lens/settings.json` |
 | `selfChecks` | summary mode asks for questions to check your understanding with (default `false`); the ⋯ menu's switch overrides it, as above |
+| `planTab` | the viewer shows the Plan tab (default `false`, while it's new); the ⋯ menu's switch overrides it, as above |
 
 The old names (`threshold`, `categories`, `scores`) are still read, each with a
 problem saying what to rename it to.
@@ -225,7 +243,7 @@ through release-please: merging its release PR publishes the macOS app.
 
 ## Non-goals
 
-- **No AI calls.** Summary and ask mode hand the writing to your own agent.
+- **No AI calls.** Summary, ask and plan mode hand the writing to your own agent.
 - **No semantic analysis or type checking.**
 - **No editing.** lens is read-only.
 - **No terminal output.** The viewer is the only interface (plus `--json` for debugging).

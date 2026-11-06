@@ -1,4 +1,4 @@
-// The Code view and the Summary tab: switching between them, jumping to a line.
+// The Code view, the Summary tab and the Plan tab: switching between them, jumping to a line.
 
 import type { StampResponse } from '../../cli-app/api/contract.ts';
 import { commit, getState, type LensState, toggled, update, type View } from '../store.ts';
@@ -9,6 +9,7 @@ import { openFoldAround } from './folds.ts';
 import { isBusy } from '../model/status.ts';
 import type { Watcher } from '../../ui/poll.ts';
 import { api, noteDone, reach, tracked } from './status.ts';
+import { loadPlans } from './planTab.ts';
 
 function viewChange(state: LensState, view: View): Partial<LensState> {
   if (view === state.view) return {};
@@ -18,11 +19,14 @@ function viewChange(state: LensState, view: View): Partial<LensState> {
 export function setView(view: View): void {
   const state = getState();
   if (view === 'summary' && !state.data.summary) return;
+  if (view === 'plan' && !state.data.planTab) return;
   update({ ...viewChange(state, view), ...(view === 'summary' && { summaryChecking: true }) });
   if (view === 'summary') {
     if (state.summaryDot) loadSummary().finally(() => update({ summaryChecking: false }));
     else void checkStamp(); // a submit since the last poll
   }
+  // the list as it is now: a plan written while the tab was away shows at once
+  if (view === 'plan' && state.view !== 'plan') void loadPlans(state.plan.list !== null);
 }
 
 /** `branch`: another branch was checked out, and the summary is read under its key now */
@@ -47,10 +51,12 @@ async function loadSummary(branch = false): Promise<void> {
 export async function checkStamp(): Promise<void> {
   try {
     // not a slow action: only whether the server is there goes to the status bar
-    const response = await reach('/api/stamp');
+    // the Plan tab's list only while it's shown: reading it asks Lavish
+    const response = await reach(getState().view === 'plan' ? '/api/stamp?plans' : '/api/stamp');
     if (!response.ok) return;
     const stamp: StampResponse = await response.json();
-    const { data, changedOnDisk, summaryBuild, summaryDot, view } = getState();
+    const { data, changedOnDisk, summaryBuild, summaryDot, view, plan } = getState();
+    if (view === 'plan' && stamp.plans !== null && plan.list && stamp.plans !== plan.list.stamp) void loadPlans(true);
     // only what both sides know: a review without a fingerprint (a PR) claims nothing
     const changed = stamp.change !== null && data.changeStamp !== null && stamp.change !== data.changeStamp;
     if (changed !== changedOnDisk) update({ changedOnDisk: changed });
@@ -79,6 +85,7 @@ const STAMP_POLL_MS = 5000;
 
 /**
  * The stamp is polled while the page is in sight (the loop is poll.ts), and not during a refresh, which takes it all anyway.
+ * On the Plan tab it carries the plans too: an agent's new plan or reply shows without a refresh.
  * It goes on while the server is gone: it's the cheapest request there is, and the one that notices the server is back.
  */
 export const stampWatcher: Watcher = {
@@ -86,7 +93,7 @@ export const stampWatcher: Watcher = {
   every: STAMP_POLL_MS,
   when: () => {
     const state = getState();
-    const watched = state.data.summary !== null || state.data.changeStamp !== null;
+    const watched = state.data.summary !== null || state.data.changeStamp !== null || state.view === 'plan';
     return watched && !isBusy(state, 'refresh');
   },
   run: checkStamp,

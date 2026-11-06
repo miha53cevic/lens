@@ -9,6 +9,7 @@ import { lensDir, writeAtomic } from './store.ts';
 export interface LocalSettings {
   buildPreviews?: boolean;
   selfChecks?: boolean;
+  planTab?: boolean;
 }
 
 function settingsPath(root: string): string {
@@ -23,6 +24,7 @@ export function readSettings(root: string): LocalSettings {
     return {
       ...(typeof raw?.buildPreviews === 'boolean' ? { buildPreviews: raw.buildPreviews } : {}),
       ...(typeof raw?.selfChecks === 'boolean' ? { selfChecks: raw.selfChecks } : {}),
+      ...(typeof raw?.planTab === 'boolean' ? { planTab: raw.planTab } : {}),
     };
   } catch {
     return {};
@@ -44,4 +46,9 @@ export function buildPreviewsOn(root: string, config: LensConfig): boolean {
 /** Whether summary mode asks for questions the reader can check themselves with: off unless they turn it on. */
 export function selfChecksOn(root: string, config: LensConfig): boolean {
   return readSettings(root).selfChecks ?? config.selfChecks;
+}
+
+/** Whether the viewer shows the Plan tab here: the reader's switch, else the config's (off). */
+export function planTabOn(root: string, config: LensConfig): boolean {
+  return readSettings(root).planTab ?? config.planTab;
 }

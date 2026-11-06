@@ -6,11 +6,16 @@ import { Kbd } from '../../../ui/Kbd.tsx';
 import { Segmented } from '../../../ui/Segmented.tsx';
 import { KEY_TABS, type KeyTab } from './const.ts';
 
-/** The ? help: every keyboard shortcut, in tabs: Global, Code, Summary (with a summary only). */
+/** The ? help: every keyboard shortcut, in tabs: Global, Code, Summary (with a summary only), Plan (with its tab on). */
 export function KeysDialog() {
-  const hasSummary = useLens((state) => !!state.data.summary);
+  const { hasSummary, planTab } = useLens((state) => ({
+    hasSummary: !!state.data.summary,
+    planTab: state.data.planTab,
+  }));
   const [tab, setTab] = useState<KeyTab>('global');
-  const tabs = KEY_TABS.filter((keyTab) => hasSummary || keyTab.id !== 'summary');
+  const tabs = KEY_TABS.filter(
+    (keyTab) => (hasSummary || keyTab.id !== 'summary') && (planTab || keyTab.id !== 'plan'),
+  );
   const shown = tabs.find((keyTab) => keyTab.id === tab) ?? tabs[0];
 
   return (

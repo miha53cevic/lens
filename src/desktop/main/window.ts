@@ -19,7 +19,8 @@ import { MIN_SIZE, placeWindow } from './bounds.ts';
 import type { LensCli } from './cli.ts';
 import { tildePath } from './display.ts';
 import { dispatch, type Handlers } from './ipc.ts';
-import { APP_ORIGIN, allowOrigin, appPagePreferences, isAppPage, viewerPreferences } from './security.ts';
+import { APP_ORIGIN, allowFrames, allowOrigin, appPagePreferences, isAppPage, viewerPreferences } from './security.ts';
+import { planProxyOrigin } from './session.ts';
 import { install, setupState, uninstall, type SetupEnv } from './setup.ts';
 import type { Session, Store } from './store.ts';
 import { Tab, type OwnScreen, type TabHost } from './tab.ts';
@@ -250,7 +251,10 @@ export class AppWindow implements TabHost {
     view.webContents.close();
   }
 
-  /** The active tab's page in view, under the strip; every other view hidden. */
+  /**
+   * The active tab's page in view, under the strip; every other view hidden. A page full screen (the
+   * Plan tab's plan) stays under it too: Electron takes the window full screen, and the tabs stay in reach.
+   */
   private layout(): void {
     const [width, height] = this.win.getContentSize();
     const bounds = { x: 0, y: STRIP_HEIGHT, width, height: Math.max(0, height - STRIP_HEIGHT) };
@@ -311,6 +315,9 @@ export class AppWindow implements TabHost {
       const view = new WebContentsView({ webPreferences: viewerPreferences() });
       view.setBackgroundColor(this.background());
       allowOrigin(view.webContents, new URL(url).origin);
+      // the Plan tab frames Lavish through the viewer's own proxy (server.json says where)
+      const plans = tab.repo ? planProxyOrigin(tab.repo.root) : null;
+      if (plans) allowFrames(view.webContents, plans);
       view.webContents.on('dom-ready', () => {
         void view.webContents.insertCSS(HIDE_VIEWER_THEME_BUTTON).catch(() => {});
       });

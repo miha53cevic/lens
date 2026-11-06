@@ -50,6 +50,12 @@ export interface ApiRoutes {
   'POST /api/ask': Endpoint<AskRequest, AskQuestion>;
   /** The same question as text, for the clipboard */
   'POST /api/ask/prompt': Endpoint<AskRequest, AskPromptResponse>;
+  /** The Plan tab: the root's Lavish plans, and whether Lavish is set up */
+  'GET /api/plans': Endpoint<null, PlansResponse>;
+  /** A plan's Lavish session, opened for the Plan tab's frame */
+  'POST /api/plans/open': Endpoint<PlanOpenRequest, PlanOpenResponse>;
+  /** A plan's Lavish session, ended as an agent ends one: it opens again without asking */
+  'POST /api/plans/end': Endpoint<PlanEndRequest, Ok>;
 }
 
 export type ApiRoute = keyof ApiRoutes;
@@ -73,6 +79,9 @@ export const API_ROUTES: { readonly [R in ApiRoute]: true } = {
   'GET /api/ask': true,
   'POST /api/ask': true,
   'POST /api/ask/prompt': true,
+  'GET /api/plans': true,
+  'POST /api/plans/open': true,
+  'POST /api/plans/end': true,
 };
 
 export interface Ok {
@@ -85,19 +94,21 @@ export type TokensResponse = ThemeTokens & { analysis: string };
 /**
  * What /api/stamp answers, everything the page watches for in one request: the stored summary's
  * stamp and the key it's read under (another branch checked out moves it), the change's
- * fingerprint as it is on disk now (null when this review has none), and the agent's summary run
- * while one is going.
+ * fingerprint as it is on disk now (null when this review has none), the agent's summary run
+ * while one is going, and the Plan tab's list as one string (only when asked, `?plans`: else null).
  */
 export interface StampResponse {
   summary: number | null;
   key: string | null;
   change: string | null;
   building: BuildProgress | null;
+  plans: string | null;
 }
 
 export interface SettingsRequest {
   buildPreviews?: boolean;
   selfChecks?: boolean;
+  planTab?: boolean;
 }
 
 /** What GET /api/clear answers: what each kind would remove */
@@ -142,4 +153,59 @@ export interface AskRequest {
 
 export interface AskPromptResponse {
   text: string;
+}
+
+/** Whether the Plan tab can use Lavish (plan/lavish.ts) */
+export interface LavishSetup {
+  /** Where the lavish skill is (`~/.claude/skills/lavish`); null: in none of the places an agent looks */
+  skill: string | null;
+  /** The node found, by its version; null: none */
+  node: string | null;
+  /** The major version of node Lavish needs */
+  nodeNeeded: number;
+  /** How lens runs Lavish's CLI; null: it can't (no node new enough, or neither lavish-axi nor npx) */
+  cli: 'lavish-axi' | 'npx' | null;
+}
+
+/** One of the root's plans (plan/plans.ts) */
+export interface PlanEntry {
+  /** From the root, `/`-separated: `.lavish/plan-tab.html` */
+  file: string;
+  /** Its <title>; null: it has none */
+  title: string | null;
+  /** When the file last changed, in ms */
+  modified: number;
+  /** Its Lavish session; null: it never had one */
+  session: {
+    status: 'open' | 'ended';
+    /** The reader ended it from Lavish: it opens again only when they ask (`reopen`) */
+    endedByUser: boolean;
+    /** How many times the agent rewrote it */
+    revision: number;
+    /** Feedback sent that no agent has taken yet */
+    pending: number;
+    /** An agent polls it now; false also when Lavish's server didn't say */
+    listening: boolean;
+  } | null;
+}
+
+export interface PlansResponse {
+  setup: LavishSetup;
+  plans: PlanEntry[];
+  /** The list as one string: what /api/stamp?plans answers */
+  stamp: string;
+}
+
+export interface PlanOpenRequest {
+  file: string;
+  reopen: boolean;
+}
+
+export interface PlanEndRequest {
+  file: string;
+}
+
+/** Where the frame loads the session from: the plan proxy (plan/proxy.ts) */
+export interface PlanOpenResponse {
+  url: string;
 }
