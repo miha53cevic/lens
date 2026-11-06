@@ -1,6 +1,7 @@
-// Build previews: the reader's switch, and what the preview frames tell the page.
+// The reader's switches (Build previews, Check yourself, Plan tab), and what the preview frames tell the page.
 
-import { commit, update } from '../store.ts';
+import { commit, getState, update } from '../store.ts';
+import { setView } from './views.ts';
 import { api, noteDone, tracked } from './status.ts';
 import { cssPx } from '../../ui/zoom.ts';
 
@@ -21,6 +22,16 @@ export function setBuildPreviews(on: boolean): Promise<boolean> {
       );
     },
   );
+}
+
+/** The switch: the viewer shows the Plan tab. Turned off while it's open, the page goes back to the code. */
+export function setPlanTab(on: boolean): Promise<boolean> {
+  return tracked({ id: 'plan-tab', label: 'Saving Plan tab…', failed: "Couldn't save Plan tab" }, async () => {
+    await api('POST /api/settings', { body: { planTab: on } });
+    if (!on && getState().view === 'plan') setView('code');
+    update((state) => ({ data: { ...state.data, planTab: on } }));
+    noteDone(on ? 'Plan tab on' : 'Plan tab off');
+  });
 }
 
 /** The switch: summary mode asks the agent for questions to check your understanding with. */

@@ -18,6 +18,7 @@ export const KEY_TABS: { id: KeyTab; label: string; keys: KeyHelp[] }[] = [
       { keys: ['⌘⇧P', 'Ctrl ⇧P'], action: 'find a file by its path' },
       { keys: ['⌥ click'], action: 'find usages of the clicked identifier' },
       { keys: ['v'], action: 'switch Code / Summary', note: '(diff mode)' },
+      { keys: ['p'], action: 'switch to the Plan tab · back to Code', note: '(Plan tab on)' },
       { keys: ['s'], action: 'toggle the sidebar' },
       { keys: ['e', 'c'], action: 'expand / collapse all folds of the open file or change' },
       { keys: ['h'], action: 'toggle hunks only', note: '(diff mode)' },

@@ -11,7 +11,7 @@ import type { FileFoldModel, LensConfig } from './model.ts';
 import { loadDiff, collectUnits, type LoadedDiff } from './summary/collect.ts';
 import { reviewKey, summaryStamp } from './summary/store.ts';
 import { buildSummaryView, type SummaryView } from './summary/view.ts';
-import { buildPreviewsOn, selfChecksOn } from './summary/settings.ts';
+import { buildPreviewsOn, planTabOn, selfChecksOn } from './summary/settings.ts';
 
 const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build', 'out', 'coverage']);
 
@@ -143,6 +143,7 @@ export async function analyze(
     configProblems: readConfig(cwd).problems,
     buildPreviews: buildPreviewsOn(root, config),
     selfChecks: selfChecksOn(root, config),
+    planTab: planTabOn(root, config),
     label: diff ? diff.label : null,
     guessedBase: diff ? diff.guessedBase : null,
     summary,

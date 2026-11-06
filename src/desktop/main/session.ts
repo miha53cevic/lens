@@ -46,7 +46,7 @@ export function isPortInUse(error: unknown): boolean {
 const serverInfoFile = (root: string) => join(root, '.lens', 'server.json');
 
 /** What the repository's .lens/server.json says (src/cli-app/ask/discovery.ts writes it), or null without one. */
-function readServerInfo(root: string): { port: number; pid: number } | null {
+function readServerInfo(root: string): { port: number; pid: number; planPort?: unknown } | null {
   try {
     const info = JSON.parse(readFileSync(serverInfoFile(root), 'utf8'));
     return Number.isInteger(info?.port) && Number.isInteger(info?.pid) ? info : null;
@@ -68,6 +68,15 @@ function isAlive(pid: number): boolean {
 export function runningServer(root: string): { port: number } | null {
   const info = readServerInfo(root);
   return info && isAlive(info.pid) ? { port: info.port } : null;
+}
+
+/** Where the viewer running for this repository serves its Plan tab's frame from (`planPort`), or null. */
+export function planProxyOrigin(root: string): string | null {
+  const info = readServerInfo(root);
+  const port = info?.planPort;
+  return info && isAlive(info.pid) && Number.isInteger(port) && (port as number) > 0
+    ? 'http://127.0.0.1:' + port
+    : null;
 }
 
 /** Removes the repository's .lens/server.json when the process that wrote it is `pid` (a killed CLI can't). */

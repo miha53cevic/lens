@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 // The sidebar: the file tree (Code view) or the list of changes (Summary tab), each under
-// how far the review got.
+// how far the review got, or the list of plans (Plan tab).
 
 import { useCallback } from 'react';
 import { scrollStore, update, useLens } from '../../store.ts';
@@ -9,6 +9,7 @@ import { Filter } from './Filter.tsx';
 import { Tree } from './Tree.tsx';
 import { SummaryList } from './SummaryList/index.tsx';
 import { ChangesProgress, FilesProgress } from './Progress.tsx';
+import { PlanList } from './PlanList.tsx';
 import { hiddenStyle } from '../../shared.ts';
 
 export function Nav() {
@@ -20,6 +21,7 @@ export function Nav() {
     sumQuery: state.sumQuery,
   }));
   const summaryView = view === 'summary';
+  const planView = view === 'plan';
   // The tree and the summary list share the sidebar's scroller. Keyed by the view, it
   // remounts on a switch and comes back where that view was left, the open unit in sight.
   const restoreScroll = useCallback(
@@ -48,17 +50,17 @@ export function Nav() {
         scrollStore.setState((positions) => ({ nav: { ...positions.nav, [view]: scrollTop } }));
       }}
     >
-      {summaryView ? <ChangesProgress /> : <FilesProgress />}
+      {planView ? <PlanList /> : summaryView ? <ChangesProgress /> : <FilesProgress />}
       <Filter
         inputId='file-filter'
         clearId='filter-clear'
-        hidden={summaryView}
+        hidden={summaryView || planView}
         placeholder='Filter files'
         value={navQuery}
         onChange={(query) => update({ navQuery: query })}
       />
-      <div id='tree' style={hiddenStyle(summaryView)}>
-        {!summaryView && <Tree />}
+      <div id='tree' style={hiddenStyle(summaryView || planView)}>
+        {view === 'code' && <Tree />}
       </div>
       <Filter
         wrapperId='sum-filter'

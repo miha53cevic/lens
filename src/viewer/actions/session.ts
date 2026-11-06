@@ -94,7 +94,7 @@ export function refresh(theme = getState().data.theme): Promise<boolean> {
         expandedGaps: new Set(), // keyed by line numbers, which an edit moves
         foldOverrides: new Map(),
         // the summary went away (e.g. a refresh in path mode): back to the code
-        view: data.summary ? state.view : 'code',
+        view: data.summary || state.view === 'plan' ? state.view : 'code',
         summaryDot: false, // the analysis came with the newest summary: none waits
         changedOnDisk: false, // and with the code as it is now
       };

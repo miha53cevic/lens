@@ -39,6 +39,7 @@
 
   "buildPreviews": true,
   "selfChecks": false,
+  "planTab": false,
 
   "exclude": ["package-lock.json", "yarn.lock", "pnpm-lock.yaml", "bun.lock", "bun.lockb", "*.min.js", "*.min.css", "*.map"]
 }

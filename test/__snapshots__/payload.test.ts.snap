@@ -32,6 +32,7 @@ payload.config.folds: object
 payload.config.keepCommentMarkers: array
 payload.config.keepCommentMarkers[]: string
 payload.config.keepDirective: string
+payload.config.planTab: boolean
 payload.config.selfChecks: boolean
 payload.config.testFilePatterns: array
 payload.config.testFilePatterns[]: string
@@ -85,6 +86,7 @@ payload.marks.files: array
 payload.marks.units: array
 payload.marks: object
 payload.notes: array
+payload.planTab: boolean
 payload.renamed: array
 payload.review: string
 payload.selfChecks: boolean

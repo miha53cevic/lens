@@ -1,4 +1,4 @@
-// The header: the sidebar toggle, the change's name, Code | Summary, and the session's buttons.
+// The header: the sidebar toggle, the change's name, Code | Summary | Plan, and the session's buttons.
 // Everything else (the view settings, the shortcuts, the settings, end session) is in ⋯.
 
 import { MessageSquare, PanelLeft, RefreshCw, Search } from 'lucide-react';
@@ -19,7 +19,7 @@ import { TopBar, TopBarDivider } from '../../../ui/TopBar.tsx';
 
 export function Header() {
   const header = useLens((state) => ({
-    navToggleShown: state.view === 'summary' || treeModel(state).hasTree,
+    navToggleShown: state.view !== 'code' || treeModel(state).hasTree,
     label: state.data.label,
     askOpen: state.ask.open,
     canRefresh: state.data.canRefresh,

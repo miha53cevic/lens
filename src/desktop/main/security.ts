@@ -4,7 +4,8 @@
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { app, protocol, session, type Session, type WebContents, type WebPreferences } from 'electron';
+import { app, protocol, session, shell, type Session, type WebContents, type WebPreferences } from 'electron';
+import { LAVISH_REPO } from '../../cli-app/plan/links.ts';
 import type { ThemeSwatch } from '../shared/api.ts';
 import { themeAttributes } from '../shared/page.ts';
 
@@ -92,6 +93,16 @@ export function allowOrigin(contents: WebContents, origin: string): void {
   homeOrigin.set(contents, origin);
 }
 
+/**
+ * The one other origin a viewer's frames may load, never its page: the Plan tab's proxy of Lavish
+ * (src/cli-app/plan/proxy.ts), which the viewer's server names in .lens/server.json.
+ */
+const frameOrigin = new WeakMap<WebContents, string>();
+
+export function allowFrames(contents: WebContents, origin: string): void {
+  frameOrigin.set(contents, origin);
+}
+
 /** Whether a call from a page really comes from one of the app's own. */
 export function isAppPage(contents: WebContents, frameUrl: string | undefined): boolean {
   return homeOrigin.get(contents) === APP_ORIGIN && frameUrl !== undefined && originOf(frameUrl) === APP_ORIGIN;
@@ -137,15 +148,21 @@ export function lockDown(distDir: string, theme: () => ThemeSwatch, zoom: () => 
   lockPermissions(viewerSession());
 
   app.on('web-contents-created', (_event, contents) => {
-    // no page opens windows or embeds others; a page with no home origin goes nowhere at all
-    contents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    // no page opens windows or embeds others; a page with no home origin goes nowhere at all.
+    // The one link that leaves is the Plan tab's to Lavish's home, and it goes to the browser.
+    contents.setWindowOpenHandler(({ url }) => {
+      if (url === LAVISH_REPO) void shell.openExternal(url);
+      return { action: 'deny' };
+    });
     contents.on('will-attach-webview', (event) => event.preventDefault());
-    const stayHome = (event: { preventDefault(): void }, url: string) => {
+    const stayHome = (event: { preventDefault(): void }, url: string, isMainFrame = true) => {
       const home = homeOrigin.get(contents);
-      if (home === undefined || originOf(url) !== home) event.preventDefault();
+      const origin = originOf(url);
+      if (!isMainFrame && origin !== null && origin === frameOrigin.get(contents)) return;
+      if (home === undefined || origin !== home) event.preventDefault();
     };
     contents.on('will-navigate', stayHome);
-    contents.on('will-redirect', stayHome);
-    contents.on('will-frame-navigate', (event) => stayHome(event, event.url));
+    contents.on('will-redirect', (event) => stayHome(event, event.url, event.isMainFrame));
+    contents.on('will-frame-navigate', (event) => stayHome(event, event.url, event.isMainFrame));
   });
 }
