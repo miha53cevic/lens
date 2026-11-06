@@ -19,7 +19,6 @@ import { openDialog } from '../../actions/dialogs.ts';
 import { endSession } from '../../actions/session.ts';
 import { isDiffMode } from '../../shared.ts';
 import { isSplit } from '../../model/plans.ts';
-import { Kbd } from '../../../ui/Kbd.tsx';
 import { Menu, MenuItem, MenuSection, MenuSeparator, MenuSwitch } from '../../../ui/Menu.tsx';
 import { Segmented } from '../../../ui/Segmented.tsx';
 import { Stepper } from '../../../ui/Stepper.tsx';
@@ -112,7 +111,7 @@ export function MoreMenu() {
           />
         </div>
         <div className='px-2 pb-1 text-xs/[1.45] text-faint' id='threshold-hint'>
-          {more.levelHint} <Kbd size='sm' combo='[' /> <Kbd size='sm' combo=']' />
+          {more.levelHint}
         </div>
         <MenuItem id='expand-all' shortcut='e' onSelect={expandAll}>
           Expand all

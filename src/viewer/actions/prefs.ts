@@ -91,10 +91,6 @@ export function setThreshold(threshold: number): void {
   update({ threshold });
 }
 
-export function stepThreshold(delta: number): void {
-  setThreshold(Math.max(-1, Math.min(3, getState().threshold + delta)));
-}
-
 // The code's size, in both views. Kept in a cookie, so every repository's viewer opens at it.
 
 export function setCodeSize(size: number): void {

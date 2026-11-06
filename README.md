@@ -156,7 +156,7 @@ question can be copied as a prompt for any chat.
 ## How folding works
 
 Each region gets a category and a score (0–3) and folds when its score ≤ the threshold
-(default 1; `[` / `]` change it live). TODO/FIXME comments and `lens:keep` regions never
+(default 1; the ⋯ menu's Fold level changes it live). TODO/FIXME comments and `lens:keep` regions never
 fold.
 
 | category            | what folds (conservatively) |

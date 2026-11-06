@@ -86,10 +86,10 @@ pageTest('the fold level pins the regions scored above it', async () => {
     ['guard', 'logging'],
     'both score 1',
   );
-  await key(']');
+  await click($('#threshold [data-value="1"]'));
   assert.equal($$('#code .region.pinned').length, 0);
   assert.equal($('#threshold [aria-checked="true"]').dataset.value, '1');
-  assert.equal($('#threshold-hint').textContent, 'Level 1 folds import, guard, logging. [ ]');
+  assert.equal($('#threshold-hint').textContent, 'Level 1 folds import, guard, logging.');
 });
 
 pageTest(
@@ -98,7 +98,7 @@ pageTest(
     assert.equal(payload.threshold, 1);
     await click($('#threshold [data-value="0"]'));
     assert.deepEqual(JSON.parse(localStorage.getItem('lens.threshold')!), { level: 0, base: 1 });
-    await key(']');
+    await click($('#threshold [data-value="1"]'));
     assert.equal(localStorage.getItem('lens.threshold'), '');
   },
 );
