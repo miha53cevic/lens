@@ -258,6 +258,21 @@ test('gitDiffTargets: working-tree diffs carry no blob and read from disk', () =
   });
 });
 
+test('gitDiffTargets: a removed "-- a/…" or an added "++ b/…" line is the hunk\'s, not a file header', () => {
+  withRepo((dir, git) => {
+    writeFileSync(join(dir, 'q.sql'), 'select 0;\n-- a/b ratio\nselect 1;\nselect 9;\n');
+    git('add', '-A');
+    git('commit', '-qm', 'base');
+
+    writeFileSync(join(dir, 'q.sql'), 'select 0;\n++ b/c.ts\nselect 9;\n');
+    const result = gitDiffTargets([], dir);
+    assert.deepEqual(
+      result.targets.map((target) => [toPosix(target.file).split('/').pop(), target.changedLines, target.removals]),
+      [['q.sql', [2], [{ afterLine: 1, oldStart: 2, lines: ['-- a/b ratio', 'select 1;'] }]]],
+    );
+  });
+});
+
 test('gitDiffTargets keeps unsupported text files and skips binaries', () => {
   withRepo((dir, git) => {
     writeFileSync(join(dir, 'code.ts'), 'export const a = 1;\n');

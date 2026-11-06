@@ -16,8 +16,9 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs';
-import { delimiter, join } from 'node:path';
+import { delimiter, dirname, join, resolve } from 'node:path';
 import type { SetupItem, SetupPart } from '../shared/api.ts';
+import { pathKey } from './cli.ts';
 import { tildePath } from './display.ts';
 
 /** In the command file the app writes: how it knows the file is its own. */
@@ -83,6 +84,12 @@ function isOurShim(file: string): boolean {
   }
 }
 
+/** Whether `file` is right in `dir`: not a prefix of its path (`~/.local` doesn't hold `~/.local/bin/lens`). */
+function isInDir(env: SetupEnv, file: string, dir: string): boolean {
+  const [folder, wanted] = [resolve(dirname(file)), resolve(dir)];
+  return env.platform === 'win32' ? folder.toLowerCase() === wanted.toLowerCase() : folder === wanted;
+}
+
 /** Every `lens` a terminal could run, in the PATH's order, then the app's own folder. */
 function lensCommands(env: SetupEnv): string[] {
   const names = env.platform === 'win32' ? ['lens.cmd', 'lens.exe', 'lens.bat', 'lens.ps1', 'lens'] : ['lens'];
@@ -100,7 +107,7 @@ function cliItem(env: SetupEnv): SetupItem {
   const commands = lensCommands(env);
   const ours = commands.find(isOurShim);
   const first = commands[0];
-  if (first && first !== ours && env.pathDirs.some((dir) => first.startsWith(dir))) {
+  if (first && first !== ours && env.pathDirs.some((dir) => isInDir(env, first, dir))) {
     const note = ours
       ? `Another lens comes first on your PATH and is the one that runs. The app's is at ${tildePath(ours, env.home)}.`
       : 'Not installed by the app, so the app leaves it alone.';
@@ -108,7 +115,7 @@ function cliItem(env: SetupEnv): SetupItem {
   }
   if (!ours) return { state: 'missing', where: tildePath(join(shimDir(env), shimName(env)), env.home), note: null };
   const stale = readFileSync(ours, 'utf8') !== shimText(env);
-  const onPath = env.pathDirs.some((dir) => ours.startsWith(dir));
+  const onPath = env.pathDirs.some((dir) => isInDir(env, ours, dir));
   const folder = tildePath(join(ours, '..'), env.home);
   const note = stale
     ? 'It points at another copy of the app. Install again to point it here.'
@@ -234,7 +241,7 @@ function run(command: string, args: string[], env: NodeJS.ProcessEnv): Promise<s
  * desktop has a shorter PATH than a terminal, so the login shell is asked for its own.
  */
 export async function terminalPath(env: NodeJS.ProcessEnv, platform: NodeJS.Platform): Promise<string[]> {
-  const key = Object.keys(env).find((name) => name.toUpperCase() === 'PATH') ?? 'PATH';
+  const key = pathKey(env);
   let path = env[key] ?? '';
   if (platform !== 'win32' && env.SHELL) {
     try {

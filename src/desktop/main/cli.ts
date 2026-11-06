@@ -19,6 +19,11 @@ export interface LensCli {
   root: string;
 }
 
+/** The environment's name for the PATH: Windows spells it as it likes ("Path"). */
+export function pathKey(env: NodeJS.ProcessEnv): string {
+  return Object.keys(env).find((name) => name.toUpperCase() === 'PATH') ?? 'PATH';
+}
+
 /** Where git may be when the app wasn't started from a shell (macOS gives such apps a short PATH). */
 function extraPaths(platform: NodeJS.Platform, env: NodeJS.ProcessEnv): string[] {
   if (platform === 'darwin') return ['/opt/homebrew/bin', '/usr/local/bin'];
@@ -32,7 +37,7 @@ function extraPaths(platform: NodeJS.Platform, env: NodeJS.ProcessEnv): string[]
 
 /** The environment the CLI runs in: the app's, with git's usual homes on the PATH. */
 export function cliEnv(env: NodeJS.ProcessEnv = process.env, platform: NodeJS.Platform = process.platform) {
-  const key = Object.keys(env).find((name) => name.toUpperCase() === 'PATH') ?? 'PATH';
+  const key = pathKey(env);
   const current = (env[key] ?? '').split(delimiter).filter(Boolean);
   const added = extraPaths(platform, env).filter((dir) => !current.includes(dir) && existsSync(dir));
   return { ...env, [key]: [...current, ...added].join(delimiter) };
@@ -58,7 +63,7 @@ export function findBun(
   platform: NodeJS.Platform = process.platform,
   home: string = homedir(),
 ): string | null {
-  const key = Object.keys(env).find((name) => name.toUpperCase() === 'PATH') ?? 'PATH';
+  const key = pathKey(env);
   const usual = platform === 'win32' ? [] : ['/opt/homebrew/bin', '/usr/local/bin'];
   const dirs = [...(env[key] ?? '').split(delimiter).filter(Boolean), ...usual, join(home, '.bun', 'bin')];
   const name = platform === 'win32' ? 'bun.exe' : 'bun';

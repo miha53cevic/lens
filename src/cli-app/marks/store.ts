@@ -1,6 +1,6 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { lensDir } from '../summary/store.ts';
+import { lensDir, writeAtomic } from '../summary/store.ts';
 import { relPath } from '../paths.ts';
 import type { NotesPlace } from '../notes/store.ts';
 
@@ -70,7 +70,7 @@ export function readStoredMarks(root: string, review: string): ReviewMarks {
 function writeStoredMarks(root: string, review: string, marks: ReviewMarks): void {
   mkdirSync(join(lensDir(root), 'marks'), { recursive: true });
   const stored: StoredMarks = { version: 1, ...marks };
-  writeFileSync(marksFile(root, review), JSON.stringify(stored, null, 2) + '\n');
+  writeAtomic(marksFile(root, review), JSON.stringify(stored, null, 2) + '\n');
 }
 
 export function countMarks(marks: ReviewMarks): number {
