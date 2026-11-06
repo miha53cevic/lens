@@ -752,6 +752,7 @@ pageTest('a concern marked real can be copied for the agent from the overview; n
     ].join('\n'),
   );
   assert.ok($('[data-part="ov-real-copy"] .lucide-check'));
+  assert.equal($('[data-part="ov-real-copy"]').textContent, 'Copied', 'the button says it was copied');
   assert.equal($('#status [data-part="status-label"]').textContent, 'Copied 1 concern');
 
   // taking the verdict back takes the block away

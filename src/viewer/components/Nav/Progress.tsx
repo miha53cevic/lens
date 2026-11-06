@@ -1,4 +1,4 @@
-import { Copy } from 'lucide-react';
+import { Check, Copy } from 'lucide-react';
 import { useLens } from '../../store.ts';
 import { fileProgress, unitProgress } from '../../model/progress.ts';
 import { listModel } from '../../model/summaryList.ts';
@@ -25,12 +25,20 @@ export function FilesProgress() {
  */
 function NotesForAgent() {
   const handoff = useLens((state) => (state.data.summary ? null : notesForAgent(state.notes, state.data.files)));
+  const copied = useLens((state) => state.handoffCopied);
   if (!handoff || handoff.notes.length === 0) return null;
   return (
     <span data-part='notes-for-agent' className='inline-flex flex-wrap items-center gap-1 text-xs text-muted'>
       {plural(handoff.notes.length, 'note')} for your agent
-      <Button variant='ghost' size='xs' id='notes-copy' onClick={() => void copyForAgent(handoff)}>
-        <Copy size={11} /> Copy
+      <Button
+        variant='ghost'
+        size='xs'
+        id='notes-copy'
+        data-copied={copied ? '' : undefined}
+        className={copied ? 'text-add' : undefined}
+        onClick={(event) => void copyForAgent(handoff, event.currentTarget)}
+      >
+        {copied ? <Check size={11} /> : <Copy size={11} />} {copied ? 'Copied' : 'Copy'}
       </Button>
     </span>
   );

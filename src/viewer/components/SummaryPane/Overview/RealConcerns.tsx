@@ -2,8 +2,7 @@ import { useState } from 'react';
 import { Check, Copy } from 'lucide-react';
 import { useLens, wholeData } from '../../../store.ts';
 import { confirmedLabel, realConcerns } from '../../../model/realConcerns.ts';
-import { noteDone } from '../../../actions/status.ts';
-import { sendRound, sentFindings } from '../../../actions/rounds.ts';
+import { copyForAgent } from '../../../actions/notes.ts';
 import { plural } from '../../../shared.ts';
 import { Button } from '../../../../ui/Button.tsx';
 
@@ -18,22 +17,14 @@ export function RealConcerns() {
     const whole = wholeData(state);
     return realConcerns(whole.summary!.units, state.concernMarks, state.notes, whole.files);
   });
-  const [copied, setCopied] = useState(false);
+  const copied = useLens((state) => state.handoffCopied);
   // no clipboard (an insecure origin, a denied permission): the text itself, to select and copy
   const [shown, setShown] = useState(false);
   const count = real.items.length + real.notes.length;
   if (count === 0 && real.stale === 0) return null;
 
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(real.text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1200);
-      await sendRound(sentFindings(real));
-      noteDone('Copied ' + confirmedLabel(real), 'paste them to your agent');
-    } catch {
-      setShown(true);
-    }
+  const copy = async (button: HTMLElement) => {
+    if (!(await copyForAgent(real, button))) setShown(true);
   };
   return (
     <div data-part='ov-real' className='rounded-md border border-line bg-surface px-4 py-3'>
@@ -50,9 +41,15 @@ export function RealConcerns() {
           )}
         </span>
         {count > 0 && (
-          <Button size='sm' data-part='ov-real-copy' className='' onClick={copy}>
+          <Button
+            size='sm'
+            data-part='ov-real-copy'
+            data-copied={copied ? '' : undefined}
+            className={copied ? 'text-add' : undefined}
+            onClick={(event) => void copy(event.currentTarget)}
+          >
             {copied ? <Check size={13} /> : <Copy size={13} />}
-            Copy for your agent
+            {copied ? 'Copied' : 'Copy for your agent'}
           </Button>
         )}
       </div>

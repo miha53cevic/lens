@@ -67,6 +67,8 @@ export interface LensState {
   /** The slow actions under way, newest last: the status bar's "working", and what their controls wait for (isBusy) */
   activities: readonly Activity[];
   notice: StatusNotice | null;
+  /** The handoff was just copied: every copy-for-the-agent button says so a moment (actions/notes.ts) */
+  handoffCopied: boolean;
   /** A request didn't reach the server: it has stopped */
   serverGone: boolean;
   /** ⏻ end: the server stopped */
@@ -189,6 +191,7 @@ const initialState: LensState = {
   threshold: loadThreshold(),
   activities: [],
   notice: null,
+  handoffCopied: false,
   serverGone: false,
   ended: false,
   view: 'code', // Code is always the default

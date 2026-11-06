@@ -11,6 +11,7 @@ import { fileByPath, fileText, placeOn } from '../model/notes.ts';
 import { setAsk } from '../ask/rail.ts';
 import { confirmedLabel, type RealConcerns } from '../model/realConcerns.ts';
 import { api, noteDone, noteFailure, tracked } from './status.ts';
+import { pop } from '../../ui/motion.ts';
 
 const NOTE_INPUT = 'note-input';
 
@@ -97,10 +98,22 @@ export async function resolveNote(note: ReaderNote): Promise<void> {
   });
 }
 
-/** The handoff's text on the clipboard, for the reader to paste to their agent. */
-export async function copyForAgent(handoff: RealConcerns): Promise<boolean> {
+/** How long a copy button says "Copied" */
+const COPIED_FOR_MS = 1200;
+/** The timer that takes "Copied" back: a resource, not state */
+let copiedTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** The handoff's text on the clipboard, for the reader to paste to their agent; `button` pops as it lands. */
+export async function copyForAgent(handoff: RealConcerns, button?: Element | null): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(handoff.text);
+    if (copiedTimer) clearTimeout(copiedTimer);
+    update({ handoffCopied: true });
+    pop(button ?? null);
+    copiedTimer = setTimeout(() => {
+      copiedTimer = null;
+      update({ handoffCopied: false });
+    }, COPIED_FOR_MS);
     if (getState().data.summary) await sendRound(sentFindings(handoff));
     noteDone('Copied ' + confirmedLabel(handoff), 'paste them to your agent');
     return true;

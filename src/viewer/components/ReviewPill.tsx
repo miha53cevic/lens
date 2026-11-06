@@ -51,6 +51,7 @@ export function ReviewPill() {
     return {
       codeView,
       onOverview: page === 'overview',
+      copied: state.handoffCopied,
       stage,
       handoffLabel,
       total: progress?.total ?? 0,
@@ -117,10 +118,19 @@ export function ReviewPill() {
             variant='primary'
             size='sm'
             id='review-handoff'
-            onClick={() => void copyForAgent(handoff(getState()))}
+            data-copied={pill.copied ? '' : undefined}
+            onClick={(event) => void copyForAgent(handoff(getState()), event.currentTarget)}
           >
-            <Copy size={13} /> Copy {pill.handoffLabel}
-            <span className='@max-[800px]/editor:hidden'> for your agent</span>
+            {pill.copied ? (
+              <>
+                <Check size={13} /> Copied
+              </>
+            ) : (
+              <>
+                <Copy size={13} /> Copy {pill.handoffLabel}
+                <span className='@max-[800px]/editor:hidden'> for your agent</span>
+              </>
+            )}
           </Button>
         </>
       )}
