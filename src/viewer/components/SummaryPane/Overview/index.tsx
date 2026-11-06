@@ -8,7 +8,6 @@ import { setSignalFilter } from '../../../actions/summary.ts';
 import { plural } from '../../../shared.ts';
 import { AgentOverview } from './AgentOverview.tsx';
 import { RealConcerns } from './RealConcerns.tsx';
-import { Rounds } from './Rounds.tsx';
 import { SelfChecks } from './SelfChecks.tsx';
 import { Drawings } from '../Drawings/index.tsx';
 import { SignalIcon } from '../../SignalIcon.tsx';
@@ -62,7 +61,6 @@ export function Overview() {
           ))}
         </div>
       )}
-      <Rounds />
       <RealConcerns />
       <AgentOverview summary={summary} anySummarized={list.summarized > 0} checking={checking} />
       <Drawings unitId={null} />

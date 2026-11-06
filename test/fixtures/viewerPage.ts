@@ -93,8 +93,6 @@ export async function open(prefs: Record<string, string> = {}, hash = '', cookie
     switch (method + ' ' + url.pathname) {
       case 'POST /api/marks':
         return reply({ ok: true });
-      case 'POST /api/rounds':
-        return reply({ round: null });
       case 'GET /api/ask':
         return reply(page.ask);
       case 'POST /api/ask':

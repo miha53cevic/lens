@@ -1026,20 +1026,16 @@ test('validate: a whole-diff pass replaces the stored flows; other passes merge 
   assert.equal(noFlows.stored.flows.length, 2, 'a submit without flows leaves them alone');
 });
 
-test('validate: self-checks name a flow and a line of a unit, at most three a flow; a sent finding gets its claim', () => {
+test('validate: self-checks name a flow and a line of a unit, at most three a flow', () => {
   const flow = { title: 'Paging', path: 'a', units: { [BUNDLE.units[0].id]: 'a', [BUNDLE.units[1].id]: 'b' } };
   const previous = { version: 1 as const, updatedAt: '', units: {}, flows: [flow] };
   const unit = BUNDLE.units[0].id;
   const good = { flow: 'Paging', question: 'What now?', answer: 'The first 50.', unit, line: 'N5' };
   const outcome = validateResult(
-    { ...BUNDLE, checks: true, wholeDiff: true, sent: ['key-one'] },
+    { ...BUNDLE, checks: true, wholeDiff: true },
     {
       units: {},
       checks: [good, good, good, good, { ...good, flow: 'Other' }, { ...good, line: 'N999' }],
-      sent: {
-        '1': { fixed: true, how: 'The key has the limit now', unit, line: 'N6' },
-        '2': { fixed: true, how: 'No such one', unit, line: 'N6' },
-      },
     },
     '/nonexistent',
     previous,
@@ -1048,9 +1044,6 @@ test('validate: self-checks name a flow and a line of a unit, at most three a fl
   assert.equal(outcome.stored.checked, unitSetHash(BUNDLE.units));
   assert.ok(outcome.dropped.some((reason) => /has its 3 already/.test(reason)));
   assert.ok(outcome.dropped.some((reason) => /isn't one of the flows/.test(reason)));
-  assert.equal(outcome.acceptedSent, 1);
-  assert.deepEqual(Object.keys(outcome.stored.sentChecks ?? {}), ['key-one']);
-  assert.ok(outcome.dropped.some((reason) => /no finding with that number/.test(reason)));
 });
 
 test("validate: the overview is stored with the diff's hash; an over-long one is dropped", () => {

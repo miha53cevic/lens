@@ -70,7 +70,7 @@ run it yourself in a terminal (install it from the app's Settings → Agent).
 | `lens pr 123` / `lens pr <url>` | a GitHub PR, fetched with plain git (no API, no gh) |
 | `lens info` | what could be reviewed here: the branch, its changes, the PR remote |
 | `lens config` | the effective config and where it comes from |
-| `lens clear` | what lens keeps in `.lens/`, by kind; `lens clear <kind> --all` (or one review's `<key>`) clears it: `summaries`, `notes`, `marks`, `rounds` |
+| `lens clear` | what lens keeps in `.lens/`, by kind; `lens clear <kind> --all` (or one review's `<key>`) clears it: `summaries`, `notes`, `marks` |
 
 | flag | meaning |
 | --- | --- |
@@ -129,11 +129,6 @@ cover, and go stale with their code.
 ```bash
 /lens-review --staged           # in your agent; or: pr 87
 ```
-
-**Rounds**: copying your findings for the agent keeps the code as it is then. Your next read can be
-only what changed since (the overview's switch, both views), with what became of each finding:
-*lines changed*, *nearby changed* or *untouched* is lens's own measure, and *fixed* or *not fixed*
-is your agent's claim on its next summary. Kept per review in `.lens/rounds/`.
 
 **Check yourself** (the ⋯ menu, off by default): your agent also writes a few questions per flow, with
 the answer behind a click, for checking you understood the change. No score and no gate.

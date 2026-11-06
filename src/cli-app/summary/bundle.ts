@@ -44,7 +44,6 @@ export const LIMITS = {
   checksPerFlow: 3,
   checkQuestion: 160,
   checkAnswer: 300,
-  sentHow: 120,
 };
 
 /** The biggest preview file, as the instructions say it */
@@ -68,8 +67,6 @@ export interface PrepareInput {
   drawings?: boolean;
   /** Self-checks are on: the whole-diff pass asks for them */
   checks?: boolean;
-  /** The findings the reader last sent back, and the code they were sent on (rounds/) */
-  sent?: { key: string; text: string; place: string }[];
 }
 
 /** Files that draw UI without being a component or a hook lens can name */
@@ -139,7 +136,6 @@ export function prepareBundle(input: PrepareInput): PrepareResult {
     units: bundleUnits,
     ...(input.drawings ? { drawings: true } : {}),
     ...(input.checks ? { checks: true } : {}),
-    ...(input.sent?.length ? { sent: input.sent.map((finding) => finding.key) } : {}),
   };
 
   // Stale task files from a bigger earlier diff must not linger, nor an earlier pass's preview files.
@@ -428,7 +424,7 @@ ${FLOWS_RULE}
 ## Overview
 ${OVERVIEW_RULE}
 ${drawingRules(input, dir)}${checkRules(input)}`
-}${sentRules(input)}
+}
 Keep everything terse: the viewer shows it in a small table next to the code.
 `;
 }
@@ -498,7 +494,7 @@ ${FLOWS_RULE}
 ## Overview
 ${OVERVIEW_RULE}
 `
-}${drawingsDone ? '' : drawingRules(input, dir)}${checksDone ? '' : checkRules(input)}${sentRules(input)}`;
+}${drawingsDone ? '' : drawingRules(input, dir)}${checksDone ? '' : checkRules(input)}`;
 }
 
 /** Questions the reader can check their understanding with, while they've turned them on. */
@@ -509,19 +505,6 @@ function checkRules(input: PrepareInput): string {
 \`checks\`: up to ${LIMITS.checksPerFlow} per flow, for flows a reviewer must understand (not "${HOUSEKEEPING}"): {flow (its title), question
 (≤${LIMITS.checkQuestion}), answer (≤${LIMITS.checkAnswer}), unit, line}. Ask what someone who read the change can answer and someone who
 skimmed it can't: what happens in a concrete situation, what would break if a line went. Not trivia about names. \`line\` is a line of \`unit\` (N… or O…) where the answer shows.
-`;
-}
-
-/** The findings the reader sent back: the agent says whether the code fixes each now. */
-function sentRules(input: PrepareInput): string {
-  if (!input.sent?.length) return '';
-  const list = input.sent.map((finding, i) => `${i + 1}. ${finding.place}: ${finding.text}`).join('\n');
-  return `
-## What the reviewer sent back
-The reviewer sent these for fixing. Lens sees only whether their lines changed; you say whether each is really fixed.
-${list}
-\`sent\`: {"<number above>": {fixed (true or false), how (≤${LIMITS.sentHow}), unit, line}}: \`how\` says what fixes it or what's still
-wrong, \`unit\` and \`line\` (N… or O…) where that shows. Leave out one that the code doesn't touch.
 `;
 }
 
@@ -714,21 +697,6 @@ export const RESULT_SCHEMA = {
           flow: { type: 'string' },
           question: { type: 'string', maxLength: LIMITS.checkQuestion },
           answer: { type: 'string', maxLength: LIMITS.checkAnswer },
-          unit: { type: 'string' },
-          line: { type: 'string', pattern: '^[NO][0-9]+$' },
-        },
-      },
-    },
-    sent: {
-      type: 'object',
-      description:
-        'only while the instructions list findings the reviewer sent back: their number → what the code does now',
-      additionalProperties: {
-        type: 'object',
-        required: ['fixed', 'how', 'unit', 'line'],
-        properties: {
-          fixed: { type: 'boolean' },
-          how: { type: 'string', maxLength: LIMITS.sentHow },
           unit: { type: 'string' },
           line: { type: 'string', pattern: '^[NO][0-9]+$' },
         },

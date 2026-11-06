@@ -2,7 +2,6 @@
 // edited and resolved in place. Only the reader writes them; lens copies the ones with a kind for
 // the agent when the reader asks (model/realConcerns.ts) and sends nothing anywhere itself.
 
-import { sendRound, sentFindings } from './rounds.ts';
 import type { NoteKind, ReaderNote } from '../../cli-app/notes/store.ts';
 import type { NewNote } from '../../cli-app/api/contract.ts';
 import { commit, getState, update } from '../store.ts';
@@ -115,7 +114,6 @@ export async function copyForAgent(handoff: RealConcerns, button?: Element | nul
       update({ handoffCopied: false });
     }, COPIED_FOR_MS);
     // the button says it was copied: the status bar needn't
-    if (getState().data.summary) await sendRound(sentFindings(handoff));
     return true;
   } catch (error) {
     noteFailure("Couldn't copy the notes", (error as Error).message);

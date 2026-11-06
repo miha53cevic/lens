@@ -97,7 +97,6 @@ payload.summary.flows: array
 payload.summary.key: string
 payload.summary.overview: null
 payload.summary.previews: array
-payload.summary.round: null
 payload.summary.sequences: array
 payload.summary.stamp: number
 payload.summary.units: array
