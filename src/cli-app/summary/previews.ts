@@ -148,6 +148,8 @@ export function previewResponse(root: string, key: string | null, asset: string)
         `script-src 'nonce-${nonce}'`,
         "base-uri 'none'",
         "form-action 'none'",
+        // an opaque origin even when the preview is opened on its own, not in the page's sandboxed frame
+        'sandbox allow-scripts',
       ].join('; '),
       'x-content-type-options': 'nosniff',
       'cache-control': 'no-store',

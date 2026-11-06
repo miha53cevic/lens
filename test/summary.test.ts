@@ -1746,6 +1746,7 @@ test("writeAssets keeps the previews' files and drops the ones no preview names;
     assert.match(served.body, new RegExp(`<script nonce="${nonce.replace(/[+/=]/g, '\\$&')}">`));
     assert.match(served.body, /parent\.postMessage/);
     assert.equal(served.headers['x-content-type-options'], 'nosniff');
+    assert.match(served.headers['content-security-policy'], /; sandbox allow-scripts$/, "never on lens's own origin");
 
     for (const [key, asset] of [
       ['diff-x', '../../../etc/passwd'],
