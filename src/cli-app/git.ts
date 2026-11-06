@@ -81,8 +81,27 @@ export function parseDiff(output: string): ParsedDiff {
   // lines that happen to start with "--" are never mistaken for headers.
   const isMinusHeader = (l: string) => l.startsWith('--- a/') || l.startsWith('--- /dev/null');
   const isPlusHeader = (l: string) => l.startsWith('+++ b/') || l.startsWith('+++ /dev/null');
+  // The lines a two-sided hunk still has to come, from its header's counts: until they have, a
+  // line is the hunk's even when it reads like a header (a removed "-- a/b" is "--- a/b").
+  let oldLeft = 0;
+  let newLeft = 0;
 
   for (const line of output.split('\n')) {
+    if (current && hunkRemoval && (oldLeft > 0 || newLeft > 0)) {
+      if (line.startsWith('-') && oldLeft > 0) {
+        oldLeft--;
+        hunkRemoval.lines.push(line.slice(1));
+        if (hunkRemoval.lines.length === 1) current.removals.push(hunkRemoval);
+        continue;
+      }
+      if (line.startsWith('+') && newLeft > 0) {
+        newLeft--;
+        continue;
+      }
+      if (line.startsWith('\\')) continue; // "\ No newline at end of file"
+      // anything else ends a hunk git cut short: read it as the parser always has
+      oldLeft = newLeft = 0;
+    }
     if (line.startsWith('diff --git ')) {
       flushRename();
       current = null; // a header this parser can't read must not inherit the previous file's hunks
@@ -112,11 +131,15 @@ export function parseDiff(output: string): ParsedDiff {
       hunkRemoval = null;
     } else if (current && line.startsWith('@@')) {
       // "@@ -a,b +c,d @@", or "@@@ -a,b -c,d +e,f @@@" for combined (merge-conflict) diffs
-      const match = /^@@+ -(\d+)(?:,\d+)?(?: -\d+(?:,\d+)?)* \+(\d+)(?:,(\d+))?/.exec(line);
+      const match = /^@@+ -(\d+)(?:,(\d+))?(( -\d+(?:,\d+)?)*) \+(\d+)(?:,(\d+))?/.exec(line);
       if (!match) continue;
       const oldStart = Number(match[1]);
-      const start = Number(match[2]);
-      const count = match[3] === undefined ? 1 : Number(match[3]);
+      const start = Number(match[5]);
+      const count = match[6] === undefined ? 1 : Number(match[6]);
+      // a combined diff's lines carry a column per parent: they aren't counted
+      const combined = match[3] !== '';
+      oldLeft = combined ? 0 : match[2] === undefined ? 1 : Number(match[2]);
+      newLeft = combined ? 0 : count;
       for (let l = start; l < start + count; l++) current.changedLines.push(l);
       // Where removed lines anchor on the new side: a pure deletion's `start`
       // is the line BEFORE the gap; a replacement's removed lines sit before
