@@ -78,9 +78,12 @@ export function viewerPreferences(): WebPreferences {
   };
 }
 
-/** Copying to the clipboard (the viewer's copy buttons) is the one permission a page gets. */
-function lockPermissions(target: Session): void {
-  const allowed = (permission: string) => permission === 'clipboard-sanitized-write';
+/**
+ * Copying to the clipboard (the viewer's copy buttons) is the one permission a page gets, and
+ * `also` what that session's pages need besides (the viewer's Plan tab: the plan full screen).
+ */
+function lockPermissions(target: Session, also: string[] = []): void {
+  const allowed = (permission: string) => permission === 'clipboard-sanitized-write' || also.includes(permission);
   target.setPermissionRequestHandler((_contents, permission, answer) => answer(allowed(permission)));
   target.setPermissionCheckHandler((_contents, permission) => allowed(permission));
   target.on('will-download', (event) => event.preventDefault());
@@ -145,7 +148,7 @@ export function lockDown(distDir: string, theme: () => ThemeSwatch, zoom: () => 
     });
   });
   lockPermissions(session.defaultSession);
-  lockPermissions(viewerSession());
+  lockPermissions(viewerSession(), ['fullscreen']);
 
   app.on('web-contents-created', (_event, contents) => {
     // no page opens windows or embeds others; a page with no home origin goes nowhere at all.

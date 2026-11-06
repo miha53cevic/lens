@@ -19,6 +19,8 @@ import { CODE_SIZE_DEFAULT, savedCodeSize } from './codeSize.ts';
 import { savedZoom, UI_ZOOM_DEFAULT } from '../cli-app/zoom.ts';
 
 export type View = 'code' | 'summary' | 'plan';
+/** The plans the sidebar lists: active ones have a session open in Lavish, pending ones feedback no agent took yet */
+export type PlanFilter = 'all' | 'active' | 'pending';
 export type { ConcernMark };
 export type SignalId = ConcernKind | 'breaks';
 /** What the list's chips filter by: a signal, any of them, or the concerns the reader dismissed */
@@ -142,6 +144,9 @@ export interface LensState {
     picked: string | null;
     /** Where the picked plan's frame loads from, once Lavish opened its session */
     frame: { file: string; url: string } | null;
+    /** The sidebar's filter box: matches a plan's name or its path */
+    query: string;
+    filter: PlanFilter;
   };
   // Ask rail
   ask: {
@@ -237,7 +242,7 @@ const initialState: LensState = {
   noteDraft: null,
   landed: null,
   clearInfo: null,
-  plan: { list: null, picked: null, frame: null },
+  plan: { list: null, picked: null, frame: null, query: '', filter: 'all' },
   ask: {
     open: readPref('lens.askOpen') === '1',
     width: savedWidth('lens.askWidth', 280, 720, 360),

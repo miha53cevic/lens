@@ -355,6 +355,13 @@ export function Sandbox() {
           Open <Kbd combo='⌘ ↵' />
         </Button>
         <CopyCommand command='/lens-review' />
+        <div className='w-[320px]'>
+          <CopyCommand
+            block
+            wrap
+            command="/lavish add a cache to the search endpoint. Open it with lavish-axi's --no-open: I'm reviewing it in lens."
+          />
+        </div>
         <ProgressRing done={3} total={8} label='files viewed' />
         <Spinner />
         <span className='dot' />

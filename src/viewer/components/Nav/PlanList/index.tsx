@@ -1,10 +1,12 @@
 import { Plus } from 'lucide-react';
-import type { PlanEntry } from '../../../cli-app/api/contract.ts';
-import { useLens } from '../../store.ts';
-import { pickPlan } from '../../actions/planTab.ts';
-import { planName } from '../../model/planTab.ts';
-import { ListRow } from '../../../ui/ListRow.tsx';
-import { Skeleton } from '../../../ui/Skeleton.tsx';
+import type { PlanEntry } from '../../../../cli-app/api/contract.ts';
+import { useLens } from '../../../store.ts';
+import { pickPlan } from '../../../actions/planTab.ts';
+import { planListModel, planName } from '../../../model/planTab.ts';
+import { ListRow } from '../../../../ui/ListRow.tsx';
+import { Kbd } from '../../../../ui/Kbd.tsx';
+import { Skeleton } from '../../../../ui/Skeleton.tsx';
+import { PlanFilter } from './PlanFilter.tsx';
 
 /** What a plan's session is, in a word, and its dot: live (an agent polls it), open, ended, or none yet. */
 function sessionWord(plan: PlanEntry): { text: string; dot: string } {
@@ -15,9 +17,13 @@ function sessionWord(plan: PlanEntry): { text: string; dot: string } {
   return { text: 'open', dot: 'dot [--dot:var(--accent)]' };
 }
 
-/** The Plan tab's sidebar: New plan, then the root's plans in .lavish/, newest first. */
+/** The Plan tab's sidebar: New plan, then the root's plans in .lavish/, newest first, through its filter. */
 export function PlanList() {
-  const { plans, picked } = useLens((state) => ({ plans: state.plan.list?.plans ?? null, picked: state.plan.picked }));
+  const { plans, any, picked } = useLens((state) => ({
+    plans: planListModel(state).plans,
+    any: !!state.plan.list?.plans.length,
+    picked: state.plan.picked,
+  }));
 
   return (
     <div id='plan-list' className='flex flex-col gap-1'>
@@ -25,15 +31,17 @@ export function PlanList() {
         selected={picked === null}
         data-part='plan-new'
         data-active={picked === null || undefined}
-        className='mb-1 flex w-full items-center gap-2 px-2 py-1 font-medium'
+        className='group/new mb-1 flex w-full items-center gap-2 px-2 py-1 font-medium [&_[data-part=kbd-combo]]:ml-auto'
         onClick={() => pickPlan(null)}
       >
-        <Plus size={14} />
+        <Plus size={14} className='group-data-active/new:text-accent' />
         New plan
+        <Kbd combo='g' />
       </ListRow>
+      {any && <PlanFilter />}
       <span className='eyebrow sm px-2 pt-2 pb-1 text-muted'>Plans · .lavish/</span>
       {plans === null && [0, 1, 2].map((row) => <Skeleton key={row} size='sm' className='mx-2' />)}
-      {plans?.length === 0 && <div className='no-match'>no plans yet</div>}
+      {plans?.length === 0 && <div className='no-match'>{any ? 'no plans match' : 'no plans yet'}</div>}
       {plans?.map((plan) => {
         const word = sessionWord(plan);
         const selected = plan.file === picked;
@@ -51,7 +59,7 @@ export function PlanList() {
             <span className={'flex-none ' + word.dot} />
             <span className='min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap'>{planName(plan)}</span>
             <span data-part='plan-state' className='flex-none text-xs text-muted'>
-              {plan.session && plan.session.pending > 0 ? plan.session.pending + ' waiting' : word.text}
+              {plan.session && plan.session.pending > 0 ? plan.session.pending + ' pending' : word.text}
             </span>
           </ListRow>
         );

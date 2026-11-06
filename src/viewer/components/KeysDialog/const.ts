@@ -6,7 +6,7 @@ export interface KeyHelp {
   note?: string;
 }
 
-export type KeyTab = 'global' | 'code' | 'summary';
+export type KeyTab = 'global' | 'code' | 'summary' | 'plan';
 
 /** The ? help's tabs: keys that work the same in both views, then each view's own. */
 export const KEY_TABS: { id: KeyTab; label: string; keys: KeyHelp[] }[] = [
@@ -54,6 +54,15 @@ export const KEY_TABS: { id: KeyTab; label: string; keys: KeyHelp[] }[] = [
       { keys: ['o'], action: 'open the change in the code view' },
       { keys: ['m'], action: 'mark the change as viewed (the inbox: read, and on to the next)' },
       { keys: ['/'], action: 'filter the changes' },
+    ],
+  },
+  {
+    id: 'plan',
+    label: 'Plan',
+    keys: [
+      { keys: ['g'], action: 'New plan' },
+      { keys: ['f'], action: 'the plan full screen (Esc leaves it)' },
+      { keys: ['/'], action: 'filter the plans' },
     ],
   },
 ];

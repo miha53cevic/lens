@@ -251,7 +251,10 @@ export class AppWindow implements TabHost {
     view.webContents.close();
   }
 
-  /** The active tab's page in view, under the strip; every other view hidden. */
+  /**
+   * The active tab's page in view, under the strip; every other view hidden. A page full screen (the
+   * Plan tab's plan) stays under it too: Electron takes the window full screen, and the tabs stay in reach.
+   */
   private layout(): void {
     const [width, height] = this.win.getContentSize();
     const bounds = { x: 0, y: STRIP_HEIGHT, width, height: Math.max(0, height - STRIP_HEIGHT) };

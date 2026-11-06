@@ -153,10 +153,11 @@ question can be copied as a prompt for any chat.
 
 The Plan tab (`p`; turn it on in the ⋯ menu, or with `planTab` in the config) lists the plans in the repository's `.lavish/`, each with its
 [Lavish](https://github.com/kunchenguid/lavish-axi) session: whether an agent is listening
-to it, and how much feedback waits. Pick one and Lavish's own editor opens in the tab, so the
+to it, and how much of your feedback is still pending for the agent. Pick one and Lavish's own editor opens in the tab, so the
 loop of annotating the plan, sending feedback and pressing its **Build it** happens without
 leaving lens. **New plan** turns what you type into a `/lavish …` command to paste into your
-agent; the new plan shows up in the list once the agent runs Lavish.
+agent; the new plan shows up in the list once the agent runs Lavish. The list filters by name or path, and by
+session (All, Active: open in Lavish, Pending: feedback waiting); `f` shows the open plan full screen.
 
 It needs Lavish's skill (`npx skills add kunchenguid/lavish-axi --skill lavish -g`) and
 Node 22 or newer. Without them the tab says what's missing. Lavish's page refuses to be

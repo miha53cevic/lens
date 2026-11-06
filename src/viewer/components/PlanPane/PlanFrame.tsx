@@ -1,11 +1,12 @@
-import { RotateCcw } from 'lucide-react';
+import { Maximize, RotateCcw, X } from 'lucide-react';
 import type { PlanEntry } from '../../../cli-app/api/contract.ts';
 import { useLens } from '../../store.ts';
-import { openPlan } from '../../actions/planTab.ts';
+import { closePlan, openPlan, planFullScreen } from '../../actions/planTab.ts';
 import { planName, resumeCommand } from '../../model/planTab.ts';
 import { isBusy } from '../../model/status.ts';
 import { Button } from '../../../ui/Button.tsx';
 import { CopyCommand } from '../../../ui/CopyCommand.tsx';
+import { IconButton } from '../../../ui/IconButton.tsx';
 import { Skeleton } from '../../../ui/Skeleton.tsx';
 
 /**
@@ -14,12 +15,13 @@ import { Skeleton } from '../../../ui/Skeleton.tsx';
  * can't take the page away.
  */
 export function PlanFrame({ plan }: { plan: PlanEntry }) {
-  const { url, opening } = useLens((state) => ({
+  const { url, opening, closing } = useLens((state) => ({
     url: state.plan.frame?.file === plan.file ? state.plan.frame.url : null,
     opening: isBusy(state, 'plan-open'),
+    closing: isBusy(state, 'plan-close'),
   }));
   const session = plan.session;
-  const endedByYou = !url && session?.status === 'ended' && session.endedByUser;
+  const ended = !url && session?.status === 'ended';
 
   return (
     <div data-part='plan-frame' data-file={plan.file} className='flex min-h-0 flex-1 flex-col gap-2 px-6 pt-3 pb-4'>
@@ -35,20 +37,31 @@ export function PlanFrame({ plan }: { plan: PlanEntry }) {
         )}
         {url && !session?.listening && (
           <span data-part='plan-no-agent' className='inline-flex items-center gap-2 text-sm text-muted'>
-            No agent on it · <CopyCommand command={resumeCommand(plan)} />
+            No agent on it · <CopyCommand command={resumeCommand(plan)} shown='/lavish continue the plan' />
           </span>
         )}
+        {url && (
+          <Button id='plan-close' size='sm' disabled={closing} onClick={() => void closePlan(plan.file)}>
+            <X size={14} />
+            Close session
+          </Button>
+        )}
+        {url && (
+          <IconButton id='plan-full' label='Full screen' shortcut='f' tipSide='end' onClick={planFullScreen}>
+            <Maximize size={15} />
+          </IconButton>
+        )}
       </div>
-      {endedByYou && (
+      {ended && (
         <div data-part='plan-ended' className='empty flex flex-col items-center gap-3'>
-          You ended this plan in Lavish.
-          <Button id='plan-reopen' disabled={opening} onClick={() => void openPlan(plan.file, true)}>
+          {session.endedByUser ? 'You ended this plan in Lavish.' : "This plan's session is closed."}
+          <Button id='plan-reopen' disabled={opening} onClick={() => void openPlan(plan.file, session.endedByUser)}>
             <RotateCcw size={14} />
-            Reopen it
+            Open it again
           </Button>
         </div>
       )}
-      {!url && !endedByYou && opening && (
+      {!url && !ended && opening && (
         <div
           data-part='plan-opening'
           className='flex flex-1 flex-col gap-3 rounded-lg border border-line bg-surface p-6'
@@ -59,7 +72,7 @@ export function PlanFrame({ plan }: { plan: PlanEntry }) {
           <Skeleton width='60%' />
         </div>
       )}
-      {!url && !endedByYou && !opening && (
+      {!url && !ended && !opening && (
         // the status bar says why it failed
         <div data-part='plan-failed' className='empty flex flex-col items-center gap-3'>
           Lavish didn't open this plan.

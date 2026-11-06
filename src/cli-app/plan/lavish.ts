@@ -253,15 +253,33 @@ export async function openLavish(
   reopen: boolean,
   lavishEnv = hostEnv(),
 ): Promise<{ url: string; key: string }> {
+  const opened = parseOpened(await runLavish(root, [file, '--no-open', ...(reopen ? ['--reopen'] : [])], lavishEnv));
+  if ('error' in opened) throw new Error(opened.error);
+  return opened;
+}
+
+/**
+ * Ends the session of `file` as an agent would (`lavish-axi end`): unlike an end from Lavish's own
+ * page, the plan then opens again with no --reopen.
+ */
+export async function endLavish(root: string, file: string, lavishEnv = hostEnv()): Promise<void> {
+  const output = await runLavish(root, ['end', file], lavishEnv);
+  if (!/^\s*status:\s*"?ended/m.test(output)) {
+    throw new Error(/^error:\s*(.+)$/m.exec(output)?.[1] ?? "Lavish didn't end the session");
+  }
+}
+
+/** Runs Lavish's CLI in the root with these arguments, and what it printed (stdout and stderr). */
+async function runLavish(root: string, lavishArgs: string[], lavishEnv: LavishEnv): Promise<string> {
   const run = cached(root, lavishEnv).run;
   if (!run) throw new Error('Lavish is not set up');
-  const args = [...run.args, file, '--no-open', ...(reopen ? ['--reopen'] : [])];
+  const args = [...run.args, ...lavishArgs];
   // a .cmd shim runs only through cmd; the file is one lens listed, its name checked (plans.ts)
   const [command, argv] =
     lavishEnv.platform === 'win32' && run.command.endsWith('.cmd')
       ? ['cmd.exe', ['/d', '/c', run.command, ...args]]
       : [run.command, args];
-  const output = await new Promise<string>((resolve, reject) => {
+  return new Promise<string>((resolve, reject) => {
     const child = spawn(command, argv, {
       cwd: root,
       env: run.env,
@@ -282,7 +300,4 @@ export async function openLavish(
       resolve(text);
     });
   });
-  const opened = parseOpened(output);
-  if ('error' in opened) throw new Error(opened.error);
-  return opened;
 }

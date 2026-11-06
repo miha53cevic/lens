@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { CopyCommand } from '../../../ui/CopyCommand.tsx';
 import { Tag } from '../../../ui/Tag.tsx';
 import { TextArea } from '../../../ui/TextArea.tsx';
+import { newPlanCommand } from '../../model/planTab.ts';
 
 /** A start for the request, which the reader goes on typing */
 const STARTS = [
@@ -17,7 +18,6 @@ const STARTS = [
  */
 export function NewPlan() {
   const [draft, setDraft] = useState('');
-  const request = draft.trim().replace(/\s+/g, ' ');
 
   return (
     <div data-part='new-plan' className='mx-auto mt-7 flex w-full max-w-[640px] flex-col gap-3 px-6'>
@@ -52,7 +52,7 @@ export function NewPlan() {
         Paste this into your agent. It makes the plan with Lavish, and the plan opens in this list: annotate it, answer
         its questions, and press its Build it button when it's right.
       </p>
-      <CopyCommand block command={'/lavish ' + (request || '<what to plan>')} />
+      <CopyCommand block wrap command={newPlanCommand(draft)} />
     </div>
   );
 }

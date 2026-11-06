@@ -381,3 +381,17 @@ test("a node that gives no version (bun's own, first on the PATH under `bun --bu
   lavish.env.PATH = [shim, old].join(':');
   assert.equal(lavishSetup(temp('root'), lavish).node, '18.19.0');
 });
+
+test('closing runs `lavish-axi end` on the plan, and fails with what Lavish said when it ends nothing', async () => {
+  const { endLavish } = await import('../src/cli-app/plan/lavish.ts');
+  const root = planRoot({ 'a.html': { html: '<title>A</title>', at: 1 } });
+  const log = join(temp('log'), 'args');
+  const ends = fakeBin('24.0.0', { npx: `echo "$*" >> ${log}; echo 'session:'; echo '  status: ended'` });
+  await endLavish(root, '.lavish/a.html', lavishEnv(ends, true));
+  const { readFileSync } = await import('node:fs');
+  assert.equal(readFileSync(log, 'utf8').trim(), '-y lavish-axi end .lavish/a.html');
+  const fails = fakeBin('24.0.0', { npx: `echo 'error: No session for that file'` });
+  // another root: the setup found is held per root
+  const other = planRoot({ 'a.html': { html: '<title>A</title>', at: 1 } });
+  await assert.rejects(endLavish(other, '.lavish/a.html', lavishEnv(fails, true)), /No session for that file/);
+});

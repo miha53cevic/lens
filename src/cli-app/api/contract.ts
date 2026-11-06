@@ -54,6 +54,8 @@ export interface ApiRoutes {
   'GET /api/plans': Endpoint<null, PlansResponse>;
   /** A plan's Lavish session, opened for the Plan tab's frame */
   'POST /api/plans/open': Endpoint<PlanOpenRequest, PlanOpenResponse>;
+  /** A plan's Lavish session, ended as an agent ends one: it opens again without asking */
+  'POST /api/plans/end': Endpoint<PlanEndRequest, Ok>;
 }
 
 export type ApiRoute = keyof ApiRoutes;
@@ -79,6 +81,7 @@ export const API_ROUTES: { readonly [R in ApiRoute]: true } = {
   'POST /api/ask/prompt': true,
   'GET /api/plans': true,
   'POST /api/plans/open': true,
+  'POST /api/plans/end': true,
 };
 
 export interface Ok {
@@ -196,6 +199,10 @@ export interface PlansResponse {
 export interface PlanOpenRequest {
   file: string;
   reopen: boolean;
+}
+
+export interface PlanEndRequest {
+  file: string;
 }
 
 /** Where the frame loads the session from: the plan proxy (plan/proxy.ts) */

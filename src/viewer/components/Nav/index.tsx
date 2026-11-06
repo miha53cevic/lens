@@ -9,7 +9,7 @@ import { Filter } from './Filter.tsx';
 import { Tree } from './Tree.tsx';
 import { SummaryList } from './SummaryList/index.tsx';
 import { ChangesProgress, FilesProgress } from './Progress.tsx';
-import { PlanList } from './PlanList.tsx';
+import { PlanList } from './PlanList/index.tsx';
 import { hiddenStyle } from '../../shared.ts';
 
 export function Nav() {

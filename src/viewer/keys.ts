@@ -21,6 +21,7 @@ import {
   toggleUnitViewed,
 } from './actions/prefs.ts';
 import { setView } from './actions/views.ts';
+import { pickPlan, planFullScreen } from './actions/planTab.ts';
 import { stepNote } from './actions/noteSteps.ts';
 import { askOpenAndFocus, askToggle } from './ask/rail.ts';
 import { isDiffMode } from './shared.ts';
@@ -28,9 +29,9 @@ import { isDiffMode } from './shared.ts';
 /** The keys that also work on the Summary tab: the view settings' keys act on the open unit's code. */
 const SUMMARY_KEYS = ['?', 'x', 'd', 'l', 's', 'r', 'e', 'c', 'h', 't', 'a', 'N', '\\'];
 /** Every key a shortcut takes, on either tab. */
-const SHORTCUT_KEYS = [...SUMMARY_KEYS, 'v', 'p', 'j', 'k', 'w', 'm', 'o', 'g', '/'];
+const SHORTCUT_KEYS = [...SUMMARY_KEYS, 'v', 'p', 'j', 'k', 'w', 'm', 'o', 'g', '/', 'f'];
 /** The keys that do something on the Plan tab: the rest act on code it doesn't show. */
-const PLAN_KEYS = ['?', 'v', 'p', 's', 'r', 'a', '\\'];
+const PLAN_KEYS = ['?', 'v', 'p', 's', 'r', 'a', '\\', '/', 'f', 'g'];
 
 /** Shows the nav (if it's collapsed, and remembers that) and focuses one of its filters. */
 function focusFilter(selector: string) {
@@ -64,7 +65,19 @@ export function onKeyDown(event: KeyboardEvent): void {
     setView(state.view === 'plan' ? 'code' : 'plan');
     return;
   }
-  if (state.view === 'plan' && !PLAN_KEYS.includes(event.key)) return;
+  if (state.view === 'plan') {
+    if (!PLAN_KEYS.includes(event.key)) return;
+    switch (event.key) {
+      case 'f':
+        return planFullScreen();
+      case 'g':
+        return pickPlan(null);
+      case '/':
+        focusFilter('#plan-filter input');
+        event.preventDefault();
+        return;
+    }
+  }
   if (state.view === 'summary') {
     switch (event.key) {
       case 'j':

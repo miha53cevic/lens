@@ -132,6 +132,16 @@ export async function open(prefs: Record<string, string> = {}, hash = '', cookie
         });
       case 'GET /api/plans':
         return reply(page.plans);
+      case 'POST /api/plans/end': {
+        // Lavish ends it as an agent would: the list says ended, by no one in particular
+        const plans = page.plans.plans.map((plan) =>
+          plan.file === body.file && plan.session
+            ? { ...plan, session: { ...plan.session, status: 'ended' as const, endedByUser: false, listening: false } }
+            : plan,
+        );
+        page.plans = { ...page.plans, plans, stamp: page.plans.stamp + '+' };
+        return reply({ ok: true });
+      }
       case 'POST /api/plans/open':
         return reply({ url: 'http://127.0.0.1:49999/session/' + encodeURIComponent(body.file) });
       case 'GET /api/summary':
