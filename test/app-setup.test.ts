@@ -93,6 +93,9 @@ test.skipIf(process.platform === 'win32')(
     const off = setupState(elsewhere).cli;
     assert.equal(off.state, 'installed');
     assert.equal(off.note, "~/.local/bin isn't on your PATH: add it in your shell's profile.");
+    // a folder above it on the PATH isn't it
+    const above = { ...elsewhere, pathDirs: ['/usr/bin', join(home, 'other', '.local')] };
+    assert.equal(setupState(above).cli.note, "~/.local/bin isn't on your PATH: add it in your shell's profile.");
   }),
 );
 
