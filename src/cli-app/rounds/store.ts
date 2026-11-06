@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { RemovedBlock } from '../model.ts';
-import { lensDir } from '../summary/store.ts';
+import { lensDir, writeAtomic } from '../summary/store.ts';
 
 // A review's rounds: each time the reader sends findings to their agent, lens keeps the text of the
 // change's files and what was sent, in .lens/rounds/<review>.json. The next read is then of what
@@ -75,7 +75,7 @@ export function addRound(
   const next = [...older, { at: Date.now(), files, findings: [...earlier, ...findings] }];
   mkdirSync(join(lensDir(root), 'rounds'), { recursive: true });
   const stored: StoredRounds = { version: 1, rounds: next };
-  writeFileSync(roundsFile(root, review), JSON.stringify(stored) + '\n');
+  writeAtomic(roundsFile(root, review), JSON.stringify(stored) + '\n');
   return next;
 }
 

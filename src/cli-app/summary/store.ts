@@ -309,12 +309,19 @@ export function readStored(root: string, key: string): StoredSummary | null {
   }
 }
 
+/**
+ * Write-then-rename: a reader never sees half a file, and a write cut short leaves the old one. What
+ * lens keeps is read, changed and written again, so a truncated file read as empty would lose it all.
+ */
+export function writeAtomic(path: string, text: string): void {
+  const temp = `${path}.${process.pid}.tmp`;
+  writeFileSync(temp, text);
+  renameSync(temp, path);
+}
+
 export function writeStored(root: string, key: string, stored: StoredSummary): void {
   bundleDir(root, key);
-  // write-then-rename: a viewer reading mid-submit never sees half a file
-  const path = summaryPath(root, key);
-  writeFileSync(path + '.tmp', JSON.stringify(stored, null, 2) + '\n');
-  renameSync(path + '.tmp', path);
+  writeAtomic(summaryPath(root, key), JSON.stringify(stored, null, 2) + '\n');
 }
 
 /** mtime of summary.json, so the viewer can notice a new submit. */

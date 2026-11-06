@@ -1,6 +1,6 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { lensDir } from '../summary/store.ts';
+import { lensDir, writeAtomic } from '../summary/store.ts';
 import { relPath } from '../paths.ts';
 
 // The reader's own notes on lines of code, written in the viewer: .lens/notes/<review>.json, in
@@ -77,7 +77,7 @@ export function readStoredNotes(root: string, review: string): ReaderNote[] {
 export function writeStoredNotes(root: string, review: string, notes: ReaderNote[]): void {
   mkdirSync(join(lensDir(root), 'notes'), { recursive: true });
   const stored: StoredNotes = { version: 1, notes };
-  writeFileSync(notesFile(root, review), JSON.stringify(stored, null, 2) + '\n');
+  writeAtomic(notesFile(root, review), JSON.stringify(stored, null, 2) + '\n');
 }
 
 /** Where the notes of a review are: the repository's root, the folder its paths are relative to, and its key. */
