@@ -475,10 +475,10 @@ pageTest("a verdict doesn't move the list: the order stays, and a signal filter 
   assert.deepEqual(listed(), ['>findOrders', 'legacyTotal'], 'no longer flagged, but it keeps its place');
 
   await click($('[data-part="concern"] [data-part="vbtn"][data-mark="dismissed"]')); // restore
-  await click($('[data-part="sig-chip"][data-sig="any"]'));
+  await click($('#sig-filter [data-value="any"]'));
   await click($('[data-part="concern"] [data-part="vbtn"][data-mark="dismissed"]'));
   assert.equal(
-    $('[data-part="sig-chip"][data-sig="any"]').getAttribute('aria-pressed'),
+    $('#sig-filter [data-value="any"]').getAttribute('aria-checked'),
     'true',
     'legacyTotal keeps the filter on',
   );
@@ -489,21 +489,18 @@ pageTest('a caller it may break takes a verdict: dismissed drops the flag, real 
   await key('v');
   await key('j');
   await key('j');
-  assert.equal($('[data-part="sig-chip"][data-sig="breaks"] [data-part="n"]').textContent, '1');
-  assert.ok(
-    $('[data-part="sig-chip"][data-sig="breaks"] > [data-part="tag-icon"]'),
-    "the signal's color goes on its icon",
-  );
-  assert.ok(!document.querySelector('[data-part="sig-chip"][data-sig="any"] [data-part="tag-icon"]'), 'not on a count');
+  assert.equal($('#sig-filter [data-value="breaks"] [data-part="n"]').textContent, '1');
+  assert.ok($('#sig-filter [data-value="breaks"] [data-part="sig-icon"]'), "the signal's color goes on its icon");
+  assert.ok(!document.querySelector('#sig-filter [data-value="any"] [data-part="sig-icon"]'), 'not on a count');
 
   await click($('[data-part="brk"] [data-part="vbtn"][data-mark="dismissed"]'));
   assert.ok($('[data-part=\"brk\"]').dataset.mark === 'dismissed');
-  assert.equal($$('[data-part="sig-chip"][data-sig="breaks"]').length, 0);
-  assert.equal($('[data-part="sig-chip"][data-sig="dismissed"] [data-part="n"]').textContent, '1');
+  assert.equal($$('#sig-filter [data-value="breaks"]').length, 0);
+  assert.equal($('#sig-filter [data-value="dismissed"] [data-part="n"]').textContent, '1');
   assert.ok(($('[data-part="brk-head"]') as HTMLButtonElement).disabled, 'its callers stay shut');
 
   await click($('[data-part="brk"] [data-part="vbtn"][data-mark="dismissed"]')); // restore
-  assert.equal($('[data-part="sig-chip"][data-sig="breaks"] [data-part="n"]').textContent, '1');
+  assert.equal($('#sig-filter [data-value="breaks"] [data-part="n"]').textContent, '1');
   await click($('[data-part="brk"] [data-part="vbtn"][data-mark="real"]'));
   assert.ok($('[data-part=\"brk\"]').dataset.mark === 'real');
   await key('g');
@@ -519,16 +516,16 @@ pageTest('a caller it may break takes a verdict: dismissed drops the flag, real 
 pageTest('a dismissed chip lists the changes whose concerns the reader dismissed', async () => {
   await key('v');
   await key('j');
-  assert.equal($$('[data-part="sig-chip"][data-sig="dismissed"]').length, 0, 'nothing dismissed yet');
+  assert.equal($$('#sig-filter [data-value="dismissed"]').length, 0, 'nothing dismissed yet');
   await click($('[data-part="concern"] [data-part="vbtn"][data-mark="dismissed"]'));
-  assert.equal($('[data-part="sig-chip"][data-sig="dismissed"] [data-part="n"]').textContent, '1');
-  await click($('[data-part="sig-chip"][data-sig="dismissed"]'));
+  assert.equal($('#sig-filter [data-value="dismissed"] [data-part="n"]').textContent, '1');
+  await click($('#sig-filter [data-value="dismissed"]'));
   assert.deepEqual(
     $$('[data-part="inbox-card"] [data-part="caption-unit"]').map((name) => name.textContent),
     ['findOrders'],
   );
   await click($('[data-part="concern"] [data-part="vbtn"][data-mark="dismissed"]')); // restore: nothing is dismissed, the filter lifts
-  assert.equal($$('[data-part="sig-chip"][data-sig="dismissed"]').length, 0);
+  assert.equal($$('#sig-filter [data-value="dismissed"]').length, 0);
   assert.deepEqual(
     $$('[data-part="inbox-card"] [data-part="caption-unit"]').map((name) => name.textContent),
     ['findOrders', 'legacyTotal'],

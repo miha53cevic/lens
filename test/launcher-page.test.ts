@@ -568,7 +568,7 @@ pageTest(
     assert.equal(count('#g-icon-button [data-part="icon-btn"]'), 4);
     assert.equal(count('#g-icon-button [data-part="icon-btn"][data-size="sm"]'), 1);
     assert.equal(count('#g-icon-button [data-part="icon-btn"][aria-pressed="true"]'), 1);
-    assert.equal(count('#g-segmented [data-part="seg"]'), 2);
+    assert.equal(count('#g-segmented [data-part="seg"]'), 3);
     assert.equal(count('#g-segmented [data-size="lg"] [aria-checked="true"]'), 1);
     assert.equal(count('#g-stepper [data-part="stepper"]'), 2);
     assert.equal(

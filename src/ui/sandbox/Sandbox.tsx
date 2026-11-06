@@ -68,6 +68,7 @@ function Section({ id, title, children }: { id: string; title: string; children:
 export function Sandbox() {
   const [theme, setTheme] = useState<ThemeName>('vesper');
   const [view, setView] = useState('code');
+  const [segFilter, setSegFilter] = useState('all');
   const [level, setLevel] = useState(1);
   const [size, setSize] = useState(12);
   const [chips, setChips] = useState({ logging: true, imports: false, word: true });
@@ -139,6 +140,15 @@ export function Sandbox() {
           value={view}
           onChange={setView}
         />
+        <div className='w-[260px]'>
+          <Segmented
+            label='filter'
+            fill
+            options={['all', 'bugs', 'risks'].map((value) => ({ value, label: value }))}
+            value={segFilter}
+            onChange={(value) => setSegFilter(segFilter === value ? '' : value)}
+          />
+        </div>
       </Section>
 
       <Section id='g-stepper' title='Stepper'>

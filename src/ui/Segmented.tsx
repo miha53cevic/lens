@@ -3,8 +3,10 @@ import clsx from 'clsx';
 
 interface Option<T> {
   value: T;
-  label: string;
+  label: ReactNode;
   title?: string;
+  /** Its name, when the label doesn't say it (an icon and a count) */
+  ariaLabel?: string;
   id?: string;
   /** Before the label */
   icon?: ReactNode;
@@ -23,9 +25,14 @@ interface SegmentedProps<T extends string | number> {
   size?: 'md' | 'lg';
   /** The options are tabs: each shows a panel of its own (the ? help's) */
   tabs?: boolean;
+  /** The options share the whole width (a filter along a sidebar) */
+  fill?: boolean;
 }
 
-/** One of a few values, side by side (the fold level, Code | Summary). */
+/**
+ * One of a few values, side by side (the fold level, Code | Summary). A value no option has
+ * picks none: a filter that's off.
+ */
 export function Segmented<T extends string | number>({
   id,
   label,
@@ -34,6 +41,7 @@ export function Segmented<T extends string | number>({
   onChange,
   size = 'md',
   tabs = false,
+  fill = false,
 }: SegmentedProps<T>) {
   // A new callback for each value: React calls it again once the new pick is drawn, and the
   // highlight slides there. It also follows the options' size (a font, a badge, being shown).
@@ -54,7 +62,8 @@ export function Segmented<T extends string | number>({
       data-part='seg'
       data-size={size}
       className={clsx(
-        'group/seg relative inline-flex flex-none rounded-full bg-surface-2 p-1',
+        'group/seg relative rounded-full bg-surface-2 p-1',
+        fill ? 'flex w-full' : 'inline-flex flex-none',
         size === 'lg' ? 'h-control-lg' : 'h-control-sm',
       )}
       id={id}
@@ -78,8 +87,10 @@ export function Segmented<T extends string | number>({
           className={clsx(
             'relative inline-flex min-w-[26px] items-center justify-center gap-2 rounded-full text-sm text-muted [transition:background_var(--motion),color_var(--motion)] hover:text-text aria-checked:bg-accent aria-checked:font-semibold aria-checked:text-accent-fg aria-selected:bg-accent aria-selected:font-semibold aria-selected:text-accent-fg group-data-placed/seg:aria-checked:bg-transparent group-data-placed/seg:aria-selected:bg-transparent',
             size === 'lg' ? 'px-4 font-medium' : 'px-2',
+            fill && 'flex-1',
           )}
           title={option.title}
+          aria-label={option.ariaLabel}
           onClick={() => onChange(option.value)}
         >
           {option.icon}
