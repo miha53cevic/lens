@@ -18,6 +18,7 @@ import {
 } from 'node:fs';
 import { delimiter, dirname, join, resolve } from 'node:path';
 import type { SetupItem, SetupPart } from '../shared/api.ts';
+import { pathKey } from './cli.ts';
 import { tildePath } from './display.ts';
 
 /** In the command file the app writes: how it knows the file is its own. */
@@ -240,7 +241,7 @@ function run(command: string, args: string[], env: NodeJS.ProcessEnv): Promise<s
  * desktop has a shorter PATH than a terminal, so the login shell is asked for its own.
  */
 export async function terminalPath(env: NodeJS.ProcessEnv, platform: NodeJS.Platform): Promise<string[]> {
-  const key = Object.keys(env).find((name) => name.toUpperCase() === 'PATH') ?? 'PATH';
+  const key = pathKey(env);
   let path = env[key] ?? '';
   if (platform !== 'win32' && env.SHELL) {
     try {

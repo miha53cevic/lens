@@ -295,6 +295,21 @@ export function gitRoot(cwd: string): string {
   return runGit(['rev-parse', '--show-toplevel'], cwd).trim();
 }
 
+/** The commit `name` names, or null when it names none (git's own reading of a revision). */
+function commitOf(name: string, cwd: string): string | null {
+  try {
+    return (
+      execFileSync('git', ['rev-parse', '--verify', '--quiet', `${name}^{commit}`], {
+        cwd,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).trim() || null
+    );
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Whether `git diff <gitArgs>` has the working tree as its new side: nothing asks for the index,
  * and fewer than two revisions are named. If so, the pathspecs it is limited to (none: the whole
@@ -304,14 +319,6 @@ export function worktreePathspecs(gitArgs: string[], cwd: string): string[] | nu
   const split = gitArgs.indexOf('--');
   const before = split === -1 ? gitArgs : gitArgs.slice(0, split);
   const pathspecs = split === -1 ? [] : gitArgs.slice(split + 1);
-  const isCommit = (name: string) => {
-    try {
-      execFileSync('git', ['rev-parse', '--verify', '--quiet', `${name}^{commit}`], { cwd, stdio: 'ignore' });
-      return true;
-    } catch {
-      return false;
-    }
-  };
   let revisions = 0;
   for (const arg of before) {
     if (arg === '--staged' || arg === '--cached' || arg === '--no-index') return null;
@@ -319,7 +326,7 @@ export function worktreePathspecs(gitArgs: string[], cwd: string): string[] | nu
     // A..B and A...B name two revisions (a path may hold ".." too: "../src")
     if (arg.includes('..') && !existsSync(resolve(cwd, arg))) return null;
     // git's own rule without "--": what isn't a revision is a path
-    if (isCommit(arg)) revisions++;
+    if (commitOf(arg, cwd) !== null) revisions++;
     else pathspecs.push(arg);
   }
   return revisions < 2 ? pathspecs : null;
@@ -333,19 +340,6 @@ export function worktreePathspecs(gitArgs: string[], cwd: string): string[] | nu
 export function uncheckedOutRevision(gitArgs: string[], cwd: string): string | null {
   const split = gitArgs.indexOf('--');
   const before = split === -1 ? gitArgs : gitArgs.slice(0, split);
-  const commit = (name: string) => {
-    try {
-      return (
-        execFileSync('git', ['rev-parse', '--verify', '--quiet', `${name}^{commit}`], {
-          cwd,
-          encoding: 'utf8',
-          stdio: ['ignore', 'pipe', 'ignore'],
-        }).trim() || null
-      );
-    } catch {
-      return null;
-    }
-  };
   const revisions: string[] = [];
   for (const arg of before) {
     // -R swaps the sides
@@ -354,7 +348,7 @@ export function uncheckedOutRevision(gitArgs: string[], cwd: string): string | n
     const range = /^(.*?)\.\.\.?(.*)$/.exec(arg);
     // a path may hold ".." too: "../src"
     if (range && !existsSync(resolve(cwd, arg))) revisions.push(range[1] || 'HEAD', range[2] || 'HEAD');
-    else if (commit(arg) !== null) revisions.push(arg);
+    else if (commitOf(arg, cwd) !== null) revisions.push(arg);
   }
   if (revisions.length !== 2) return null;
   // counted from HEAD (HEAD~1, @^, @{-1}): any checkout moves it too, so none makes it the code on disk
