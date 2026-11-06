@@ -43,8 +43,10 @@ export function Segmented<T extends string | number>({
   tabs = false,
   fill = false,
 }: SegmentedProps<T>) {
-  // A new callback for each value: React calls it again once the new pick is drawn, and the
-  // highlight slides there. It also follows the options' size (a font, a badge, being shown).
+  // A new callback for each value, and for each set of options (one that comes or goes moves the
+  // rest): React calls it again once that is drawn, and the highlight slides there. It also
+  // follows the options' size (a font, a badge, being shown).
+  const optionKey = options.map((option) => option.value).join('\n');
   const followPick = useCallback(
     (group: HTMLDivElement | null) => {
       if (!group) return;
@@ -54,7 +56,7 @@ export function Segmented<T extends string | number>({
       observer.observe(group);
       return () => observer.disconnect();
     },
-    [value],
+    [value, optionKey],
   );
   return (
     <div
