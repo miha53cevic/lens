@@ -11,7 +11,7 @@ import { StatusLetter } from '../../../ui/FileStatus.tsx';
 import { ListRow } from '../../../ui/ListRow.tsx';
 import { BINARY_TITLE, CHANGED_SINCE_VIEWED, STATUS_TITLE } from './const.ts';
 import { changedSinceViewed } from '../../model/viewed.ts';
-import { noteCounts } from '../../model/notes.ts';
+import { fileNoteKinds, type NoteKindCount } from '../../model/notes.ts';
 import { NoteMark } from './NoteMark.tsx';
 
 interface TreeContext {
@@ -20,7 +20,7 @@ interface TreeContext {
   active: number;
   files: ViewFile[];
   viewedFiles: ReadonlySet<string>;
-  noteCounts: ReadonlyMap<string, number>;
+  noteKinds: ReadonlyMap<string, readonly NoteKindCount[]>;
 }
 
 /** The changed files as a folder tree: dirs first, single-child chains merged. */
@@ -31,7 +31,7 @@ export function Tree() {
     active: state.active,
     files: state.data.files,
     viewedFiles: state.viewedFiles,
-    noteCounts: noteCounts(state.notes),
+    noteKinds: fileNoteKinds(state.notes),
   }));
   if (!tree.hasTree) return null;
   if (tree.filter !== '' && tree.root.dirs.size === 0 && tree.root.files.length === 0) {
@@ -158,7 +158,7 @@ function FileRow({ entry, indent, context }: { entry: TreeFile; indent: number; 
       </span>
       {/* one cell: a row without notes keeps the letter where it was */}
       <span className='inline-flex min-w-[12px] items-center justify-end gap-2'>
-        <NoteMark count={context.noteCounts.get(entry.path) ?? 0} />
+        <NoteMark kinds={context.noteKinds.get(entry.path)} />
         {entry.status && <StatusLetter status={entry.status} />}
       </span>
     </ListRow>

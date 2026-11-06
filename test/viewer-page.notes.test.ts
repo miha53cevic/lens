@@ -179,10 +179,12 @@ test('your notes are marked in the tree and the summary list, and ⇧N steps thr
   });
   await openWithNotes([removedNote, storedNote()]);
   try {
-    const mark = (row: Element) => row.querySelector('[data-part="note-mark"]')?.textContent ?? null;
     const file = $$('#nav [data-part="file"]').find((row) => row.textContent!.includes('orders.ts'))!;
-    assert.equal(mark(file), '2', 'two on the file');
-    assert.equal(file.querySelector('[data-part="note-mark"]')!.getAttribute('title'), '2 notes of yours');
+    // each kind's signal icon, as a change's card shows them
+    assert.deepEqual(
+      [...file.querySelectorAll('[data-part="note-mark"] [class*="sig-"]')].map((icon) => icon.getAttribute('title')),
+      ['1 risk of yours', '1 question of yours'],
+    );
 
     const landed = () => $$('#code .row.landed').map((row) => row.dataset.line ?? '−' + row.dataset.old);
     await key('N', { shiftKey: true });

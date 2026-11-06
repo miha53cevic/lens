@@ -89,6 +89,30 @@ export function noteCounts(notes: readonly ReaderNote[]): ReadonlyMap<string, nu
   return counts;
 }
 
+/** One kind of the reader's notes on a file, and how many */
+export interface NoteKindCount {
+  kind: NoteKind;
+  count: number;
+}
+
+const kindsCache = new WeakMap<readonly ReaderNote[], ReadonlyMap<string, readonly NoteKindCount[]>>();
+
+/** The kinds of the reader's notes each file holds, by its path, in NOTE_KINDS' order: the tree's signal icons. */
+export function fileNoteKinds(notes: readonly ReaderNote[]): ReadonlyMap<string, readonly NoteKindCount[]> {
+  let kinds = kindsCache.get(notes);
+  if (!kinds) {
+    const byPath = new Map<string, NoteKindCount[]>();
+    for (const { kind } of NOTE_KINDS) {
+      for (const [path, count] of noteCounts(notes.filter((note) => note.kind === kind))) {
+        byPath.set(path, [...(byPath.get(path) ?? []), { kind, count }]);
+      }
+    }
+    kinds = byPath;
+    kindsCache.set(notes, kinds);
+  }
+  return kinds;
+}
+
 type UnitLines = { ranges: { start: number; end: number }[]; removals: { oldStart: number; lines: string[] }[] };
 
 const NO_NOTES: readonly ReaderNote[] = [];
