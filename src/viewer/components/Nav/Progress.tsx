@@ -1,4 +1,4 @@
-import { Check, Copy } from 'lucide-react';
+import { Copy } from 'lucide-react';
 import { useLens } from '../../store.ts';
 import { fileProgress, unitProgress } from '../../model/progress.ts';
 import { listModel } from '../../model/summaryList.ts';
@@ -6,6 +6,7 @@ import { notesForAgent } from '../../model/realConcerns.ts';
 import { copyForAgent } from '../../actions/notes.ts';
 import { plural } from '../../shared.ts';
 import { Button } from '../../../ui/Button.tsx';
+import { CopiedLabel } from '../CopiedLabel.tsx';
 import { ProgressRing } from '../../../ui/ProgressRing.tsx';
 
 /** The top of the sidebar: how many files the reader viewed. */
@@ -38,7 +39,9 @@ function NotesForAgent() {
         className={copied ? 'text-add' : undefined}
         onClick={(event) => void copyForAgent(handoff, event.currentTarget)}
       >
-        {copied ? <Check size={11} /> : <Copy size={11} />} {copied ? 'Copied' : 'Copy'}
+        <CopiedLabel copied={copied} size={11}>
+          <Copy size={11} /> Copy
+        </CopiedLabel>
       </Button>
     </span>
   );

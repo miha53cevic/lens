@@ -146,7 +146,7 @@ test("the overview copies the notes for the agent with the confirmed findings; a
         '',
       ].join('\n'),
     );
-    assert.equal($('[data-part="ov-real-copy"]').textContent, 'Copied');
+    assert.ok($('[data-part="ov-real-copy"]').hasAttribute('data-copied'));
     assert.notEqual(status().label, 'Copied 1 note', 'the button says it, not the status bar');
     // with a confirmed concern too
     await key('j');
@@ -217,7 +217,7 @@ test('once every file is viewed, the review pill hands the notes for the agent o
     assert.equal($('#review-handoff').textContent!.trim(), 'Copy 1 note for your agent');
     await click($('#review-handoff'));
     assert.ok((await navigator.clipboard.readText()).includes('1. [risk · reviewer] src/orders.ts:10'));
-    assert.equal($('#review-handoff').textContent!.trim(), 'Copied');
+    assert.ok($('#review-handoff').hasAttribute('data-copied'));
   } finally {
     await close();
   }
@@ -238,7 +238,7 @@ test('without a summary, the sidebar counts the notes for the agent and copies t
     assert.equal($('#nav [data-part="notes-for-agent"]').textContent, '1 note for your agent Copy');
     await click($('#notes-copy'));
     assert.ok((await navigator.clipboard.readText()).includes('1. [risk · reviewer] src/orders.ts:10'));
-    assert.equal($('#notes-copy').textContent!.trim(), 'Copied');
+    assert.ok($('#notes-copy').hasAttribute('data-copied'));
   } finally {
     await close();
   }

@@ -676,7 +676,7 @@ pageTest('a caller it may break takes a verdict: dismissed drops the flag, real 
   await key('g');
   assert.equal($('[data-part="ov-real-count"]').textContent, '1 confirmed possible break in 1 change');
   await click($('[data-part="ov-real-copy"]'));
-  assert.equal($('[data-part="ov-real-copy"]').textContent, 'Copied');
+  assert.ok($('[data-part="ov-real-copy"]').hasAttribute('data-copied'));
   assert.match(
     await navigator.clipboard.readText(),
     /1\. \[breaks callers\] src\/orders\.ts — legacyTotal\n {3}callers of legacyTotal no longer compile\n {3}Callers: src\/report\.ts:3\n/,
@@ -739,6 +739,12 @@ pageTest('a concern marked real can be copied for the agent from the overview; n
   await click($('[data-part="concern"] [data-part="vbtn"][data-mark="real"]'));
   await key('g');
   assert.equal($('[data-part="ov-real-count"]').textContent, '1 confirmed concern in 1 change');
+  // listed, each a row that opens its change
+  const items = $$('[data-part="ov-real-item"]');
+  assert.deepEqual(
+    items.map((item) => [item.dataset.sig, item.textContent]),
+    [['bug', 'deleted is a string columnfindOrders']],
+  );
 
   await click($('[data-part="ov-real-copy"]'));
   assert.equal(
@@ -752,7 +758,7 @@ pageTest('a concern marked real can be copied for the agent from the overview; n
     ].join('\n'),
   );
   assert.ok($('[data-part="ov-real-copy"] .lucide-check'));
-  assert.equal($('[data-part="ov-real-copy"]').textContent, 'Copied', 'the button says it was copied');
+  assert.ok($('[data-part="ov-real-copy"]').hasAttribute('data-copied'), 'the button says it was copied');
 
   // taking the verdict back takes the block away
   await key('j');

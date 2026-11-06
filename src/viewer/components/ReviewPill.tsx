@@ -14,6 +14,7 @@ import { isTestFile, plural } from '../shared.ts';
 import { confirmedLabel, notesForAgent, realConcerns } from '../model/realConcerns.ts';
 import { copyForAgent } from '../actions/notes.ts';
 import { Button } from '../../ui/Button.tsx';
+import { CopiedLabel } from './CopiedLabel.tsx';
 import { riseIn } from '../../ui/motion.ts';
 
 /** What the pill offers, for the open file or change. */
@@ -121,16 +122,10 @@ export function ReviewPill() {
             data-copied={pill.copied ? '' : undefined}
             onClick={(event) => void copyForAgent(handoff(getState()), event.currentTarget)}
           >
-            {pill.copied ? (
-              <>
-                <Check size={13} /> Copied
-              </>
-            ) : (
-              <>
-                <Copy size={13} /> Copy {pill.handoffLabel}
-                <span className='@max-[800px]/editor:hidden'> for your agent</span>
-              </>
-            )}
+            <CopiedLabel copied={pill.copied} size={13}>
+              <Copy size={13} /> Copy {pill.handoffLabel}
+              <span className='@max-[800px]/editor:hidden'> for your agent</span>
+            </CopiedLabel>
           </Button>
         </>
       )}
