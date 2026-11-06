@@ -42,4 +42,6 @@ test('resolveLineRef points at a real line under the root, or says why not', () 
     error: 'must be a path relative to the repository root',
   });
   assert.deepEqual(resolveLineRef(root, 'src/a.ts', cache), { error: 'must look like "path/to/file.ts:31"' });
+  writeFileSync(join(root, '..dots.ts'), 'one\n');
+  assert.deepEqual(resolveLineRef(root, '..dots.ts:1', cache), { file: '..dots.ts', line: 1, text: 'one' });
 });

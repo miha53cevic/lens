@@ -35,7 +35,10 @@ export function resolveLineRef(
   const m = /^(.+):(\d+)$/.exec(raw.trim());
   if (!m) return { error: 'must look like "path/to/file.ts:31"' };
   const rel = normalize(m[1]);
-  if (isAbsolute(rel) || rel.startsWith('..')) return { error: 'must be a path relative to the repository root' };
+  // "..x.ts" is a file's name; ".." or "../x.ts" leaves the root
+  if (isAbsolute(rel) || rel === '..' || rel.startsWith('..' + sep)) {
+    return { error: 'must be a path relative to the repository root' };
+  }
   let lines = cache.get(rel);
   if (lines === undefined) {
     const abs = join(root, rel);
