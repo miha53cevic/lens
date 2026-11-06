@@ -9,7 +9,7 @@ import { commit, getState, update } from '../store.ts';
 import { askSelection } from '../model/askContext.ts';
 import { fileByPath, fileText, placeOn } from '../model/notes.ts';
 import { setAsk } from '../ask/rail.ts';
-import { confirmedLabel, type RealConcerns } from '../model/realConcerns.ts';
+import type { RealConcerns } from '../model/realConcerns.ts';
 import { api, noteDone, noteFailure, tracked } from './status.ts';
 import { pop } from '../../ui/motion.ts';
 
@@ -114,8 +114,8 @@ export async function copyForAgent(handoff: RealConcerns, button?: Element | nul
       copiedTimer = null;
       update({ handoffCopied: false });
     }, COPIED_FOR_MS);
+    // the button says it was copied: the status bar needn't
     if (getState().data.summary) await sendRound(sentFindings(handoff));
-    noteDone('Copied ' + confirmedLabel(handoff), 'paste them to your agent');
     return true;
   } catch (error) {
     noteFailure("Couldn't copy the notes", (error as Error).message);

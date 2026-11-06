@@ -146,7 +146,8 @@ test("the overview copies the notes for the agent with the confirmed findings; a
         '',
       ].join('\n'),
     );
-    assert.equal(status().label, 'Copied 1 note');
+    assert.equal($('[data-part="ov-real-copy"]').textContent, 'Copied');
+    assert.notEqual(status().label, 'Copied 1 note', 'the button says it, not the status bar');
     // with a confirmed concern too
     await key('j');
     await click($('[data-part="concern"] [data-part="vbtn"][data-mark="real"]'));
@@ -217,7 +218,6 @@ test('once every file is viewed, the review pill hands the notes for the agent o
     await click($('#review-handoff'));
     assert.ok((await navigator.clipboard.readText()).includes('1. [risk · reviewer] src/orders.ts:10'));
     assert.equal($('#review-handoff').textContent!.trim(), 'Copied');
-    assert.equal(status().label, 'Copied 1 note');
   } finally {
     await close();
   }

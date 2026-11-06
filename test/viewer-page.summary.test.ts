@@ -676,7 +676,7 @@ pageTest('a caller it may break takes a verdict: dismissed drops the flag, real 
   await key('g');
   assert.equal($('[data-part="ov-real-count"]').textContent, '1 confirmed possible break in 1 change');
   await click($('[data-part="ov-real-copy"]'));
-  assert.equal($('#status [data-part="status-label"]').textContent, 'Copied 1 possible break');
+  assert.equal($('[data-part="ov-real-copy"]').textContent, 'Copied');
   assert.match(
     await navigator.clipboard.readText(),
     /1\. \[breaks callers\] src\/orders\.ts — legacyTotal\n {3}callers of legacyTotal no longer compile\n {3}Callers: src\/report\.ts:3\n/,
@@ -753,7 +753,6 @@ pageTest('a concern marked real can be copied for the agent from the overview; n
   );
   assert.ok($('[data-part="ov-real-copy"] .lucide-check'));
   assert.equal($('[data-part="ov-real-copy"]').textContent, 'Copied', 'the button says it was copied');
-  assert.equal($('#status [data-part="status-label"]').textContent, 'Copied 1 concern');
 
   // taking the verdict back takes the block away
   await key('j');
