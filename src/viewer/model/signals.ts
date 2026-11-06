@@ -90,9 +90,10 @@ export function hasDismissed(marks: Marks, unit: Unit): boolean {
 }
 
 /** The unit's signal ids, most serious first. */
-export function unitSignals(marks: Marks, unit: Unit): SignalId[] {
+/** `also`: more kinds the unit has, beside its open findings (the reader's notes on it) */
+export function unitSignals(marks: Marks, unit: Unit, also: ReadonlySet<SignalId> = new Set()): SignalId[] {
   const kinds = new Set(openFindings(marks, unit).map((finding) => finding.kind));
-  return SIGNAL_ORDER.filter((kind) => kinds.has(kind));
+  return SIGNAL_ORDER.filter((kind) => kinds.has(kind) || also.has(kind));
 }
 
 export function isFlagged(marks: Marks, unit: Unit): boolean {

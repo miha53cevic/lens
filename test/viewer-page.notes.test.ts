@@ -214,6 +214,21 @@ test('your notes are marked in the tree and the summary list, and ⇧N steps thr
   }
 });
 
+test("a note of yours counts in the summary list's filter, by its kind", async () => {
+  await openWithNotes([storedNote()]); // a risk, on findOrders' line 10
+  try {
+    await key('v');
+    assert.equal($('#sig-filter [data-value="risk"] [data-part="n"]').textContent, '1', 'the agent flagged no risk');
+    await click($('#sig-filter [data-value="risk"]'));
+    assert.deepEqual(
+      $$('[data-part="inbox-card"] [data-part="caption-unit"]').map((name) => name.textContent),
+      ['findOrders'],
+    );
+  } finally {
+    await close();
+  }
+});
+
 test('once every file is viewed, the review pill hands the notes for the agent over', async () => {
   await openWithNotes([storedNote()], { summary: null });
   try {

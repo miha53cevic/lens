@@ -89,23 +89,31 @@ export function noteCounts(notes: readonly ReaderNote[]): ReadonlyMap<string, nu
   return counts;
 }
 
+type UnitLines = { ranges: { start: number; end: number }[]; removals: { oldStart: number; lines: string[] }[] };
+
 /**
- * How many of the reader's notes are on lines a unit shows, as its file is now: the summary list's
- * note marks. An outdated note has no line, so it counts for its file but no unit.
+ * The reader's notes on lines a unit shows, as its file is now. An outdated note has no line, so it
+ * is its file's but no unit's.
  */
-export function unitNoteCount(
-  notes: readonly ReaderNote[],
-  file: ViewerFile | null,
-  unit: { ranges: { start: number; end: number }[]; removals: { oldStart: number; lines: string[] }[] },
-): number {
-  if (!file || !noteCounts(notes).has(file.file)) return 0;
-  let count = 0;
+function unitNotes(notes: readonly ReaderNote[], file: ViewerFile | null, unit: UnitLines): ReaderNote[] {
+  if (!file || !noteCounts(notes).has(file.file)) return [];
+  const on: ReaderNote[] = [];
   for (const [label, placed] of fileNotes(notes, file).byLabel) {
     const line = Number(label.slice(1));
     const shown = label.startsWith('N')
       ? unit.ranges.some((range) => line >= range.start && line <= range.end)
       : unit.removals.some((block) => line >= block.oldStart && line < block.oldStart + block.lines.length);
-    if (shown) count += placed.length;
+    if (shown) on.push(...placed.map(({ note }) => note));
   }
-  return count;
+  return on;
+}
+
+/** How many of the reader's notes a unit shows: the summary list's note marks. */
+export function unitNoteCount(notes: readonly ReaderNote[], file: ViewerFile | null, unit: UnitLines): number {
+  return unitNotes(notes, file, unit).length;
+}
+
+/** The kinds of the reader's notes a unit shows: they count with the agent's findings in the list's filter. */
+export function unitNoteKinds(notes: readonly ReaderNote[], file: ViewerFile | null, unit: UnitLines): Set<NoteKind> {
+  return new Set(unitNotes(notes, file, unit).map((note) => note.kind));
 }
