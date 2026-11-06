@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 import { analyzeSource } from './classify/index.ts';
-import { findConfigPath } from './config.ts';
+import { findConfigPath, readConfig } from './config.ts';
 import { changeFingerprint, readBlobs, type DiffTarget } from './git.ts';
 import { languageForFile } from './parse/parser.ts';
 import type { ViewerInput } from './render/web/server.ts';
@@ -12,7 +12,6 @@ import { loadDiff, collectUnits, type LoadedDiff } from './summary/collect.ts';
 import { reviewKey, summaryStamp } from './summary/store.ts';
 import { buildSummaryView, type SummaryView } from './summary/view.ts';
 import { buildPreviewsOn, selfChecksOn } from './summary/settings.ts';
-import { ROUNDS_DIR } from './rounds/store.ts';
 
 const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build', 'out', 'coverage']);
 
@@ -114,20 +113,13 @@ export async function analyze(
     try {
       const units = await collectUnits(diff, config, cwd);
       const { root } = diff;
-      const sources = new Map([...diff.sources].map(([abs, text]) => [relPath(root, abs), text]));
-      const build = () => buildSummaryView({ root, cwd, command, args, units, sources });
-      const roundStamp = (key: string) =>
-        statSync(join(root, ROUNDS_DIR, key + '.json'), { throwIfNoEntry: false })?.mtimeMs;
+      const build = () => buildSummaryView({ root, cwd, command, args, units });
       let view = build();
-      let viewRound = roundStamp(view.key);
-      // rebuilt only after a submit (summary.json's mtime), a send to the agent (its round's), or on another
-      // branch: a diff's key names the branch, and what must be checked out first is measured from HEAD (checkoutFirst)
+      // rebuilt only after a submit (summary.json's mtime), or on another branch: a diff's key names
+      // the branch, and what must be checked out first is measured from HEAD (checkoutFirst)
       latestSummary = () => {
         const key = reviewKey(root, command, args);
-        if (key === view.key && summaryStamp(root, key) === view.stamp && roundStamp(key) === viewRound) return view;
-        view = build();
-        viewRound = roundStamp(key);
-        return view;
+        return key === view.key && summaryStamp(root, key) === view.stamp ? view : (view = build());
       };
       summary = view;
     } catch (err) {
@@ -140,7 +132,6 @@ export async function analyze(
     root,
     cwd,
     review: reviewKey(root, command, args),
-    threshold: config.threshold,
     files,
     deleted: diff ? diff.deleted.map(shown).filter((path) => !openedDeleted.has(path)) : [],
     excluded: diff ? diff.excluded : [],
@@ -148,6 +139,8 @@ export async function analyze(
     binary: diff ? diff.binary.map((b) => ({ file: shown(b.file), status: b.status })) : [],
     config,
     configSource: findConfigPath(cwd),
+    // read again from the file: the analysis may run on a config that isn't it (a flag over it, a test's)
+    configProblems: readConfig(cwd).problems,
     buildPreviews: buildPreviewsOn(root, config),
     selfChecks: selfChecksOn(root, config),
     label: diff ? diff.label : null,

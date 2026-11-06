@@ -20,7 +20,6 @@ import {
 } from './store.ts';
 import { citeableLabels, placedHash, removalAnchors, type Unit } from './units.ts';
 import { fitStored } from './fit.ts';
-import { roundView, type RoundView } from '../rounds/view.ts';
 import type { RemovedBlock } from '../model.ts';
 
 // What the viewer's Summary tab renders: the diff's current units, each with
@@ -96,8 +95,6 @@ export interface SummaryView {
   sequences: SequenceView[];
   /** Questions to check your understanding with, in the flows' order */
   checks: SelfCheckView[];
-  /** What changed since the reader last sent findings to the agent; null before they have */
-  round: RoundView | null;
 }
 
 export type SelfCheckView = Omit<SelfCheck, 'hash'> & {
@@ -111,8 +108,6 @@ export function buildSummaryView(opts: {
   command: 'diff' | 'pr';
   args: string[];
   units: Unit[];
-  /** Repo-relative path → the text this analysis read */
-  sources?: ReadonlyMap<string, string>;
 }): SummaryView {
   const key = reviewKey(opts.root, opts.command, opts.args);
   // the arguments as the user passes them to /lens-review or `lens summary prepare`
@@ -169,14 +164,6 @@ export function buildSummaryView(opts: {
       : null,
     ...drawings(stored, opts.units),
     checks: checkViews(stored, opts.units, flows),
-    round: roundView({
-      root: opts.root,
-      review: key,
-      units: opts.units,
-      sources: opts.sources ?? new Map(),
-      shown: (file) => relPath(opts.cwd, join(opts.root, file)),
-      sentChecks: stored?.sentChecks,
-    }),
   };
 }
 

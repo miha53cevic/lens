@@ -121,16 +121,6 @@ export interface SelfCheck {
 
 export type StoredUnit = UnitSummary & { hash: string; anchor: Anchor };
 
-/** The agent's reading of a finding the reader sent back: whether the code now fixes it. */
-export interface SentCheck {
-  fixed: boolean;
-  how: string;
-  unit: string;
-  line: string;
-  /** The unit's placed hash when written: code that moved on takes it back */
-  hash: string;
-}
-
 export interface StoredSummary {
   version: 1;
   updatedAt: string;
@@ -149,8 +139,6 @@ export interface StoredSummary {
   checks?: SelfCheck[];
   /** unitSetHash of the diff a whole-diff pass that asked for self-checks was submitted for */
   checked?: string;
-  /** What the agent says of each finding the reader sent, by the finding's key */
-  sentChecks?: Record<string, SentCheck>;
 }
 
 /** One hash for the whole diff: any unit added, dropped, changed or moved moves it. */
@@ -197,8 +185,6 @@ export interface Bundle {
   drawings?: boolean;
   /** This pass asks for self-checks (the reader turned them on) */
   checks?: boolean;
-  /** The keys of the findings the reader last sent: this pass may say whether each is fixed */
-  sent?: string[];
 }
 
 /** A diff needs flows once two of its units tell a story: lens's own Housekeeping units don't. */

@@ -85,7 +85,7 @@ export function barStatus(state: LensState): Status {
 }
 
 export type NoticeTone = 'warn' | 'accent' | 'live';
-export type NoticeActionId = 'openOverview' | 'openSummary' | 'refresh' | 'showWholeChange';
+export type NoticeActionId = 'openOverview' | 'openSummary' | 'refresh' | 'openSettings';
 
 export interface Notice {
   id: string;
@@ -113,17 +113,6 @@ const changedOnDisk: NoticeSource = (state) =>
 
 const newSummary: NoticeSource = (state) =>
   state.summaryDot ? { id: 'new-summary', text: 'New summary waiting', tone: 'accent', action: 'openSummary' } : null;
-
-const sinceRound: NoticeSource = (state) =>
-  // the tree and the list are cut down to it on either tab, and only the overview has the switch
-  state.beforeRound
-    ? {
-        id: 'since-round',
-        text: 'Only what changed since you sent · Show all',
-        tone: 'accent',
-        action: 'showWholeChange',
-      }
-    : null;
 
 const agentListening: NoticeSource = (state) => {
   // only while the chat is polled (the rail is open, or a question waits): otherwise it's a guess
@@ -188,9 +177,22 @@ const guessedBase: NoticeSource = (state) =>
       }
     : null;
 
+const configProblems: NoticeSource = (state) => {
+  // a ↻ refresh reads .lens.json again: the count is the latest file's
+  const problems = state.data.configProblems;
+  if (problems.length === 0) return null;
+  const files = [...new Set(problems.map((problem) => problem.file))].join(', ');
+  return {
+    id: 'config-problems',
+    text: files + ': ' + plural(problems.length, 'problem'),
+    tone: 'warn',
+    action: 'openSettings',
+  };
+};
+
 const NOTICE_SOURCES: NoticeSource[] = [
+  configProblems,
   guessedBase,
-  sinceRound,
   changedOnDisk,
   staleSummaries,
   newSummary,

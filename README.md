@@ -69,15 +69,15 @@ run it yourself in a terminal (install it from the app's Settings → Agent).
 | `lens diff HEAD~1` | any `git diff` arguments pass through |
 | `lens pr 123` / `lens pr <url>` | a GitHub PR, fetched with plain git (no API, no gh) |
 | `lens info` | what could be reviewed here: the branch, its changes, the PR remote |
-| `lens config` | the effective config and where it comes from |
-| `lens clear` | what lens keeps in `.lens/`, by kind; `lens clear <kind> --all` (or one review's `<key>`) clears it: `summaries`, `notes`, `marks`, `rounds` |
+| `lens config` | the config in effect, where each value comes from, and its problems (exits 1 on any; `--json` for scripts) |
+| `lens clear` | what lens keeps in `.lens/`, by kind; `lens clear <kind> --all` (or one review's `<key>`) clears it: `summaries`, `notes`, `marks` |
 
 | flag | meaning |
 | --- | --- |
 | `--port <n>` | the viewer's port (default: one per repository, from 5400 up) |
 | `--no-open` | don't open the browser |
 | `--summary` | open on the Summary tab |
-| `--threshold <n>` | fold regions with a score up to `n` |
+| `--fold-level <n>` | fold regions with a score up to `n`, `-1` for none |
 | `--theme <name>` | any [Shiki theme](https://shiki.style/themes) |
 | `--json` | print the fold model as JSON, for debugging |
 | `--version` | print lens's version |
@@ -94,7 +94,7 @@ Loose files and these flags are CLI-only; the app's picker covers the diff and P
   after you ticked it says so. They, and your real / dismissed verdicts on concerns, are kept per
   review in `.lens/marks/`: a branch you come back to has them, another branch starts without them.
 - **Notes**: right-click a line (or a selection of lines) to leave your own note under it,
-  in both views. A plain note is yours alone; a bug, risk or question goes along when you copy the
+  in both views: a bug, a risk or a question, which goes along when you copy the
   review for your agent (the overview, or with no summary the sidebar). Notes follow their lines
   as the code moves, and are kept per review in `.lens/notes/`.
 - **The code theme** colors the whole page; a light theme turns it light.
@@ -130,11 +130,6 @@ cover, and go stale with their code.
 /lens-review --staged           # in your agent; or: pr 87
 ```
 
-**Rounds**: copying your findings for the agent keeps the code as it is then. Your next read can be
-only what changed since (the overview's switch, both views), with what became of each finding:
-*lines changed*, *nearby changed* or *untouched* is lens's own measure, and *fixed* or *not fixed*
-is your agent's claim on its next summary. Kept per review in `.lens/rounds/`.
-
 **Check yourself** (the ⋯ menu, off by default): your agent also writes a few questions per flow, with
 the answer behind a click, for checking you understood the change. No score and no gate.
 
@@ -155,8 +150,8 @@ question can be copied as a prompt for any chat.
 
 ## How folding works
 
-Each region gets a category and a score (0–3) and folds when its score ≤ the threshold
-(default 1; `[` / `]` change it live). TODO/FIXME comments and `lens:keep` regions never
+Each region gets a category and a score (0–3) and folds when its score ≤ the fold level
+(default 1; the ⋯ menu's Fold level changes it live). TODO/FIXME comments and `lens:keep` regions never
 fold.
 
 | category            | what folds (conservatively) |
@@ -178,25 +173,29 @@ colors, without folds.
 
 lens's rules are [lens.defaults.json](lens.defaults.json). A `.lens.json` in your project
 (the nearest one walking upward) merges over it: scalars override, maps merge, lists
-extend. `"base": false` makes your file the whole rule set.
+extend, and a list entry `"!x"` takes `x` out of the defaults' list. `"base": false` makes
+your file the whole rule set.
 
 ```json
 {
-  "threshold": 0,
-  "categories": { "logging": false },
-  "scores": { "guard": 2 },
+  "foldLevel": 0,
+  "folds": { "logging": false, "guard": 2 },
   "callPatterns": [{ "category": "audit", "receivers": ["audit", "featureFlags"] }],
   "keepCommentMarkers": ["SECURITY"],
-  "exclude": ["generated/**"]
+  "exclude": ["generated/**", "!*.map"]
 }
 ```
 
+A value that doesn't check (a typo'd field, a score out of range, a category no rule makes)
+is skipped, and the rest applies. lens prints each problem when it starts, the viewer's
+status bar says how many there are and Settings lists them, and `lens config` shows them
+under the config in effect.
+
 | field | meaning |
 | ----- | ------- |
-| `threshold` | fold regions with score ≤ this (default `1`) |
+| `foldLevel` | fold regions with score ≤ this, `-1` for none (default `1`) |
 | `theme` | the Shiki theme the viewer starts in (default `"vesper"`) |
-| `categories` | per-category switch; `false` never folds it |
-| `scores` | importance per category, 0–3 |
+| `folds` | per category, its score (0–3) or `false` to never fold it; one not named scores 1 |
 | `callPatterns` | fire-and-forget calls to fold: `{ category, receivers, methods?, score? }` |
 | `keepCommentMarkers` | comments containing these never fold |
 | `keepDirective` | a region containing it, or right below it, never folds (default `"lens:keep"`) |
@@ -204,6 +203,9 @@ extend. `"base": false` makes your file the whole rule set.
 | `exclude` | listed in a diff as `⊘` without being read; skipped in directory walks |
 | `buildPreviews` | summary mode asks for previews and sequences (default `true`); the ⋯ menu's switch overrides it for you, in `.lens/settings.json` |
 | `selfChecks` | summary mode asks for questions to check your understanding with (default `false`); the ⋯ menu's switch overrides it, as above |
+
+The old names (`threshold`, `categories`, `scores`) are still read, each with a
+problem saying what to rename it to.
 
 Patterns: `*` matches within a path segment, `**` across them, and a pattern matches
 anywhere in the path.

@@ -8,17 +8,16 @@ import { editNote, resolveNote } from '../../actions/notes.ts';
 import { SignalIcon } from '../SignalIcon.tsx';
 import { Button } from '../../../ui/Button.tsx';
 
-/** What the note's top line says after its kind: where it stands, or who sees it. */
-function noteState(note: ReaderNote, placed: PlacedNote | null): string {
+/** What the note's top line says after its kind: where it stands. */
+function noteState(placed: PlacedNote | null): string {
   if (!placed) return 'outdated: its lines are gone';
   if (placed.changed) return 'the line changed since';
-  return note.kind === 'note' ? 'only you see it' : 'goes along to your agent';
+  return 'goes along to your agent';
 }
 
-/** One of the reader's notes, under its last line like a review comment. */
 /**
  * A note under its line, like a review comment: the reader's and the agent's concerns on the Summary tab are
- * the same card, in the kind's signal color (--k); a plain note is neutral. Past the gutter, to where the code
+ * the same card, in the kind's signal color (--k). Past the gutter, to where the code
  * starts. A concern marked real has its color under it too; one whose lines aren't there as they were is
  * likely dealt with.
  */
@@ -30,23 +29,16 @@ export function NoteCard({ note, placed }: { note: ReaderNote; placed: PlacedNot
   return (
     <div
       data-part='line-note'
-      data-plain={note.kind === 'note' || undefined}
       data-changed={!placed || placed.changed || undefined}
       className={clsx(LINE_NOTE, 'k-' + note.kind)}
       data-note={note.id}
     >
       <div className='mb-1 flex flex-wrap items-center gap-x-2 gap-y-1'>
-        <b className='inline-flex items-center gap-1 text-(--k,var(--line-strong)) group-data-plain/note:text-muted eyebrow sm'>
-          {note.kind === 'note' ? (
-            'your note'
-          ) : (
-            <>
-              <SignalIcon signal={note.kind} /> {note.kind}
-            </>
-          )}
+        <b className='inline-flex items-center gap-1 text-(--k,var(--line-strong)) eyebrow sm'>
+          <SignalIcon signal={note.kind} /> {note.kind}
         </b>
         <span data-part='rn-meta' className='min-w-0 font-mono text-2xs text-muted'>
-          {noteState(note, placed)}
+          {noteState(placed)}
         </span>
         <span className='ml-auto inline-flex flex-wrap items-center gap-1'>
           {placed && (

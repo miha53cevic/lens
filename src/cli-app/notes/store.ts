@@ -5,11 +5,11 @@ import { relPath } from '../paths.ts';
 
 // The reader's own notes on lines of code, written in the viewer: .lens/notes/<review>.json, in
 // lens's ignored folder, one file per review (reviewKey), so a note written in one branch's review
-// never shows in another's. They are the reader's, not the agent's: lens shows them and copies the
-// ones with a kind for the agent, and never sends them anywhere itself.
+// never shows in another's. They are the reader's, not the agent's: lens shows them and copies them
+// for the agent when the reader asks, and never sends them anywhere itself.
 
-export const NOTE_KINDS = ['note', 'bug', 'risk', 'question'] as const;
-/** "note" is the reader's own; a bug, risk or question goes along when they copy the review for the agent */
+/** Each goes along when the reader copies the review for the agent. One kept with a kind no longer here ("note") isn't read. */
+export const NOTE_KINDS = ['bug', 'risk', 'question'] as const;
 export type NoteKind = (typeof NOTE_KINDS)[number];
 
 export interface ReaderNote {

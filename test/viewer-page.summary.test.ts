@@ -164,6 +164,13 @@ pageTest('on the Summary tab the pill starts the review, and marks each change r
   assert.equal($('[data-part="inbox-card"][data-selected] [data-part="caption-unit"]').textContent, 'legacyTotal');
   assert.equal($('#nav [data-part="progress-count"]').textContent, '1 of 2');
   assert.equal($('[data-part="inbox-read-toggle"]').textContent, 'Read 1', 'the reviewed change moved to Read');
+  // the last one: nothing is left to read, and the overview's pill says so instead of starting again
+  await click($('#review-next'));
+  await key('g');
+  await settle();
+  assert.equal($('#nav [data-part="progress-count"]').textContent, '2 of 2');
+  assert.equal(pill(), 'All 2 changes reviewed');
+  assert.equal($$('#review-prev, #review-undo').length, 0, 'no change open on the overview');
 });
 
 test("the agent's previews and sequences: all on the overview, a unit's own on its page, each step opening its unit", async () => {
@@ -387,6 +394,11 @@ test('Check yourself: on the overview while on, the answer behind a click; off, 
     assert.equal($$('[data-part="self-check-answer"]').length, 0, 'the answer is hidden');
     await click($('[data-part="self-check"] [data-part="disclosure"]'));
     assert.match($('[data-part="self-check-answer"]').textContent!, /The first 50\./);
+    assert.doesNotMatch(
+      $('[data-part="self-check-answer"] [data-part="tag"]').textContent!,
+      /\b[NO]\d+\b/,
+      'no line label',
+    );
   } finally {
     await close();
   }
@@ -395,147 +407,6 @@ test('Check yourself: on the overview while on, the answer behind a click; off, 
     await key('v');
     await settle();
     assert.equal($$('[data-part="self-checks"]').length, 0);
-  } finally {
-    await close();
-  }
-});
-
-function inRound(): ViewerPayload {
-  const summary = payload.summary!;
-  const unit = findOrdersId();
-  const file = summary.units.find((candidate) => candidate.id === unit)!.displayFile;
-  const finding = { kind: 'bug', unit, file, displayFile: file, line: 10, how: null };
-  return {
-    ...payload,
-    summary: {
-      ...summary,
-      round: {
-        round: 2,
-        sentAt: 1,
-        units: [unit],
-        files: [{ file, changedLines: [10], removals: [{ afterLine: 10, oldStart: 12, lines: ['  gone();'] }] }],
-        findings: [
-          { ...finding, key: 'a', text: 'Lines moved', state: 'changed' },
-          { ...finding, key: 'b', text: 'Agent fixed it', state: 'fixed', how: 'The key has the limit' },
-          { ...finding, key: 'c', text: 'Nothing happened', state: 'untouched', line: 40 },
-        ],
-      },
-    },
-  };
-}
-
-test('a round: what became of each finding, and a switch both views read to only what changed since', async () => {
-  const data = inRound();
-  await open({}, '', '', data);
-  try {
-    await key('v');
-    await settle();
-    assert.deepEqual(
-      $$('[data-part="round-finding"]').map((row) => [
-        row.dataset.state,
-        row.querySelector('[data-part="tag"]')!.textContent,
-      ]),
-      [
-        ['changed', 'Lines changed'],
-        ['fixed', 'Fixed'],
-        ['untouched', 'Untouched'],
-      ],
-    );
-    assert.match($('[data-part="round-count"]').textContent!, /1 change since your last look/);
-    const before = $$('[data-part="inbox-card"]').length;
-    assert.ok(before > 1);
-    await click($('#round-since'));
-    await settle();
-    // the list, and the code's marks: the unit shows the delta, its other changed lines aren't marked
-    assert.equal($$('[data-part="inbox-card"]').length, 1);
-    await key('j');
-    await settle();
-    assert.equal($('[data-part="summary-pane"]').dataset.unit, findOrdersId());
-    assert.deepEqual(
-      $$('[data-part="unit-code"] .row[data-line]')
-        .filter((row) => row.querySelector('.mark.changed'))
-        .map((row) => row.dataset.line),
-      ['10'],
-      'the line that changed since, not the others of the change',
-    );
-    assert.ok($('[data-part="unit-code"]').textContent!.includes('gone();'), 'its removal since, drawn plain');
-    // the Code view reads the same state: only the file that changed since is in the tree
-    await key('v');
-    await settle();
-    assert.equal($$('#nav [data-part="file"]').length, 1);
-    await key('v');
-    await key('g');
-    await click($('#round-all'));
-    await settle();
-    assert.equal($$('[data-part="inbox-card"]').length, before, 'back to the whole change');
-  } finally {
-    await close();
-  }
-});
-
-test('since the round: a switch, a theme or a unit outside that read keeps the whole change', async () => {
-  const data = inRound();
-  const other = data.summary!.units.find((unit) => unit.id !== findOrdersId())!;
-  const summary = data.summary!;
-  const round = summary.round!;
-  const finding = { ...round.findings[2], key: 'd', unit: other.id, file: other.displayFile, line: null };
-  await open({}, '', '', { ...data, summary: { ...summary, round: { ...round, findings: [finding] } } });
-  try {
-    await key('v');
-    await settle();
-    await click($('#round-since'));
-    await settle();
-    await click($('#build-previews'));
-    await settle();
-    await click($('#round-all'));
-    await settle();
-    assert.equal($('#build-previews').getAttribute('aria-checked'), 'false', "leaving the read doesn't undo it");
-
-    await click($('#round-since'));
-    await settle();
-    assert.equal($$('[data-part="inbox-card"]').length, 1);
-    await click($('[data-part="round-finding"] [data-part="tag"][title]:not([data-toned])'));
-    await settle();
-    assert.equal(
-      $('[data-part="summary-pane"]').dataset.unit,
-      other.id,
-      'the unit asked for, not the first in the read',
-    );
-    assert.ok($$('[data-part="inbox-card"]').length > 1, 'the whole change holds it');
-  } finally {
-    await close();
-  }
-});
-
-test('since the round: the status bar says so on either tab, and shows all from where the reader is', async () => {
-  await open({}, '', '', inRound());
-  try {
-    const notice = () =>
-      $$('#status-bar [data-part="status-notice"]').find((n) => n.textContent!.includes('since you'));
-    await key('v');
-    await settle();
-    const cards = $$('[data-part="inbox-card"]').length;
-    assert.equal(notice(), undefined, 'the whole change: nothing to say');
-    await click($('#round-since'));
-    await key('j');
-    await settle();
-    assert.equal(notice()!.textContent, 'Only what changed since you sent · Show all');
-    await click(notice()!);
-    await settle();
-    assert.equal(notice(), undefined);
-    assert.equal($$('[data-part="inbox-card"]').length, cards, 'the whole change');
-    assert.equal($('[data-part="summary-pane"]').dataset.unit, findOrdersId(), 'the same unit stays open');
-
-    await key('g');
-    await settle();
-    await click($('#round-since'));
-    await key('v');
-    await settle();
-    const changed = () => $$('#code .row[data-line]').filter((row) => row.querySelector('.mark.changed')).length;
-    assert.equal(changed(), 1, 'the Code tab reads it too');
-    await click(notice()!);
-    await settle();
-    assert.ok(changed() > 1, 'still on the Code tab, with the whole change marked');
   } finally {
     await close();
   }
@@ -565,32 +436,6 @@ test("a flow's steps head its cards to read; one step over every change has none
     await key('v');
     await settle();
     assert.deepEqual(steps(), []);
-  } finally {
-    await close();
-  }
-});
-
-test('copying findings for the agent keeps a round, with where each one is', async () => {
-  const unit = findOrdersId();
-  const key0 = payload.summary!.units.find((candidate) => candidate.id === unit)!;
-  assert.ok(key0.summary?.concerns.length);
-  const page = await open({}, '', '', payload);
-  try {
-    await key('v');
-    await key('j');
-    await settle();
-    await click($('[data-part="concern"] [data-part="vbtn"][data-mark="real"]'));
-    await key('g');
-    await settle();
-    Object.defineProperty(navigator, 'clipboard', { value: { writeText: async () => {} }, configurable: true });
-    await click($('[data-part="ov-real-copy"]'));
-    await settle();
-    const posted = page.requests.find((request) => request.path === '/api/rounds')?.body as {
-      findings: { kind: string; unit: string; line: number | null }[];
-    };
-    assert.equal(posted.findings[0].unit, unit);
-    assert.equal(posted.findings[0].kind, key0.summary!.concerns[0].kind);
-    assert.equal(posted.findings[0].line, Number(key0.summary!.concerns[0].line.slice(1)));
   } finally {
     await close();
   }
@@ -630,10 +475,10 @@ pageTest("a verdict doesn't move the list: the order stays, and a signal filter 
   assert.deepEqual(listed(), ['>findOrders', 'legacyTotal'], 'no longer flagged, but it keeps its place');
 
   await click($('[data-part="concern"] [data-part="vbtn"][data-mark="dismissed"]')); // restore
-  await click($('[data-part="sig-chip"][data-sig="any"]'));
+  await click($('#sig-filter [data-value="any"]'));
   await click($('[data-part="concern"] [data-part="vbtn"][data-mark="dismissed"]'));
   assert.equal(
-    $('[data-part="sig-chip"][data-sig="any"]').getAttribute('aria-pressed'),
+    $('#sig-filter [data-value="any"]').getAttribute('aria-checked'),
     'true',
     'legacyTotal keeps the filter on',
   );
@@ -644,27 +489,24 @@ pageTest('a caller it may break takes a verdict: dismissed drops the flag, real 
   await key('v');
   await key('j');
   await key('j');
-  assert.equal($('[data-part="sig-chip"][data-sig="breaks"] [data-part="n"]').textContent, '1');
-  assert.ok(
-    $('[data-part="sig-chip"][data-sig="breaks"] > [data-part="tag-icon"]'),
-    "the signal's color goes on its icon",
-  );
-  assert.ok(!document.querySelector('[data-part="sig-chip"][data-sig="any"] [data-part="tag-icon"]'), 'not on a count');
+  assert.equal($('#sig-filter [data-value="breaks"] [data-part="n"]').textContent, '1');
+  assert.ok($('#sig-filter [data-value="breaks"] [data-part="sig-icon"]'), "the signal's color goes on its icon");
+  assert.ok(!document.querySelector('#sig-filter [data-value="any"] [data-part="sig-icon"]'), 'not on a count');
 
   await click($('[data-part="brk"] [data-part="vbtn"][data-mark="dismissed"]'));
   assert.ok($('[data-part=\"brk\"]').dataset.mark === 'dismissed');
-  assert.equal($$('[data-part="sig-chip"][data-sig="breaks"]').length, 0);
-  assert.equal($('[data-part="sig-chip"][data-sig="dismissed"] [data-part="n"]').textContent, '1');
+  assert.equal($$('#sig-filter [data-value="breaks"]').length, 0);
+  assert.equal($('#sig-filter [data-value="dismissed"] [data-part="n"]').textContent, '1');
   assert.ok(($('[data-part="brk-head"]') as HTMLButtonElement).disabled, 'its callers stay shut');
 
   await click($('[data-part="brk"] [data-part="vbtn"][data-mark="dismissed"]')); // restore
-  assert.equal($('[data-part="sig-chip"][data-sig="breaks"] [data-part="n"]').textContent, '1');
+  assert.equal($('#sig-filter [data-value="breaks"] [data-part="n"]').textContent, '1');
   await click($('[data-part="brk"] [data-part="vbtn"][data-mark="real"]'));
   assert.ok($('[data-part=\"brk\"]').dataset.mark === 'real');
   await key('g');
   assert.equal($('[data-part="ov-real-count"]').textContent, '1 confirmed possible break in 1 change');
   await click($('[data-part="ov-real-copy"]'));
-  assert.equal($('#status [data-part="status-label"]').textContent, 'Copied 1 possible break');
+  assert.ok($('[data-part="ov-real-copy"]').hasAttribute('data-copied'));
   assert.match(
     await navigator.clipboard.readText(),
     /1\. \[breaks callers\] src\/orders\.ts — legacyTotal\n {3}callers of legacyTotal no longer compile\n {3}Callers: src\/report\.ts:3\n/,
@@ -674,16 +516,16 @@ pageTest('a caller it may break takes a verdict: dismissed drops the flag, real 
 pageTest('a dismissed chip lists the changes whose concerns the reader dismissed', async () => {
   await key('v');
   await key('j');
-  assert.equal($$('[data-part="sig-chip"][data-sig="dismissed"]').length, 0, 'nothing dismissed yet');
+  assert.equal($$('#sig-filter [data-value="dismissed"]').length, 0, 'nothing dismissed yet');
   await click($('[data-part="concern"] [data-part="vbtn"][data-mark="dismissed"]'));
-  assert.equal($('[data-part="sig-chip"][data-sig="dismissed"] [data-part="n"]').textContent, '1');
-  await click($('[data-part="sig-chip"][data-sig="dismissed"]'));
+  assert.equal($('#sig-filter [data-value="dismissed"] [data-part="n"]').textContent, '1');
+  await click($('#sig-filter [data-value="dismissed"]'));
   assert.deepEqual(
     $$('[data-part="inbox-card"] [data-part="caption-unit"]').map((name) => name.textContent),
     ['findOrders'],
   );
   await click($('[data-part="concern"] [data-part="vbtn"][data-mark="dismissed"]')); // restore: nothing is dismissed, the filter lifts
-  assert.equal($$('[data-part="sig-chip"][data-sig="dismissed"]').length, 0);
+  assert.equal($$('#sig-filter [data-value="dismissed"]').length, 0);
   assert.deepEqual(
     $$('[data-part="inbox-card"] [data-part="caption-unit"]').map((name) => name.textContent),
     ['findOrders', 'legacyTotal'],
@@ -727,6 +569,12 @@ pageTest('a concern marked real can be copied for the agent from the overview; n
   await click($('[data-part="concern"] [data-part="vbtn"][data-mark="real"]'));
   await key('g');
   assert.equal($('[data-part="ov-real-count"]').textContent, '1 confirmed concern in 1 change');
+  // listed, each a row that opens its change
+  const items = $$('[data-part="ov-real-item"]');
+  assert.deepEqual(
+    items.map((item) => [item.dataset.sig, item.textContent]),
+    [['bug', 'deleted is a string columnfindOrders']],
+  );
 
   await click($('[data-part="ov-real-copy"]'));
   assert.equal(
@@ -740,7 +588,7 @@ pageTest('a concern marked real can be copied for the agent from the overview; n
     ].join('\n'),
   );
   assert.ok($('[data-part="ov-real-copy"] .lucide-check'));
-  assert.equal($('#status [data-part="status-label"]').textContent, 'Copied 1 concern');
+  assert.ok($('[data-part="ov-real-copy"]').hasAttribute('data-copied'), 'the button says it was copied');
 
   // taking the verdict back takes the block away
   await key('j');

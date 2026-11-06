@@ -67,6 +67,8 @@ export interface LensState {
   /** The slow actions under way, newest last: the status bar's "working", and what their controls wait for (isBusy) */
   activities: readonly Activity[];
   notice: StatusNotice | null;
+  /** The handoff was just copied: every copy-for-the-agent button says so a moment (actions/notes.ts) */
+  handoffCopied: boolean;
   /** A request didn't reach the server: it has stopped */
   serverGone: boolean;
   /** ⏻ end: the server stopped */
@@ -115,8 +117,6 @@ export interface LensState {
   changedOnDisk: boolean;
   /** The agent's summary run, as the last stamp poll found it; null: none is going */
   summaryBuild: BuildProgress | null;
-  /** The whole change, while `data` shows only what changed since the last round (actions/rounds.ts); null: it shows all */
-  beforeRound: ViewerPayload | null;
   /** Asking the server for a newer summary: the overview holds off on "not written yet" until it knows */
   summaryChecking: boolean;
   /** The list filter's text (transient) */
@@ -150,9 +150,9 @@ export interface LensState {
 /** The fold level the reader picked, with the one it was picked over: `{ level, base }` */
 export const THRESHOLD_PREF = 'lens.threshold';
 
-/** The reader's fold level, while the config's (or --threshold's) is still the one they picked it over. */
+/** The reader's fold level, while the config's (or --fold-level's) is still the one they picked it over. */
 function loadThreshold(): number {
-  const base = INITIAL_DATA.threshold;
+  const base = INITIAL_DATA.config.foldLevel;
   try {
     const saved = JSON.parse(readPref(THRESHOLD_PREF) || 'null');
     return saved?.base === base && Number.isInteger(saved.level) && saved.level >= -1 && saved.level <= 3
@@ -189,6 +189,7 @@ const initialState: LensState = {
   threshold: loadThreshold(),
   activities: [],
   notice: null,
+  handoffCopied: false,
   serverGone: false,
   ended: false,
   view: 'code', // Code is always the default
@@ -217,7 +218,6 @@ const initialState: LensState = {
   summaryDot: false,
   changedOnDisk: false,
   summaryBuild: null,
-  beforeRound: null,
   summaryChecking: false,
   sumQuery: '',
   sumSignal: null,
@@ -277,11 +277,6 @@ export const scrollStore = createStore<{
   /** The sidebar's scroll per view: the tree and the summary list share one scroller */
   nav: Readonly<Record<View, number>>;
 }>()(() => ({ files: {}, nav: { code: 0, summary: 0 } }));
-
-/** The whole change, whether or not `data` shows only what changed since the last round. */
-export function wholeData(state: LensState): ViewerPayload {
-  return state.beforeRound ?? state.data;
-}
 
 /** A copy of the set with `key` added or removed. */
 export function toggled<T>(set: ReadonlySet<T>, key: T, on?: boolean): Set<T> {

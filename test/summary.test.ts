@@ -1,7 +1,16 @@
 import { test } from 'bun:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, rmSync, mkdirSync, readFileSync, existsSync, realpathSync } from 'node:fs';
+import {
+  mkdtempSync,
+  writeFileSync,
+  rmSync,
+  mkdirSync,
+  readFileSync,
+  existsSync,
+  realpathSync,
+  utimesSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { Window } from 'happy-dom';
@@ -442,7 +451,7 @@ test('submit finds a bundle whose key ends in .json', async () => {
   }
 });
 
-test('a submit that asks for fixes keeps the run shown until one that asks for nothing', async () => {
+test('a submit that asks for fixes keeps the run shown until one that asks for nothing, or the agent goes quiet', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'lens-submit-'));
   const git = (...args: string[]) => execFileSync('git', args, { cwd: dir, encoding: 'utf8' });
   const log = console.log;
@@ -470,6 +479,11 @@ test('a submit that asks for fixes keeps the run shown until one that asks for n
     );
     await runSummary(['submit', folder], dir);
     assert.equal(read()?.stage, 'fixes', 'the agent was told to fix and submit again');
+
+    // no write for minutes after it: the agent left the fixes, and the run is over
+    const before = (Date.now() - 4 * 60 * 1000) / 1000;
+    for (const name of ['bundle.json', 'summary.json', 'submit.json']) utimesSync(join(folder, name), before, before);
+    assert.equal(buildProgressReader(dir, key)(), null, 'fixes left: done');
 
     writeFileSync(join(folder, 'result.json'), JSON.stringify({ units: {}, overview }));
     await runSummary(['submit', folder], dir);
@@ -1012,20 +1026,16 @@ test('validate: a whole-diff pass replaces the stored flows; other passes merge 
   assert.equal(noFlows.stored.flows.length, 2, 'a submit without flows leaves them alone');
 });
 
-test('validate: self-checks name a flow and a line of a unit, at most three a flow; a sent finding gets its claim', () => {
+test('validate: self-checks name a flow and a line of a unit, at most three a flow', () => {
   const flow = { title: 'Paging', path: 'a', units: { [BUNDLE.units[0].id]: 'a', [BUNDLE.units[1].id]: 'b' } };
   const previous = { version: 1 as const, updatedAt: '', units: {}, flows: [flow] };
   const unit = BUNDLE.units[0].id;
   const good = { flow: 'Paging', question: 'What now?', answer: 'The first 50.', unit, line: 'N5' };
   const outcome = validateResult(
-    { ...BUNDLE, checks: true, wholeDiff: true, sent: ['key-one'] },
+    { ...BUNDLE, checks: true, wholeDiff: true },
     {
       units: {},
       checks: [good, good, good, good, { ...good, flow: 'Other' }, { ...good, line: 'N999' }],
-      sent: {
-        '1': { fixed: true, how: 'The key has the limit now', unit, line: 'N6' },
-        '2': { fixed: true, how: 'No such one', unit, line: 'N6' },
-      },
     },
     '/nonexistent',
     previous,
@@ -1034,9 +1044,6 @@ test('validate: self-checks name a flow and a line of a unit, at most three a fl
   assert.equal(outcome.stored.checked, unitSetHash(BUNDLE.units));
   assert.ok(outcome.dropped.some((reason) => /has its 3 already/.test(reason)));
   assert.ok(outcome.dropped.some((reason) => /isn't one of the flows/.test(reason)));
-  assert.equal(outcome.acceptedSent, 1);
-  assert.deepEqual(Object.keys(outcome.stored.sentChecks ?? {}), ['key-one']);
-  assert.ok(outcome.dropped.some((reason) => /no finding with that number/.test(reason)));
 });
 
 test("validate: the overview is stored with the diff's hash; an over-long one is dropped", () => {

@@ -8,7 +8,6 @@ import { fileViewKey } from '../shared.ts';
 import { changeNote } from '../model/status.ts';
 import { firstTreeFile } from '../model/tree.ts';
 import { api, noteDone, tracked } from './status.ts';
-import { changeData } from './rounds.ts';
 import { withTab } from './tabs.ts';
 
 export async function switchTheme(theme: string): Promise<boolean> {
@@ -24,24 +23,24 @@ export async function switchTheme(theme: string): Promise<boolean> {
     }
     // committed inside the cross-fade: the new colors and code are drawn before it starts
     crossFade(() =>
-      commit((state) =>
-        changeData(state, (whole) => ({
-          ...whole,
+      commit((state) => ({
+        data: {
+          ...state.data,
           theme: entry.theme,
           fg: entry.fg,
           bg: entry.bg,
           accent: entry.accent,
           // a theme from the saved choice that isn't in the menu yet joins it
-          themes: whole.themes.some((swatch) => swatch.name === entry.theme)
-            ? whole.themes
-            : [...whole.themes, { name: entry.theme, bg: entry.bg, fg: entry.fg, accent: entry.accent }],
-          files: whole.files.map((file, fileIndex) => ({
+          themes: state.data.themes.some((swatch) => swatch.name === entry.theme)
+            ? state.data.themes
+            : [...state.data.themes, { name: entry.theme, bg: entry.bg, fg: entry.fg, accent: entry.accent }],
+          files: state.data.files.map((file, fileIndex) => ({
             ...file,
             tokens: entry.tokens[fileIndex],
             removedTokens: entry.removed[fileIndex],
           })),
-        })),
-      ),
+        },
+      })),
     );
     switched = true;
   });
@@ -98,7 +97,6 @@ export function refresh(theme = getState().data.theme): Promise<boolean> {
         view: data.summary ? state.view : 'code',
         summaryDot: false, // the analysis came with the newest summary: none waits
         changedOnDisk: false, // and with the code as it is now
-        beforeRound: null, // a new analysis comes whole
       };
     });
     noteDone('Refreshed', changeNote(before, contentKeys(data)));

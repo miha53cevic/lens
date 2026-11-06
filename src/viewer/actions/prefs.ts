@@ -82,17 +82,13 @@ export function setSideBySide(on: boolean): void {
 }
 
 /**
- * Kept with the level it was picked over: a new one in .lens.json or --threshold wins over it.
+ * Kept with the level it was picked over: a new one in .lens.json or --fold-level wins over it.
  * Back at that level, nothing is kept.
  */
 export function setThreshold(threshold: number): void {
-  const base = INITIAL_DATA.threshold;
+  const base = INITIAL_DATA.config.foldLevel;
   writePref(THRESHOLD_PREF, threshold === base ? '' : JSON.stringify({ level: threshold, base }));
   update({ threshold });
-}
-
-export function stepThreshold(delta: number): void {
-  setThreshold(Math.max(-1, Math.min(3, getState().threshold + delta)));
 }
 
 // The code's size, in both views. Kept in a cookie, so every repository's viewer opens at it.

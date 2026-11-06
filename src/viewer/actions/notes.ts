@@ -2,15 +2,15 @@
 // edited and resolved in place. Only the reader writes them; lens copies the ones with a kind for
 // the agent when the reader asks (model/realConcerns.ts) and sends nothing anywhere itself.
 
-import { sendRound, sentFindings } from './rounds.ts';
 import type { NoteKind, ReaderNote } from '../../cli-app/notes/store.ts';
 import type { NewNote } from '../../cli-app/api/contract.ts';
 import { commit, getState, update } from '../store.ts';
 import { askSelection } from '../model/askContext.ts';
 import { fileByPath, fileText, placeOn } from '../model/notes.ts';
 import { setAsk } from '../ask/rail.ts';
-import { confirmedLabel, type RealConcerns } from '../model/realConcerns.ts';
+import type { RealConcerns } from '../model/realConcerns.ts';
 import { api, noteDone, noteFailure, tracked } from './status.ts';
+import { pop } from '../../ui/motion.ts';
 
 const NOTE_INPUT = 'note-input';
 
@@ -78,10 +78,7 @@ export async function saveNote(kind: NoteKind, text: string): Promise<boolean> {
       ? await api('POST /api/notes/:id', { id: editing.id, body: { kind, text } })
       : await api('POST /api/notes', { body });
     update({ notes: answer.notes, noteDraft: null });
-    noteDone(
-      editing ? 'Note saved' : 'Note added',
-      kind === 'note' ? 'only you see it' : 'it goes along when you copy for your agent',
-    );
+    noteDone(editing ? 'Note saved' : 'Note added', 'it goes along when you copy for your agent');
   });
 }
 
@@ -97,12 +94,23 @@ export async function resolveNote(note: ReaderNote): Promise<void> {
   });
 }
 
-/** The handoff's text on the clipboard, for the reader to paste to their agent. */
-export async function copyForAgent(handoff: RealConcerns): Promise<boolean> {
+/** How long a copy button says "Copied" */
+const COPIED_FOR_MS = 1200;
+/** The timer that takes "Copied" back: a resource, not state */
+let copiedTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** The handoff's text on the clipboard, for the reader to paste to their agent; `button` pops as it lands. */
+export async function copyForAgent(handoff: RealConcerns, button?: Element | null): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(handoff.text);
-    if (getState().data.summary) await sendRound(sentFindings(handoff));
-    noteDone('Copied ' + confirmedLabel(handoff), 'paste them to your agent');
+    if (copiedTimer) clearTimeout(copiedTimer);
+    update({ handoffCopied: true });
+    pop(button ?? null);
+    copiedTimer = setTimeout(() => {
+      copiedTimer = null;
+      update({ handoffCopied: false });
+    }, COPIED_FOR_MS);
+    // the button says it was copied: the status bar needn't
     return true;
   } catch (error) {
     noteFailure("Couldn't copy the notes", (error as Error).message);

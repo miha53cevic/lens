@@ -16,7 +16,6 @@ import {
 } from './store.ts';
 import { relPath } from '../paths.ts';
 import { buildPreviewsOn, selfChecksOn } from './settings.ts';
-import { sentForAgent } from '../rounds/store.ts';
 import { writeAssets } from './previews.ts';
 import { recordSubmit } from './progress.ts';
 
@@ -58,7 +57,6 @@ export async function runSummary(rest: string[], cwd: string): Promise<void> {
       sources: new Map([...diff.sources].map(([abs, src]) => [relPath(diff.root, abs), src])),
       drawings: buildPreviewsOn(diff.root, config),
       checks: selfChecksOn(diff.root, config),
-      sent: sentForAgent(diff.root, key),
     });
     console.log(result.instructions);
     return;
@@ -102,8 +100,7 @@ export async function runSummary(rest: string[], cwd: string): Promise<void> {
           : '') +
         (outcome.acceptedChecks
           ? `, ${outcome.acceptedChecks} self-check${outcome.acceptedChecks === 1 ? '' : 's'}`
-          : '') +
-        (outcome.acceptedSent ? `, ${outcome.acceptedSent} sent finding${outcome.acceptedSent === 1 ? '' : 's'}` : ''),
+          : ''),
     );
     if (outcome.dropped.length > 0) {
       console.log(
@@ -154,8 +151,7 @@ export async function runSummary(rest: string[], cwd: string): Promise<void> {
       outcome.acceptedOverview ||
       outcome.acceptedPreviews > 0 ||
       outcome.acceptedSequences > 0 ||
-      outcome.acceptedChecks > 0 ||
-      outcome.acceptedSent > 0;
+      outcome.acceptedChecks > 0;
     if (!acceptedAny && (submitted > 0 || outcome.dropped.length > 0)) process.exitCode = 1;
     return;
   }

@@ -20,7 +20,6 @@ export const KEY_TABS: { id: KeyTab; label: string; keys: KeyHelp[] }[] = [
       { keys: ['v'], action: 'switch Code / Summary', note: '(diff mode)' },
       { keys: ['s'], action: 'toggle the sidebar' },
       { keys: ['e', 'c'], action: 'expand / collapse all folds of the open file or change' },
-      { keys: ['[', ']'], action: 'fold threshold down / up' },
       { keys: ['h'], action: 'toggle hunks only', note: '(diff mode)' },
       { keys: ['x'], action: 'toggle removed lines', note: '(diff mode)' },
       { keys: ['d'], action: 'toggle word diff', note: '(diff mode)' },

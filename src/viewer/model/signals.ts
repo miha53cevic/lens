@@ -90,9 +90,10 @@ export function hasDismissed(marks: Marks, unit: Unit): boolean {
 }
 
 /** The unit's signal ids, most serious first. */
-export function unitSignals(marks: Marks, unit: Unit): SignalId[] {
+/** `also`: more kinds the unit has, beside its open findings (the reader's notes on it) */
+export function unitSignals(marks: Marks, unit: Unit, also: ReadonlySet<SignalId> = new Set()): SignalId[] {
   const kinds = new Set(openFindings(marks, unit).map((finding) => finding.kind));
-  return SIGNAL_ORDER.filter((kind) => kinds.has(kind));
+  return SIGNAL_ORDER.filter((kind) => kinds.has(kind) || also.has(kind));
 }
 
 export function isFlagged(marks: Marks, unit: Unit): boolean {
@@ -104,8 +105,16 @@ export function concernLabel(concern: Concern, mark: ConcernMark | null): string
   return mark === 'real' ? 'confirmed ' + concern.kind : SIGNALS[concern.kind].one;
 }
 
-export function signalTip(marks: Marks, unit: Unit, signal: SignalId): string {
-  return SIGNALS[signal].one + ': ' + openFindings(marks, unit).find((finding) => finding.kind === signal)!.text;
+/** The agent's finding of that kind, or else the reader's own note of it (`notes`: theirs on the unit) */
+export function signalTip(
+  marks: Marks,
+  unit: Unit,
+  signal: SignalId,
+  notes: readonly { kind: string; text: string }[] = [],
+): string {
+  const finding = openFindings(marks, unit).find((candidate) => candidate.kind === signal);
+  if (finding) return SIGNALS[signal].one + ': ' + finding.text;
+  return 'your ' + signal + ': ' + (notes.find((note) => note.kind === signal)?.text ?? '');
 }
 
 export function flowPriority(flow: Flow): number {

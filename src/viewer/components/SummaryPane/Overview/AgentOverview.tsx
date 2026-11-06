@@ -33,7 +33,7 @@ export function AgentOverview({ summary, anySummarized, checking }: AgentOvervie
     );
   }
   // the agent is on it: where it has got to, not what to run
-  if (!overview && build) return <RunProgress build={build} showText command={summary.command} />;
+  if (!overview && build) return <RunProgress build={build} command={summary.command} />;
   if (!overview && anySummarized) {
     return (
       <div data-part='sum-note' className='rounded-md border border-line bg-surface px-3 py-2 text-md/[1.5] text-muted'>
@@ -76,7 +76,7 @@ export function AgentOverview({ summary, anySummarized, checking }: AgentOvervie
           </p>
         ))}
       </div>
-      {build && <RunProgress build={build} showText={false} command={summary.command} />}
+      {/* a run over a written overview is the status bar's to say, as any reload of what's on screen is */}
       {overview.stale && !build && (
         <div
           data-part='sum-note'

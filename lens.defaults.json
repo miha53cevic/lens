@@ -1,22 +1,10 @@
 {
   "$comment": "lens's built-in rules — the 'base game'. A project's .lens.json merges over this file. Field documentation: README.md (Configuration)",
 
-  "threshold": 1,
+  "foldLevel": 1,
   "theme": "vesper",
 
-  "categories": {
-    "import": true,
-    "comment": true,
-    "guard": true,
-    "logging": true,
-    "telemetry": true,
-    "error-boilerplate": true,
-    "accessor": true,
-    "barrel": true,
-    "data": true
-  },
-
-  "scores": {
+  "folds": {
     "import": 0,
     "comment": 0,
     "guard": 1,

@@ -36,6 +36,12 @@ interface SubmitRecord {
 
 const SUBMIT_FILE = 'submit.json';
 
+/**
+ * A submit that asked for fixes, and no write since for this long: the agent has moved on and left
+ * them, so the run is over. A fix and its submit take an agent a minute at most; the summary is in.
+ */
+const FIXES_QUIET_MS = 3 * 60 * 1000;
+
 /** Kept next to the bundle, so a later prepare's bundle (another createdAt) leaves it behind. */
 export function recordSubmit(dir: string, bundle: { createdAt: string }, again: boolean): void {
   const record: SubmitRecord = { bundle: bundle.createdAt, again };
@@ -45,7 +51,8 @@ export function recordSubmit(dir: string, bundle: { createdAt: string }, again: 
 /**
  * Reads a review's run, again only when the bundle or the summary changed on disk: the page asks
  * every few seconds, and a bundle can be big. Null when no run is going. A run the agent left
- * unfinished stays shown: the reader checks the agent, rather than lens guessing it stopped.
+ * unfinished stays shown: the reader checks the agent, rather than lens guessing it stopped. The one
+ * exception is the fixes a submit asked for: the summary is in by then, so their wait is short.
  */
 export function buildProgressReader(root: string, key: string): () => BuildProgress | null {
   const dir = dirname(summaryPath(root, key));
@@ -60,7 +67,10 @@ export function buildProgressReader(root: string, key: string): () => BuildProgr
       const wrote = Math.max(...paths.map((path) => statSync(path, { throwIfNoEntry: false })?.mtimeMs ?? 0));
       held = { stamps, progress: progressOf(bundlePath, submitPath, root, key), wrote };
     }
-    return held.progress && { ...held.progress, quietMs: Math.max(0, Date.now() - held.wrote) };
+    if (!held.progress) return null;
+    const quietMs = Math.max(0, Date.now() - held.wrote);
+    if (held.progress.stage === 'fixes' && quietMs > FIXES_QUIET_MS) return null;
+    return { ...held.progress, quietMs };
   };
 }
 

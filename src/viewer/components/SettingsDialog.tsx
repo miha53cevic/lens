@@ -57,7 +57,7 @@ export function SettingsDialog() {
     uiZoom: state.uiZoom,
   }));
   const config = data.config;
-  const categories = Object.keys(config.categories || {});
+  const categories = Object.keys(config.folds);
   for (const pattern of config.callPatterns || []) {
     if (!categories.includes(pattern.category)) categories.push(pattern.category);
   }
@@ -67,6 +67,18 @@ export function SettingsDialog() {
     <dialog id='settings-modal' className={DIALOG}>
       <ModalHead title='Settings' />
       <div data-part='modal-body' className='min-h-0 flex-1 overflow-y-auto px-4 pt-4 pb-5 text-md' id='settings-body'>
+        {data.configProblems.length > 0 && (
+          <Section
+            title='Skipped from the config'
+            hint='These values were left out; the rest of the file applies.'
+            rows={data.configProblems.map((problem) => [
+              <code data-part='config-problem' className='text-sm [overflow-wrap:anywhere] text-text'>
+                {problem.path || problem.file}
+              </code>,
+              <span className='text-mod'>{problem.path ? problem.message : problem.file + ' ' + problem.message}</span>,
+            ])}
+          />
+        )}
         <Section
           title='This session'
           rows={[
@@ -74,7 +86,7 @@ export function SettingsDialog() {
               'Fold level',
               <>
                 {threshold < 0 ? 'off' : threshold}
-                {threshold !== config.threshold && <span className='ml-2 text-faint'>config: {config.threshold}</span>}
+                {threshold !== config.foldLevel && <span className='ml-2 text-faint'>config: {config.foldLevel}</span>}
               </>,
             ],
             [
@@ -118,8 +130,9 @@ export function SettingsDialog() {
               : 'A category folds when its score is at or below the fold level (' + threshold + ').'
           }
           rows={categories.map((category) => {
-            const enabled = (config.categories || {})[category] !== false;
-            const score = (config.scores || {})[category] ?? 1;
+            const fold = config.folds[category];
+            const enabled = fold !== false;
+            const score = typeof fold === 'number' ? fold : 1;
             return [
               <CategoryName category={category} disabled={!enabled} />,
               enabled ? (
@@ -166,7 +179,8 @@ export function SettingsDialog() {
         ) : (
           'Built-in defaults (no .lens.json found).'
         )}{' '}
-        Edit .lens.json and press reload (r) to apply it. The README lists every field.
+        Edit .lens.json and press reload (r) to apply it. <code>lens config</code> shows where each value comes from;
+        the README lists every field.
       </div>
     </dialog>
   );

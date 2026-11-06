@@ -2,10 +2,11 @@ import { Copy } from 'lucide-react';
 import { useLens } from '../../store.ts';
 import { fileProgress, unitProgress } from '../../model/progress.ts';
 import { listModel } from '../../model/summaryList.ts';
-import { notesForAgent } from '../../model/realConcerns.ts';
+import { handoff } from '../../model/realConcerns.ts';
 import { copyForAgent } from '../../actions/notes.ts';
 import { plural } from '../../shared.ts';
 import { Button } from '../../../ui/Button.tsx';
+import { CopiedLabel } from '../CopiedLabel.tsx';
 import { ProgressRing } from '../../../ui/ProgressRing.tsx';
 
 /** The top of the sidebar: how many files the reader viewed. */
@@ -24,13 +25,23 @@ export function FilesProgress() {
  * does that, with what was confirmed too; without one, this is the only place.
  */
 function NotesForAgent() {
-  const handoff = useLens((state) => (state.data.summary ? null : notesForAgent(state.notes, state.data.files)));
-  if (!handoff || handoff.notes.length === 0) return null;
+  const notes = useLens((state) => (state.data.summary ? null : handoff(state)));
+  const copied = useLens((state) => state.handoffCopied);
+  if (!notes || notes.notes.length === 0) return null;
   return (
     <span data-part='notes-for-agent' className='inline-flex flex-wrap items-center gap-1 text-xs text-muted'>
-      {plural(handoff.notes.length, 'note')} for your agent
-      <Button variant='ghost' size='xs' id='notes-copy' onClick={() => void copyForAgent(handoff)}>
-        <Copy size={11} /> Copy
+      {plural(notes.notes.length, 'note')} for your agent
+      <Button
+        variant='ghost'
+        size='xs'
+        id='notes-copy'
+        data-copied={copied ? '' : undefined}
+        className={copied ? 'text-add' : undefined}
+        onClick={(event) => void copyForAgent(notes, event.currentTarget)}
+      >
+        <CopiedLabel copied={copied} size={11}>
+          <Copy size={11} /> Copy
+        </CopiedLabel>
       </Button>
     </span>
   );

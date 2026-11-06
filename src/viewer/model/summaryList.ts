@@ -2,7 +2,10 @@
 
 import type { Flow } from '../../cli-app/summary/store.ts';
 import type { SummaryView } from '../../cli-app/summary/view.ts';
+import type { ReaderNote } from '../../cli-app/notes/store.ts';
+import type { ViewerPayload } from '../../cli-app/render/web/server.ts';
 import type { LensState, SignalFilter } from '../store.ts';
+import { unitNoteKinds } from './notes.ts';
 import { isTestFile, memo } from '../shared.ts';
 import {
   flowPriority,
@@ -92,12 +95,21 @@ const buildList = memo(
     viewedUnits: ReadonlySet<string>,
     inboxFlowOpen: ReadonlyMap<string, boolean>,
     inboxReadOpen: ReadonlySet<string>,
+    notes: readonly ReaderNote[],
+    files: ViewerPayload['files'],
   ): ListModel => {
     const isShown = (unit: Unit) => !(hideTests && isTestFile(unit.displayFile));
     const units = summary.units.filter(isShown); // hide tests: the counts follow the list
+    // the reader's own notes count with the agent's findings: a bug they noted is one to filter by
+    const signalsOf = (unit: Unit) =>
+      unitSignals(
+        marks,
+        unit,
+        unitNoteKinds(notes, files.find((file) => file.file === unit.displayFile) ?? null, unit),
+      );
     const counts = { any: 0, bug: 0, risk: 0, question: 0, breaks: 0, dismissed: 0 };
     for (const unit of units) {
-      const signals = unitSignals(marks, unit);
+      const signals = signalsOf(unit);
       if (signals.length > 0) counts.any++;
       for (const signal of signals) counts[signal]++;
       if (hasDismissed(marks, unit)) counts.dismissed++;
@@ -111,10 +123,10 @@ const buildList = memo(
       const hasSignal =
         signal === null ||
         (signal === 'any'
-          ? isFlagged(marks, unit)
+          ? signalsOf(unit).length > 0
           : signal === 'dismissed'
             ? hasDismissed(marks, unit)
-            : unitSignals(marks, unit).includes(signal));
+            : signalsOf(unit).includes(signal));
       if (!hasSignal && !isOpenUnit(unit)) return false;
       if (text === '') return true;
       const haystack = unitLabel(unit) + '\n' + unit.displayFile + '\n' + (unit.summary ? unit.summary.gist : '');
@@ -158,6 +170,8 @@ export function listModel(state: LensState): ListModel | null {
     state.viewedUnits,
     state.inboxFlowOpen,
     state.inboxReadOpen,
+    state.notes,
+    state.data.files,
   );
 }
 

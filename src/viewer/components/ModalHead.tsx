@@ -8,8 +8,6 @@ import { IconButton } from '../../ui/IconButton.tsx';
 export const DIALOG =
   'max-h-[calc(var(--screen-h)*0.8)] w-[min(620px,calc(var(--screen-w)*0.9))] overflow-hidden rounded-lg border border-line-strong bg-raised p-0 text-text opacity-0 shadow-3 [scale:0.98] [transition:opacity_var(--motion-exit),translate_var(--motion-exit),scale_var(--motion-exit),display_var(--motion-exit)_allow-discrete,overlay_var(--motion-exit)_allow-discrete] [translate:0_8px] [&[open]]:flex [&[open]]:flex-col [&[open]]:opacity-100 [&[open]]:[scale:1] [&[open]]:[transition:opacity_var(--motion-enter),translate_var(--motion-enter),scale_var(--motion-enter),display_var(--motion-enter)_allow-discrete,overlay_var(--motion-enter)_allow-discrete] [&[open]]:[translate:0_0] starting:[&[open]]:opacity-0 starting:[&[open]]:[scale:0.98] starting:[&[open]]:[translate:0_8px] backdrop:bg-scrim backdrop:opacity-0 backdrop:[transition:opacity_var(--motion-exit),display_var(--motion-exit)_allow-discrete,overlay_var(--motion-exit)_allow-discrete] [&[open]]:backdrop:opacity-100 [&[open]]:backdrop:[transition:opacity_var(--motion-enter),display_var(--motion-enter)_allow-discrete,overlay_var(--motion-enter)_allow-discrete] starting:[&[open]]:backdrop:opacity-0';
 
-export const MODAL_BODY = 'min-h-0 flex-1 overflow-y-auto px-4 pt-4 pb-5 text-md';
-
 /** A modal's title row; its close button closes the <dialog> natively. */
 export function ModalHead({ title }: { title: string }) {
   return (

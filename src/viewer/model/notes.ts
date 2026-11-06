@@ -6,16 +6,12 @@ import { placeNote, type PlacedNote } from '../../cli-app/notes/place.ts';
 
 type ViewerFile = ViewerPayload['files'][number];
 
-/** The kinds a note can have, in the composer's order; all but "note" go along to the agent */
+/** The kinds a note can have, in the composer's order; each goes along to the agent */
 export const NOTE_KINDS: { kind: NoteKind; label: string; color: string }[] = [
-  { kind: 'note', label: 'note', color: 'var(--line-strong)' },
   { kind: 'bug', label: 'bug', color: 'var(--bug)' },
   { kind: 'risk', label: 'risk', color: 'var(--risk)' },
   { kind: 'question', label: 'question', color: 'var(--question)' },
 ];
-
-/** A plain note stays the reader's: only one with a kind goes along when they copy the review. */
-export const forAgent = (note: ReaderNote): boolean => note.kind !== 'note';
 
 export interface FileNotes {
   /** The notes drawn under each row, by its label */
@@ -68,7 +64,7 @@ export function fileNotes(notes: readonly ReaderNote[], file: ViewerFile): FileN
       continue;
     }
     byLabel.set(placed.label, [...(byLabel.get(placed.label) ?? []), { note, placed }]);
-    if (forAgent(note)) flagged.set(placed.label, note.kind);
+    flagged.set(placed.label, note.kind);
   }
   const result = { byLabel, outdated, flagged };
   fileNotesCache.set(file, { notes, result });
@@ -93,23 +89,69 @@ export function noteCounts(notes: readonly ReaderNote[]): ReadonlyMap<string, nu
   return counts;
 }
 
+/** One kind of the reader's notes on a file, and how many */
+export interface NoteKindCount {
+  kind: NoteKind;
+  count: number;
+}
+
+const kindsCache = new WeakMap<readonly ReaderNote[], ReadonlyMap<string, readonly NoteKindCount[]>>();
+
+/** The kinds of the reader's notes each file holds, by its path, in NOTE_KINDS' order: the tree's signal icons. */
+export function fileNoteKinds(notes: readonly ReaderNote[]): ReadonlyMap<string, readonly NoteKindCount[]> {
+  let kinds = kindsCache.get(notes);
+  if (!kinds) {
+    const byPath = new Map<string, NoteKindCount[]>();
+    for (const { kind } of NOTE_KINDS) {
+      for (const note of notes) {
+        if (note.kind !== kind) continue;
+        const counts = byPath.get(note.file) ?? [];
+        const counted = counts.find((entry) => entry.kind === kind);
+        if (counted) counted.count++;
+        else byPath.set(note.file, [...counts, { kind, count: 1 }]);
+      }
+    }
+    kinds = byPath;
+    kindsCache.set(notes, kinds);
+  }
+  return kinds;
+}
+
+type UnitLines = { ranges: { start: number; end: number }[]; removals: { oldStart: number; lines: string[] }[] };
+
+const NO_NOTES: readonly ReaderNote[] = [];
+const unitNotesCache = new WeakMap<UnitLines, { notes: readonly ReaderNote[]; file: ViewerFile; on: ReaderNote[] }>();
+
 /**
- * How many of the reader's notes are on lines a unit shows, as its file is now: the summary list's
- * note marks. An outdated note has no line, so it counts for its file but no unit.
+ * The reader's notes on lines a unit shows, as its file is now. An outdated note has no line, so it
+ * is its file's but no unit's. The same array while the notes and the file stay: a selector may return it.
  */
-export function unitNoteCount(
+export function unitNotes(
   notes: readonly ReaderNote[],
   file: ViewerFile | null,
-  unit: { ranges: { start: number; end: number }[]; removals: { oldStart: number; lines: string[] }[] },
-): number {
-  if (!file || !noteCounts(notes).has(file.file)) return 0;
-  let count = 0;
+  unit: UnitLines,
+): readonly ReaderNote[] {
+  if (!file || !noteCounts(notes).has(file.file)) return NO_NOTES;
+  const cached = unitNotesCache.get(unit);
+  if (cached && cached.notes === notes && cached.file === file) return cached.on;
+  const on: ReaderNote[] = [];
   for (const [label, placed] of fileNotes(notes, file).byLabel) {
     const line = Number(label.slice(1));
     const shown = label.startsWith('N')
       ? unit.ranges.some((range) => line >= range.start && line <= range.end)
       : unit.removals.some((block) => line >= block.oldStart && line < block.oldStart + block.lines.length);
-    if (shown) count += placed.length;
+    if (shown) on.push(...placed.map(({ note }) => note));
   }
-  return count;
+  unitNotesCache.set(unit, { notes, file, on });
+  return on;
+}
+
+/** How many of the reader's notes a unit shows: the summary list's note marks. */
+export function unitNoteCount(notes: readonly ReaderNote[], file: ViewerFile | null, unit: UnitLines): number {
+  return unitNotes(notes, file, unit).length;
+}
+
+/** The kinds of the reader's notes a unit shows: they count with the agent's findings in the list's filter. */
+export function unitNoteKinds(notes: readonly ReaderNote[], file: ViewerFile | null, unit: UnitLines): Set<NoteKind> {
+  return new Set(unitNotes(notes, file, unit).map((note) => note.kind));
 }

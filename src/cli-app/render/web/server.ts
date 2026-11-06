@@ -2,13 +2,13 @@ import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import type { FileFoldModel, LensConfig } from '../../model.ts';
+import type { ConfigProblem } from '../../config.ts';
 import type { SummaryView } from '../../summary/view.ts';
 import { removeServerInfo, writeServerInfo } from '../../ask/discovery.ts';
 import { createAskRoutes } from '../../ask/routes.ts';
 import { createNoteRoutes } from '../../notes/routes.ts';
 import { notesFor, type ReaderNote } from '../../notes/store.ts';
 import { createMarkRoutes } from '../../marks/routes.ts';
-import { createRoundRoutes } from '../../rounds/routes.ts';
 import { marksFor, type ReviewMarks } from '../../marks/store.ts';
 import { isLocalRequest, readCookie, sendJson } from './http.ts';
 import type { ClearRequest, SettingsRequest, StampResponse, TokensResponse } from '../../api/contract.ts';
@@ -47,7 +47,6 @@ export interface ViewerInput {
   cwd: string;
   /** The review's key (reviewKey): the reader's marks and notes are kept under it, and the summary in diff/PR mode */
   review: string;
-  threshold: number;
   files: ViewerFile[];
   deleted: string[];
   /** Changed files skipped via exclude patterns — listed, not loaded */
@@ -59,6 +58,8 @@ export interface ViewerInput {
   /** The effective merged config, shown in the viewer's settings modal */
   config: LensConfig;
   configSource: string | null;
+  /** What in .lens.json was skipped, and why: the status bar says so, Settings lists them */
+  configProblems: ConfigProblem[];
   /** Build previews, as summary mode follows it: the reader's switch (.lens/settings.json), else the config's */
   buildPreviews: boolean;
   /** Check yourself, the same way */
@@ -251,13 +252,6 @@ export async function serveViewer(
   const marks = createMarkRoutes(
     () => current,
     () => savedVersion++,
-  );
-  const rounds = createRoundRoutes(
-    () => current,
-    () => {
-      savedVersion++;
-      syncSummary();
-    },
   );
   // the root of the analysis that wrote server.json — a refresh can't move it
   const infoRoot = input.root;
@@ -457,7 +451,7 @@ export async function serveViewer(
       }
       // the stored summary is gone: the view is made again, with no unit summarized
       syncSummary();
-      if (cleared.notes || cleared.marks || cleared.rounds) savedVersion++;
+      if (cleared.notes || cleared.marks) savedVersion++;
       return { cleared, summary: current.summary };
     })
     .raw('POST /api/shutdown', ({ res }) => {
@@ -470,7 +464,6 @@ export async function serveViewer(
     })
     .use(notes)
     .use(marks)
-    .use(rounds)
     .use(ask);
 
   const server = createServer(async (req, res) => {

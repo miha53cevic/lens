@@ -16,7 +16,6 @@ import {
   setShowRemoved,
   setSideBySide,
   setWordDiff,
-  stepThreshold,
   toggleFileViewed,
   toggleNav,
   toggleUnitViewed,
@@ -27,7 +26,7 @@ import { askOpenAndFocus, askToggle } from './ask/rail.ts';
 import { isDiffMode } from './shared.ts';
 
 /** The keys that also work on the Summary tab: the view settings' keys act on the open unit's code. */
-const SUMMARY_KEYS = ['?', 'x', 'd', 'l', 's', 'r', 'e', 'c', '[', ']', 'h', 't', 'a', 'N', '\\'];
+const SUMMARY_KEYS = ['?', 'x', 'd', 'l', 's', 'r', 'e', 'c', 'h', 't', 'a', 'N', '\\'];
 /** Every key a shortcut takes, on either tab. */
 const SHORTCUT_KEYS = [...SUMMARY_KEYS, 'v', 'j', 'k', 'w', 'm', 'o', 'g', '/'];
 
@@ -118,12 +117,6 @@ export function onKeyDown(event: KeyboardEvent): void {
       break;
     case 'c':
       collapseAll();
-      break;
-    case '[':
-      stepThreshold(-1);
-      break;
-    case ']':
-      stepThreshold(1);
       break;
     case 'h':
       if (diffMode) setHunksOnly(!state.hunksOnly);

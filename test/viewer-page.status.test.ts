@@ -148,7 +148,7 @@ pageTest("the agent's summary run shows as a notice while it goes: units in, the
   assert.deepEqual(notices(), [], 'the run is done');
 });
 
-test('a run going over a written overview shows too, and a stalled one goes back to saying what to run', async () => {
+test("a run going over a written overview is only the status bar's, and a stalled one goes back to saying what to run", async () => {
   const summary = payload.summary!;
   const data: ViewerPayload = {
     ...payload,
@@ -171,7 +171,8 @@ test('a run going over a written overview shows too, and a stalled one goes back
     await key('v');
     window.dispatchEvent(new Event('focus'));
     await settle();
-    assert.ok($('#summary-pane [data-part="run-progress"]'));
+    assert.equal($$('#summary-pane [data-part="run-progress"]').length, 0, 'the overview stays as it is');
+    assert.match($('#status-bar').textContent!, /Agent writing summary · 3 of 61 units/);
     assert.equal($$('#summary-pane [data-part="sum-note"][data-stale]').length, 0, "it's being written: no command");
     quietMs = 60 * 60 * 1000;
     window.dispatchEvent(new Event('focus'));
@@ -277,6 +278,30 @@ test('a PR diffed against a guessed base says so, and one with its own base says
   } finally {
     await close();
   }
+});
+
+test('problems in .lens.json show as a notice, and a click opens Settings on the list of them', async () => {
+  const notices = () => $$('#status-bar [data-part="status-notices"] > *');
+  const configProblems = [
+    { file: '.lens.json', path: 'folds.loging', message: 'no rule makes "loging" regions' },
+    { file: '.lens.json', path: 'foldLevel', message: 'must be a whole number from -1 (fold nothing) to 3, not 7' },
+  ];
+  await open({}, '', '', { ...payload, configProblems });
+  try {
+    assert.deepEqual(
+      notices().map((notice) => notice.textContent),
+      ['.lens.json: 2 problems'],
+    );
+    await click(notices()[0]);
+    assert.ok(($('#settings-modal') as HTMLDialogElement).open);
+    assert.deepEqual(
+      $$('#settings-modal [data-part="config-problem"]').map((problem) => problem.textContent),
+      ['folds.loging', 'foldLevel'],
+    );
+  } finally {
+    await close();
+  }
+  assert.deepEqual(payload.configProblems, [], "the fixture's config has none");
 });
 
 pageTest(

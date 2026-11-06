@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ArrowRight } from 'lucide-react';
 import type { SelfCheckView } from '../../../../cli-app/summary/view.ts';
 import { useLens } from '../../../store.ts';
 import { openSummaryUnit } from '../../../actions/summary.ts';
@@ -17,12 +18,16 @@ function Check({ check }: { check: SelfCheckView }) {
         Show the answer
       </Disclosure>
       {open && (
-        <div data-part='self-check-answer' className='flex flex-col items-start gap-1 text-sm/[1.6] text-muted'>
+        <div
+          data-part='self-check-answer'
+          className='flex flex-col items-start gap-2 border-l-2 border-line-strong pl-3 text-base/[1.6] text-text'
+        >
           <span>
             <AgentText text={check.answer} />
           </span>
-          <Tag mono onClick={() => openSummaryUnit(check.unit)}>
-            {check.unit.split('#').pop() + ' ' + check.line}
+          {/* opens the unit, not its line: the label's N… means nothing to a reader */}
+          <Tag icon={<ArrowRight size={11} />} onClick={() => openSummaryUnit(check.unit)}>
+            View code
           </Tag>
           {check.stale && <span className='text-mod'>The code changed since this was written.</span>}
         </div>
