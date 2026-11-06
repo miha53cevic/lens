@@ -25,9 +25,9 @@ function Check({ check }: { check: SelfCheckView }) {
           <span>
             <AgentText text={check.answer} />
           </span>
-          {/* the unit, not its line: the label's N… means nothing to a reader, and opening the unit shows it */}
+          {/* opens the unit, not its line: the label's N… means nothing to a reader */}
           <Tag icon={<ArrowRight size={11} />} onClick={() => openSummaryUnit(check.unit)}>
-            Open <span className='font-mono'>{check.unit.split('#').pop()}</span>
+            View code
           </Tag>
           {check.stale && <span className='text-mod'>The code changed since this was written.</span>}
         </div>
