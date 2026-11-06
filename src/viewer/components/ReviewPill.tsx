@@ -39,8 +39,9 @@ export function ReviewPill() {
     const shown = codeView ? !!file && !(state.hideTests && isTestFile(file.file)) : true;
     let stage: Stage = 'hidden';
     if (progress && progress.total > 0 && shown) {
-      if (page === 'overview') stage = 'start';
-      else if (progress.done === progress.total) stage = 'all';
+      // all reviewed: there's nothing left to start, and the read cards are folded out of the list's order
+      if (progress.done === progress.total) stage = 'all';
+      else if (page === 'overview') stage = 'start';
       else if (progress.currentDone) stage = 'done';
       else stage = progress.next === null ? 'last' : 'todo';
     }
@@ -49,6 +50,7 @@ export function ReviewPill() {
     const handoffLabel = ready && ready.items.length + ready.notes.length > 0 ? confirmedLabel(ready) : '';
     return {
       codeView,
+      onOverview: page === 'overview',
       stage,
       handoffLabel,
       total: progress?.total ?? 0,
@@ -86,9 +88,12 @@ export function ReviewPill() {
       className='absolute bottom-4 left-1/2 z-(--z-float) inline-flex -translate-x-1/2 items-center gap-1 rounded-full border border-line-strong bg-raised p-1 whitespace-nowrap shadow-1'
       id='review-pill'
     >
-      <Button variant='ghost' size='sm' id='review-prev' aria-label='Prev' disabled={pill.atStart} onClick={prev}>
-        <ArrowLeft size={13} /> <span className='@max-[800px]/editor:hidden'>Prev</span>
-      </Button>
+      {/* on the overview no change is open: nothing to step back from or to undo */}
+      {!pill.onOverview && (
+        <Button variant='ghost' size='sm' id='review-prev' aria-label='Prev' disabled={pill.atStart} onClick={prev}>
+          <ArrowLeft size={13} /> <span className='@max-[800px]/editor:hidden'>Prev</span>
+        </Button>
+      )}
       {pill.stage === 'all' && !pill.handoffLabel && (
         <span
           ref={riseIn}
@@ -145,7 +150,7 @@ export function ReviewPill() {
           )}
         </Button>
       )}
-      {(pill.stage === 'done' || pill.stage === 'all') && (
+      {(pill.stage === 'done' || pill.stage === 'all') && !pill.onOverview && (
         <Button variant='ghost' size='sm' id='review-undo' onClick={undo}>
           Undo
         </Button>

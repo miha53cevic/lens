@@ -164,6 +164,13 @@ pageTest('on the Summary tab the pill starts the review, and marks each change r
   assert.equal($('[data-part="inbox-card"][data-selected] [data-part="caption-unit"]').textContent, 'legacyTotal');
   assert.equal($('#nav [data-part="progress-count"]').textContent, '1 of 2');
   assert.equal($('[data-part="inbox-read-toggle"]').textContent, 'Read 1', 'the reviewed change moved to Read');
+  // the last one: nothing is left to read, and the overview's pill says so instead of starting again
+  await click($('#review-next'));
+  await key('g');
+  await settle();
+  assert.equal($('#nav [data-part="progress-count"]').textContent, '2 of 2');
+  assert.equal(pill(), 'All 2 changes reviewed');
+  assert.equal($$('#review-prev, #review-undo').length, 0, 'no change open on the overview');
 });
 
 test("the agent's previews and sequences: all on the overview, a unit's own on its page, each step opening its unit", async () => {
