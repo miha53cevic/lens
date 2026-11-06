@@ -71,8 +71,8 @@ marks/            the reader's viewed marks and verdicts on findings: .lens/mark
 
 - The rule *data* (receivers, methods, scores, markers, patterns) lives in `lens.defaults.json`. The structural analysis lives in `src/cli-app/classify/typescript.ts`, which is shared by the ts, tsx and js grammars.
 - When regions overlap, `CATEGORY_PRIORITY` decides which one wins.
-- A new built-in category also needs a color in `CAT_COLORS` (`src/viewer/shared.ts`), an entry in `lens.schema.json`'s `folds`, and a row in the README's category table.
-- A new config field is checked in `parse` (`config.ts`), which reports a value that doesn't check as a `ConfigProblem` (file, path, reason) and skips it; it gets a property in `lens.schema.json` (`test/config.test.ts` holds the two together) and a row in the README's config table. Problems never stop lens: the CLI prints them once, the payload carries them (`configProblems`), and the status bar's notice opens Settings on them.
+- A new built-in category also needs a color in `CAT_COLORS` (`src/viewer/shared.ts`) and a row in the README's category table.
+- A new config field is checked in `parse` (`config.ts`), which reports a value that doesn't check as a `ConfigProblem` (file, path, reason) and skips it, and gets a row in the README's config table. Problems never stop lens: the CLI prints them once, the payload carries them (`configProblems`), and the status bar's notice opens Settings on them.
 - Be conservative: folding a line that matters is the failure mode lens exists to avoid. Every rule change gets a test in `test/classify.test.ts`. Use the fixture (`test/fixtures/loadConfig.ts`) or inline sources, and assert exact line ranges and pill text.
 
 ### Viewer (`src/viewer/`, served by `src/cli-app/render/web/`)

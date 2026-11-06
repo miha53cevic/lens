@@ -1,9 +1,9 @@
 import { test } from 'bun:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { BUILT_IN_CATEGORIES, CONFIG_FIELDS, DEFAULT_CONFIG, loadConfig, readConfig } from '../src/cli-app/config.ts';
+import { BUILT_IN_CATEGORIES, DEFAULT_CONFIG, loadConfig, readConfig } from '../src/cli-app/config.ts';
 import { analyzeSource } from '../src/cli-app/classify/index.ts';
 import type { LensConfig } from '../src/cli-app/model.ts';
 
@@ -218,21 +218,6 @@ test('a file that is not JSON is one problem, and the defaults apply', () => {
   assert.equal(loaded.config.foldLevel, 1);
   assert.equal(loaded.problems.length, 1);
   assert.match(loaded.problems[0].message, /isn't valid JSON/);
-});
-
-test('lens.schema.json names every config field and every built-in category, and the defaults check', () => {
-  const schema = JSON.parse(readFileSync(join(import.meta.dir, '..', 'lens.schema.json'), 'utf8'));
-  const deprecated = Object.keys(schema.properties).filter((field) => schema.properties[field].deprecated);
-  assert.deepEqual(
-    Object.keys(schema.properties)
-      .filter((field) => !deprecated.includes(field))
-      .sort(),
-    [...CONFIG_FIELDS].sort(),
-  );
-  assert.deepEqual(deprecated.sort(), ['categories', 'scores', 'threshold']);
-  assert.deepEqual(Object.keys(schema.properties.folds.properties), BUILT_IN_CATEGORIES);
-  // DEFAULT_CONFIG throws on a problem in lens's own file; it loaded, so they check
-  assert.ok(DEFAULT_CONFIG);
 });
 
 test('custom scores flow into regions', async () => {

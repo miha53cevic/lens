@@ -174,12 +174,10 @@ colors, without folds.
 lens's rules are [lens.defaults.json](lens.defaults.json). A `.lens.json` in your project
 (the nearest one walking upward) merges over it: scalars override, maps merge, lists
 extend, and a list entry `"!x"` takes `x` out of the defaults' list. `"base": false` makes
-your file the whole rule set. Name [lens.schema.json](lens.schema.json) in `$schema` for
-completion in your editor.
+your file the whole rule set.
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/miha53cevic/lens/main/lens.schema.json",
   "foldLevel": 0,
   "folds": { "logging": false, "guard": 2 },
   "callPatterns": [{ "category": "audit", "receivers": ["audit", "featureFlags"] }],

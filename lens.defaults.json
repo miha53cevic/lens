@@ -1,5 +1,4 @@
 {
-  "$schema": "./lens.schema.json",
   "$comment": "lens's built-in rules — the 'base game'. A project's .lens.json merges over this file. Field documentation: README.md (Configuration)",
 
   "foldLevel": 1,

@@ -50,8 +50,8 @@ const BOOLEANS = ['buildPreviews', 'selfChecks'] as const;
 const STRINGS = ['theme', 'keepDirective'] as const;
 /** Names a file may still use, read as the new ones with a problem saying to move */
 const RENAMED: Record<string, string> = { threshold: 'foldLevel', categories: 'folds', scores: 'folds' };
-const META_FIELDS = ['$schema', '$comment', 'base'];
-export const CONFIG_FIELDS: readonly string[] = [...Object.keys(EMPTY_CONFIG), ...META_FIELDS];
+const META_FIELDS = ['$comment', 'base'];
+const CONFIG_FIELDS: readonly string[] = [...Object.keys(EMPTY_CONFIG), ...META_FIELDS];
 
 /** The categories lens's own rules produce; a project's callPatterns may add more */
 export const BUILT_IN_CATEGORIES: readonly string[] = Object.keys(defaults.folds);
