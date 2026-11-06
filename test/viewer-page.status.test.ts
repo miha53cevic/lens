@@ -148,7 +148,7 @@ pageTest("the agent's summary run shows as a notice while it goes: units in, the
   assert.deepEqual(notices(), [], 'the run is done');
 });
 
-test('a run going over a written overview shows too, and a stalled one goes back to saying what to run', async () => {
+test("a run going over a written overview is only the status bar's, and a stalled one goes back to saying what to run", async () => {
   const summary = payload.summary!;
   const data: ViewerPayload = {
     ...payload,
@@ -171,7 +171,8 @@ test('a run going over a written overview shows too, and a stalled one goes back
     await key('v');
     window.dispatchEvent(new Event('focus'));
     await settle();
-    assert.ok($('#summary-pane [data-part="run-progress"]'));
+    assert.equal($$('#summary-pane [data-part="run-progress"]').length, 0, 'the overview stays as it is');
+    assert.match($('#status-bar').textContent!, /Agent writing summary · 3 of 61 units/);
     assert.equal($$('#summary-pane [data-part="sum-note"][data-stale]').length, 0, "it's being written: no command");
     quietMs = 60 * 60 * 1000;
     window.dispatchEvent(new Event('focus'));

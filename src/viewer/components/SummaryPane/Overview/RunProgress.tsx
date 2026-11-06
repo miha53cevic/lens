@@ -14,16 +14,8 @@ function steps(build: BuildProgress): { stage: BuildProgress['stage']; label: st
   ];
 }
 
-/** What the agent is on while it writes this summary, in place of what to run. */
-export function RunProgress({
-  build,
-  showText,
-  command,
-}: {
-  build: BuildProgress;
-  showText: boolean;
-  command: string;
-}) {
+/** What the agent is on while it writes this summary's overview, in its place and in place of what to run. */
+export function RunProgress({ build, command }: { build: BuildProgress; command: string }) {
   // the fixes come after the last step: every step is behind them
   const current =
     build.stage === 'fixes' ? steps(build).length : steps(build).findIndex((step) => step.stage === build.stage);
@@ -46,20 +38,22 @@ export function RunProgress({
             {step.label}
           </Tag>
         ))}
-        {build.stage === 'fixes' && <Tag data-part='run-step'>Fixing what submit rejected</Tag>}
+        {build.stage === 'fixes' && (
+          <Tag data-part='run-step' data-active='' className='border-selected-ring bg-selected-bg text-text'>
+            Fixing what submit rejected
+          </Tag>
+        )}
       </div>
       {/* lens can't see the agent: if it died, the way to start it again must still be there */}
       <div data-part='run-restart' className='text-sm text-muted'>
         Agent stopped? Run <CopyCommand command={command} /> again.
       </div>
-      {showText && (
-        <div className='flex flex-col gap-2 text-lg'>
-          <div className='mb-1 text-accent eyebrow'>Agent summary</div>
-          <Skeleton />
-          <Skeleton />
-          <Skeleton width='62%' />
-        </div>
-      )}
+      <div className='flex flex-col gap-2 text-lg'>
+        <div className='mb-1 text-accent eyebrow'>Agent summary</div>
+        <Skeleton />
+        <Skeleton />
+        <Skeleton width='62%' />
+      </div>
     </div>
   );
 }

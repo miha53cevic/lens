@@ -1,7 +1,16 @@
 import { test } from 'bun:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, rmSync, mkdirSync, readFileSync, existsSync, realpathSync } from 'node:fs';
+import {
+  mkdtempSync,
+  writeFileSync,
+  rmSync,
+  mkdirSync,
+  readFileSync,
+  existsSync,
+  realpathSync,
+  utimesSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { Window } from 'happy-dom';
@@ -442,7 +451,7 @@ test('submit finds a bundle whose key ends in .json', async () => {
   }
 });
 
-test('a submit that asks for fixes keeps the run shown until one that asks for nothing', async () => {
+test('a submit that asks for fixes keeps the run shown until one that asks for nothing, or the agent goes quiet', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'lens-submit-'));
   const git = (...args: string[]) => execFileSync('git', args, { cwd: dir, encoding: 'utf8' });
   const log = console.log;
@@ -470,6 +479,11 @@ test('a submit that asks for fixes keeps the run shown until one that asks for n
     );
     await runSummary(['submit', folder], dir);
     assert.equal(read()?.stage, 'fixes', 'the agent was told to fix and submit again');
+
+    // no write for minutes after it: the agent left the fixes, and the run is over
+    const before = (Date.now() - 4 * 60 * 1000) / 1000;
+    for (const name of ['bundle.json', 'summary.json', 'submit.json']) utimesSync(join(folder, name), before, before);
+    assert.equal(buildProgressReader(dir, key)(), null, 'fixes left: done');
 
     writeFileSync(join(folder, 'result.json'), JSON.stringify({ units: {}, overview }));
     await runSummary(['submit', folder], dir);
