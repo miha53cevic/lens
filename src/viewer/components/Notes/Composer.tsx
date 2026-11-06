@@ -21,7 +21,7 @@ function draftPlace(draft: NoteDraft): string {
 
 /** A note being written (or edited) under its lines: its kind, its text. Keyed by the draft, so another starts empty. */
 export function NoteComposer({ draft }: { draft: NoteDraft }) {
-  const [kind, setKind] = useState<NoteKind>(draft.editing?.kind ?? 'note');
+  const [kind, setKind] = useState<NoteKind>(draft.editing?.kind ?? 'question');
   const [text, setText] = useState(draft.editing?.text ?? '');
   const busy = useLens((state) => isBusy(state, 'note'));
   const blocked = busy || !text.trim();
@@ -29,14 +29,9 @@ export function NoteComposer({ draft }: { draft: NoteDraft }) {
     if (!blocked) void saveNote(kind, text);
   };
   return (
-    <div
-      data-part='line-note'
-      data-plain={kind === 'note' || undefined}
-      className={clsx(LINE_NOTE, 'k-' + kind)}
-      id='note-composer'
-    >
+    <div data-part='line-note' className={clsx(LINE_NOTE, 'k-' + kind)} id='note-composer'>
       <div className='mb-1 flex flex-wrap items-center gap-x-2 gap-y-1'>
-        <b className='inline-flex items-center gap-1 text-(--k,var(--line-strong)) group-data-plain/note:text-muted eyebrow sm'>
+        <b className='inline-flex items-center gap-1 text-(--k,var(--line-strong)) eyebrow sm'>
           {draft.editing ? 'edit note' : 'your note'}
         </b>
         <span data-part='rn-meta' className='min-w-0 font-mono text-2xs text-muted'>
@@ -61,7 +56,7 @@ export function NoteComposer({ draft }: { draft: NoteDraft }) {
         id='note-input'
         rows={2}
         value={text}
-        placeholder={kind === 'note' ? 'A note for yourself…' : 'What your agent should know…'}
+        placeholder='What your agent should know…'
         onChange={(event) => {
           setText(event.target.value);
           growInput(event.target);

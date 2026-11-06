@@ -6,16 +6,12 @@ import { placeNote, type PlacedNote } from '../../cli-app/notes/place.ts';
 
 type ViewerFile = ViewerPayload['files'][number];
 
-/** The kinds a note can have, in the composer's order; all but "note" go along to the agent */
+/** The kinds a note can have, in the composer's order; each goes along to the agent */
 export const NOTE_KINDS: { kind: NoteKind; label: string; color: string }[] = [
-  { kind: 'note', label: 'note', color: 'var(--line-strong)' },
   { kind: 'bug', label: 'bug', color: 'var(--bug)' },
   { kind: 'risk', label: 'risk', color: 'var(--risk)' },
   { kind: 'question', label: 'question', color: 'var(--question)' },
 ];
-
-/** A plain note stays the reader's: only one with a kind goes along when they copy the review. */
-export const forAgent = (note: ReaderNote): boolean => note.kind !== 'note';
 
 export interface FileNotes {
   /** The notes drawn under each row, by its label */
@@ -68,7 +64,7 @@ export function fileNotes(notes: readonly ReaderNote[], file: ViewerFile): FileN
       continue;
     }
     byLabel.set(placed.label, [...(byLabel.get(placed.label) ?? []), { note, placed }]);
-    if (forAgent(note)) flagged.set(placed.label, note.kind);
+    flagged.set(placed.label, note.kind);
   }
   const result = { byLabel, outdated, flagged };
   fileNotesCache.set(file, { notes, result });

@@ -91,14 +91,19 @@ pageTest('a removed line takes a note on the old side, by its old number', async
   await settle();
   const sent = page.requests.find((request) => request.method === 'POST' && request.path === '/api/notes')!;
   const body = sent.body as ReaderNote;
-  assert.deepEqual([body.side, body.start, body.end, body.kind], ['old', 17, 17, 'note']);
-  assert.equal($('#code [data-part="line-note"] [data-part="rn-meta"]').textContent, 'only you see it');
+  assert.deepEqual(
+    [body.side, body.start, body.end, body.kind],
+    ['old', 17, 17, 'question'],
+    'a question, unless picked',
+  );
+  assert.equal($('#code [data-part="line-note"] [data-part="rn-meta"]').textContent, 'goes along to your agent');
+  assert.equal($$('#note-kind-note').length, 0, 'no plain note to pick');
 });
 
 test('a note is edited in place and resolved; one whose line changed says so; one whose lines are gone is listed above the code', async () => {
   const page = await openWithNotes([
     storedNote(),
-    storedNote({ id: 'n2', start: 11, end: 11, lines: ['  return rows.map(toOrderOld);'], kind: 'note', text: 'mine' }),
+    storedNote({ id: 'n2', start: 11, end: 11, lines: ['  return rows.map(toOrderOld);'], kind: 'bug', text: 'mine' }),
     storedNote({ id: 'n3', start: 90, end: 91, lines: ['a', 'b'], kind: 'bug', text: 'gone' }),
   ]);
   try {
@@ -130,8 +135,8 @@ test('a note is edited in place and resolved; one whose line changed says so; on
   }
 });
 
-test("the overview copies the notes for the agent with the confirmed findings; a plain note stays the reader's", async () => {
-  await openWithNotes([storedNote(), storedNote({ id: 'n2', kind: 'note', text: 'look again tomorrow' })]);
+test('the overview copies the notes for the agent with the confirmed findings', async () => {
+  await openWithNotes([storedNote()]);
   try {
     await key('v');
     assert.equal($('[data-part="ov-real-count"]').textContent, '1 note');
@@ -169,7 +174,7 @@ test('your notes are marked in the tree and the summary list, and ⇧N steps thr
     start: 17,
     end: 17,
     lines: ['export function legacyTotal(rows: Order[]): number {'],
-    kind: 'note',
+    kind: 'question',
     text: 'gone for good?',
   });
   await openWithNotes([removedNote, storedNote()]);
@@ -210,7 +215,7 @@ test('your notes are marked in the tree and the summary list, and ⇧N steps thr
 });
 
 test('once every file is viewed, the review pill hands the notes for the agent over', async () => {
-  await openWithNotes([storedNote(), storedNote({ id: 'n2', kind: 'note', text: 'mine' })], { summary: null });
+  await openWithNotes([storedNote()], { summary: null });
   try {
     await key('m');
     assert.equal($('#review-next').textContent!.trim(), 'All 1 viewed');
@@ -222,7 +227,7 @@ test('once every file is viewed, the review pill hands the notes for the agent o
     await close();
   }
   // nothing for the agent: the pill only says it's done
-  await openWithNotes([storedNote({ kind: 'note', text: 'mine' })], { summary: null });
+  await openWithNotes([], { summary: null });
   try {
     await key('m');
     assert.equal($('#review-next').textContent!.trim(), 'All 1 file viewed');
@@ -233,7 +238,7 @@ test('once every file is viewed, the review pill hands the notes for the agent o
 });
 
 test('without a summary, the sidebar counts the notes for the agent and copies them', async () => {
-  await openWithNotes([storedNote(), storedNote({ id: 'n2', kind: 'note', text: 'mine' })], { summary: null });
+  await openWithNotes([storedNote()], { summary: null });
   try {
     assert.equal($('#nav [data-part="notes-for-agent"]').textContent, '1 note for your agent Copy');
     await click($('#notes-copy'));

@@ -6,7 +6,7 @@ import type { LensState } from '../store.ts';
 import type { ViewerPayload } from '../../cli-app/render/web/server.ts';
 import { memo, plural } from '../shared.ts';
 import { type Finding, findingMark, findings, type Marks, type Unit, unitViewKey } from './signals.ts';
-import { forAgent, placeOn } from './notes.ts';
+import { placeOn } from './notes.ts';
 
 export interface RealConcerns {
   /** The confirmed findings, in the summary's order */
@@ -16,7 +16,7 @@ export interface RealConcerns {
   breakCount: number;
   /** How many units they are in */
   unitCount: number;
-  /** The reader's notes that go along: a bug, risk or question (a plain note stays theirs) */
+  /** The reader's notes, each a bug, risk or question */
   notes: ReaderNote[];
   /** Confirmed findings left out: their unit's code changed since, so their lines may point elsewhere */
   stale: number;
@@ -99,9 +99,7 @@ export const realConcerns = memo(
       stale += staleRealMarks(marks, unit);
       for (const finding of findings(unit)) if (findingMark(marks, finding) === 'real') items.push({ unit, finding });
     }
-    const notes = allNotes
-      .filter(forAgent)
-      .toSorted((one, other) => one.file.localeCompare(other.file) || one.start - other.start);
+    const notes = allNotes.toSorted((one, other) => one.file.localeCompare(other.file) || one.start - other.start);
     const lines = [
       intro(items.length, notes.length),
       ...notes.map((note, index) => noteText(files, note, index)),

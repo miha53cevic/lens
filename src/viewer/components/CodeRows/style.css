@@ -340,7 +340,7 @@
     user-select: none;
   }
 
-  /* the line a note is on: in its kind's color, a plain note's in neutral */
+  /* the line a note is on: in its kind's color */
   .row.noted {
     background: color-mix(in oklab, var(--k, var(--line-strong)) var(--tint), transparent);
   }

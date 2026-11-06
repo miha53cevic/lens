@@ -20,8 +20,7 @@ export function addNoteMarks(
     for (const { note, placed } of placedNotes) {
       if (draft?.editing?.id === note.id) continue; // its composer takes its place
       add(label, <NoteCard key={note.id} note={note} placed={placed} />);
-      // a plain note's line takes no kind: a concern on the same line keeps its color
-      marks.classes.set(label, clsx(marks.classes.get(label), 'noted', note.kind !== 'note' && 'k-' + note.kind));
+      marks.classes.set(label, clsx(marks.classes.get(label), 'noted', 'k-' + note.kind));
     }
   }
   if (draft && draft.file === path) {

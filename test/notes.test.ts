@@ -110,6 +110,21 @@ test("notes are kept per review, with paths from the repository's root, shown wi
     assert.deepEqual(readStoredNotes(root, review), []);
     writeFileSync(file, '{ not json');
     assert.deepEqual(readStoredNotes(root, review), []);
+    // one kept as a plain note, a kind that's gone: dropped, the others stay
+    writeFileSync(
+      file,
+      JSON.stringify({
+        version: 1,
+        notes: [
+          { ...NOTE, file: 'x', id: 'plain', kind: 'note' },
+          { ...NOTE, file: 'x' },
+        ],
+      }),
+    );
+    assert.deepEqual(
+      readStoredNotes(root, review).map((note) => note.id),
+      [NOTE.id],
+    );
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -197,6 +212,7 @@ test("/api/notes: a note is checked, kept, edited and resolved, and each answer 
       [{ start: 5 }, /start first/],
       [{ lines: ['c'] }, /text of each line/],
       [{ kind: 'nit' }, /kind must be/],
+      [{ kind: 'note' }, /kind must be/],
       [{ text: '   ' }, /empty/],
     ] as const) {
       const response = await send('/api/notes', 'POST', { ...valid, ...patch });
@@ -216,7 +232,7 @@ test("/api/notes: a note is checked, kept, edited and resolved, and each answer 
     assert.equal(edited.notes[0].kind, 'question');
     assert.equal(edited.notes[0].text, 'why?');
     assert.deepEqual(edited.notes[0].lines, ['c', 'd'], 'an edit keeps its lines');
-    assert.equal((await send('/api/notes/nope', 'POST', { kind: 'note', text: 'x' })).status, 404);
+    assert.equal((await send('/api/notes/nope', 'POST', { kind: 'bug', text: 'x' })).status, 404);
 
     const resolved: NotesResponse = await (await send('/api/notes/' + kept.id, 'DELETE')).json();
     assert.deepEqual(resolved.notes, []);

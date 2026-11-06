@@ -78,10 +78,7 @@ export async function saveNote(kind: NoteKind, text: string): Promise<boolean> {
       ? await api('POST /api/notes/:id', { id: editing.id, body: { kind, text } })
       : await api('POST /api/notes', { body });
     update({ notes: answer.notes, noteDraft: null });
-    noteDone(
-      editing ? 'Note saved' : 'Note added',
-      kind === 'note' ? 'only you see it' : 'it goes along when you copy for your agent',
-    );
+    noteDone(editing ? 'Note saved' : 'Note added', 'it goes along when you copy for your agent');
   });
 }
 

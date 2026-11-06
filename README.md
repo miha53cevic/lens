@@ -94,7 +94,7 @@ Loose files and these flags are CLI-only; the app's picker covers the diff and P
   after you ticked it says so. They, and your real / dismissed verdicts on concerns, are kept per
   review in `.lens/marks/`: a branch you come back to has them, another branch starts without them.
 - **Notes**: right-click a line (or a selection of lines) to leave your own note under it,
-  in both views. A plain note is yours alone; a bug, risk or question goes along when you copy the
+  in both views: a bug, a risk or a question, which goes along when you copy the
   review for your agent (the overview, or with no summary the sidebar). Notes follow their lines
   as the code moves, and are kept per review in `.lens/notes/`.
 - **The code theme** colors the whole page; a light theme turns it light.
