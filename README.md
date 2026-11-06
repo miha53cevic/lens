@@ -69,7 +69,7 @@ run it yourself in a terminal (install it from the app's Settings → Agent).
 | `lens diff HEAD~1` | any `git diff` arguments pass through |
 | `lens pr 123` / `lens pr <url>` | a GitHub PR, fetched with plain git (no API, no gh) |
 | `lens info` | what could be reviewed here: the branch, its changes, the PR remote |
-| `lens config` | the effective config and where it comes from |
+| `lens config` | the config in effect, where each value comes from, and its problems (exits 1 on any; `--json` for scripts) |
 | `lens clear` | what lens keeps in `.lens/`, by kind; `lens clear <kind> --all` (or one review's `<key>`) clears it: `summaries`, `notes`, `marks` |
 
 | flag | meaning |
@@ -77,7 +77,7 @@ run it yourself in a terminal (install it from the app's Settings → Agent).
 | `--port <n>` | the viewer's port (default: one per repository, from 5400 up) |
 | `--no-open` | don't open the browser |
 | `--summary` | open on the Summary tab |
-| `--threshold <n>` | fold regions with a score up to `n` |
+| `--fold-level <n>` | fold regions with a score up to `n`, `-1` for none |
 | `--theme <name>` | any [Shiki theme](https://shiki.style/themes) |
 | `--json` | print the fold model as JSON, for debugging |
 | `--version` | print lens's version |
@@ -150,7 +150,7 @@ question can be copied as a prompt for any chat.
 
 ## How folding works
 
-Each region gets a category and a score (0–3) and folds when its score ≤ the threshold
+Each region gets a category and a score (0–3) and folds when its score ≤ the fold level
 (default 1; the ⋯ menu's Fold level changes it live). TODO/FIXME comments and `lens:keep` regions never
 fold.
 
@@ -173,25 +173,31 @@ colors, without folds.
 
 lens's rules are [lens.defaults.json](lens.defaults.json). A `.lens.json` in your project
 (the nearest one walking upward) merges over it: scalars override, maps merge, lists
-extend. `"base": false` makes your file the whole rule set.
+extend, and a list entry `"!x"` takes `x` out of the defaults' list. `"base": false` makes
+your file the whole rule set. Name [lens.schema.json](lens.schema.json) in `$schema` for
+completion in your editor.
 
 ```json
 {
-  "threshold": 0,
-  "categories": { "logging": false },
-  "scores": { "guard": 2 },
+  "$schema": "https://raw.githubusercontent.com/miha53cevic/lens/main/lens.schema.json",
+  "foldLevel": 0,
+  "folds": { "logging": false, "guard": 2 },
   "callPatterns": [{ "category": "audit", "receivers": ["audit", "featureFlags"] }],
   "keepCommentMarkers": ["SECURITY"],
-  "exclude": ["generated/**"]
+  "exclude": ["generated/**", "!*.map"]
 }
 ```
 
+A value that doesn't check (a typo'd field, a score out of range, a category no rule makes)
+is skipped, and the rest applies. lens prints each problem when it starts, the viewer's
+status bar says how many there are and Settings lists them, and `lens config` shows them
+under the config in effect.
+
 | field | meaning |
 | ----- | ------- |
-| `threshold` | fold regions with score ≤ this (default `1`) |
+| `foldLevel` | fold regions with score ≤ this, `-1` for none (default `1`) |
 | `theme` | the Shiki theme the viewer starts in (default `"vesper"`) |
-| `categories` | per-category switch; `false` never folds it |
-| `scores` | importance per category, 0–3 |
+| `folds` | per category, its score (0–3) or `false` to never fold it; one not named scores 1 |
 | `callPatterns` | fire-and-forget calls to fold: `{ category, receivers, methods?, score? }` |
 | `keepCommentMarkers` | comments containing these never fold |
 | `keepDirective` | a region containing it, or right below it, never folds (default `"lens:keep"`) |
@@ -199,6 +205,9 @@ extend. `"base": false` makes your file the whole rule set.
 | `exclude` | listed in a diff as `⊘` without being read; skipped in directory walks |
 | `buildPreviews` | summary mode asks for previews and sequences (default `true`); the ⋯ menu's switch overrides it for you, in `.lens/settings.json` |
 | `selfChecks` | summary mode asks for questions to check your understanding with (default `false`); the ⋯ menu's switch overrides it, as above |
+
+The old names (`threshold`, `categories`, `scores`) are still read, each with a
+problem saying what to rename it to.
 
 Patterns: `*` matches within a path segment, `**` across them, and a pattern matches
 anywhere in the path.

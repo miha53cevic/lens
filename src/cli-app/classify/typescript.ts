@@ -36,10 +36,16 @@ function compileReceivers(receivers: string[]): RegExp {
   return new RegExp(`(^|\\.)(?:${alternatives})$`);
 }
 
+/** A category's score from folds: one that's off or not named scores 1 (an off one never gets this far). */
+function categoryScore(config: LensConfig, category: string): number {
+  const fold = config.folds[category];
+  return typeof fold === 'number' ? fold : 1;
+}
+
 function compilePatterns(config: LensConfig): CompiledPattern[] {
   return config.callPatterns.map((p) => ({
     category: p.category,
-    score: p.score ?? config.scores[p.category] ?? 1,
+    score: p.score ?? categoryScore(config, p.category),
     receiver: compileReceivers(p.receivers),
     methods: p.methods && !p.methods.includes('*') ? new Set(p.methods) : null,
   }));
@@ -56,7 +62,7 @@ export function classify(root: Node, source: string, config: LensConfig): FoldRe
       config.keepCommentMarkers.length > 0
         ? new RegExp(`(?<!\\w)(${config.keepCommentMarkers.map(escapeRegExp).join('|')})(?!\\w)`)
         : null,
-    score: (category) => config.scores[category] ?? 1,
+    score: (category) => categoryScore(config, category),
   };
 
   const candidates: FoldRegion[] = [
@@ -68,7 +74,7 @@ export function classify(root: Node, source: string, config: LensConfig): FoldRe
     ...dataRegions(root, ctx),
     ...patternRegions(root, ctx),
     ...commentRegions(root, ctx),
-  ].filter((r) => config.categories[r.category] !== false);
+  ].filter((r) => config.folds[r.category] !== false);
 
   candidates.sort((a, b) => priorityOf(a.category) - priorityOf(b.category) || a.startLine - b.startLine);
   const accepted: FoldRegion[] = [];

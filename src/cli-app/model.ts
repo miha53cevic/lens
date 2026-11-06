@@ -15,7 +15,7 @@ export interface FoldRegion {
   /** 1-based, inclusive */
   endLine: number;
   category: FoldCategory;
-  /** 0-3; a region folds when score <= threshold. 4 = never folds (keep markers/directive). */
+  /** 0-3; a region folds when score <= foldLevel. 4 = never folds (keep markers/directive). */
   score: number;
   /** Honest one-line pill text shown in place of the folded lines */
   summary: string;
@@ -68,7 +68,7 @@ export interface CallPattern {
   receivers: string[];
   /** Omitted = any method name */
   methods?: string[];
-  /** Region score; defaults to scores[category] ?? 1 */
+  /** Region score; defaults to its category's in folds */
   score?: number;
 }
 
@@ -78,16 +78,14 @@ export interface CallPattern {
  * merges over (or replaces entirely with "base": false).
  */
 export interface LensConfig {
-  /** Regions with score <= threshold fold. */
-  threshold: number;
+  /** Regions with score <= foldLevel fold; -1 folds nothing. */
+  foldLevel: number;
   /** Shiki theme for the web viewer */
   theme: string;
-  /** Categories that may fold; a disabled category is never folded. */
-  categories: Record<FoldCategory, boolean>;
-  /** Region score per category (0-3); rules fall back to 1 when absent. */
-  scores: Record<FoldCategory, number>;
+  /** Each category's score (0-3), or false: never folds. A category not named scores 1. */
+  folds: Record<FoldCategory, number | false>;
   callPatterns: CallPattern[];
-  /** Comment keywords that keep a comment visible (scored above threshold) */
+  /** Comment keywords that keep a comment visible (scored above any fold level) */
   keepCommentMarkers: string[];
   /** A directive string; regions containing it (or starting right below it) never fold */
   keepDirective: string;

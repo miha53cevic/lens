@@ -5,7 +5,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { analyzeSource } from '../src/cli-app/classify/index.ts';
 import { DEFAULT_CONFIG } from '../src/cli-app/config.ts';
-import type { FoldRegion } from '../src/cli-app/model.ts';
+import type { FoldRegion, LensConfig } from '../src/cli-app/model.ts';
 
 const fixturesDir = join(dirname(fileURLToPath(import.meta.url)), 'fixtures');
 
@@ -47,7 +47,7 @@ test('loadConfig fixture: the canonical AI-padded file', async () => {
   // Real logic stays visible: path.join (26), throw err rethrow (38), parse+merge (41-42).
   const foldedLines = new Set<number>();
   for (const r of regions) {
-    if (r.score <= DEFAULT_CONFIG.threshold) {
+    if (r.score <= DEFAULT_CONFIG.foldLevel) {
       for (let l = r.startLine; l <= r.endLine; l++) foldedLines.add(l);
     }
   }
@@ -206,9 +206,9 @@ const y = 2;
   const comments = regions.filter((r) => r.category === 'comment');
   assert.equal(comments.length, 2);
   const todo = comments.find((c) => c.summary.includes('TODO'));
-  assert.ok(todo && todo.score > DEFAULT_CONFIG.threshold, 'TODO must score above threshold');
+  assert.ok(todo && todo.score > DEFAULT_CONFIG.foldLevel, 'TODO must score above threshold');
   const noise = comments.find((c) => !c.summary.includes('TODO'));
-  assert.ok(noise && noise.score <= DEFAULT_CONFIG.threshold, 'narration must fold');
+  assert.ok(noise && noise.score <= DEFAULT_CONFIG.foldLevel, 'narration must fold');
 });
 
 test('inline trailing comments are not folded', async () => {
@@ -233,9 +233,9 @@ const x = 1;
 });
 
 test('disabled category emits no regions', async () => {
-  const config = {
+  const config: LensConfig = {
     ...DEFAULT_CONFIG,
-    categories: { ...DEFAULT_CONFIG.categories, logging: false },
+    folds: { ...DEFAULT_CONFIG.folds, logging: false },
   };
   const model = await analyzeSource('x.ts', `console.log("hi");`, config);
   assert.ok(model);
@@ -448,7 +448,7 @@ export const x = fs;
 `.trim(),
   );
   const comment = regions.find((r) => r.category === 'comment');
-  assert.ok(comment && comment.score > DEFAULT_CONFIG.threshold);
+  assert.ok(comment && comment.score > DEFAULT_CONFIG.foldLevel);
 });
 
 test('same-name delegation that adds, drops or computes arguments is not an accessor', async () => {
@@ -789,7 +789,7 @@ const c = simple();
   const [eslint, tsExpect, narration] = comments;
   assert.ok(eslint.score > 3, 'eslint-disable must never fold');
   assert.ok(tsExpect.score > 3, '@ts-expect-error must never fold');
-  assert.ok(narration.score <= DEFAULT_CONFIG.threshold, 'narration still folds');
+  assert.ok(narration.score <= DEFAULT_CONFIG.foldLevel, 'narration still folds');
 });
 
 test('re-exports group with imports instead of splitting the run', async () => {

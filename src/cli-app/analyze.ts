@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 import { analyzeSource } from './classify/index.ts';
-import { findConfigPath } from './config.ts';
+import { findConfigPath, readConfig } from './config.ts';
 import { changeFingerprint, readBlobs, type DiffTarget } from './git.ts';
 import { languageForFile } from './parse/parser.ts';
 import type { ViewerInput } from './render/web/server.ts';
@@ -132,7 +132,6 @@ export async function analyze(
     root,
     cwd,
     review: reviewKey(root, command, args),
-    threshold: config.threshold,
     files,
     deleted: diff ? diff.deleted.map(shown).filter((path) => !openedDeleted.has(path)) : [],
     excluded: diff ? diff.excluded : [],
@@ -140,6 +139,8 @@ export async function analyze(
     binary: diff ? diff.binary.map((b) => ({ file: shown(b.file), status: b.status })) : [],
     config,
     configSource: findConfigPath(cwd),
+    // read again from the file: the analysis may run on a config that isn't it (a flag over it, a test's)
+    configProblems: readConfig(cwd).problems,
     buildPreviews: buildPreviewsOn(root, config),
     selfChecks: selfChecksOn(root, config),
     label: diff ? diff.label : null,

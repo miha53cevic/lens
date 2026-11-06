@@ -150,9 +150,9 @@ export interface LensState {
 /** The fold level the reader picked, with the one it was picked over: `{ level, base }` */
 export const THRESHOLD_PREF = 'lens.threshold';
 
-/** The reader's fold level, while the config's (or --threshold's) is still the one they picked it over. */
+/** The reader's fold level, while the config's (or --fold-level's) is still the one they picked it over. */
 function loadThreshold(): number {
-  const base = INITIAL_DATA.threshold;
+  const base = INITIAL_DATA.config.foldLevel;
   try {
     const saved = JSON.parse(readPref(THRESHOLD_PREF) || 'null');
     return saved?.base === base && Number.isInteger(saved.level) && saved.level >= -1 && saved.level <= 3

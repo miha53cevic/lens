@@ -95,7 +95,7 @@ pageTest('the fold level pins the regions scored above it', async () => {
 pageTest(
   "the fold level is remembered with the config's it was picked over, and the config's keeps nothing",
   async () => {
-    assert.equal(payload.threshold, 1);
+    assert.equal(payload.config.foldLevel, 1);
     await click($('#threshold [data-value="0"]'));
     assert.deepEqual(JSON.parse(localStorage.getItem('lens.threshold')!), { level: 0, base: 1 });
     await click($('#threshold [data-value="1"]'));

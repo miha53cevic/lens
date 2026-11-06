@@ -52,7 +52,8 @@ clear.ts          what lens keeps that the reader can clear, one entry per kind 
 port.ts           the viewer's port without --port: the repository's own, from its path
 analyze.ts        paths | diff | pr → ViewerInput; re-run on ↻ refresh
 git.ts, pr.ts     git diff parsing, PR refs via plain git fetch (no GitHub API)
-config.ts         lens.defaults.json merged with the nearest .lens.json
+config.ts         lens.defaults.json merged with the nearest .lens.json: each value checked (a problem skips it, never fails), where it came from
+configCommand.ts  `lens config`: the config in effect, each value's source, the problems
 glob.ts, text.ts, theme.ts   pure helpers (path patterns, truncate / plural / escapeHtml, the theme cookie's name / isLightColor); the viewer imports them too
 parse/parser.ts   tree-sitter (wasm) for ts / tsx / js
 parse/declarations.ts   the names a file declares, for search's "Defined at" (by name, no types)
@@ -70,7 +71,8 @@ marks/            the reader's viewed marks and verdicts on findings: .lens/mark
 
 - The rule *data* (receivers, methods, scores, markers, patterns) lives in `lens.defaults.json`. The structural analysis lives in `src/cli-app/classify/typescript.ts`, which is shared by the ts, tsx and js grammars.
 - When regions overlap, `CATEGORY_PRIORITY` decides which one wins.
-- A new built-in category also needs a color in `CAT_COLORS` (`src/viewer/shared.ts`) and rows in the README's category and config tables.
+- A new built-in category also needs a color in `CAT_COLORS` (`src/viewer/shared.ts`), an entry in `lens.schema.json`'s `folds`, and a row in the README's category table.
+- A new config field is checked in `parse` (`config.ts`), which reports a value that doesn't check as a `ConfigProblem` (file, path, reason) and skips it; it gets a property in `lens.schema.json` (`test/config.test.ts` holds the two together) and a row in the README's config table. Problems never stop lens: the CLI prints them once, the payload carries them (`configProblems`), and the status bar's notice opens Settings on them.
 - Be conservative: folding a line that matters is the failure mode lens exists to avoid. Every rule change gets a test in `test/classify.test.ts`. Use the fixture (`test/fixtures/loadConfig.ts`) or inline sources, and assert exact line ranges and pill text.
 
 ### Viewer (`src/viewer/`, served by `src/cli-app/render/web/`)

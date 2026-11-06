@@ -85,7 +85,7 @@ export function barStatus(state: LensState): Status {
 }
 
 export type NoticeTone = 'warn' | 'accent' | 'live';
-export type NoticeActionId = 'openOverview' | 'openSummary' | 'refresh';
+export type NoticeActionId = 'openOverview' | 'openSummary' | 'refresh' | 'openSettings';
 
 export interface Notice {
   id: string;
@@ -177,7 +177,21 @@ const guessedBase: NoticeSource = (state) =>
       }
     : null;
 
+const configProblems: NoticeSource = (state) => {
+  // a ↻ refresh reads .lens.json again: the count is the latest file's
+  const problems = state.data.configProblems;
+  if (problems.length === 0) return null;
+  const files = [...new Set(problems.map((problem) => problem.file))].join(', ');
+  return {
+    id: 'config-problems',
+    text: files + ': ' + plural(problems.length, 'problem'),
+    tone: 'warn',
+    action: 'openSettings',
+  };
+};
+
 const NOTICE_SOURCES: NoticeSource[] = [
+  configProblems,
   guessedBase,
   changedOnDisk,
   staleSummaries,

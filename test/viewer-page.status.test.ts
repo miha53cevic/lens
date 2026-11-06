@@ -280,6 +280,30 @@ test('a PR diffed against a guessed base says so, and one with its own base says
   }
 });
 
+test('problems in .lens.json show as a notice, and a click opens Settings on the list of them', async () => {
+  const notices = () => $$('#status-bar [data-part="status-notices"] > *');
+  const configProblems = [
+    { file: '.lens.json', path: 'folds.loging', message: 'no rule makes "loging" regions' },
+    { file: '.lens.json', path: 'foldLevel', message: 'must be a whole number from -1 (fold nothing) to 3, not 7' },
+  ];
+  await open({}, '', '', { ...payload, configProblems });
+  try {
+    assert.deepEqual(
+      notices().map((notice) => notice.textContent),
+      ['.lens.json: 2 problems'],
+    );
+    await click(notices()[0]);
+    assert.ok(($('#settings-modal') as HTMLDialogElement).open);
+    assert.deepEqual(
+      $$('#settings-modal [data-part="config-problem"]').map((problem) => problem.textContent),
+      ['folds.loging', 'foldLevel'],
+    );
+  } finally {
+    await close();
+  }
+  assert.deepEqual(payload.configProblems, [], "the fixture's config has none");
+});
+
 pageTest(
   'code that changed on disk shows as a notice: undoing the change takes it back, a click refreshes',
   async () => {

@@ -16,6 +16,7 @@ const LENS_FLAGS = [
   '--no-open',
   '--summary',
   '--port',
+  '--fold-level',
   '--threshold',
   '--theme',
   '--help',
