@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.1](https://github.com/miha53cevic/lens/compare/v0.6.0...v0.6.1) (2026-11-06)
+
+
+### Bug Fixes
+
+* Bug refactor sweep ([#50](https://github.com/miha53cevic/lens/issues/50)) ([77a2653](https://github.com/miha53cevic/lens/commit/77a2653e7c0cf812217796c258563ed114ae6483))
+* Feedback fixes ([#52](https://github.com/miha53cevic/lens/issues/52)) ([0344b2d](https://github.com/miha53cevic/lens/commit/0344b2dff627ba1eeab6ee0b4beac0e4ccea8ef8))
+
 ## [0.6.0](https://github.com/miha53cevic/lens/compare/v0.5.0...v0.6.0) (2026-11-02)
 
 
