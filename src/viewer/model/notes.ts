@@ -91,12 +91,21 @@ export function noteCounts(notes: readonly ReaderNote[]): ReadonlyMap<string, nu
 
 type UnitLines = { ranges: { start: number; end: number }[]; removals: { oldStart: number; lines: string[] }[] };
 
+const NO_NOTES: readonly ReaderNote[] = [];
+const unitNotesCache = new WeakMap<UnitLines, { notes: readonly ReaderNote[]; file: ViewerFile; on: ReaderNote[] }>();
+
 /**
  * The reader's notes on lines a unit shows, as its file is now. An outdated note has no line, so it
- * is its file's but no unit's.
+ * is its file's but no unit's. The same array while the notes and the file stay: a selector may return it.
  */
-function unitNotes(notes: readonly ReaderNote[], file: ViewerFile | null, unit: UnitLines): ReaderNote[] {
-  if (!file || !noteCounts(notes).has(file.file)) return [];
+export function unitNotes(
+  notes: readonly ReaderNote[],
+  file: ViewerFile | null,
+  unit: UnitLines,
+): readonly ReaderNote[] {
+  if (!file || !noteCounts(notes).has(file.file)) return NO_NOTES;
+  const cached = unitNotesCache.get(unit);
+  if (cached && cached.notes === notes && cached.file === file) return cached.on;
   const on: ReaderNote[] = [];
   for (const [label, placed] of fileNotes(notes, file).byLabel) {
     const line = Number(label.slice(1));
@@ -105,6 +114,7 @@ function unitNotes(notes: readonly ReaderNote[], file: ViewerFile | null, unit: 
       : unit.removals.some((block) => line >= block.oldStart && line < block.oldStart + block.lines.length);
     if (shown) on.push(...placed.map(({ note }) => note));
   }
+  unitNotesCache.set(unit, { notes, file, on });
   return on;
 }
 

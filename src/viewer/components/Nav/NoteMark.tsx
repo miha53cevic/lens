@@ -1,6 +1,6 @@
 import { plural } from '../../shared.ts';
 
-/** A file's or a change's notes, the reader's own, in a list's row: a dot, and how many past one. */
+/** A file's notes, the reader's own, in the tree: a dot, and how many past one (a change shows them as its signals). */
 export function NoteMark({ count }: { count: number }) {
   if (count === 0) return null;
   return (

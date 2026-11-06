@@ -193,15 +193,21 @@ test('your notes are marked in the tree and the summary list, and ⇧N steps thr
     assert.deepEqual(landed(), ['−17'], 'no file after it holds one');
 
     await key('v');
-    // the summary list marks each change by the notes on its own lines
-    const units = Object.fromEntries(
+    // the summary list shows a change's notes as its signals, by their kind, beside the agent's
+    const icons = Object.fromEntries(
       $$('#nav [data-part="inbox-card"]').map((card) => [
         card.querySelector('[data-part="caption-unit"]')!.textContent,
-        mark(card),
+        [...card.querySelectorAll('[data-part="icons"] [class*="sig-"]')].map((icon) =>
+          [...icon.classList].find((name) => name.startsWith('sig-')),
+        ),
       ]),
     );
-    assert.equal(units['findOrders'], '');
-    assert.equal(units['legacyTotal'], '');
+    assert.deepEqual(icons['findOrders'], ['sig-bug', 'sig-risk'], "the agent's bug, the reader's risk");
+    assert.equal(
+      $$('#nav [data-part="inbox-card"] [data-part="icons"] .sig-risk')[0].getAttribute('title'),
+      'your risk: deleted is a string column',
+    );
+    assert.equal($$('#nav [data-part="inbox-card"] [data-part="note-mark"]').length, 0, 'no dot of its own');
     // from the overview: the first change in the list's order with a note, on that note
     await key('N', { shiftKey: true });
     assert.equal($('[data-part="summary-pane"] h1').textContent, 'legacyTotal is gone');

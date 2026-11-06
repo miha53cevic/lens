@@ -1,15 +1,14 @@
 import clsx from 'clsx';
 import { PanelsTopLeft } from 'lucide-react';
-import { useLens } from '../../../../store.ts';
+import { type SignalId, useLens } from '../../../../store.ts';
 import { signalTip, type Unit, unitLabel, unitSignals, unitViewKey } from '../../../../model/signals.ts';
 import { changedSinceViewed } from '../../../../model/viewed.ts';
 import { drawnUnits } from '../../../../model/drawings.ts';
-import { fileByPath, unitNoteCount } from '../../../../model/notes.ts';
+import { fileByPath, unitNotes } from '../../../../model/notes.ts';
 import { openSummaryUnit } from '../../../../actions/summary.ts';
 import { toggleUnitViewed } from '../../../../actions/prefs.ts';
 import { baseName } from '../../../../shared.ts';
 import { SignalIcon } from '../../../SignalIcon.tsx';
-import { NoteMark } from '../../NoteMark.tsx';
 import { Button } from '../../../../../ui/Button.tsx';
 import { listRow } from '../../../../../ui/ListRow.tsx';
 
@@ -18,15 +17,24 @@ function keepInSight(card: HTMLElement | null) {
   card?.scrollIntoView({ block: 'nearest' });
 }
 
-/** One change as a card: its headline, where it is, and its open findings' and preview's icons. */
+/**
+ * One change as a card: its headline, where it is, and the icons of its open findings (the agent's,
+ * and the reader's own notes on it, by their kind) and of its preview.
+ */
 export function UnitCard({ unit, active }: { unit: Unit; active: boolean }) {
-  const { marks, read, changed, drawn, notes } = useLens((state) => ({
-    marks: state.concernMarks,
-    read: state.viewedUnits.has(unitViewKey(unit)),
-    changed: changedSinceViewed(state.viewedUnits, unitViewKey(unit)),
-    drawn: drawnUnits(state.data.summary, state.data.buildPreviews).has(unit.id),
-    notes: unitNoteCount(state.notes, fileByPath(state.data, unit.displayFile), unit),
-  }));
+  const { marks, read, changed, drawn, notes, signalKey } = useLens((state) => {
+    const notes = unitNotes(state.notes, fileByPath(state.data, unit.displayFile), unit);
+    return {
+      marks: state.concernMarks,
+      read: state.viewedUnits.has(unitViewKey(unit)),
+      changed: changedSinceViewed(state.viewedUnits, unitViewKey(unit)),
+      drawn: drawnUnits(state.data.summary, state.data.buildPreviews).has(unit.id),
+      notes,
+      // as text: the signals are a new array each time
+      signalKey: unitSignals(state.concernMarks, unit, new Set(notes.map((note) => note.kind))).join(' '),
+    };
+  });
+  const signals = (signalKey ? signalKey.split(' ') : []) as SignalId[];
   const summary = unit.summary;
   return (
     <div
@@ -76,12 +84,11 @@ export function UnitCard({ unit, active }: { unit: Unit; active: boolean }) {
         </span>
       </span>
       <span data-part='icons' className='inline-flex items-center justify-end gap-1 group-data-read/card:opacity-60'>
-        <NoteMark count={notes} />
-        {unitSignals(marks, unit).map((signal) => (
+        {signals.map((signal) => (
           <span
             key={signal}
             className={clsx('inline-flex text-(--sig)', 'sig-' + signal)}
-            title={signalTip(marks, unit, signal)}
+            title={signalTip(marks, unit, signal, notes)}
           >
             <SignalIcon signal={signal} size={12} />
           </span>
