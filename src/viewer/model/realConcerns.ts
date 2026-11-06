@@ -2,6 +2,7 @@
 // for the agent, as text for the agent that will fix them.
 
 import type { ReaderNote } from '../../cli-app/notes/store.ts';
+import type { LensState } from '../store.ts';
 import type { ViewerPayload } from '../../cli-app/render/web/server.ts';
 import { memo, plural } from '../shared.ts';
 import { type Finding, findingMark, findings, type Marks, type Unit, unitViewKey } from './signals.ts';
@@ -129,4 +130,11 @@ const NO_UNITS: readonly Unit[] = [];
 const NO_MARKS: Marks = new Map();
 export function notesForAgent(notes: readonly ReaderNote[], files: ViewerPayload['files']): RealConcerns {
   return realConcerns(NO_UNITS, NO_MARKS, notes, files);
+}
+
+/** What a copy for the agent hands over: with a summary, what was confirmed too; memoized, so a selector may return it. */
+export function handoff(state: LensState): RealConcerns {
+  return state.data.summary
+    ? realConcerns(state.data.summary.units, state.concernMarks, state.notes, state.data.files)
+    : notesForAgent(state.notes, state.data.files);
 }

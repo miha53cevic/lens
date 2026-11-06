@@ -174,11 +174,6 @@ export function baseName(path: string): string {
 }
 
 /** The folder a path is in, '' at the top */
-export function dirName(path: string): string {
-  const slash = path.lastIndexOf('/');
-  return slash === -1 ? '' : path.slice(0, slash);
-}
-
 /**
  * Restart the flash animation on a row (repeated jumps to the same line flash again). After a
  * smooth scroll the blink starts late, once the row has arrived.

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Copy } from 'lucide-react';
 import type { ReaderNote } from '../../../../cli-app/notes/store.ts';
 import { getState, useLens } from '../../../store.ts';
-import { confirmedLabel, realConcerns } from '../../../model/realConcerns.ts';
+import { confirmedLabel, handoff } from '../../../model/realConcerns.ts';
 import type { Finding, Unit } from '../../../model/signals.ts';
 import { copyForAgent } from '../../../actions/notes.ts';
 import { openSummaryUnit } from '../../../actions/summary.ts';
@@ -65,9 +65,7 @@ const findingItem = ({ unit, finding }: { unit: Unit; finding: Finding }) => (
  * confirmed one on code that changed since. lens fixes nothing itself.
  */
 export function RealConcerns() {
-  const real = useLens((state) =>
-    realConcerns(state.data.summary!.units, state.concernMarks, state.notes, state.data.files),
-  );
+  const real = useLens(handoff);
   const copied = useLens((state) => state.handoffCopied);
   // no clipboard (an insecure origin, a denied permission): the text itself, to select and copy
   const [shown, setShown] = useState(false);

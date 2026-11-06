@@ -2,7 +2,7 @@
 // viewed on the way. Progress itself is the sidebar's ring.
 
 import { ArrowLeft, ArrowRight, Check, Copy } from 'lucide-react';
-import { getState, useLens, type LensState } from '../store.ts';
+import { getState, useLens } from '../store.ts';
 import { activeFile } from '../model/plans.ts';
 import { fileProgress, unitProgress } from '../model/progress.ts';
 import { currentUnit, summaryPage } from '../model/summaryList.ts';
@@ -11,7 +11,7 @@ import { stepFile } from '../actions/tabs.ts';
 import { stepSummary } from '../actions/summary.ts';
 import { toggleFileViewed, toggleUnitViewed } from '../actions/prefs.ts';
 import { isTestFile, plural } from '../shared.ts';
-import { confirmedLabel, notesForAgent, realConcerns } from '../model/realConcerns.ts';
+import { confirmedLabel, handoff } from '../model/realConcerns.ts';
 import { copyForAgent } from '../actions/notes.ts';
 import { Button } from '../../ui/Button.tsx';
 import { CopiedLabel } from './CopiedLabel.tsx';
@@ -19,16 +19,6 @@ import { riseIn } from '../../ui/motion.ts';
 
 /** What the pill offers, for the open file or change. */
 type Stage = 'hidden' | 'start' | 'todo' | 'last' | 'done' | 'all';
-
-/**
- * What there is to hand the agent once all is reviewed: the reader's notes, and with a summary the
- * findings marked real too (as the overview copies them).
- */
-function handoff(state: LensState) {
-  return state.data.summary
-    ? realConcerns(state.data.summary.units, state.concernMarks, state.notes, state.data.files)
-    : notesForAgent(state.notes, state.data.files);
-}
 
 export function ReviewPill() {
   const pill = useLens((state) => {
@@ -45,7 +35,7 @@ export function ReviewPill() {
       else if (progress.currentDone) stage = 'done';
       else stage = progress.next === null ? 'last' : 'todo';
     }
-    // only once all is reviewed: the label, not the handoff itself (a new object each time)
+    // only once all is reviewed: what there is to hand the agent, as its label
     const ready = stage === 'all' ? handoff(state) : null;
     const handoffLabel = ready && ready.items.length + ready.notes.length > 0 ? confirmedLabel(ready) : '';
     return {
