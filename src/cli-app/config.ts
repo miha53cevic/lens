@@ -294,7 +294,7 @@ export function loadConfig(from: string): LensConfig {
   return readConfig(from).config;
 }
 
-/** A problem as one line: `.lens.json: folds.loging: no rule makes …` */
+/** A problem as one line: `.lens.json: folds.loging no rule makes …` */
 export function problemLine(problem: ConfigProblem): string {
   return problem.file + ': ' + (problem.path ? problem.path + ' ' : '') + problem.message;
 }

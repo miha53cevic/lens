@@ -103,8 +103,12 @@ export function fileNoteKinds(notes: readonly ReaderNote[]): ReadonlyMap<string,
   if (!kinds) {
     const byPath = new Map<string, NoteKindCount[]>();
     for (const { kind } of NOTE_KINDS) {
-      for (const [path, count] of noteCounts(notes.filter((note) => note.kind === kind))) {
-        byPath.set(path, [...(byPath.get(path) ?? []), { kind, count }]);
+      for (const note of notes) {
+        if (note.kind !== kind) continue;
+        const counts = byPath.get(note.file) ?? [];
+        const counted = counts.find((entry) => entry.kind === kind);
+        if (counted) counted.count++;
+        else byPath.set(note.file, [...counts, { kind, count: 1 }]);
       }
     }
     kinds = byPath;
