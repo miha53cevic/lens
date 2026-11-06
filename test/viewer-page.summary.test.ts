@@ -387,6 +387,11 @@ test('Check yourself: on the overview while on, the answer behind a click; off, 
     assert.equal($$('[data-part="self-check-answer"]').length, 0, 'the answer is hidden');
     await click($('[data-part="self-check"] [data-part="disclosure"]'));
     assert.match($('[data-part="self-check-answer"]').textContent!, /The first 50\./);
+    assert.doesNotMatch(
+      $('[data-part="self-check-answer"] [data-part="tag"]').textContent!,
+      /\b[NO]\d+\b/,
+      'no line label',
+    );
   } finally {
     await close();
   }
