@@ -13,7 +13,8 @@ function sessionWord(plan: PlanEntry): { text: string; dot: string } {
   const session = plan.session;
   if (!session) return { text: 'no session', dot: 'dot [--dot:var(--faint)]' };
   if (session.status === 'ended') return { text: 'ended', dot: 'dot [--dot:var(--faint)]' };
-  if (session.listening) return { text: 'agent listening', dot: 'dot pulse [--dot:var(--add)]' };
+  // the robot after the name says an agent listens: the word stays the session's
+  if (session.listening) return { text: 'open', dot: 'dot pulse [--dot:var(--add)]' };
   return { text: 'open', dot: 'dot [--dot:var(--accent)]' };
 }
 

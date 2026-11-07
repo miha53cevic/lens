@@ -57,7 +57,7 @@ planTest('the Plan tab lists the plans, each with its session, and starts on New
   assert.equal($('[data-part="code-pane"]').style.display, 'none');
   assert.equal(document.querySelector('#review-pill'), null);
   assert.deepEqual(planRows(), [
-    ['.lavish/plan-tab.html', 'Plan tabagent listening'],
+    ['.lavish/plan-tab.html', 'Plan tabopen'],
     ['.lavish/cache.html', 'cache.html2 pending'],
     ['.lavish/old.html', 'An old planended'],
     ['.lavish/sketch/index.html', 'A sketchno session'],
