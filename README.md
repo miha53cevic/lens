@@ -3,27 +3,43 @@
 
 **The code review tool for the agentic era.**
 
-Agents write code faster than anyone can read it, so reading is now the slow part of
-shipping. lens is built for that part. It shows you a change with the noise folded away,
-has your own coding agent brief you on it function by function, and lets you ask that
-agent questions while you read.
+Agents write code faster than anyone can read it. lens makes the reading fast: it folds away
+the noise, has your own coding agent brief you on the change function by function, and lets
+you ask it questions while you read. lens itself never calls an AI and needs no API key.
+
+![The Summary tab: an overview of the change, a sequence diagram, then each change with its concerns](docs/media/summary.gif)
+
+**Contents:** [What it does](#what-it-does) · [Install](#install) · [Quick start](#quick-start) ·
+[Command line](#command-line) · [The viewer](#the-viewer) · [Summary mode](#summary-mode) ·
+[Ask mode](#ask-mode) · [Plan mode](#plan-mode) · [How folding works](#how-folding-works) ·
+[Configuration](#configuration) · [Development](#development) · [Non-goals](#non-goals)
+
+## What it does
 
 | | what it does | who does the work |
 | --- | --- | --- |
-| **Code view** | Folds what carries no review signal (imports, doc comments, input guards, logging, defensive boilerplate), so you see the lines where the behavior lives. | lens: parsing and rules (tree-sitter), no AI |
+| **Code view** | Folds what carries no review signal (imports, doc comments, guards, logging, boilerplate), so you see where the behavior lives. | lens: tree-sitter and rules, no AI |
 | **Summary view** | One changed function at a time: a headline, concerns, what behaves differently, callers it may break. | your agent writes it, lens checks it |
-| **Ask** | A rail where you ask about the code you're reading. Answers cite `path:line`. | your agent answers, lens checks the cites |
-| **Plan view** | Your [Lavish](https://github.com/kunchenguid/lavish-axi) plans inside lens: annotate them, answer their questions, press Build it. | your agent writes them with Lavish, lens shows Lavish's editor |
+| **Ask** | Ask about the code you're reading. Answers cite `path:line`. | your agent answers, lens checks the cites |
+| **Plan view** | Your [Lavish](https://github.com/kunchenguid/lavish-axi) plans inside lens: annotate, answer, press Build it. | your agent writes them with Lavish |
 
-lens never calls an AI itself and needs no API key. The summaries and answers come from
-the agent you already use, on your existing subscription.
+**Fold the noise.** Folds are one-line pills that say what they hide, one click from the code.
+
+![The Code view: a file's folds, one opened, then side by side](docs/media/code.gif)
+
+**Ask while you read.** The question goes to your agent with the change and its concerns; the answer cites the lines.
+
+![The Ask rail: a question about chargeCart and the agent's answer](docs/media/ask.gif)
+
+**Any code theme.** The whole page follows it, dark or light.
+
+![Switching code themes](docs/media/theme.gif)
 
 ## Install
 
 **macOS app**: download `Lens-darwin-arm64.zip` from the
-[latest release](https://github.com/miha53cevic/lens/releases/latest), unzip it, move
-`Lens.app` to `/Applications`, then clear the download mark once (the app isn't
-notarized, so macOS otherwise calls it "damaged"):
+[latest release](https://github.com/miha53cevic/lens/releases/latest), move `Lens.app` to
+`/Applications`, and clear the download mark once (the app isn't notarized):
 
 ```bash
 xattr -dr com.apple.quarantine /Applications/Lens.app
@@ -42,25 +58,17 @@ In the app, **Settings → Agent** installs the `lens` command and the agent ski
 
 ## Quick start
 
-Open the desktop app, pick the repository and what to review.
-
-In your agent, to get the Summary tab written:
+Open the desktop app and pick a repository and what to review: the working tree, staged
+changes, a branch against a base, any `git diff` arguments, or a PR. Each repository gets a
+tab, and the app reopens as you left it. Then, in your agent:
 
 ```bash
-/lens-review            # same arguments as `lens diff`
+/lens-review            # writes the Summary tab; same arguments as `lens diff`
 ```
-
-## Desktop app
-
-The preferred way to use lens: one tab per repository, a picker for what to review
-(working tree, staged, branch vs a base, custom `git diff` arguments, a PR), and the viewer
-in the tab. It reopens as you left it. The viewer runs sandboxed, since it shows code you
-didn't write.
 
 ## Command line
 
-The app runs the `lens` command for you, and your agent's skills call it too. You can also
-run it yourself in a terminal (install it from the app's Settings → Agent).
+The app runs the `lens` command for you, and the skills call it too. You can run it yourself.
 
 | command | what it opens or prints |
 | --- | --- |
@@ -70,8 +78,9 @@ run it yourself in a terminal (install it from the app's Settings → Agent).
 | `lens diff HEAD~1` | any `git diff` arguments pass through |
 | `lens pr 123` / `lens pr <url>` | a GitHub PR, fetched with plain git (no API, no gh) |
 | `lens info` | what could be reviewed here: the branch, its changes, the PR remote |
-| `lens config` | the config in effect, where each value comes from, and its problems (exits 1 on any; `--json` for scripts) |
-| `lens clear` | what lens keeps in `.lens/`, by kind; `lens clear <kind> --all` (or one review's `<key>`) clears it: `summaries`, `notes`, `marks` |
+| `lens config` | the config in effect, where each value comes from, and its problems (`--json` for scripts) |
+| `lens clear` | what lens keeps in `.lens/`, by kind; `lens clear <kind> --all` (or one review's `<key>`) clears `summaries`, `notes`, `marks` or `timings` |
+| `lens timings` | how long each step took, while timings are on (`--json` for every one) |
 
 | flag | meaning |
 | --- | --- |
@@ -87,92 +96,59 @@ Loose files and these flags are CLI-only; the app's picker covers the diff and P
 
 ## The viewer
 
-- **Folds** collapse into one-line pills that quote what they hide
-  (`1 guard → return DEFAULTS + log`), one click from the real code.
-- **Diff reading**: hunks only, inline removed lines (syntax-highlighted), word diff (on by default), side by side (old and new in two columns), hide tests.
-- **Search** across loaded files (⌘P / Ctrl P), or their paths (⌘⇧P / Ctrl ⇧P), ⌥-click for usages.
-- **Viewed marks** and a progress ring, so you know what's left. A file or change whose code moved
-  after you ticked it says so. They, and your real / dismissed verdicts on concerns, are kept per
-  review in `.lens/marks/`: a branch you come back to has them, another branch starts without them.
-- **Notes**: right-click a line (or a selection of lines) to leave your own note under it,
-  in both views: a bug, a risk or a question, which goes along when you copy the
-  review for your agent (the overview, or with no summary the sidebar). Notes follow their lines
-  as the code moves, and are kept per review in `.lens/notes/`.
-- **The code theme** colors the whole page; a light theme turns it light.
-- **Code size and UI size** (⋯ menu): the code's font size, and a zoom of the whole interface (80–150%) for a small or a large screen. Both are kept for every repository; the desktop app's own screens follow the UI size too.
+- **Diff reading**: hunks only, inline removed lines, word diff, side by side, hide tests.
+- **Search** in files (⌘P), by path (⌘⇧P), ⌥-click for usages.
+- **Viewed marks** and a progress ring, kept per review in `.lens/marks/`.
+- **Notes** on a line or selection (right-click), kept per review in `.lens/notes/`, and copied along for your agent.
+- **Code size and UI size** in the ⋯ menu.
 - **Reload** (`r`) re-runs the analysis; the status bar says when the code changed on disk.
-- **Clear saved data** (⋯ menu): the summaries, your notes, and the viewed and concern marks, each
-  for this review or every review, ticked on its own and listed before anything goes. Settings stay.
+- **Clear saved data** (⋯ menu): summaries, notes, marks and timings, for this review or all. Settings stay.
+- **Timings** (⋯ → Debug, off by default): lens records how long its steps take in `.lens/timings.jsonl`; `lens timings` lists them.
 
 Press `?` in the viewer for every key.
 
 ## Summary mode
 
-The Summary tab walks the diff one unit (function, component, hook, method, type) at a
-time: a headline, **concerns** (possible bugs, risks and questions, each on its line, with
-what triggers it and the smallest fix), what behaves differently, and callers it may
-break. You mark each concern and possible break *real* or *dismiss* it, and copy the real
-ones back to your agent. Units are grouped into **flows**: one story each, read step by step, ranked P1 to
-P3, with each unit in one flow and import-only or formatting-only changes under
-Housekeeping, even before a summary is written. The units in no flow come last. An overview of the whole diff sits on top. With **Full units** on (the ⋯ menu),
-the rest of a unit's file sits above and below it, behind a bar that says what it holds.
-The list is an inbox: each flow a section of cards, and a change you mark read moves down into
-its flow's folded Read area while the next one opens; a flow with nothing left to read folds itself.
-
-With **Build previews** on (the ⋯ menu, on by default), the agent also draws what the
-change looks like: **previews** of the screens a UI diff changes, in your project's own
-design system, with the changed parts marked (Before / Now); and **sequences**, diagrams
-of what now happens at run time across routes, services, stores and queues. A preview is
-the agent's HTML, checked on submit and shown in a sandboxed frame that runs no script but
-lens's and loads nothing from outside. Both show on the overview and on each unit they
-cover, and go stale with their code.
+The Summary tab walks the diff one unit (function, component, hook, method, type) at a time:
+a headline, **concerns** (possible bugs, risks, questions, each with its trigger and the
+smallest fix), what behaves differently, and callers it may break. Mark each concern
+*real* or *dismiss* it, and copy the real ones back to your agent. Units are grouped into
+**flows**, one story each, ranked P1 to P3, under an overview of the whole diff.
 
 ```bash
 /lens-review --staged           # in your agent; or: pr 87
 ```
 
-**Check yourself** (the ⋯ menu, off by default): your agent also writes a few questions per flow, with
-the answer behind a click, for checking you understood the change. No score and no gate.
+- **Build previews** (⋯ menu, on by default): the agent also draws the screens a UI diff
+  changes, and **sequences** of what now happens at run time. Previews run sandboxed.
+- **Check yourself** (⋯ menu, off by default): a few questions per flow, answer behind a click.
+- **Full units** (⋯ menu): the rest of a unit's file above and below it.
 
-The skill runs `lens summary prepare` (splits the diff into units, writes the agent's
-instructions) and `lens summary submit` (checks the agent's result and stores it). Any
-agent with a shell can follow `prepare`'s printed instructions. `submit` drops any claim
-that doesn't point at real code, and a summary goes stale when its code changes.
-A summary is written from the checked-out code, so a branch diff (`main...feature`) is
-summarized with that branch checked out; a PR is summarized from any branch.
+The skill runs `lens summary prepare` (splits the diff, writes the agent's instructions) and
+`lens summary submit` (checks the result). Any agent with a shell can follow them. `submit`
+drops claims that don't point at real code, and a summary goes stale when its code changes.
+A branch diff is summarized with that branch checked out; a PR from any branch.
 `/lens-build-review` does the whole review step after an agent's build.
 
 ## Ask mode
 
-Press `a` to ask your agent about the change you have open, with your selection and the
-unit's open concerns and possible breaks along. Run `/lens-ask` in your agent to answer; it only reads, never
-edits. Answers cite `path:line`, and lens checks each cite. With no agent listening, a
-question can be copied as a prompt for any chat.
+Press `a` to ask about the open change, with your selection and its open concerns along. Run
+`/lens-ask` in your agent to answer: it only reads, never edits, and lens checks each
+`path:line` cite. With no agent listening, a question copies as a prompt for any chat.
 
 ## Plan mode
 
-The Plan tab (`p`; turn it on in the ⋯ menu, or with `planTab` in the config) lists the plans in the repository's `.lavish/`, each with its
-[Lavish](https://github.com/kunchenguid/lavish-axi) session: whether an agent is listening
-to it, and how much of your feedback is still pending for the agent. Pick one and Lavish's own editor opens in the tab, so the
-loop of annotating the plan, sending feedback and pressing its **Build it** happens without
-leaving lens. **New plan** turns what you type into a `/lavish …` command to paste into your
-agent; the new plan shows up in the list once the agent runs Lavish. The list filters by name or path, and by
-session (All, Active: open in Lavish, Pending: feedback waiting); `f` shows the open plan full screen.
-With the tab on, `lens diff` on a clean branch opens anyway, on the Plan tab (the desktop
-app's picker offers the empty working tree too): start the feature there, and once the agent
-has built it, the status bar's refresh brings the code in for review.
-
-It needs Lavish's skill (`npx skills add kunchenguid/lavish-axi --skill lavish -g`) and
-Node 22 or newer. Without them the tab says what's missing. Lavish's page refuses to be
-framed, so each lens server runs a small loopback proxy to it that lets only its own viewer
-frame it, and only the plans of its repository. lens reads Lavish's state and runs
-`lavish-axi <plan> --no-open`; the agent's side of Lavish is unchanged.
+The Plan tab (`p`; turn it on in the ⋯ menu or with `planTab`) lists the
+[Lavish](https://github.com/kunchenguid/lavish-axi) plans in `.lavish/` and opens Lavish's
+editor in the tab, so annotating, sending feedback and pressing **Build it** happen in lens.
+**New plan** makes a `/lavish …` command for your agent. With the tab on, `lens diff` on a
+clean branch opens on the Plan tab: start a feature there, refresh to review what got built.
+It needs Lavish's skill (`npx skills add kunchenguid/lavish-axi --skill lavish -g`) and Node 22+.
 
 ## How folding works
 
 Each region gets a category and a score (0–3) and folds when its score ≤ the fold level
-(default 1; the ⋯ menu's Fold level changes it live). TODO/FIXME comments and `lens:keep` regions never
-fold.
+(default 1, changed live from the ⋯ menu). TODO/FIXME comments and `lens:keep` regions never fold.
 
 | category            | what folds (conservatively) |
 | ------------------- | --------------------------- |
@@ -186,15 +162,13 @@ fold.
 | `barrel`            | files that are only imports and re-exports |
 | `data`              | pure-literal constants: lookup maps, option objects, literal enums |
 
-Folding works on ts, tsx and js. Other files in a diff get change markers and syntax
-colors, without folds.
+Folding works on ts, tsx and js. Other files get change markers and syntax colors.
 
 ## Configuration
 
-lens's rules are [lens.defaults.json](lens.defaults.json). A `.lens.json` in your project
-(the nearest one walking upward) merges over it: scalars override, maps merge, lists
-extend, and a list entry `"!x"` takes `x` out of the defaults' list. `"base": false` makes
-your file the whole rule set.
+lens's rules are [lens.defaults.json](lens.defaults.json). The nearest `.lens.json` merges
+over it: scalars override, maps merge, lists extend, `"!x"` removes `x` from a list, and
+`"base": false` makes your file the whole rule set.
 
 ```json
 {
@@ -206,10 +180,8 @@ your file the whole rule set.
 }
 ```
 
-A value that doesn't check (a typo'd field, a score out of range, a category no rule makes)
-is skipped, and the rest applies. lens prints each problem when it starts, the viewer's
-status bar says how many there are and Settings lists them, and `lens config` shows them
-under the config in effect.
+A value that doesn't check is skipped and the rest applies; lens, the status bar, Settings
+and `lens config` all say why.
 
 | field | meaning |
 | ----- | ------- |
@@ -221,15 +193,14 @@ under the config in effect.
 | `keepDirective` | a region containing it, or right below it, never folds (default `"lens:keep"`) |
 | `testFilePatterns` | what *hide tests* hides, and what summary mode treats as tests |
 | `exclude` | listed in a diff as `⊘` without being read; skipped in directory walks |
-| `buildPreviews` | summary mode asks for previews and sequences (default `true`); the ⋯ menu's switch overrides it for you, in `.lens/settings.json` |
-| `selfChecks` | summary mode asks for questions to check your understanding with (default `false`); the ⋯ menu's switch overrides it, as above |
-| `planTab` | the viewer shows the Plan tab (default `false`, while it's new); the ⋯ menu's switch overrides it, as above |
+| `buildPreviews` | summary mode asks for previews and sequences (default `true`) |
+| `selfChecks` | summary mode asks for questions to check yourself with (default `false`) |
+| `planTab` | the viewer shows the Plan tab (default `false`) |
+| `timings` | lens records how long its steps take, for `lens timings` (default `false`) |
 
-The old names (`threshold`, `categories`, `scores`) are still read, each with a
-problem saying what to rename it to.
-
-Patterns: `*` matches within a path segment, `**` across them, and a pattern matches
-anywhere in the path.
+The ⋯ menu's switches override the last four for you, in `.lens/settings.json`. Patterns:
+`*` matches within a path segment, `**` across them, anywhere in the path. The old names
+(`threshold`, `categories`, `scores`) still work, with a problem saying what to rename.
 
 ## Development
 
@@ -240,13 +211,13 @@ bun run app:smoke   # the app's scripted tour, with pictures in dist/smoke
 bun run compile     # lens as one executable, in dist/lens (what the packed app runs)
 ```
 
-Sources are `src/cli-app/` (the command and the viewer's server), `src/ui/` (the design
-system), `src/viewer/` (the viewer page) and `src/desktop/` (the Electron app). Releases go
-through release-please: merging its release PR publishes the macOS app.
+Sources: `src/cli-app/` (the command and server), `src/ui/` (the design system),
+`src/viewer/` (the viewer page), `src/desktop/` (the Electron app). Releases go through
+release-please: merging its release PR publishes the macOS app.
 
 ## Non-goals
 
 - **No AI calls.** Summary, ask and plan mode hand the writing to your own agent.
 - **No semantic analysis or type checking.**
 - **No editing.** lens is read-only.
-- **No terminal output.** The viewer is the only interface (plus `--json` for debugging).
+- **No terminal UI.** The viewer is the interface (`--json` is for debugging).

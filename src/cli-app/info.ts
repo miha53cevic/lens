@@ -1,8 +1,9 @@
-import { execFileSync } from 'node:child_process';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { basename } from 'node:path';
 import { loadConfig } from './config.ts';
 import { planTabOn } from './summary/settings.ts';
-import { runGit, untrackedFiles } from './git.ts';
+import { untrackedCommand } from './git.ts';
 import { toPosix } from './paths.ts';
 import { matchRemote } from './pr.ts';
 import { SUGGESTED_THEMES, isBundledTheme, themeSwatch, type ThemeSwatch } from './render/highlight.ts';
@@ -59,19 +60,26 @@ export interface InfoOptions {
   theme?: string;
 }
 
-function gitVersion(): string | null {
+const execFileAsync = promisify(execFile);
+
+/** git's output; throws with git's reason when it fails */
+async function git(args: string[], cwd?: string): Promise<string> {
+  return (await execFileAsync('git', args, { cwd, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })).stdout;
+}
+
+/** git's answer, or null when it fails (no such ref, no commits yet, no remote). */
+async function tryGit(args: string[], cwd: string): Promise<string | null> {
   try {
-    const output = execFileSync('git', ['--version'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
-    return /\d+(\.\d+)+/.exec(output)?.[0] ?? output.trim();
+    return (await git(args, cwd)).trim();
   } catch {
     return null;
   }
 }
 
-/** git's answer, or null when it fails (no such ref, no commits yet, no remote). */
-function tryGit(args: string[], cwd: string): string | null {
+async function gitVersion(): Promise<string | null> {
   try {
-    return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    const output = await git(['--version']);
+    return /\d+(\.\d+)+/.exec(output)?.[0] ?? output.trim();
   } catch {
     return null;
   }
@@ -86,8 +94,7 @@ function countPaths(listing: string): number {
  * The default base for "this branch vs": the remote's default branch as a local branch when
  * there is one (what you'd type), else its remote-tracking name, else a local main / master.
  */
-function defaultBase(cwd: string, branches: string[]): string | null {
-  const remoteHead = tryGit(['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD'], cwd);
+function defaultBase(remoteHead: string | null, branches: string[]): string | null {
   if (remoteHead) {
     const local = remoteHead.replace(/^origin\//, '');
     return branches.includes(local) ? local : remoteHead;
@@ -95,42 +102,48 @@ function defaultBase(cwd: string, branches: string[]): string | null {
   return ['main', 'master'].find((name) => branches.includes(name)) ?? null;
 }
 
-function repoInfo(cwd: string, wantedBase: string | undefined): RepoInfo | null {
-  const top = tryGit(['rev-parse', '--show-toplevel'], cwd);
+// The reads run side by side, each a git process: the desktop app's picker asks every few seconds.
+async function repoInfo(cwd: string, wantedBase: string | undefined): Promise<RepoInfo | null> {
+  const top = await tryGit(['rev-parse', '--show-toplevel'], cwd);
   if (!top) return null;
   const root = toPosix(top);
-  const branches = runGit(['for-each-ref', '--format=%(refname:short)', 'refs/heads'], cwd).split('\n').filter(Boolean);
-  const head = tryGit(['rev-parse', '--short', 'HEAD'], cwd);
-
-  if (
-    wantedBase !== undefined &&
-    tryGit(['rev-parse', '--verify', '--quiet', `${wantedBase}^{commit}`], cwd) === null
-  ) {
+  const untracked = untrackedCommand(top, cwd, []);
+  const [refs, head, wanted, remoteHead, remotes, branch, changed, untrackedList, staged] = await Promise.all([
+    git(['for-each-ref', '--format=%(refname:short)', 'refs/heads'], cwd),
+    tryGit(['rev-parse', '--short', 'HEAD'], cwd),
+    wantedBase === undefined ? null : tryGit(['rev-parse', '--verify', '--quiet', `${wantedBase}^{commit}`], cwd),
+    tryGit(['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD'], cwd),
+    tryGit(['config', '--get-regexp', '^remote\\..*\\.url$'], cwd),
+    tryGit(['symbolic-ref', '--quiet', '--short', 'HEAD'], cwd),
+    git(['diff', '--name-only', '-z', '--no-relative'], cwd),
+    git(untracked.args, untracked.dir),
+    git(['diff', '--staged', '--name-only', '-z', '--no-relative'], cwd),
+  ]);
+  const branches = refs.split('\n').filter(Boolean);
+  if (wantedBase !== undefined && wanted === null) {
     throw new Error(`"${wantedBase}" is not a branch or commit here`);
   }
-  const base = wantedBase ?? defaultBase(cwd, branches);
-  const ahead = base && head ? tryGit(['rev-list', '--count', `${base}..HEAD`], cwd) : null;
-
-  const remotes = tryGit(['config', '--get-regexp', '^remote\\..*\\.url$'], cwd) ?? '';
-  const github = matchRemote(remotes, { owner: '', repo: '', number: 0 });
+  const base = wantedBase ?? defaultBase(remoteHead, branches);
+  const ahead = base && head ? await tryGit(['rev-list', '--count', `${base}..HEAD`], cwd) : null;
+  const github = matchRemote(remotes ?? '', { owner: '', repo: '', number: 0 });
 
   return {
     root,
     name: basename(root),
-    branch: tryGit(['symbolic-ref', '--quiet', '--short', 'HEAD'], cwd),
+    branch,
     head,
     branches,
     base,
     ahead: ahead === null ? null : Number(ahead),
-    changed: countPaths(runGit(['diff', '--name-only', '-z', '--no-relative'], cwd)) + untrackedFiles(top, cwd).length,
-    staged: countPaths(runGit(['diff', '--staged', '--name-only', '-z', '--no-relative'], cwd)),
+    changed: countPaths(changed) + countPaths(untrackedList),
+    staged: countPaths(staged),
     github: github ? { remote: github.remote, owner: github.ref.owner, repo: github.ref.repo } : null,
     planTab: planTabOn(root, loadConfig(cwd)),
   };
 }
 
 export async function lensInfo(cwd: string, options: InfoOptions = {}): Promise<LensInfo> {
-  const git = gitVersion();
+  const git = await gitVersion();
   const theme = options.theme ?? loadConfig(cwd).theme;
   if (!isBundledTheme(theme)) {
     throw new Error(`unknown theme "${theme}" — pick a Shiki theme name (https://shiki.style/themes)`);
@@ -138,7 +151,7 @@ export async function lensInfo(cwd: string, options: InfoOptions = {}): Promise<
   const info: LensInfo = {
     version: manifest.version,
     git,
-    repo: git === null ? null : repoInfo(cwd, options.base),
+    repo: git === null ? null : await repoInfo(cwd, options.base),
     theme,
   };
   if (options.themes) {

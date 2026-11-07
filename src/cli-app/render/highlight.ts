@@ -1,12 +1,9 @@
-import {
-  createHighlighter,
-  bundledThemes,
-  bundledLanguages,
-  type Highlighter,
-  type BundledTheme,
-  type BundledLanguage,
-} from 'shiki';
 import { extname } from 'node:path';
+import type { Highlighter, BundledTheme, BundledLanguage, GrammarState, ThemedToken } from 'shiki';
+// the lists alone: Shiki's engine (~40 ms to load) is imported once something is tokenized, so a
+// command that only names themes (`lens info`) doesn't wait for it
+import { bundledThemes } from 'shiki/themes';
+import { bundledLanguages } from 'shiki/langs';
 
 // One token as shipped to the viewer: [text, color]. Color is a hex string or
 // null for the theme's default foreground.
@@ -41,11 +38,35 @@ export interface HighlightResult {
 let highlighterPromise: Promise<Highlighter> | null = null;
 
 function getHighlighter(): Promise<Highlighter> {
-  highlighterPromise ??= createHighlighter({
-    themes: [],
-    langs: ['typescript', 'tsx', 'javascript'],
-  });
+  highlighterPromise ??= import('shiki').then(({ createHighlighter }) =>
+    createHighlighter({ themes: [], langs: ['typescript', 'tsx', 'javascript'] }),
+  );
   return highlighterPromise;
+}
+
+/** The languages loaded with all they may embed */
+const complete = new Set<string>(['typescript', 'tsx', 'javascript']);
+
+/**
+ * The language, and every language it may embed, at any depth. Shiki colors an embedded block (a
+ * markdown fence of bash) only when that language is loaded already, so without them a file's
+ * colors would hang on what this process highlighted before it, and differ between threads.
+ */
+async function loadLanguage(highlighter: Highlighter, language: BundledLanguage): Promise<void> {
+  if (complete.has(language)) return;
+  const wanted = new Set<BundledLanguage>();
+  const visit = async (name: string) => {
+    if (!(name in bundledLanguages) || wanted.has(name as BundledLanguage)) return;
+    wanted.add(name as BundledLanguage);
+    for (const grammar of (await bundledLanguages[name as BundledLanguage]()).default) {
+      for (const embedded of [...(grammar.embeddedLangs ?? []), ...(grammar.embeddedLangsLazy ?? [])]) {
+        await visit(embedded);
+      }
+    }
+  };
+  await visit(language);
+  await highlighter.loadLanguage(...wanted);
+  for (const name of wanted) complete.add(name);
 }
 
 /** The highlighter with `theme` loaded into it, and that theme. */
@@ -160,16 +181,122 @@ export async function highlightSource(
       bg: loaded.bg,
     };
   }
-  if (!highlighter.getLoadedLanguages().includes(language)) {
-    await highlighter.loadLanguage(language as BundledLanguage);
-  }
+  await loadLanguage(highlighter, language as BundledLanguage);
   const { tokens, fg, bg } = highlighter.codeToTokens(source, {
     lang: language as BundledLanguage,
     theme,
   });
   return {
-    tokens: tokens.map((line) => line.map((t) => [t.content, t.color ?? null] as ViewerToken)),
+    tokens: toViewerTokens(tokens),
     fg: fg ?? loaded.fg,
     bg: bg ?? loaded.bg,
   };
+}
+
+/**
+ * A file's old side, as `highlightSides` takes it: its text, and for each of its lines (0-based)
+ * the new side's line that is the same line of the file, or null for a removed line.
+ */
+export interface OldSide {
+  text: string;
+  keptAt: (number | null)[];
+}
+
+export interface SidesResult extends HighlightResult {
+  /** The old side's tokens by line: every removed line's, and the other lines' only where they were needed */
+  oldTokens: ViewerToken[][] | null;
+}
+
+/**
+ * Both sides of a changed file, each tokenized as `highlightSource` tokenizes a whole text, but the
+ * old side's kept lines mostly not at all. A TextMate grammar tokenizes a line from the state the
+ * line before left: the same line from the same state gives the same tokens and the same state
+ * after. So where the old side reaches a run of kept lines in the state the new side reached it in,
+ * the run is skipped and the new side's state after it taken over. Only where a removed line left
+ * another state (a comment or a string it opened) is the run tokenized again on the old side.
+ */
+export async function highlightSides(
+  source: string,
+  language: string | null,
+  theme: string,
+  old: OldSide | null,
+): Promise<SidesResult> {
+  if (old === null) return { ...(await highlightSource(source, language, theme)), oldTokens: null };
+  if (language === null || !(language in bundledLanguages)) {
+    const [result, before] = await Promise.all([
+      highlightSource(source, language, theme),
+      highlightSource(old.text, language, theme),
+    ]);
+    return { ...result, oldTokens: before.tokens };
+  }
+  const { highlighter, loaded } = await withTheme(theme);
+  const lang = language as BundledLanguage;
+  await loadLanguage(highlighter, lang);
+  let colors: { fg?: string; bg?: string } = {};
+  const tokenize = (lines: string[], grammarState: GrammarState | undefined) => {
+    const result = highlighter.codeToTokens(lines.join('\n'), { lang, theme, grammarState });
+    colors = result;
+    return { tokens: toViewerTokens(result.tokens), state: result.grammarState };
+  };
+
+  // the lines as Shiki splits a text: a CRLF's \r isn't the line's
+  const newLines = source.split(/\r?\n/);
+  const oldLines = old.text.split(/\r?\n/);
+  // the old side in runs: removed lines, and kept lines that follow each other on the new side too
+  const runs: { from: number; to: number; at: number | null }[] = [];
+  oldLines.forEach((text, index) => {
+    const kept = old.keptAt[index] ?? null;
+    // a kept line is only skipped when it is the very same text
+    const at = kept !== null && newLines[kept] === text ? kept : null;
+    const last = runs[runs.length - 1];
+    const extends_ = last && (at === null ? last.at === null : last.at !== null && last.at + index - last.from === at);
+    if (extends_) last.to = index + 1;
+    else runs.push({ from: index, to: index + 1, at });
+  });
+
+  // the new side, tokenized in parts cut where a kept run starts and ends, so its state is known there
+  const cuts = new Set<number>();
+  for (const run of runs) {
+    if (run.at !== null) cuts.add(run.at).add(run.at + run.to - run.from);
+  }
+  const ends = [...cuts].filter((cut) => cut > 0 && cut < newLines.length).sort((a, b) => a - b);
+  ends.push(newLines.length);
+  /** the state before each new line that is a cut: undefined before the first, as a whole text starts */
+  const stateAt = new Map<number, GrammarState | undefined>([[0, undefined]]);
+  const tokens: ViewerToken[][] = [];
+  let state: GrammarState | undefined;
+  let start = 0;
+  for (const end of ends) {
+    const part = tokenize(newLines.slice(start, end), state);
+    for (const line of part.tokens) tokens.push(line);
+    state = part.state;
+    stateAt.set(end, state);
+    start = end;
+  }
+  const { fg, bg } = colors;
+
+  const oldTokens: ViewerToken[][] = new Array(oldLines.length);
+  let oldState: GrammarState | undefined;
+  for (const run of runs) {
+    if (run.at !== null && sameState(oldState, stateAt.get(run.at))) {
+      oldState = stateAt.get(run.at + run.to - run.from);
+      continue;
+    }
+    const part = tokenize(oldLines.slice(run.from, run.to), oldState);
+    part.tokens.forEach((line, index) => (oldTokens[run.from + index] = line));
+    oldState = part.state;
+  }
+  return { tokens, fg: fg ?? loaded.fg, bg: bg ?? loaded.bg, oldTokens };
+}
+
+/** Undefined is the state a text starts in: two are the same only both there, or by the grammar's own test. */
+function sameState(a: GrammarState | undefined, b: GrammarState | undefined): boolean {
+  if (a === undefined || b === undefined) return a === b;
+  const stackA = a.getInternalStack();
+  const stackB = b.getInternalStack();
+  return !!stackA && !!stackB && stackA.equals(stackB);
+}
+
+function toViewerTokens(tokens: ThemedToken[][]): ViewerToken[][] {
+  return tokens.map((line) => line.map((token) => [token.content, token.color ?? null] as ViewerToken));
 }

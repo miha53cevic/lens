@@ -1,5 +1,6 @@
 import { test } from 'bun:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -165,4 +166,83 @@ test('every suggested theme is a valid bundled theme', () => {
     assert.ok(isBundledTheme(name), `${name} is not a bundled Shiki theme`);
   }
   assert.ok(SUGGESTED_THEMES.includes(DEFAULT_THEME));
+});
+
+test("both sides tokenized with the old side's kept lines skipped give the tokens each side whole gives", async () => {
+  const whole = (text: string) => highlightSource(text, 'typescript', 'github-dark');
+  const check = async (file: Parameters<typeof oldSideLines>[0], why: string) => {
+    const result = await highlightFiles(
+      [{ ...file, file: 'a.ts', language: 'typescript', lineCount: 0, regions: [] }],
+      'github-dark',
+    );
+    assert.deepEqual(result.tokens[0], (await whole(file.source)).tokens, why + ': the new side');
+    const old = (await whole(oldSideLines(file).join('\n'))).tokens;
+    (file.removals ?? []).forEach((block, at) =>
+      block.lines.forEach((_, line) =>
+        assert.deepEqual(result.removed[0][at][line], old[block.oldStart - 1 + line], why + ': a removed line'),
+      ),
+    );
+  };
+  const kept = Array.from({ length: 30 }, (_, index) => `const v${index} = \`${index}\`; // ${index}`);
+  // a removed line that opened a comment: the kept lines after it are a comment on the old side
+  await check(
+    {
+      source: ['a();', ...kept, 'b();', ...kept, 'c();'].join('\n'),
+      changedLines: [1],
+      removals: [
+        { afterLine: 0, oldStart: 1, lines: ['/* opened'] },
+        { afterLine: 32, oldStart: 34, lines: ['*/ closed();', 'gone();'] },
+      ],
+    },
+    'a state a removed line changed',
+  );
+  // removals far apart, with added lines between: the old side catches up with the new one
+  await check(
+    {
+      source: ['x();', ...kept, 'y();', ...kept].join('\n'),
+      changedLines: [1, 32],
+      removals: [
+        { afterLine: 0, oldStart: 1, lines: ['const s = "a";'] },
+        { afterLine: 31, oldStart: 32, lines: ['f(`', '`);'] },
+      ],
+    },
+    'removals around added lines',
+  );
+  // CRLF: the \r of a kept line isn't the line's, on either side
+  await check(
+    {
+      source: ['a();', ...kept, 'b();'].join('\r\n'),
+      changedLines: [1],
+      removals: [{ afterLine: 0, oldStart: 1, lines: ['old();\r'] }],
+    },
+    'CRLF',
+  );
+});
+
+test('a markdown fence is colored by its language whatever was highlighted before it', async () => {
+  // a fresh process: the fence's language (yaml) was loaded by nothing else first
+  const script = `
+    const { highlightSource } = await import(${JSON.stringify(join(dirname(fileURLToPath(import.meta.url)), '../src/cli-app/render/highlight.ts'))});
+    const { tokens } = await highlightSource('# a\\n\\n\`\`\`yaml\\nkey: value\\n\`\`\`\\n', 'markdown', 'github-dark');
+    console.log(JSON.stringify(tokens[3]));
+  `;
+  const fresh = JSON.parse(execFileSync(process.execPath, ['-e', script], { encoding: 'utf8' }));
+  assert.ok(new Set(fresh.map(([, color]: [string, string]) => color)).size > 1, 'key and value colored apart');
+});
+
+test('a big diff is tokenized on worker threads, with the same tokens as on this one', async () => {
+  const { highlightAll } = await import('../src/cli-app/render/highlightPool.ts');
+  const source = readFileSync(join(fixturesDir, 'loadConfig.ts'), 'utf8');
+  // past the size the pool takes on
+  const jobs = Array.from({ length: Math.ceil(250_000 / source.length) }, (_, index) => ({
+    source: source + '\n'.repeat(index),
+    language: 'typescript',
+    theme: 'github-dark',
+    old: null,
+  }));
+  const pooled = await highlightAll(jobs);
+  assert.equal(pooled.length, jobs.length);
+  for (const [index, job] of jobs.entries()) {
+    assert.deepEqual(pooled[index].tokens, (await highlightSource(job.source, 'typescript', 'github-dark')).tokens);
+  }
 });

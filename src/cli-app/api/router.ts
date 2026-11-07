@@ -44,8 +44,8 @@ export interface Router {
   raw(route: string, handler: (context: RouteContext) => void | Promise<void>): Router;
   /** Another router's routes, after this one's */
   use(other: Router): Router;
-  /** Answers the request if a route matches it; false when none does */
-  handle(req: IncomingMessage, res: ServerResponse, url: URL): Promise<boolean>;
+  /** Answers the request if a route matches it: the route that did, or null when none does */
+  handle(req: IncomingMessage, res: ServerResponse, url: URL): Promise<string | null>;
   /** Every route, as `METHOD /path` */
   routes(): string[];
 }
@@ -128,9 +128,9 @@ export function createRouter(): Router {
           if (!(error instanceof HttpError)) throw error;
           sendJson(res, error.status, { error: error.message });
         }
-        return true;
+        return entry.route;
       }
-      return false;
+      return null;
     },
     routes: () => entries.map((entry) => entry.route),
   };

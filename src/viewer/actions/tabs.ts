@@ -5,6 +5,7 @@ import { isTestFile } from '../shared.ts';
 import { activeFile } from '../model/plans.ts';
 import { firstTreeFile, treeModel, visibleFile } from '../model/tree.ts';
 import { narrowOut, stay, widenIn } from '../../ui/motion.ts';
+import { measure } from './timings.ts';
 
 // The file gets a tab. A new file takes over the preview tab when one exists; otherwise it
 // opens next to the active tab.
@@ -38,6 +39,8 @@ export function openFile(fileIndex: number, pin?: boolean): void {
   // opened again while its tab narrows out: the tab stays
   stay(tabElement(fileIndex));
   const state = getState();
+  const file = state.data.files[fileIndex];
+  if (fileIndex !== state.active && file) measure('open file', file.file + ', ' + file.lineCount + ' lines')();
   const tabs = withTab(state.tabs, state.active, fileIndex, pin);
   const patch = { ...revealIfTest(state, fileIndex), tabs, active: fileIndex };
   // a tab that joins the bar widens into its place; one that replaces the preview just shows

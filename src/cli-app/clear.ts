@@ -4,6 +4,8 @@ import { buildProgressReader } from './summary/progress.ts';
 import { NOTES_DIR, OLD_NOTES_PATH, readStoredNotes } from './notes/store.ts';
 import { countMarks, MARKS_DIR, readStoredMarks } from './marks/store.ts';
 import { countText } from './text.ts';
+import { readTimings, TIMINGS_PATH } from './timings.ts';
+import { toPosix } from './paths.ts';
 
 // What lens keeps on disk that the reader can clear: one entry per kind in CLEAR_KINDS. The
 // viewer's dialog and `lens clear` both list them, so a new kind is one more entry here and
@@ -163,7 +165,24 @@ const marks = perReview(
   (root, review) => countMarks(readStoredMarks(root, review)),
 );
 
-export const CLEAR_KINDS: ClearKind[] = [summaries, notes, marks];
+/** How long lens's steps took, while timings were on: one file for the repository. */
+const timings: ClearKind = {
+  id: 'timings',
+  label: 'Timings',
+  unit: ['timing', 'timings'],
+  scopes: () => ['all'],
+  describe(at) {
+    const count = readTimings(at.root).length;
+    return { count, paths: count > 0 ? [toPosix(TIMINGS_PATH)] : [] };
+  },
+  clear(at) {
+    const plan = timings.describe(at, 'all');
+    rmSync(join(at.root, TIMINGS_PATH), { force: true });
+    return plan;
+  },
+};
+
+export const CLEAR_KINDS: ClearKind[] = [summaries, notes, marks, timings];
 
 export function clearKind(id: string): ClearKind | undefined {
   return CLEAR_KINDS.find((kind) => kind.id === id);

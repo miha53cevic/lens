@@ -1,18 +1,11 @@
 import { readFileSync } from 'node:fs';
-import {
-  gitDiffTargets,
-  gitRoot,
-  readBlobs,
-  runGit,
-  type BinaryFile,
-  type DiffTarget,
-  type RenamedFile,
-} from '../git.ts';
+import { gitDiffTargets, readBlobs, runGit, type BinaryFile, type DiffTarget, type RenamedFile } from '../git.ts';
 import { resolvePr } from '../pr.ts';
 import { compilePatterns, matchesAny } from '../glob.ts';
 import { relPath } from '../paths.ts';
 import { extractUnits, checkCoverage, type Unit, type UnitFileInput } from './units.ts';
 import type { LensConfig } from '../model.ts';
+import type { ParseCache } from '../parse/parser.ts';
 
 export interface LoadedDiff {
   root: string;
@@ -32,6 +25,8 @@ export interface LoadedDiff {
   deleted: string[];
   /** Absolute path → old blob SHA, for deleted files */
   deletedBlobs: Map<string, string>;
+  /** Old blob SHA → text: the targets' old sides, and the deleted files' that aren't excluded */
+  oldTexts: Map<string, string>;
   renamed: RenamedFile[];
   /** Changed binary files (absolute paths), the excluded ones already dropped: listed, never read */
   binary: BinaryFile[];
@@ -57,8 +52,8 @@ export async function loadDiff(
     label = pr.label;
     guessedBase = pr.guessedBase;
   }
-  const root = gitRoot(cwd);
   const result = gitDiffTargets(diffArgs, cwd);
+  const { root } = result;
   const excludeRegexes = compilePatterns(config.exclude);
   const excluded: string[] = [];
   const targets = result.targets.filter((t) => {
@@ -77,11 +72,24 @@ export async function loadDiff(
     }
     return true;
   });
-  // New-side content: from git for ref diffs, from disk for the working tree.
-  const newBlobs = readBlobs(
-    targets.flatMap((t) => (t.newBlob !== undefined ? [t.newBlob] : [])),
+  const deletedShown = result.deleted.filter((abs) => !matchesAny(relPath(cwd, abs), excludeRegexes));
+  // Every blob in one read, a git process or two however many files: the new side (from git for ref
+  // diffs, from disk for the working tree), and the old side the summary's units are cut from.
+  const blobs = readBlobs(
+    [
+      ...targets.flatMap((t) => (t.newBlob !== undefined ? [t.newBlob] : [])),
+      ...targets.flatMap((t) => (t.oldBlob ? [t.oldBlob] : [])),
+      ...deletedShown.flatMap((abs) => result.deletedBlobs.get(abs) ?? []),
+    ],
     cwd,
   );
+  const oldTexts = new Map<string, string>();
+  for (const sha of [
+    ...targets.flatMap((t) => (t.oldBlob ? [t.oldBlob] : [])),
+    ...deletedShown.flatMap((abs) => result.deletedBlobs.get(abs) ?? []),
+  ]) {
+    oldTexts.set(sha, blobs.get(sha)!);
+  }
   return {
     root,
     diffArgs,
@@ -90,20 +98,48 @@ export async function loadDiff(
     targets,
     excluded,
     sources: new Map(
-      targets.map((t) => [t.file, t.newBlob !== undefined ? newBlobs.get(t.newBlob)! : readFileSync(t.file, 'utf8')]),
+      targets.map((t) => [t.file, t.newBlob !== undefined ? blobs.get(t.newBlob)! : readFileSync(t.file, 'utf8')]),
     ),
     deleted: result.deleted,
     deletedBlobs: result.deletedBlobs,
+    oldTexts,
     renamed: result.renamed,
     binary,
   };
+}
+
+/** Each file's units by its repo-relative path, with the input they were cut from */
+export type FileUnits = Map<string, { input: UnitFileInput; units: Unit[] }>;
+
+export interface CollectOptions {
+  parses?: ParseCache;
+  /** The last analysis's units: a file whose input is the very same keeps its own */
+  previous?: FileUnits;
+  /** Filled with this analysis's units, for the next one */
+  made?: FileUnits;
+}
+
+/** extractUnits reads nothing but its input: the same input, compared whole, makes the same units. */
+function sameUnitInput(a: UnitFileInput, b: UnitFileInput): boolean {
+  return (
+    a.file === b.file &&
+    a.newSource === b.newSource &&
+    a.oldSource === b.oldSource &&
+    a.isTest === b.isTest &&
+    JSON.stringify([a.changedLines, a.removals]) === JSON.stringify([b.changedLines, b.removals])
+  );
 }
 
 /**
  * Units for every changed file of the diff, with repo-relative ids. Throws if
  * the one-unit-per-line invariant breaks — that's a lens bug, never silent.
  */
-export async function collectUnits(diff: LoadedDiff, config: LensConfig, cwd: string): Promise<Unit[]> {
+export async function collectUnits(
+  diff: LoadedDiff,
+  config: LensConfig,
+  cwd: string,
+  { parses, previous, made }: CollectOptions = {},
+): Promise<Unit[]> {
   const excludeRegexes = compilePatterns(config.exclude);
   const testRegexes = compilePatterns(config.testFilePatterns);
   const inputs: UnitFileInput[] = [];
@@ -111,13 +147,7 @@ export async function collectUnits(diff: LoadedDiff, config: LensConfig, cwd: st
   // like loadDiff's exclude check and the viewer's "hide tests".
   const shown = (abs: string) => relPath(cwd, abs);
   const deleted = diff.deleted.filter((abs) => !matchesAny(shown(abs), excludeRegexes));
-  const oldBlobs = readBlobs(
-    [
-      ...diff.targets.flatMap((t) => (t.oldBlob ? [t.oldBlob] : [])),
-      ...deleted.flatMap((abs) => diff.deletedBlobs.get(abs) ?? []),
-    ],
-    cwd,
-  );
+  const oldBlobs = diff.oldTexts;
   for (const t of diff.targets) {
     const file = relPath(diff.root, t.file);
     inputs.push({
@@ -143,7 +173,9 @@ export async function collectUnits(diff: LoadedDiff, config: LensConfig, cwd: st
   }
   const units: Unit[] = [];
   for (const input of inputs) {
-    const fileUnits = await extractUnits(input);
+    const kept = previous?.get(input.file);
+    const fileUnits = kept && sameUnitInput(kept.input, input) ? kept.units : await extractUnits(input, parses);
+    made?.set(input.file, { input, units: fileUnits });
     const problems = checkCoverage(input, fileUnits);
     if (problems.length > 0) throw new Error(`summary units are inconsistent (a lens bug): ${problems[0]}`);
     units.push(...fileUnits);

@@ -9,9 +9,11 @@ import { changeNote } from '../model/status.ts';
 import { firstTreeFile } from '../model/tree.ts';
 import { api, noteDone, tracked } from './status.ts';
 import { withTab } from './tabs.ts';
+import { measure } from './timings.ts';
 
 export async function switchTheme(theme: string): Promise<boolean> {
   let switched = false;
+  const done = measure('theme', theme);
   await tracked({ id: 'theme', label: 'Applying ' + theme + '…', failed: "Couldn't switch to " + theme }, async () => {
     const entry = await api('GET /api/tokens', { query: { theme } });
     // The code is drawn from the tokens' text, so tokens of another analysis (a refresh in another
@@ -44,6 +46,7 @@ export async function switchTheme(theme: string): Promise<boolean> {
     );
     switched = true;
   });
+  if (switched) done();
   return switched;
 }
 
@@ -67,6 +70,7 @@ function contentKeys(data: ViewerPayload): Map<string, string> {
 export function refresh(theme = getState().data.theme): Promise<boolean> {
   // PR mode fetches the PR again first
   const label = getState().data.label ? 'Fetching the PR and re-running the analysis…' : 'Re-running the analysis…';
+  const done = measure('refresh');
   return tracked({ id: 'refresh', label, failed: 'Refresh failed' }, async () => {
     const data = await api('GET /api/refresh', { query: { theme } });
     const before = contentKeys(getState().data);
@@ -100,6 +104,7 @@ export function refresh(theme = getState().data.theme): Promise<boolean> {
       };
     });
     noteDone('Refreshed', changeNote(before, contentKeys(data)));
+    done();
   });
 }
 

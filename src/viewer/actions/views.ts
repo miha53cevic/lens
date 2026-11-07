@@ -10,6 +10,7 @@ import { isBusy } from '../model/status.ts';
 import type { Watcher } from '../../ui/poll.ts';
 import { api, noteDone, reach, tracked } from './status.ts';
 import { loadPlans } from './planTab.ts';
+import { measure } from './timings.ts';
 
 function viewChange(state: LensState, view: View): Partial<LensState> {
   if (view === state.view) return {};
@@ -20,6 +21,7 @@ export function setView(view: View): void {
   const state = getState();
   if (view === 'summary' && !state.data.summary) return;
   if (view === 'plan' && !state.data.planTab) return;
+  if (view !== state.view) measure('view ' + view)();
   update({ ...viewChange(state, view), ...(view === 'summary' && { summaryChecking: true }) });
   if (view === 'summary') {
     if (state.summaryDot) loadSummary().finally(() => update({ summaryChecking: false }));

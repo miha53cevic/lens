@@ -3,8 +3,9 @@
 // (forge.config.ts) and runs it instead of the sources.
 //
 // What the CLI reads at run time comes along inside it: lens.defaults.json and package.json
-// (imported as JSON), the tree-sitter grammars (imported as files, parser.ts), and the viewer,
-// bundled here ahead of time and handed to bundle.ts as the module VIEWER_MODULE names.
+// (imported as JSON), the tree-sitter grammars (imported as files, parser.ts), the highlighter's
+// worker thread (an entrypoint beside cli.ts), and the viewer, bundled here ahead of time and
+// handed to bundle.ts as the module VIEWER_MODULE names.
 
 import { join, resolve } from 'node:path';
 import type { BunPlugin } from 'bun';
@@ -23,7 +24,8 @@ export async function compileLens(outfile: string): Promise<void> {
     },
   };
   await Bun.build({
-    entrypoints: [join(root, 'src', 'cli-app', 'cli.ts')],
+    // the highlighter's thread is an entrypoint of its own: highlightPool.ts starts it by its path
+    entrypoints: [join(root, 'src', 'cli-app', 'cli.ts'), join(root, 'src', 'cli-app', 'render', 'highlightWorker.ts')],
     compile: { outfile },
     target: 'bun',
     plugins: [viewerModule],

@@ -29,8 +29,10 @@ export interface ApiRoutes {
   'GET /api/summary': Endpoint<null, SummaryView | null>;
   /** Everything the page watches for, in one request */
   'GET /api/stamp': Endpoint<null, StampResponse>;
-  /** The Build previews switch */
+  /** The reader's switches (.lens/settings.json) */
   'POST /api/settings': Endpoint<SettingsRequest, SettingsRequest>;
+  /** What the viewer measured, while timings are on (src/cli-app/timings.ts) */
+  'POST /api/timings': Endpoint<TimingsRequest, Ok>;
   /** What each kind of saved data holds */
   'GET /api/clear': Endpoint<null, ClearInfoResponse>;
   'POST /api/clear': Endpoint<ClearRequest, ClearResponse>;
@@ -69,6 +71,7 @@ export const API_ROUTES: { readonly [R in ApiRoute]: true } = {
   'GET /api/summary': true,
   'GET /api/stamp': true,
   'POST /api/settings': true,
+  'POST /api/timings': true,
   'GET /api/clear': true,
   'POST /api/clear': true,
   'POST /api/shutdown': true,
@@ -109,6 +112,12 @@ export interface SettingsRequest {
   buildPreviews?: boolean;
   selfChecks?: boolean;
   planTab?: boolean;
+  timings?: boolean;
+}
+
+/** What POST /api/timings takes: the viewer's steps since its last post */
+export interface TimingsRequest {
+  timings: { name: string; ms: number; detail?: string }[];
 }
 
 /** What GET /api/clear answers: what each kind would remove */

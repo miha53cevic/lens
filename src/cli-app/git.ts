@@ -33,6 +33,8 @@ export interface RenamedFile {
 }
 
 export interface DiffResult {
+  /** The repository's root, which the paths are under */
+  root: string;
   targets: DiffTarget[];
   /** Repo-relative paths of supported files removed by the diff */
   deleted: string[];
@@ -295,19 +297,57 @@ export function gitRoot(cwd: string): string {
   return runGit(['rev-parse', '--show-toplevel'], cwd).trim();
 }
 
-/** The commit `name` names, or null when it names none (git's own reading of a revision). */
-function commitOf(name: string, cwd: string): string | null {
+/**
+ * The commit each name names, or null for one that names none ("<name> missing", "ambiguous"),
+ * and all null outside a repository: git's own reading of a revision, as `rev-parse --verify`
+ * gives it, from one `git cat-file --batch-check` for them all.
+ */
+function commitsOf(names: string[], cwd: string): (string | null)[] {
+  const input = commitQuery(names);
+  if (input === null) return names.map(() => null);
+  let output = '';
   try {
-    return (
-      execFileSync('git', ['rev-parse', '--verify', '--quiet', `${name}^{commit}`], {
-        cwd,
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'ignore'],
-      }).trim() || null
-    );
+    output = execFileSync('git', ['cat-file', '--batch-check'], {
+      cwd,
+      encoding: 'utf8',
+      input,
+      stdio: ['pipe', 'pipe', 'ignore'],
+    });
   } catch {
-    return null;
+    // not a repository: nothing is a revision
   }
+  return readCommits(names, output);
+}
+
+async function commitsOfAsync(names: string[], cwd: string): Promise<(string | null)[]> {
+  const input = commitQuery(names);
+  if (input === null) return names.map(() => null);
+  const output = await new Promise<string>((resolve) => {
+    const child = execFile('git', ['cat-file', '--batch-check'], { cwd, encoding: 'utf8' }, (err, stdout) =>
+      resolve(err ? '' : stdout),
+    );
+    child.stdin?.end(input);
+  });
+  return readCommits(names, output);
+}
+
+/** A name on two lines would be asked as two, and shift the answers after it: it is no revision anyway. */
+const askable = (name: string) => !name.includes('\n');
+
+/** One line per name `cat-file` is asked about; null when there is none to ask. */
+function commitQuery(names: string[]): string | null {
+  const asked = names.filter(askable);
+  return asked.length === 0 ? null : asked.map((name) => `${name}^{commit}\n`).join('');
+}
+
+function readCommits(names: string[], output: string): (string | null)[] {
+  const lines = output.split('\n');
+  let line = 0;
+  return names.map((name) => {
+    if (!askable(name)) return null;
+    const [sha, type] = (lines[line++] ?? '').split(' ');
+    return type === 'commit' && /^[0-9a-f]{40,64}$/.test(sha) ? sha : null;
+  });
 }
 
 /**
@@ -316,20 +356,37 @@ function commitOf(name: string, cwd: string): string | null {
  * repository). Null when it hasn't, or when the arguments can't be read for sure.
  */
 export function worktreePathspecs(gitArgs: string[], cwd: string): string[] | null {
+  const words = pathspecWords(gitArgs, cwd);
+  return words && readPathspecs(words, commitsOf(words.candidates, cwd));
+}
+
+async function worktreePathspecsAsync(gitArgs: string[], cwd: string): Promise<string[] | null> {
+  const words = pathspecWords(gitArgs, cwd);
+  return words && readPathspecs(words, await commitsOfAsync(words.candidates, cwd));
+}
+
+/** worktreePathspecs' arguments sorted: the pathspecs after "--", and the words that may be revisions. */
+function pathspecWords(gitArgs: string[], cwd: string): { pathspecs: string[]; candidates: string[] } | null {
   const split = gitArgs.indexOf('--');
   const before = split === -1 ? gitArgs : gitArgs.slice(0, split);
-  const pathspecs = split === -1 ? [] : gitArgs.slice(split + 1);
-  let revisions = 0;
+  const candidates: string[] = [];
   for (const arg of before) {
     if (arg === '--staged' || arg === '--cached' || arg === '--no-index') return null;
     if (arg.startsWith('-')) continue;
     // A..B and A...B name two revisions (a path may hold ".." too: "../src")
     if (arg.includes('..') && !existsSync(resolve(cwd, arg))) return null;
-    // git's own rule without "--": what isn't a revision is a path
-    if (commitOf(arg, cwd) !== null) revisions++;
-    else pathspecs.push(arg);
+    candidates.push(arg);
   }
-  return revisions < 2 ? pathspecs : null;
+  return { pathspecs: split === -1 ? [] : gitArgs.slice(split + 1), candidates };
+}
+
+function readPathspecs(
+  { pathspecs, candidates }: { pathspecs: string[]; candidates: string[] },
+  commits: (string | null)[],
+): string[] | null {
+  // git's own rule without "--": what isn't a revision is a path
+  const revisions = commits.filter((commit) => commit !== null).length;
+  return revisions < 2 ? [...pathspecs, ...candidates.filter((_, index) => commits[index] === null)] : null;
 }
 
 /**
@@ -340,32 +397,32 @@ export function worktreePathspecs(gitArgs: string[], cwd: string): string[] | nu
 export function uncheckedOutRevision(gitArgs: string[], cwd: string): string | null {
   const split = gitArgs.indexOf('--');
   const before = split === -1 ? gitArgs : gitArgs.slice(0, split);
-  const revisions: string[] = [];
+  // each word: the revisions a range names, or one that is a revision only if git reads it as one
+  const words: ({ range: string[] } | { word: string })[] = [];
   for (const arg of before) {
     // -R swaps the sides
     if (['--staged', '--cached', '--no-index', '-R'].includes(arg)) return null;
     if (arg.startsWith('-')) continue;
     const range = /^(.*?)\.\.\.?(.*)$/.exec(arg);
     // a path may hold ".." too: "../src"
-    if (range && !existsSync(resolve(cwd, arg))) revisions.push(range[1] || 'HEAD', range[2] || 'HEAD');
-    else if (commitOf(arg, cwd) !== null) revisions.push(arg);
+    if (range && !existsSync(resolve(cwd, arg))) words.push({ range: [range[1] || 'HEAD', range[2] || 'HEAD'] });
+    else words.push({ word: arg });
   }
+  const candidates = words.flatMap((entry) => ('word' in entry ? [entry.word] : []));
+  const ends = words.flatMap((entry) => ('range' in entry ? [entry.range[1]] : []));
+  // every lookup in one git process: a process is ~15 ms on Windows, and the viewer asks on every analysis
+  const commits = commitsOf([...candidates, ...ends, 'HEAD'], cwd);
+  const isCommit = new Map(candidates.map((word, index) => [word, commits[index] !== null]));
+  const revisions = words.flatMap((entry) =>
+    'range' in entry ? entry.range : isCommit.get(entry.word) ? [entry.word] : [],
+  );
   if (revisions.length !== 2) return null;
   // counted from HEAD (HEAD~1, @^, @{-1}): any checkout moves it too, so none makes it the code on disk
   if (/^(HEAD|@)([~^@{]|$)/.test(revisions[1])) return null;
-  try {
-    // both in one call: a git process is ~15 ms on Windows, and the viewer asks on every analysis
-    const [end, head] = execFileSync('git', ['rev-parse', `${revisions[1]}^{commit}`, 'HEAD'], {
-      cwd,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    })
-      .trim()
-      .split('\n');
-    return end && head && end !== head ? revisions[1] : null;
-  } catch {
-    return null;
-  }
+  const resolved = new Map([...candidates, ...ends, 'HEAD'].map((name, index) => [name, commits[index]]));
+  const end = resolved.get(revisions[1]);
+  const head = resolved.get('HEAD');
+  return end && head && end !== head ? revisions[1] : null;
 }
 
 /**
@@ -378,7 +435,7 @@ export function untrackedFiles(root: string, cwd: string, pathspecs: string[] = 
 }
 
 /** The `git ls-files` that lists the untracked files, and the folder to run it in. */
-function untrackedCommand(root: string, cwd: string, pathspecs: string[]): { args: string[]; dir: string } {
+export function untrackedCommand(root: string, cwd: string, pathspecs: string[]): { args: string[]; dir: string } {
   const limited = pathspecs.length > 0;
   return {
     args: ['ls-files', '--others', '--exclude-standard', '--full-name', '-z', ...(limited ? ['--', ...pathspecs] : [])],
@@ -404,11 +461,10 @@ function isBinaryFile(file: string): boolean {
  * in no review. Nothing is written: no `git add -N`, the index stays as it is.
  */
 function untrackedTargets(
-  gitArgs: string[],
+  pathspecs: string[] | null,
   cwd: string,
   root: string,
 ): { targets: DiffTarget[]; binary: BinaryFile[] } {
-  const pathspecs = worktreePathspecs(gitArgs, cwd);
   const targets: DiffTarget[] = [];
   const binary: BinaryFile[] = [];
   if (pathspecs === null) return { targets, binary };
@@ -474,13 +530,14 @@ export function gitDiffTargets(gitArgs: string[], cwd: string): DiffResult {
   const oldBlobs = new Map<string, string>();
   // Against the working tree the new side is read from disk, whatever git prints for it: for a
   // file it has hashed there that can be a blob git never stored.
-  const toWorktree = worktreePathspecs(gitArgs, cwd) !== null;
+  const pathspecs = worktreePathspecs(gitArgs, cwd);
+  const toWorktree = pathspecs !== null;
   for (const e of rawEntries) {
     if (e.newSha && !toWorktree) newBlobs.set(e.path, e.newSha);
     if (e.oldSha) oldBlobs.set(e.path, e.oldSha);
   }
   const abs = (p: string) => toPosix(isAbsolute(p) ? p : join(root, p));
-  const untracked = untrackedTargets(gitArgs, cwd, root);
+  const untracked = untrackedTargets(pathspecs, cwd, root);
   const rawStatus = new Map(rawEntries.map((entry) => [entry.path, entry.status]));
   const binaryStatus = (path: string): BinaryFile['status'] => {
     const status = rawStatus.get(path) ?? 'M';
@@ -489,6 +546,7 @@ export function gitDiffTargets(gitArgs: string[], cwd: string): DiffResult {
   // Unsupported file types are kept — the viewer shows their changes without
   // folding. Binary files are listed apart: there is no text of theirs to show.
   return {
+    root,
     targets: [
       ...parsed.files
         .map((f) => ({
@@ -547,9 +605,13 @@ export function changeFingerprint(gitArgs: string[], cwd: string): () => Promise
     return digest;
   };
   return async () => {
-    const root = (await git(['rev-parse', '--show-toplevel'], cwd)).trim();
-    const raw = await git(['diff', '--raw', '-z', '--no-abbrev', '--no-color', '--no-relative', ...gitArgs], cwd);
-    const pathspecs = worktreePathspecs(gitArgs, cwd);
+    // side by side: each is a git process, and the viewer asks every few seconds
+    const [top, raw, pathspecs] = await Promise.all([
+      git(['rev-parse', '--show-toplevel'], cwd),
+      git(['diff', '--raw', '-z', '--no-abbrev', '--no-color', '--no-relative', ...gitArgs], cwd),
+      worktreePathspecsAsync(gitArgs, cwd),
+    ]);
+    const root = top.trim();
     // Against the working tree, git prints a file's blob only while the index's record of its
     // stat is fresh, and 0s once it isn't (a touch, a save as it was), until something such as
     // `git status` refreshes the index. That is no change, so the new side's blob is left out,
@@ -565,9 +627,9 @@ export function changeFingerprint(gitArgs: string[], cwd: string): () => Promise
             const { args, dir } = untrackedCommand(root, cwd, pathspecs);
             return (await git(args, dir)).split('\0').filter(Boolean);
           })();
-    for (const path of [...fromDisk.map((entry) => entry.path), ...untracked]) {
-      hash.update(`\0${path}\0${await fileDigest(join(root, path))}`);
-    }
+    const paths = [...fromDisk.map((entry) => entry.path), ...untracked];
+    const fileDigests = await Promise.all(paths.map((path) => fileDigest(join(root, path))));
+    paths.forEach((path, index) => hash.update(`\0${path}\0${fileDigests[index]}`));
     return hash.digest('hex');
   };
 }

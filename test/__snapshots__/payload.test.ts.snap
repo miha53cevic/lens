@@ -37,6 +37,7 @@ payload.config.selfChecks: boolean
 payload.config.testFilePatterns: array
 payload.config.testFilePatterns[]: string
 payload.config.theme: string
+payload.config.timings: boolean
 payload.config: object
 payload.configProblems: array
 payload.configSource: null
@@ -162,5 +163,6 @@ payload.themes[].bg: string
 payload.themes[].fg: string
 payload.themes[].name: string
 payload.themes[]: object
+payload.timings: boolean
 payload: object"
 `;
