@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.6.2](https://github.com/miha53cevic/lens/compare/v0.6.1...v0.6.2) (2026-11-07)
+
+
+### Bug Fixes
+
+* Performance improvements ([#56](https://github.com/miha53cevic/lens/issues/56)) ([8f7ffc0](https://github.com/miha53cevic/lens/commit/8f7ffc09b5cb8f3a0603dd29d570bf8dcd166637))
+* Plan mode fixes ([#55](https://github.com/miha53cevic/lens/issues/55)) ([a6b9b65](https://github.com/miha53cevic/lens/commit/a6b9b65fc2f16d9aad57b6b2b16307475afd9447))
+* Plan tab ([#53](https://github.com/miha53cevic/lens/issues/53)) ([8a40c25](https://github.com/miha53cevic/lens/commit/8a40c251bf4846cb2f30aec3d58cb263f6578ae2))
+
 ## [0.6.1](https://github.com/miha53cevic/lens/compare/v0.6.0...v0.6.1) (2026-11-06)
 
 
