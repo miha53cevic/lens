@@ -14,6 +14,11 @@ export interface AskContext {
   label: string;
 }
 
+/** The rail is shown: the reader left it open, and the view has code to ask about (the Plan tab has none). */
+export function askShown(state: LensState): boolean {
+  return state.ask.open && state.view !== 'plan';
+}
+
 /** The open change: the Summary tab's unit, or the Code tab's file; null on the overview. */
 export function askContext(state: LensState): AskContext | null {
   if (state.view === 'summary') {

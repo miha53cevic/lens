@@ -204,8 +204,8 @@
       calc(var(--screen-w) * 2) 100% fixed;
     animation: skeleton-sweep 1.8s linear infinite;
   }
-  /* over the picker, hidden until the wait is worth showing (Reopening.tsx) */
-  @keyframes reopening-wait {
+  /* a placeholder hidden until the wait is worth showing, 150 ms: the picker's Reopening.tsx, the Plan tab's */
+  @keyframes wait-hidden {
     from,
     to {
       visibility: hidden;

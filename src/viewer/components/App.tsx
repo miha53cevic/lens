@@ -2,6 +2,7 @@
 
 import { useLens } from '../store.ts';
 import { navShown } from '../model/tree.ts';
+import { askShown } from '../model/askContext.ts';
 import { setNavWidth } from '../actions/prefs.ts';
 import { askSetWidth } from '../ask/rail.ts';
 import { Header } from './Header/index.tsx';
@@ -25,7 +26,7 @@ export function App() {
   const { ended, navVisible, askOpen } = useLens((state) => ({
     ended: state.ended,
     navVisible: navShown(state),
-    askOpen: state.ask.open,
+    askOpen: askShown(state),
   }));
   if (ended) return <div className='ended'>Session ended: the lens server has stopped. You can close this tab.</div>;
 

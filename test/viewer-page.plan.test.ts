@@ -98,11 +98,16 @@ planTest('a picked plan opens in Lavish, framed from the proxy', async (page) =>
   await click($('[data-file=".lavish/plan-tab.html"]'));
   await settle();
   assert.deepEqual(opened(page), [{ file: '.lavish/plan-tab.html', reopen: false }]);
+  // the robot marks the plans an agent polls, and only those
+  const withAgent = $$('[data-part="plan-row"]').filter((row) => row.querySelector('[data-part="plan-agent"]'));
+  assert.deepEqual(
+    withAgent.map((row) => row.dataset.file),
+    ['.lavish/plan-tab.html'],
+  );
   const frame = $('#plan-iframe') as HTMLIFrameElement;
   assert.equal(frame.getAttribute('src'), 'http://127.0.0.1:49999/session/.lavish%2Fplan-tab.html');
   // its own origin: it may run, but never take the viewer's page away
   assert.ok(!frame.getAttribute('sandbox')!.includes('allow-top-navigation'));
-  assert.ok(document.querySelector('[data-part="plan-listening"]'));
   assert.ok(notices().includes('Agent listening on Plan tab'));
 });
 
@@ -306,3 +311,22 @@ planTest('Close session ends the plan in Lavish, and it opens again on a click, 
   ]);
   assert.ok(document.querySelector('#plan-iframe'));
 });
+
+planTest(
+  'the Plan tab hides the Ask rail and turns off its button and keys, and the rail comes back after',
+  async () => {
+    await key('a');
+    assert.equal($('#ask-rail').style.display, '');
+    ($('#ask-input') as HTMLTextAreaElement).blur();
+    await openPlanTab();
+    assert.equal($('#ask-rail').style.display, 'none');
+    assert.equal(($('#ask-btn') as HTMLButtonElement).disabled, true);
+    assert.equal($('#ask-btn').getAttribute('aria-pressed'), 'false');
+    await key('\\');
+    await key('a');
+    assert.equal($('#ask-rail').style.display, 'none');
+    await key('p');
+    assert.equal($('#ask-rail').style.display, '');
+    assert.equal(($('#ask-btn') as HTMLButtonElement).disabled, false);
+  },
+);

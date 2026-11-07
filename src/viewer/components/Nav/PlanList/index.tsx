@@ -1,4 +1,4 @@
-import { Plus } from 'lucide-react';
+import { Bot, Plus } from 'lucide-react';
 import type { PlanEntry } from '../../../../cli-app/api/contract.ts';
 import { useLens } from '../../../store.ts';
 import { pickPlan } from '../../../actions/planTab.ts';
@@ -40,7 +40,8 @@ export function PlanList() {
       </ListRow>
       {any && <PlanFilter />}
       <span className='eyebrow sm px-2 pt-2 pb-1 text-muted'>Plans · .lavish/</span>
-      {plans === null && [0, 1, 2].map((row) => <Skeleton key={row} size='sm' className='mx-2' />)}
+      {plans === null &&
+        [0, 1, 2].map((row) => <Skeleton key={row} size='sm' className='mx-2 animate-[wait-hidden_150ms]' />)}
       {plans?.length === 0 && <div className='no-match'>{any ? 'no plans match' : 'no plans yet'}</div>}
       {plans?.map((plan) => {
         const word = sessionWord(plan);
@@ -58,6 +59,9 @@ export function PlanList() {
           >
             <span className={'flex-none ' + word.dot} />
             <span className='min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap'>{planName(plan)}</span>
+            {plan.session?.status === 'open' && plan.session.listening && (
+              <Bot size={14} data-part='plan-agent' aria-label='agent listening' className='flex-none text-add' />
+            )}
             <span data-part='plan-state' className='flex-none text-xs text-muted'>
               {plan.session && plan.session.pending > 0 ? plan.session.pending + ' pending' : word.text}
             </span>

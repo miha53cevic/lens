@@ -7,6 +7,7 @@ import { plural } from '../shared.ts';
 import type { BuildProgress, BuildStage } from '../../cli-app/summary/progress.ts';
 import { listModel } from './summaryList.ts';
 import { pickedPlan, planName } from './planTab.ts';
+import { askShown } from './askContext.ts';
 
 export type StatusKind = 'gone' | 'failed' | 'working' | 'waiting' | 'done' | 'idle';
 /** What the status's button does (the handlers are in components/StatusBar/const.ts) */
@@ -54,7 +55,8 @@ const working: StatusSource = (state) => {
 const waitingForAgent: StatusSource = (state) => {
   const question = waitingQuestion(state);
   if (!question) return null;
-  const action = state.ask.open ? null : 'openAsk';
+  // the Plan tab has no rail to open
+  const action = state.ask.open || state.view === 'plan' ? null : 'openAsk';
   // nobody will answer it: say that instead of counting the wait
   if (!state.ask.data.listening) {
     return { kind: 'waiting', label: 'No agent for your question', detail: 'run /lens-ask in your agent', action };
@@ -116,8 +118,8 @@ const newSummary: NoticeSource = (state) =>
   state.summaryDot ? { id: 'new-summary', text: 'New summary waiting', tone: 'accent', action: 'openSummary' } : null;
 
 const agentListening: NoticeSource = (state) => {
-  // only while the chat is polled (the rail is open, or a question waits): otherwise it's a guess
-  const live = state.ask.open || waitingQuestion(state) !== null;
+  // only while the chat is polled (the rail is shown, or a question waits): otherwise it's a guess
+  const live = askShown(state) || waitingQuestion(state) !== null;
   return live && state.ask.data.listening && !state.serverGone
     ? { id: 'agent', text: 'Agent listening', tone: 'live', action: null }
     : null;

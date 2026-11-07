@@ -3,13 +3,14 @@
 import { X } from 'lucide-react';
 import { useLens } from '../../store.ts';
 import { askSetOpen } from '../../ask/rail.ts';
+import { askShown } from '../../model/askContext.ts';
 import { Thread } from './Thread.tsx';
 import { Composer } from './Composer.tsx';
 import { IconButton } from '../../../ui/IconButton.tsx';
 
 export function AskRail() {
   const { open, width, listening } = useLens((state) => ({
-    open: state.ask.open,
+    open: askShown(state),
     width: state.ask.width,
     listening: state.ask.data.listening,
   }));

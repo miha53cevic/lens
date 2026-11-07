@@ -43,7 +43,8 @@ export function LavishMissing({ setup }: { setup: LavishSetup }) {
             data-ok={check.ok || undefined}
             className='flex items-center gap-2'
           >
-            <Tag color={check.ok ? 'var(--add)' : 'var(--danger)'}>{check.ok ? 'found' : 'missing'}</Tag>
+            {/* missing is what needs the reader: the warning's color, as the status bar's; found stays neutral */}
+            <Tag color={check.ok ? undefined : 'var(--risk)'}>{check.ok ? 'found' : 'missing'}</Tag>
             <span>{check.what}</span>
             <span className='min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-muted' title={check.detail}>
               {check.detail}

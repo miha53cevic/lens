@@ -24,7 +24,7 @@ export function Reopening() {
         'flex min-h-0 flex-1 flex-col overflow-hidden motion:[transition:opacity_var(--motion-move)] motion:starting:opacity-0',
         // over the picker, once the wait is worth showing (the status bar waits as long to say it): a review
         // that starts at once never shows it, and with less motion it shows at once; then it fades in
-        !reopening && 'absolute inset-0 z-(--z-float) animate-[reopening-wait_150ms] motion:delay-150',
+        !reopening && 'absolute inset-0 z-(--z-float) animate-[wait-hidden_150ms] motion:delay-150',
       )}
       id='reopening'
       aria-busy='true'

@@ -5,6 +5,7 @@ import { MessageSquare, PanelLeft, RefreshCw, Search } from 'lucide-react';
 import { useLens } from '../../store.ts';
 import { treeModel } from '../../model/tree.ts';
 import { isBusy } from '../../model/status.ts';
+import { askShown } from '../../model/askContext.ts';
 import { refresh } from '../../actions/session.ts';
 import { openSearch } from '../../actions/dialogs.ts';
 import { toggleNav } from '../../actions/prefs.ts';
@@ -21,7 +22,8 @@ export function Header() {
   const header = useLens((state) => ({
     navToggleShown: state.view !== 'code' || treeModel(state).hasTree,
     label: state.data.label,
-    askOpen: state.ask.open,
+    askOpen: askShown(state),
+    askOff: state.view === 'plan',
     canRefresh: state.data.canRefresh,
     refreshing: isBusy(state, 'refresh'),
   }));
@@ -53,7 +55,14 @@ export function Header() {
       <IconButton id='search-btn' label='Search in files' shortcut='⌘P' onClick={() => openSearch()}>
         <Search size={16} />
       </IconButton>
-      <IconButton id='ask-btn' label='Ask your agent' shortcut='a' aria-pressed={header.askOpen} onClick={askToggle}>
+      <IconButton
+        id='ask-btn'
+        label='Ask your agent'
+        shortcut='a'
+        aria-pressed={header.askOpen}
+        disabled={header.askOff}
+        onClick={askToggle}
+      >
         <MessageSquare size={16} />
       </IconButton>
       <TopBarDivider />
