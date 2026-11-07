@@ -76,7 +76,8 @@ export function FileCode() {
           ? 'No file open: pick one from the tree.'
           : listedOnly > 0
             ? 'Nothing to analyze: this diff only renamed, deleted or excluded files, or changed binary ones (see the tree).'
-            : 'No supported files found.'}
+            : // a diff with nothing in it opens only with the Plan tab (cli.ts): the code comes later
+              'Nothing changed yet. When there is, the status bar offers a refresh.'}
       </div>
     );
   }

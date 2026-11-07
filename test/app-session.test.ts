@@ -49,6 +49,13 @@ test("a review that can't start fails with the CLI's own reason", async () => {
       message: 'no changed supported files in this diff',
     });
     await assert.rejects(startReview(cli, dir, ['pr', 'nope'], await freePort()).ready, /"nope" is not a PR reference/);
+
+    // with the Plan tab on, the clean working tree opens anyway: a feature starts there
+    writeFileSync(join(dir, '.lens.json'), JSON.stringify({ planTab: true }));
+    assert.equal((await lensInfo(cli, dir, {})).repo?.planTab, true);
+    const session = await startReview(cli, dir, ['diff'], await freePort()).ready;
+    await session.stop();
+    await session.exited;
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

@@ -53,10 +53,16 @@ export function Changes({ repo, range, onRange, base, onBase, custom, onCustom }
       <RangeChoice
         {...shared}
         value='worktree'
-        // an empty range can't be opened: the CLI finds nothing in it
-        disabled={repo.changed === 0}
+        // an empty range can't be opened: the CLI finds nothing in it, unless the Plan tab is where it starts
+        disabled={repo.changed === 0 && !repo.planTab}
         name='Working tree'
-        sub={repo.changed === 0 ? 'Nothing unstaged right now' : "Changes you haven't staged"}
+        sub={
+          repo.changed > 0
+            ? "Changes you haven't staged"
+            : repo.planTab
+              ? 'Nothing yet: it opens on the Plan tab, to start a feature'
+              : 'Nothing unstaged right now'
+        }
         meta={plural(repo.changed, 'file')}
       />
       <RangeChoice

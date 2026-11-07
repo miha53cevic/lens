@@ -330,3 +330,27 @@ planTest(
     assert.equal(($('#ask-btn') as HTMLButtonElement).disabled, false);
   },
 );
+
+test('nothing changed yet: the page opens on the Plan tab, and the Code tab says there is nothing', async () => {
+  await open({}, '', '', {
+    ...withPlanTab(),
+    files: [],
+    deleted: [],
+    excluded: [],
+    renamed: [],
+    binary: [],
+    summary: null,
+  });
+  try {
+    await settle();
+    assert.equal($('#plan-pane').style.display, '');
+    assert.ok(document.querySelector('[data-part="new-plan"]'));
+    await click($('#view-code'));
+    assert.equal(
+      $('[data-part="code-pane"]').textContent,
+      'Nothing changed yet. When there is, the status bar offers a refresh.',
+    );
+  } finally {
+    await close();
+  }
+});

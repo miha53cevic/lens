@@ -46,6 +46,7 @@ const REPO: RepoInfo = {
   changed: 0,
   staged: 2,
   github: { remote: 'origin', owner: 'acme', repo: 'storefront' },
+  planTab: false,
 };
 
 const HOUR = 3_600_000;
@@ -267,6 +268,23 @@ pageTest(
     await page.push({ ...PICKER, repo: { ...REPO, changed: 0 } });
     assert.equal(text('[data-part="picker-problem"]'), 'Nothing unstaged to review');
     assert.equal(($('#open-review') as HTMLButtonElement).disabled, true);
+  },
+);
+
+pageTest(
+  'the picker on a clean branch with the Plan tab: the working tree opens, to start a feature there',
+  'launcher',
+  { ...PICKER, repo: { ...REPO, changed: 0, staged: 0, ahead: 0, planTab: true } },
+  async (page) => {
+    assert.deepEqual(choices(), ['*worktree', 'staged', 'branch', 'custom']);
+    assert.ok(!$('[data-part="choice"][data-range="worktree"]').hasAttribute('data-disabled'));
+    assert.equal(
+      text('[data-part="choice"][data-range="worktree"] [data-part="choice-sub"]'),
+      'Nothing yet: it opens on the Plan tab, to start a feature',
+    );
+    assert.equal(document.querySelector('[data-part="picker-problem"]'), null);
+    await click($('#open-review'));
+    assert.deepEqual(page.calls, [['open', { kind: 'diff', range: 'worktree' }]]);
   },
 );
 
