@@ -158,6 +158,9 @@ loop of annotating the plan, sending feedback and pressing its **Build it** happ
 leaving lens. **New plan** turns what you type into a `/lavish …` command to paste into your
 agent; the new plan shows up in the list once the agent runs Lavish. The list filters by name or path, and by
 session (All, Active: open in Lavish, Pending: feedback waiting); `f` shows the open plan full screen.
+With the tab on, `lens diff` on a clean branch opens anyway, on the Plan tab (the desktop
+app's picker offers the empty working tree too): start the feature there, and once the agent
+has built it, the status bar's refresh brings the code in for review.
 
 It needs Lavish's skill (`npx skills add kunchenguid/lavish-axi --skill lavish -g`) and
 Node 22 or newer. Without them the tab says what's missing. Lavish's page refuses to be

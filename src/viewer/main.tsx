@@ -77,4 +77,9 @@ createRoot(document.getElementById('root')!).render(
 );
 // what the page arrives with is drawn still; what appears after may move
 motionReady();
+const nothingChanged = [data.files, data.deleted, data.excluded, data.renamed, data.binary].every(
+  (list) => list.length === 0,
+);
 if (location.hash === '#summary' && data.summary) setView('summary');
+// a clean branch opens only with the Plan tab (cli.ts): where a feature starts
+else if (data.planTab && nothingChanged) setView('plan');

@@ -2,7 +2,7 @@
 // reader's agent answers through `lens ask listen` / `lens ask reply`.
 
 import { commit, getState, type LensState, update } from '../store.ts';
-import { askContext, askFindings, askSelection } from '../model/askContext.ts';
+import { askContext, askFindings, askSelection, askShown } from '../model/askContext.ts';
 import { isBreak, isConcern } from '../model/signals.ts';
 import { waitingQuestion } from '../model/status.ts';
 import { writePref } from '../shared.ts';
@@ -91,14 +91,14 @@ async function askPoll(): Promise<void> {
   const state = getState();
   // the answer came with the rail closed: the status bar says so
   const answered = waitedFor && state.ask.data.questions.find((question) => question.id === waitedFor.id)?.answer;
-  if (answered && !state.ask.open) noteDone('Your agent answered');
+  if (answered && !askShown(state)) noteDone('Your agent answered');
 }
 
-/** The chat is polled while the rail is open or a question waits for its answer (the loop is poll.ts). */
+/** The chat is polled while the rail is shown or a question waits for its answer (the loop is poll.ts). */
 export const askWatcher: Watcher = {
   id: 'ask',
   every: ASK_POLL_MS,
-  when: () => getState().ask.open || waitingQuestion(getState()) !== null,
+  when: () => askShown(getState()) || waitingQuestion(getState()) !== null,
   run: askPoll,
 };
 

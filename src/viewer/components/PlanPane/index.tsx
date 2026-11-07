@@ -26,10 +26,17 @@ export function PlanPane() {
       style={hiddenStyle(!shown)}
     >
       {shown && !list && (
-        <div className='mx-auto mt-7 flex w-full max-w-[560px] flex-col gap-3 px-6'>
-          <Skeleton size='lg' width='50%' />
-          <Skeleton size='md' />
-          <Skeleton size='md' width='70%' />
+        // New plan's shape, where it starts; a list that comes at once shows none
+        <div className='mx-auto mt-7 flex w-full max-w-[640px] animate-[wait-hidden_150ms] flex-col gap-3 px-6'>
+          <Skeleton width='14ch' />
+          <Skeleton size='lg' className='h-[104px]' />
+          <div className='flex gap-2'>
+            {['9ch', '15ch', '9ch', '10ch'].map((width, index) => (
+              <Skeleton key={index} size='xs' round width={width} />
+            ))}
+          </div>
+          <Skeleton width='90%' />
+          <Skeleton size='lg' />
         </div>
       )}
       {shown && setup && picked === null && (setup.skill && setup.cli ? <NewPlan /> : <LavishMissing setup={setup} />)}

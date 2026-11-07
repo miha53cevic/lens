@@ -149,7 +149,11 @@ async function main(): Promise<void> {
 
   const initial = await analyze(command, rest, cwd, config, !opts.json);
   const { files, deleted, excluded, renamed, binary } = initial;
+  // with the Plan tab, a diff with nothing in it yet still opens: a feature starts there, on a clean
+  // branch, and the code it builds comes in with a refresh
+  const planFirst = command === 'diff' && initial.planTab && !opts.json;
   if (
+    !planFirst &&
     files.length === 0 &&
     deleted.length === 0 &&
     excluded.length === 0 &&

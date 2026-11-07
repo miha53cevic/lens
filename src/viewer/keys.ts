@@ -31,7 +31,8 @@ const SUMMARY_KEYS = ['?', 'x', 'd', 'l', 's', 'r', 'e', 'c', 'h', 't', 'a', 'N'
 /** Every key a shortcut takes, on either tab. */
 const SHORTCUT_KEYS = [...SUMMARY_KEYS, 'v', 'p', 'j', 'k', 'w', 'm', 'o', 'g', '/', 'f'];
 /** The keys that do something on the Plan tab: the rest act on code it doesn't show. */
-const PLAN_KEYS = ['?', 'v', 'p', 's', 'r', 'a', '\\', '/', 'f', 'g'];
+// no a or \\: the Ask rail is about code, and the Plan tab has none
+const PLAN_KEYS = ['?', 'v', 'p', 's', 'r', '/', 'f', 'g'];
 
 /** Shows the nav (if it's collapsed, and remembers that) and focuses one of its filters. */
 function focusFilter(selector: string) {

@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { basename } from 'node:path';
 import { loadConfig } from './config.ts';
+import { planTabOn } from './summary/settings.ts';
 import { runGit, untrackedFiles } from './git.ts';
 import { toPosix } from './paths.ts';
 import { matchRemote } from './pr.ts';
@@ -33,6 +34,8 @@ export interface RepoInfo {
   staged: number;
   /** The GitHub repository `lens pr <N>` would fetch from, or null without such a remote */
   github: { remote: string; owner: string; repo: string } | null;
+  /** The Plan tab is on here: then a working tree with nothing in it still opens, on that tab (cli.ts) */
+  planTab: boolean;
 }
 
 export interface LensInfo {
@@ -122,6 +125,7 @@ function repoInfo(cwd: string, wantedBase: string | undefined): RepoInfo | null 
     changed: countPaths(runGit(['diff', '--name-only', '-z', '--no-relative'], cwd)) + untrackedFiles(top, cwd).length,
     staged: countPaths(runGit(['diff', '--staged', '--name-only', '-z', '--no-relative'], cwd)),
     github: github ? { remote: github.remote, owner: github.ref.owner, repo: github.ref.repo } : null,
+    planTab: planTabOn(root, loadConfig(cwd)),
   };
 }
 
