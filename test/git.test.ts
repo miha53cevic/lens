@@ -530,3 +530,19 @@ test("changeFingerprint: an index refreshed under a commit-to-working-tree diff 
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("revisions are read in one lookup: a name git doesn't know, or on two lines, is a path; outside a repository nothing is a revision", () => {
+  withRepo((dir, git) => {
+    writeFileSync(join(dir, 'a.ts'), 'export const a = 1;\n');
+    git('add', '-A');
+    git('commit', '-qm', 'base');
+    assert.deepEqual(worktreePathspecs(['nope', 'main', 'a\nb', 'a.ts'], dir), ['nope', 'a\nb', 'a.ts']);
+    assert.equal(worktreePathspecs(['a\nb', 'main', 'HEAD'], dir), null, 'the names after it still read right');
+  });
+  const outside = mkdtempSync(join(tmpdir(), 'lens-nogit-'));
+  try {
+    assert.deepEqual(worktreePathspecs(['main'], outside), ['main']);
+  } finally {
+    rmSync(outside, { recursive: true, force: true });
+  }
+});

@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { Node } from '@vscode/tree-sitter-wasm';
-import { parseSource, languageForFile } from '../parse/parser.ts';
+import { parseSource, languageForFile, type ParseCache } from '../parse/parser.ts';
 import type { LanguageId, RemovedBlock } from '../model.ts';
 import { truncate } from '../text.ts';
 
@@ -100,7 +100,7 @@ interface Decl {
   text: string;
 }
 
-export async function extractUnits(input: UnitFileInput): Promise<Unit[]> {
+export async function extractUnits(input: UnitFileInput, parses?: ParseCache): Promise<Unit[]> {
   const { file, newSource, oldSource } = input;
   const newLines = newSource === null ? [] : newSource.split('\n');
 
@@ -114,7 +114,7 @@ export async function extractUnits(input: UnitFileInput): Promise<Unit[]> {
   const lang = languageForFile(file);
   if (!lang || input.isTest) return wholeFile();
 
-  const newSide = await indexSource(newSource, lang);
+  const newSide = await indexSource(newSource, lang, parses);
   const oldSide =
     oldSource === null ? { decls: new Map<string, Decl>(), imports: [] } : await indexSource(oldSource, lang);
   // A side that doesn't parse cleanly can't be split reliably.
@@ -333,8 +333,8 @@ interface SourceIndex {
 }
 
 /** null when the source has syntax errors. */
-async function indexSource(source: string, lang: LanguageId): Promise<SourceIndex | null> {
-  const tree = await parseSource(source, lang);
+async function indexSource(source: string, lang: LanguageId, parses?: ParseCache): Promise<SourceIndex | null> {
+  const tree = await parseSource(source, lang, parses);
   try {
     if (tree.rootNode.hasError) return null;
     const index = new Map<string, Decl>();

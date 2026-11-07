@@ -23,6 +23,7 @@ import {
   type UnitFileInput,
 } from '../src/cli-app/summary/units.ts';
 import { analyze } from '../src/cli-app/analyze.ts';
+import type { ViewerInput } from '../src/cli-app/render/web/server.ts';
 import {
   checkoutFirst,
   summaryKey,
@@ -328,7 +329,13 @@ test('a deleted file opens in the Code view: no lines of its own, its old text o
     git('-c', 'user.email=lens@test', '-c', 'user.name=lens', 'commit', '-q', '-m', 'base');
     git('rm', '-q', 'src/gone.ts', 'yarn.lock');
     writeFileSync(join(dir, 'src/kept.ts'), 'export const kept = 2;\n');
-    const input = await analyze('diff', ['HEAD'], dir, { ...DEFAULT_CONFIG, exclude: ['*.lock'] }, false);
+    const input = await analyze(
+      'diff',
+      ['HEAD'],
+      dir,
+      { ...DEFAULT_CONFIG, exclude: ['*.lock'] },
+      { withSummary: false },
+    );
     const gone = input.files.find((file) => file.file === 'src/gone.ts')!;
     assert.equal(gone.status, 'deleted');
     assert.equal(gone.lineCount, 0);
@@ -2000,6 +2007,48 @@ test("a summary run's progress: units in, then the final pass, then nothing; a s
     assert.ok(quiet!.quietMs >= 0 && quiet!.quietMs < 60_000, 'written just now');
   } finally {
     rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('a refresh keeps what it made of a file that is the same, and makes again what changed', async () => {
+  // the real path: file paths are shown from it, and git names the root by its real path
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), 'lens-reuse-')));
+  const git = (...args: string[]) => execFileSync('git', args, { cwd: dir, encoding: 'utf8' });
+  try {
+    git('init', '-q', '-b', 'main');
+    git('config', 'user.email', 't@t');
+    git('config', 'user.name', 't');
+    mkdirSync(join(dir, 'src'));
+    writeFileSync(join(dir, 'src/repo.ts'), OLD_REPO);
+    writeFileSync(join(dir, 'src/other.ts'), 'export function other() {\n  return 1;\n}\n');
+    git('add', '-A');
+    git('commit', '-qm', 'init');
+    writeFileSync(join(dir, 'src/repo.ts'), NEW_REPO);
+    writeFileSync(join(dir, 'src/other.ts'), 'export function other() {\n  return 2;\n}\n');
+
+    const fileOf = (input: ViewerInput, path: string) => input.files.find((file) => file.file === path)!;
+    const unitsOf = (input: ViewerInput, path: string) =>
+      input.summary!.units.filter((unit) => unit.file === path).map((unit) => unit.hash);
+    const first = await analyze('diff', [], dir, DEFAULT_CONFIG);
+    writeFileSync(join(dir, 'src/other.ts'), '// a guard\nexport function other() {\n  return 3;\n}\n');
+    const second = await analyze('diff', [], dir, DEFAULT_CONFIG, { previous: first });
+    assert.equal(fileOf(second, 'src/repo.ts').regions, fileOf(first, 'src/repo.ts').regions, 'the same file: kept');
+    assert.notEqual(fileOf(second, 'src/other.ts').regions, fileOf(first, 'src/other.ts').regions);
+    assert.notDeepEqual(unitsOf(second, 'src/other.ts'), unitsOf(first, 'src/other.ts'), 'its units made again');
+    assert.deepEqual(unitsOf(second, 'src/repo.ts'), unitsOf(first, 'src/repo.ts'));
+    // what it made is what a fresh analysis makes
+    const fresh = await analyze('diff', [], dir, DEFAULT_CONFIG);
+    assert.deepEqual(
+      second.files.map(({ source: _, ...file }) => file),
+      fresh.files.map(({ source: _, ...file }) => file),
+    );
+    assert.deepEqual(second.summary!.units, fresh.summary!.units);
+
+    // another config: nothing is kept
+    const folded = await analyze('diff', [], dir, { ...DEFAULT_CONFIG, foldLevel: 2 }, { previous: second });
+    assert.notEqual(fileOf(folded, 'src/repo.ts').regions, fileOf(second, 'src/repo.ts').regions);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
   }
 });
 

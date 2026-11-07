@@ -2,13 +2,13 @@ import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 import { analyzeSource } from './classify/index.ts';
 import { findConfigPath, readConfig } from './config.ts';
-import { changeFingerprint, readBlobs, type DiffTarget } from './git.ts';
-import { languageForFile } from './parse/parser.ts';
+import { changeFingerprint, type DiffTarget } from './git.ts';
+import { dropParses, languageForFile, type ParseCache } from './parse/parser.ts';
 import type { ViewerInput } from './render/web/server.ts';
 import { compilePatterns, matchesAny } from './glob.ts';
 import { relPath } from './paths.ts';
 import type { FileFoldModel, LensConfig } from './model.ts';
-import { loadDiff, collectUnits, type LoadedDiff } from './summary/collect.ts';
+import { loadDiff, collectUnits, type FileUnits, type LoadedDiff } from './summary/collect.ts';
 import { reviewKey, summaryStamp } from './summary/store.ts';
 import { buildSummaryView, type SummaryView } from './summary/view.ts';
 import { buildPreviewsOn, planTabOn, selfChecksOn } from './summary/settings.ts';
@@ -18,17 +18,62 @@ const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build', 'out', 'cove
 export type AnalyzeCommand = 'paths' | 'diff' | 'pr';
 
 /**
+ * What an analysis made of each file, for the next analysis of the same review (a ↻ refresh): under
+ * the same config, a file whose path and text are the same keeps its folds, and one whose diff is
+ * the same too keeps its units, instead of being parsed again. Compared whole, not by a hash. Kept
+ * by the analysis's files array, which the server keeps as the analysis's identity.
+ */
+interface Made {
+  config: string;
+  folds: Map<string, { source: string; model: FileFoldModel }>;
+  units: FileUnits;
+}
+const madeBy = new WeakMap<ViewerInput['files'], Made>();
+
+export interface AnalyzeOptions {
+  /** Only the viewer needs summary units (--json skips the work); on by default */
+  withSummary?: boolean;
+  /** The last analysis of the same review: what it made of a file that didn't change is kept */
+  previous?: ViewerInput;
+}
+
+/**
  * Everything the viewer shows for `lens <paths>` / `lens diff` / `lens pr`.
  * Re-runnable, so the viewer's refresh picks up new file contents, a fresh git
  * diff (PR mode re-fetches) and .lens.json edits without restarting.
- * withSummary: only the viewer needs summary units (--json skips the work).
  */
 export async function analyze(
   command: AnalyzeCommand,
   args: string[],
   cwd: string,
   config: LensConfig,
-  withSummary = true,
+  { withSummary = true, previous }: AnalyzeOptions = {},
+): Promise<ViewerInput> {
+  const configKey = JSON.stringify(config);
+  const before = previous && madeBy.get(previous.files);
+  const made: Made = { config: configKey, folds: new Map(), units: new Map() };
+  // the summary's units parse the same new sides the folds do: each is parsed once
+  const parses: ParseCache = new Map();
+  try {
+    const input = await analyzeWith(parses, command, args, cwd, config, {
+      withSummary,
+      before: before?.config === configKey ? before : undefined,
+      made,
+    });
+    madeBy.set(input.files, made);
+    return input;
+  } finally {
+    dropParses(parses);
+  }
+}
+
+async function analyzeWith(
+  parses: ParseCache,
+  command: AnalyzeCommand,
+  args: string[],
+  cwd: string,
+  config: LensConfig,
+  { withSummary, before, made }: { withSummary: boolean; before: Made | undefined; made: Made },
 ): Promise<ViewerInput> {
   const shown = (abs: string) => relPath(cwd, abs);
   // Path mode carries only `file`; diff mode fills in the rest.
@@ -57,8 +102,11 @@ export async function analyze(
   for (const target of targets) {
     const source = diff ? diff.sources.get(target.file)! : readFileSync(target.file, 'utf8');
     const display = shown(target.file);
+    const kept = before?.folds.get(display);
+    const analyzed = kept?.source === source ? kept.model : await analyzeSource(display, source, config, parses);
+    if (analyzed) made.folds.set(display, { source, model: analyzed });
     // Unsupported file types (diff mode only) are shown without folding.
-    const fileModel: FileFoldModel = (await analyzeSource(display, source, config)) ?? {
+    const fileModel: FileFoldModel = (analyzed && { ...analyzed }) ?? {
       file: display,
       language: null,
       lineCount: source.split('\n').length,
@@ -78,12 +126,8 @@ export async function analyze(
     const wanted = diff.deleted.filter(
       (abs) => diff.deletedBlobs.has(abs) && !binaries.has(abs) && !matchesAny(shown(abs), excludeRegexes),
     );
-    const oldTexts = readBlobs(
-      wanted.map((abs) => diff.deletedBlobs.get(abs)!),
-      cwd,
-    );
     for (const abs of wanted) {
-      const text = oldTexts.get(diff.deletedBlobs.get(abs)!)!;
+      const text = diff.oldTexts.get(diff.deletedBlobs.get(abs)!)!;
       if (text.includes('\0')) continue; // a binary git didn't call one
       const display = shown(abs);
       const lines = text.replace(/\r?\n$/, '').split(/\r?\n/);
@@ -111,7 +155,7 @@ export async function analyze(
   let latestSummary: (() => SummaryView) | null = null;
   if (diff && withSummary && command !== 'paths') {
     try {
-      const units = await collectUnits(diff, config, cwd);
+      const units = await collectUnits(diff, config, cwd, { parses, previous: before?.units, made: made.units });
       const { root } = diff;
       const build = () => buildSummaryView({ root, cwd, command, args, units });
       let view = build();

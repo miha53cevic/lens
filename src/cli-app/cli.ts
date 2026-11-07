@@ -3,6 +3,7 @@ import { problemLine, readConfig, type LoadedConfig } from './config.ts';
 import { runConfig } from './configCommand.ts';
 import { isBundledTheme } from './render/highlight.ts';
 import { serveViewer } from './render/web/server.ts';
+import { warmHighlighter } from './render/highlightPool.ts';
 import { analyze } from './analyze.ts';
 import { runSummary } from './summary/command.ts';
 import { runAsk } from './ask/command.ts';
@@ -147,7 +148,9 @@ async function main(): Promise<void> {
     throw new Error(`unknown theme "${config.theme}" — pick a Shiki theme name (https://shiki.style/themes)`);
   }
 
-  const initial = await analyze(command, rest, cwd, config, !opts.json);
+  // the viewer's tokens are made on threads that warm up while the analysis runs
+  if (!opts.json) warmHighlighter();
+  const initial = await analyze(command, rest, cwd, config, { withSummary: !opts.json });
   const { files, deleted, excluded, renamed, binary } = initial;
   // with the Plan tab, a diff with nothing in it yet still opens: a feature starts there, on a clean
   // branch, and the code it builds comes in with a refresh
@@ -186,7 +189,7 @@ async function main(): Promise<void> {
   await serveViewer(
     initial,
     { port, open: opts.open, openSummary: opts.openSummary, theme: config.theme, themePinned: opts.theme !== null },
-    () => analyze(command, rest, cwd, resolveConfig().config),
+    (previous) => analyze(command, rest, cwd, resolveConfig().config, { previous }),
   );
 }
 

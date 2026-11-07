@@ -16,6 +16,11 @@ interface CompiledPattern {
 
 interface RuleContext {
   lines: string[];
+  /**
+   * Every named node in walk order, with its type: read from the tree once, since each read
+   * crosses into tree-sitter's wasm, and every rule looks for nodes of a type or two.
+   */
+  nodes: { node: Node; type: string }[];
   patterns: CompiledPattern[];
   keepMarkers: RegExp | null;
   score: (category: FoldCategory) => number;
@@ -53,8 +58,11 @@ function compilePatterns(config: LensConfig): CompiledPattern[] {
 
 export function classify(root: Node, source: string, config: LensConfig): FoldRegion[] {
   const lines = source.split('\n');
+  const nodes: RuleContext['nodes'] = [];
+  walk(root, (node) => nodes.push({ node, type: node.type }));
   const ctx: RuleContext = {
     lines,
+    nodes,
     patterns: compilePatterns(config),
     // Lookarounds instead of \b: markers like "@ts-ignore" start with a
     // non-word character, where \b can never match.
@@ -68,12 +76,12 @@ export function classify(root: Node, source: string, config: LensConfig): FoldRe
   const candidates: FoldRegion[] = [
     ...barrelRegions(root, ctx),
     ...importRegions(root, ctx),
-    ...guardRegions(root, ctx),
-    ...catchRegions(root, ctx),
-    ...accessorRegions(root, ctx),
-    ...dataRegions(root, ctx),
-    ...patternRegions(root, ctx),
-    ...commentRegions(root, ctx),
+    ...guardRegions(ctx),
+    ...catchRegions(ctx),
+    ...accessorRegions(ctx),
+    ...dataRegions(ctx),
+    ...patternRegions(ctx),
+    ...commentRegions(ctx),
   ].filter((r) => config.folds[r.category] !== false);
 
   candidates.sort((a, b) => priorityOf(a.category) - priorityOf(b.category) || a.startLine - b.startLine);
@@ -102,8 +110,8 @@ export function classify(root: Node, source: string, config: LensConfig): FoldRe
   const keep = ctx.keepMarkers;
   if (keep) {
     const markers: Node[] = [];
-    walk(root, (n) => {
-      if (n.type === 'comment' && keep.test(n.text)) markers.push(n);
+    eachOf(ctx, ['comment'], (n) => {
+      if (keep.test(n.text)) markers.push(n);
     });
     for (const region of accepted) {
       if (markers.some((c) => startLine(c) <= region.endLine && region.startLine <= endLine(c))) region.score = 4;
@@ -128,6 +136,11 @@ function namedChildren(n: Node): Node[] {
 function walk(node: Node, fn: (n: Node) => void): void {
   fn(node);
   for (const child of namedChildren(node)) walk(child, fn);
+}
+
+/** walk(root, fn) for the nodes of these types only, from the context's list. */
+function eachOf(ctx: RuleContext, types: string[], fn: (n: Node) => void): void {
+  for (const { node, type } of ctx.nodes) if (types.includes(type)) fn(node);
 }
 
 /** True when nothing but whitespace surrounds the node on its start and end lines. */
@@ -229,10 +242,10 @@ function shortModuleName(imp: Node): string {
 
 // ---------- rule: comments ----------
 
-function commentRegions(root: Node, ctx: RuleContext): FoldRegion[] {
+function commentRegions(ctx: RuleContext): FoldRegion[] {
   const comments: Node[] = [];
-  walk(root, (n) => {
-    if (n.type === 'comment' && ownsWholeLines(n, ctx.lines)) comments.push(n);
+  eachOf(ctx, ['comment'], (n) => {
+    if (ownsWholeLines(n, ctx.lines)) comments.push(n);
   });
 
   const runs: Node[][] = [];
@@ -283,11 +296,9 @@ function commentSummary(text: string, startL: number, endL: number): string {
  * them anywhere in the code; judging whether a guard matters is the
  * reviewer's job — the pill is one click from the real code.
  */
-function guardRegions(root: Node, ctx: RuleContext): FoldRegion[] {
+function guardRegions(ctx: RuleContext): FoldRegion[] {
   const regions: FoldRegion[] = [];
-  walk(root, (node) => {
-    if (node.type !== 'statement_block' && node.type !== 'program') return;
-
+  eachOf(ctx, ['statement_block', 'program'], (node) => {
     // Merge consecutive guards (and the comments directly above them) into
     // one region per run.
     let run: { first: Node; last: Node; count: number; exits: string[]; logged: boolean } | null = null;
@@ -400,10 +411,9 @@ interface LogCall {
 }
 
 /** One rule pass per configured call pattern (logging, telemetry, custom...). */
-function patternRegions(root: Node, ctx: RuleContext): FoldRegion[] {
+function patternRegions(ctx: RuleContext): FoldRegion[] {
   return ctx.patterns.flatMap((pattern) =>
     callStatementRegions(
-      root,
       ctx,
       pattern.category,
       `${pattern.category} call`,
@@ -414,7 +424,6 @@ function patternRegions(root: Node, ctx: RuleContext): FoldRegion[] {
 }
 
 function callStatementRegions(
-  root: Node,
   ctx: RuleContext,
   category: FoldCategory,
   noun: string,
@@ -422,8 +431,8 @@ function callStatementRegions(
   score: number,
 ): FoldRegion[] {
   const calls: { node: Node; call: LogCall }[] = [];
-  walk(root, (n) => {
-    if (n.type !== 'expression_statement' || !ownsWholeLines(n, ctx.lines)) return;
+  eachOf(ctx, ['expression_statement'], (n) => {
+    if (!ownsWholeLines(n, ctx.lines)) return;
     const call = match(n);
     if (call) calls.push({ node: n, call });
   });
@@ -497,10 +506,9 @@ function asCallTo(stmt: Node, receiverPattern: RegExp, methods: Set<string> | nu
 
 // ---------- rule: error boilerplate ----------
 
-function catchRegions(root: Node, ctx: RuleContext): FoldRegion[] {
+function catchRegions(ctx: RuleContext): FoldRegion[] {
   const regions: FoldRegion[] = [];
-  walk(root, (node) => {
-    if (node.type !== 'catch_clause') return;
+  eachOf(ctx, ['catch_clause'], (node) => {
     const body = node.childForFieldName('body');
     if (!body || body.type !== 'statement_block') return;
     const param = node.childForFieldName('parameter')?.text ?? '';
@@ -647,11 +655,9 @@ function describeLiteral(name: string, valueNode: Node): string {
  * together. Groups spanning fewer than 3 lines stay visible — inline
  * constants are more readable than a pill.
  */
-function dataRegions(root: Node, ctx: RuleContext): FoldRegion[] {
+function dataRegions(ctx: RuleContext): FoldRegion[] {
   const regions: FoldRegion[] = [];
-  walk(root, (container) => {
-    if (container.type !== 'statement_block' && container.type !== 'program') return;
-
+  eachOf(ctx, ['statement_block', 'program'], (container) => {
     let run: { first: Node; last: Node; entries: ConstData[] } | null = null;
     const flush = () => {
       if (run) {
@@ -695,10 +701,9 @@ function dataRegions(root: Node, ctx: RuleContext): FoldRegion[] {
 
 // ---------- rule: trivial accessors ----------
 
-function accessorRegions(root: Node, ctx: RuleContext): FoldRegion[] {
+function accessorRegions(ctx: RuleContext): FoldRegion[] {
   const regions: FoldRegion[] = [];
-  walk(root, (node) => {
-    if (node.type !== 'class_body') return;
+  eachOf(ctx, ['class_body'], (node) => {
     let run: { first: Node; last: Node; names: string[] } | null = null;
     const flush = () => {
       if (run) {

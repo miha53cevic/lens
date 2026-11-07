@@ -24,11 +24,11 @@ import { escapeHtml } from '../../text.ts';
 import { isLightColor, THEME_COOKIE } from '../../theme.ts';
 import { parsedZoom, UI_ZOOM_COOKIE, UI_ZOOM_DEFAULT, zoomStyle } from '../../zoom.ts';
 import { bundleViewer } from './bundle.ts';
+import { highlightAll, type HighlightJob } from '../highlightPool.ts';
 // Imported as text, so the compiled `lens` carries it. bun-types types every .html import as an
 // HTML bundle (what Bun.serve takes), which an import as text isn't.
 import viewerTemplate from './viewer.html' with { type: 'text' };
 import {
-  highlightSource,
   themeSwatch,
   type ThemeSwatch,
   isBundledTheme,
@@ -131,15 +131,30 @@ export interface ThemeTokens {
  * removed lines fill the rest. No blob is read for it.
  */
 export function oldSideLines(file: Pick<ViewerFile, 'source' | 'changedLines' | 'removals'>): string[] {
+  return oldSide(file).lines;
+}
+
+/** oldSideLines, and for each line the new side's line (0-based) it is, or null for a removed one. */
+function oldSide(file: Pick<ViewerFile, 'source' | 'changedLines' | 'removals'>): {
+  lines: string[];
+  keptAt: (number | null)[];
+} {
   const old: (string | undefined)[] = [];
   for (const block of file.removals ?? []) {
     block.lines.forEach((text, lineIndex) => (old[block.oldStart - 1 + lineIndex] = text));
   }
+  const keptAt: (number | null)[] = old.map(() => null);
   const added = new Set(file.changedLines ?? []);
-  const kept = file.source.split('\n').filter((_, index) => !added.has(index + 1));
+  const newLines = file.source.split('\n');
+  const kept = newLines.flatMap((_, index) => (added.has(index + 1) ? [] : [index]));
   let next = 0;
-  for (let index = 0; index < old.length; index++) old[index] ??= kept[next++] ?? '';
-  return old as string[];
+  for (let index = 0; index < old.length; index++) {
+    if (old[index] !== undefined) continue;
+    const at = kept[next++];
+    old[index] = at === undefined ? '' : newLines[at];
+    if (at !== undefined) keptAt[index] = at;
+  }
+  return { lines: old as string[], keptAt };
 }
 
 /**
@@ -166,26 +181,39 @@ export async function highlightFiles(
   const sameRemovals = (a: ViewerFile, b: ViewerFile) =>
     JSON.stringify([a.removals ?? [], a.changedLines ?? []]) ===
     JSON.stringify([b.removals ?? [], b.changedLines ?? []]);
-  const results = await Promise.all(
-    files.map(async (f) => {
-      const same = reusable.get(f.file);
-      if (same && same.file.language === f.language && same.file.source === f.source && sameRemovals(same.file, f)) {
-        return { tokens: same.tokens, removed: same.removed, fg: previous!.tokens.fg, bg: previous!.tokens.bg };
-      }
-      const language = f.language ?? shikiLangForFile(f.file);
-      const removals = f.removals ?? [];
-      const [result, old] = await Promise.all([
-        highlightSource(f.source, language, theme),
-        removals.length > 0 ? highlightSource(oldSideLines(f).join('\n'), language, theme) : null,
-      ]);
-      const removed = removals.map((block) =>
-        block.lines.map(
-          (text, lineIndex) => old?.tokens[block.oldStart - 1 + lineIndex] ?? [[text, null] as ViewerToken],
-        ),
-      );
-      return { ...result, removed };
-    }),
-  );
+  // the files to tokenize: those that didn't keep their tokens
+  const jobs: HighlightJob[] = [];
+  const planned = files.map((f) => {
+    const same = reusable.get(f.file);
+    if (same && same.file.language === f.language && same.file.source === f.source && sameRemovals(same.file, f)) {
+      return { reused: same, job: -1 };
+    }
+    const side = (f.removals ?? []).length > 0 ? oldSide(f) : null;
+    const old = side && { text: side.lines.join('\n'), keptAt: side.keptAt };
+    return {
+      reused: null,
+      job: jobs.push({ source: f.source, language: f.language ?? shikiLangForFile(f.file), theme, old }) - 1,
+    };
+  });
+  const highlighted = await highlightAll(jobs);
+  const results = files.map((f, index) => {
+    const plan = planned[index];
+    if (plan.reused) {
+      return {
+        tokens: plan.reused.tokens,
+        removed: plan.reused.removed,
+        fg: previous!.tokens.fg,
+        bg: previous!.tokens.bg,
+      };
+    }
+    const { oldTokens, ...result } = highlighted[plan.job];
+    const removed = (f.removals ?? []).map((block) =>
+      block.lines.map(
+        (text, lineIndex) => oldTokens?.[block.oldStart - 1 + lineIndex] ?? [[text, null] as ViewerToken],
+      ),
+    );
+    return { ...result, removed };
+  });
   // the theme's own colors, not a file's: with no files, the page still follows the theme
   const swatch = await themeSwatch(theme);
   return {
@@ -244,7 +272,7 @@ async function loadTemplate(): Promise<string> {
 export async function serveViewer(
   input: ViewerInput,
   opts: ViewerOptions,
-  reanalyze?: () => Promise<ViewerInput>,
+  reanalyze?: (previous: ViewerInput) => Promise<ViewerInput>,
 ): Promise<void> {
   let current = input;
   const ask = createAskRoutes(() => current, opts.port);
@@ -326,9 +354,8 @@ export async function serveViewer(
     });
   }
 
-  // Warm the initial theme before accepting requests.
-  await tokensFor(current.files, opts.theme);
-  const template = await loadTemplate();
+  // Warm the initial theme before accepting requests, and bundle the page's script meanwhile.
+  const [, template] = await Promise.all([tokensFor(current.files, opts.theme), loadTemplate()]);
 
   // the reader keeps its last read, so it's made again only for another review's summary
   let progress: { at: string; read: ReturnType<typeof buildProgressReader> } | null = null;
@@ -413,7 +440,7 @@ export async function serveViewer(
     })
     .json('GET /api/refresh', noBody, async (_, { url }) => {
       if (!reanalyze) throw new HttpError(404, 'refresh not available');
-      const input = await reanalyze();
+      const input = await reanalyze(current);
       current = input;
       ask.refresh();
       return payloadFor(input, themeOf(url));

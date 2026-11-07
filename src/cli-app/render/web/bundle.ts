@@ -34,6 +34,8 @@ export async function bundlePage(entryPoint: string): Promise<ViewerBundle> {
     target: 'browser',
     jsx: { runtime: 'automatic' },
     define: { 'process.env.NODE_ENV': '"production"' },
+    // a smaller page to parse; the names stay, so a crash's stack still says where
+    minify: { whitespace: true, syntax: true },
     plugins: [tailwind],
     throw: true,
   });

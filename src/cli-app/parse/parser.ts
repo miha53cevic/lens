@@ -34,7 +34,22 @@ export function languageForFile(file: string): LanguageId | null {
   return EXTENSION_LANGUAGE[extname(file).toLowerCase()] ?? null;
 }
 
-export async function parseSource(source: string, lang: LanguageId): Promise<Tree> {
+/**
+ * Trees parsed during one analysis, by language and text: the fold rules and the summary's units
+ * read the same new side of each file. Each hit is a copy (cheap: copies share their nodes), which
+ * the caller deletes as it would a tree of its own; `dropParses` deletes the kept ones.
+ */
+export type ParseCache = Map<string, Tree>;
+
+export function dropParses(cache: ParseCache): void {
+  for (const tree of cache.values()) tree.delete();
+  cache.clear();
+}
+
+export async function parseSource(source: string, lang: LanguageId, cache?: ParseCache): Promise<Tree> {
+  const key = lang + '\0' + source;
+  const kept = cache?.get(key);
+  if (kept) return kept.copy();
   if (!initialized) {
     await Parser.init({ locateFile: () => coreWasm });
     initialized = true;
@@ -49,5 +64,6 @@ export async function parseSource(source: string, lang: LanguageId): Promise<Tre
   const tree = parser.parse(source);
   parser.delete();
   if (!tree) throw new Error(`tree-sitter failed to parse (${lang})`);
+  cache?.set(key, tree.copy());
   return tree;
 }
