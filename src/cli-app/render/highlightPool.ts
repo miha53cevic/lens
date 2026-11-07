@@ -3,6 +3,7 @@ import { availableParallelism } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
 import { highlightSides, type OldSide, type SidesResult } from './highlight.ts';
+import { timed } from '../timings.ts';
 
 /**
  * Shiki tokenizes on one thread, and a big diff is seconds of it: the files are spread over a few
@@ -65,8 +66,19 @@ export function warmHighlighter(): void {
 
 /** Tokenizes each file, in order; across worker threads when there is enough to share. */
 export function highlightAll(jobs: HighlightJob[]): Promise<SidesResult[]> {
-  const size = (job: HighlightJob) => job.source.length + (job.old?.text.length ?? 0);
-  if (broken || jobs.reduce((sum, job) => sum + size(job), 0) < POOL_MIN_CHARS) return inProcess(jobs);
+  const chars = jobs.reduce((sum, job) => sum + size(job), 0);
+  const here = broken || chars < POOL_MIN_CHARS;
+  return timed(
+    'server',
+    'highlight',
+    () => (here ? inProcess(jobs) : onThreads(jobs)),
+    () => `${jobs.length} files, ${chars} chars, ${here ? 'in process' : (pool?.length ?? 0) + ' threads'}`,
+  );
+}
+
+const size = (job: HighlightJob) => job.source.length + (job.old?.text.length ?? 0);
+
+function onThreads(jobs: HighlightJob[]): Promise<SidesResult[]> {
   let workers: Worker[];
   try {
     workers = pool ??= startPool();

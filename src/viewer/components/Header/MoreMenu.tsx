@@ -25,6 +25,7 @@ import { Stepper } from '../../../ui/Stepper.tsx';
 import { foldLevelHint } from './util.ts';
 import { setBuildPreviews, setPlanTab, setSelfChecks } from '../../actions/previews.ts';
 import { openClearData } from '../../actions/clear.ts';
+import { setTimings } from '../../actions/timings.ts';
 
 const LEVELS = [
   { value: -1, label: 'off', title: 'nothing folds' },
@@ -56,6 +57,7 @@ export function MoreMenu() {
     buildPreviews: state.data.buildPreviews,
     selfChecks: state.data.selfChecks,
     planTab: state.data.planTab,
+    timings: state.data.timings,
     fullUnits: state.fullUnits,
   }));
 
@@ -179,6 +181,12 @@ export function MoreMenu() {
       <MenuSection title='Plan'>
         <MenuSwitch id='plan-tab' checked={more.planTab} onChange={setPlanTab}>
           Plan tab
+        </MenuSwitch>
+      </MenuSection>
+      <MenuSeparator />
+      <MenuSection title='Debug'>
+        <MenuSwitch id='timings' checked={more.timings} onChange={setTimings}>
+          Timings
         </MenuSwitch>
       </MenuSection>
       <MenuSeparator />

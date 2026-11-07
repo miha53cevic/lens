@@ -9,6 +9,8 @@ import { runSummary } from './summary/command.ts';
 import { runAsk } from './ask/command.ts';
 import { runInfo } from './info.ts';
 import { runClear } from './clear.ts';
+import { runTimings, timed } from './timings.ts';
+import { timingsOn } from './summary/settings.ts';
 import { gitRoot } from './git.ts';
 import { pickPort } from './port.ts';
 import manifest from '../../package.json' with { type: 'json' };
@@ -29,6 +31,9 @@ summary mode (written by your own coding agent — see skills/lens-review):
                               write a task bundle for the agent (.lens/summary/<key>/)
   lens summary submit <bundle-dir | result.json>
                               validate the agent's result.json and store it for the viewer
+
+timings (turn them on in the viewer's ⋯ menu, or "timings": true in .lens.json):
+  lens timings [--json]       how long each step took: the CLI's, the server's and the viewer's
 
 saved data (also the viewer's ⋯ → Clear saved data…):
   lens clear                  list what lens keeps in .lens/, by kind
@@ -60,8 +65,8 @@ interface CliOptions {
   theme: string | null;
 }
 
-type Command = 'paths' | 'diff' | 'pr' | 'config' | 'info' | 'summary' | 'ask' | 'clear';
-const COMMANDS: string[] = ['diff', 'pr', 'config', 'info', 'summary', 'ask', 'clear'] satisfies Command[];
+type Command = 'paths' | 'diff' | 'pr' | 'config' | 'info' | 'summary' | 'ask' | 'clear' | 'timings';
+const COMMANDS: string[] = ['diff', 'pr', 'config', 'info', 'summary', 'ask', 'clear', 'timings'] satisfies Command[];
 
 function parseCli(argv: string[]): { command: Command; rest: string[]; opts: CliOptions } {
   const opts: CliOptions = {
@@ -119,6 +124,10 @@ async function main(): Promise<void> {
   if (command === 'summary') return runSummary(rest, cwd);
   if (command === 'ask') return runAsk(rest, cwd, opts.portSet ? opts.port : null);
   if (command === 'clear') return runClear(rest, repoRootOr(cwd));
+  if (command === 'timings') {
+    const root = repoRootOr(cwd);
+    return runTimings(root, opts.json, timingsOn(root, readConfig(cwd).config));
+  }
 
   if (opts.portSet && (!Number.isInteger(opts.port) || opts.port < 1 || opts.port > 65535)) {
     throw new Error('--port needs a number between 1 and 65535');
@@ -150,7 +159,7 @@ async function main(): Promise<void> {
 
   // the viewer's tokens are made on threads that warm up while the analysis runs
   if (!opts.json) warmHighlighter();
-  const initial = await analyze(command, rest, cwd, config, { withSummary: !opts.json });
+  const initial = await timed('cli', 'analyze', () => analyze(command, rest, cwd, config, { withSummary: !opts.json }));
   const { files, deleted, excluded, renamed, binary } = initial;
   // with the Plan tab, a diff with nothing in it yet still opens: a feature starts there, on a clean
   // branch, and the code it builds comes in with a refresh

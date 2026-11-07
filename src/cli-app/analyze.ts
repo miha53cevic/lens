@@ -1,4 +1,5 @@
 import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs';
+import { performance } from 'node:perf_hooks';
 import { basename, join, resolve } from 'node:path';
 import { analyzeSource } from './classify/index.ts';
 import { findConfigPath, readConfig } from './config.ts';
@@ -11,7 +12,8 @@ import type { FileFoldModel, LensConfig } from './model.ts';
 import { loadDiff, collectUnits, type FileUnits, type LoadedDiff } from './summary/collect.ts';
 import { reviewKey, summaryStamp } from './summary/store.ts';
 import { buildSummaryView, type SummaryView } from './summary/view.ts';
-import { buildPreviewsOn, planTabOn, selfChecksOn } from './summary/settings.ts';
+import { buildPreviewsOn, planTabOn, selfChecksOn, timingsOn } from './summary/settings.ts';
+import { record, timed } from './timings.ts';
 
 const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build', 'out', 'coverage']);
 
@@ -83,7 +85,7 @@ async function analyzeWith(
   // change, instead of being missed. A PR has none: it moves only when it is fetched.
   const latestChange = command === 'diff' ? changeFingerprint(args, cwd) : null;
   // a diff git can't run fails below, with git's own reason
-  const changeStamp = latestChange ? await latestChange().catch(() => null) : null;
+  const changeStamp = latestChange ? await timed('cli', 'fingerprint', () => latestChange().catch(() => null)) : null;
   if (command === 'paths') {
     // Directory walks skip excluded files silently; a file passed explicitly
     // on the command line is always analyzed.
@@ -94,16 +96,19 @@ async function analyzeWith(
   } else {
     // Excluded files are dropped BEFORE reading/tokenizing (lockfiles cost
     // seconds of Shiki time and thousands of DOM rows) but still listed.
-    diff = await loadDiff(command, args, cwd, config);
+    diff = await timed('cli', 'diff', () => loadDiff(command, args, cwd, config));
     targets = diff.targets;
   }
 
   const files: ViewerInput['files'] = [];
+  const foldsStart = performance.now();
+  let foldsMade = 0;
   for (const target of targets) {
     const source = diff ? diff.sources.get(target.file)! : readFileSync(target.file, 'utf8');
     const display = shown(target.file);
     const kept = before?.folds.get(display);
-    const analyzed = kept?.source === source ? kept.model : await analyzeSource(display, source, config, parses);
+    const analyzed =
+      kept?.source === source ? kept.model : (foldsMade++, await analyzeSource(display, source, config, parses));
     if (analyzed) made.folds.set(display, { source, model: analyzed });
     // Unsupported file types (diff mode only) are shown without folding.
     const fileModel: FileFoldModel = (analyzed && { ...analyzed }) ?? {
@@ -117,6 +122,12 @@ async function analyzeWith(
     if (target.removals?.length) fileModel.removals = target.removals;
     files.push({ ...fileModel, source, ...(target.newBlob ? { blob: target.newBlob } : {}) });
   }
+  record(
+    'cli',
+    'folds',
+    performance.now() - foldsStart,
+    `${foldsMade} of ${targets.length} files analyzed (the rest kept)`,
+  );
   // A deleted file opens too: no lines of its own, and the whole of its old text one removed block.
   // Not one the config excludes (its text isn't wanted), nor a binary one (it has none to show).
   const openedDeleted = new Set<string>();
@@ -155,10 +166,12 @@ async function analyzeWith(
   let latestSummary: (() => SummaryView) | null = null;
   if (diff && withSummary && command !== 'paths') {
     try {
-      const units = await collectUnits(diff, config, cwd, { parses, previous: before?.units, made: made.units });
+      const units = await timed('cli', 'units', () =>
+        collectUnits(diff!, config, cwd, { parses, previous: before?.units, made: made.units }),
+      );
       const { root } = diff;
       const build = () => buildSummaryView({ root, cwd, command, args, units });
-      let view = build();
+      let view = timed('cli', 'summary view', build);
       // rebuilt only after a submit (summary.json's mtime), or on another branch: a diff's key names
       // the branch, and what must be checked out first is measured from HEAD (checkoutFirst)
       latestSummary = () => {
@@ -188,6 +201,7 @@ async function analyzeWith(
     buildPreviews: buildPreviewsOn(root, config),
     selfChecks: selfChecksOn(root, config),
     planTab: planTabOn(root, config),
+    timings: timingsOn(root, config),
     label: diff ? diff.label : null,
     guessedBase: diff ? diff.guessedBase : null,
     summary,

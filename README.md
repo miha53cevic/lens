@@ -71,7 +71,8 @@ run it yourself in a terminal (install it from the app's Settings → Agent).
 | `lens pr 123` / `lens pr <url>` | a GitHub PR, fetched with plain git (no API, no gh) |
 | `lens info` | what could be reviewed here: the branch, its changes, the PR remote |
 | `lens config` | the config in effect, where each value comes from, and its problems (exits 1 on any; `--json` for scripts) |
-| `lens clear` | what lens keeps in `.lens/`, by kind; `lens clear <kind> --all` (or one review's `<key>`) clears it: `summaries`, `notes`, `marks` |
+| `lens clear` | what lens keeps in `.lens/`, by kind; `lens clear <kind> --all` (or one review's `<key>`) clears it: `summaries`, `notes`, `marks`, `timings` |
+| `lens timings` | how long each step took (the CLI's, the server's, the viewer's), while timings are on; `--json` for every one kept |
 
 | flag | meaning |
 | --- | --- |
@@ -101,8 +102,11 @@ Loose files and these flags are CLI-only; the app's picker covers the diff and P
 - **The code theme** colors the whole page; a light theme turns it light.
 - **Code size and UI size** (⋯ menu): the code's font size, and a zoom of the whole interface (80–150%) for a small or a large screen. Both are kept for every repository; the desktop app's own screens follow the UI size too.
 - **Reload** (`r`) re-runs the analysis; the status bar says when the code changed on disk.
-- **Clear saved data** (⋯ menu): the summaries, your notes, and the viewed and concern marks, each
+- **Clear saved data** (⋯ menu): the summaries, your notes, the viewed and concern marks and the timings, each
   for this review or every review, ticked on its own and listed before anything goes. Settings stay.
+- **Timings** (⋯ menu → Debug, off by default): lens measures its own steps (the analysis, highlighting,
+  each request, and in the viewer a file opened, a view or theme switched, a refresh) into
+  `.lens/timings.jsonl`, and `lens timings` lists them, for finding what's slow.
 
 Press `?` in the viewer for every key.
 
@@ -224,6 +228,7 @@ under the config in effect.
 | `buildPreviews` | summary mode asks for previews and sequences (default `true`); the ⋯ menu's switch overrides it for you, in `.lens/settings.json` |
 | `selfChecks` | summary mode asks for questions to check your understanding with (default `false`); the ⋯ menu's switch overrides it, as above |
 | `planTab` | the viewer shows the Plan tab (default `false`, while it's new); the ⋯ menu's switch overrides it, as above |
+| `timings` | lens records how long its steps take, for `lens timings` (default `false`); the ⋯ menu's switch overrides it, as above |
 
 The old names (`threshold`, `categories`, `scores`) are still read, each with a
 problem saying what to rename it to.

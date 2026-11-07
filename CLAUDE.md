@@ -10,6 +10,7 @@
 - The code rules below that a reading of the sources can check are tests: `test/layers.test.ts` (imports between folders), `test/tokens.test.ts` (the design scales), `test/rules.test.ts` (the rest). A new rule of that kind goes there, not only here.
 - `bun run test` runs the three typechecks (`tsconfig.json` for `src/cli-app/` and the tests, `tsconfig.viewer.json` for the browser code in `src/viewer/` and `src/ui/` and their page tests, `tsconfig.desktop.json` for the desktop app in `src/desktop/` and its page tests) and then `bun test --isolate test/` (each file gets its own globals, which the page tests' DOM needs). Run it before calling a change done; plain `bun test` skips the typechecks. Tests import from `bun:test`.
 - **Prettier formats all the code** (`src/`, `test/`, `scripts/`, `forge.config.ts`; `.prettierrc`: 2-space indent, single quotes, 120 columns, and `endOfLine: auto`, since Git checks files out with CRLF on Windows). Run `bun run format`; `bun run test` fails on unformatted code. `.prettierignore` keeps out what is read as text (the classify fixture, whose line numbers tests assert, and `viewer.html`).
+- To find what's slow, turn on timings (the viewer's ⋯ → Debug → Timings, or `"timings": true` in `.lens.json`), use the viewer, then run `bun run lens timings` (`--json` for every one): the CLI's, the server's and the viewer's steps, from `.lens/timings.jsonl` (`src/cli-app/timings.ts`, the viewer's `actions/timings.ts`). A new step worth watching is a `timed(...)` or `measure(...)` where it runs.
 - To see a change, run `node src/cli-app/cli.ts diff` (or `<path>`, `pr N`) and open the viewer. Add `--no-open` to skip the browser and `--json` to dump the fold model.
 - The desktop app: `bun run app` runs it from the checkout, `bun run app:smoke` runs its scripted tour (see "Desktop app" below), `bun run app:dist` packs it for this machine into `release/` (a folder with the app in it, not an installer).
 - The agent skills in `skills/` are installed from the desktop app's Settings → Agent (`main/setup.ts` copies them). Keep package scripts shell-free (`bun …`, `&&` at most), so they run the same from any shell on Windows.
@@ -48,6 +49,7 @@ src/desktop/      the desktop app: an Electron shell that runs the command and s
 ```
 cli.ts            arg parsing → analyze() → serveViewer(), or runSummary() / runAsk() / runInfo()
 info.ts           `lens info`: what could be reviewed in a repository (the desktop app's picker reads it)
+timings.ts        timings: how long each step took, while they're on (.lens/timings.jsonl); `lens timings`
 clear.ts          what lens keeps that the reader can clear, one entry per kind (CLEAR_KINDS); `lens clear` and /api/clear
 port.ts           the viewer's port without --port: the repository's own, from its path
 analyze.ts        paths | diff | pr → ViewerInput; re-run on ↻ refresh

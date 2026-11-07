@@ -121,6 +121,7 @@ export function SettingsDialog() {
             ],
             ['Check yourself', onOff(data.selfChecks)],
             ['Plan tab', onOff(data.planTab)],
+            ['Timings', onOff(data.timings)],
           ]}
         />
         <Section

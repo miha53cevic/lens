@@ -23,6 +23,7 @@ import { onContextMenu } from './actions/codeMenu.ts';
 import { forgetOldMarks } from './actions/marks.ts';
 import { check, watch } from '../ui/poll.ts';
 import { motionReady } from '../ui/motion.ts';
+import { measureLoad } from './actions/timings.ts';
 
 /**
  * The document follows the state: the theme's colors (the tokens' inputs), the code's size, the UI's zoom, the tab title, the Ask selection's change.
@@ -77,6 +78,7 @@ createRoot(document.getElementById('root')!).render(
 );
 // what the page arrives with is drawn still; what appears after may move
 motionReady();
+measureLoad();
 const nothingChanged = [data.files, data.deleted, data.excluded, data.renamed, data.binary].every(
   (list) => list.length === 0,
 );

@@ -10,6 +10,7 @@ export interface LocalSettings {
   buildPreviews?: boolean;
   selfChecks?: boolean;
   planTab?: boolean;
+  timings?: boolean;
 }
 
 function settingsPath(root: string): string {
@@ -25,6 +26,7 @@ export function readSettings(root: string): LocalSettings {
       ...(typeof raw?.buildPreviews === 'boolean' ? { buildPreviews: raw.buildPreviews } : {}),
       ...(typeof raw?.selfChecks === 'boolean' ? { selfChecks: raw.selfChecks } : {}),
       ...(typeof raw?.planTab === 'boolean' ? { planTab: raw.planTab } : {}),
+      ...(typeof raw?.timings === 'boolean' ? { timings: raw.timings } : {}),
     };
   } catch {
     return {};
@@ -51,4 +53,9 @@ export function selfChecksOn(root: string, config: LensConfig): boolean {
 /** Whether the viewer shows the Plan tab here: the reader's switch, else the config's (off). */
 export function planTabOn(root: string, config: LensConfig): boolean {
   return readSettings(root).planTab ?? config.planTab;
+}
+
+/** Whether lens records how long its steps take here (timings.ts): the reader's switch, else the config's (off). */
+export function timingsOn(root: string, config: LensConfig): boolean {
+  return readSettings(root).timings ?? config.timings;
 }

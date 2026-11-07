@@ -25,6 +25,7 @@ import {
   pause,
   answering,
   usePage,
+  type Page,
 } from './fixtures/viewerPage.ts';
 
 usePage();
@@ -627,4 +628,36 @@ test('a summary cleared from elsewhere (another viewer, `lens clear`) leaves thi
     payload.summary = fresh;
     await close();
   }
+});
+
+const timingsPosted = (page: Page) =>
+  page.requests
+    .filter((request) => request.path === '/api/timings')
+    .flatMap((request) => (request.body as { timings: { name: string; detail?: string }[] }).timings);
+
+pageTest(
+  'with timings on, the page posts how long it took to load and to switch views',
+  async (page) => {
+    await click($('#view-summary'));
+    await pause(1300);
+    await settle();
+    const names = timingsPosted(page).map((timing) => timing.name);
+    assert.ok(names.includes('load'), names.join());
+    assert.ok(names.includes('view summary'), names.join());
+  },
+  undefined,
+  undefined,
+  () => ({ ...payload, timings: true }),
+);
+
+pageTest('with timings off, the page measures nothing, and the ⋯ switch turns them on', async (page) => {
+  await click($('#view-summary'));
+  await pause(1300);
+  assert.deepEqual(timingsPosted(page), []);
+  await click($('#timings'));
+  await settle();
+  assert.deepEqual(
+    page.requests.filter((request) => request.path === '/api/settings').map((request) => request.body),
+    [{ timings: true }],
+  );
 });

@@ -1,4 +1,5 @@
 import { createServer } from 'node:http';
+import { performance } from 'node:perf_hooks';
 import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import type { FileFoldModel, LensConfig } from '../../model.ts';
@@ -14,13 +15,20 @@ import { hostEnv } from '../../plan/lavish.ts';
 import { startPlanProxy } from '../../plan/proxy.ts';
 import { marksFor, type ReviewMarks } from '../../marks/store.ts';
 import { isLocalRequest, readCookie, sendJson } from './http.ts';
-import type { ClearRequest, SettingsRequest, StampResponse, TokensResponse } from '../../api/contract.ts';
+import type {
+  ClearRequest,
+  SettingsRequest,
+  StampResponse,
+  TimingsRequest,
+  TokensResponse,
+} from '../../api/contract.ts';
 import { createRouter, HttpError, noBody, type RouteContext } from '../../api/router.ts';
 import { previewResponse } from '../../summary/previews.ts';
 import { writeSettings } from '../../summary/settings.ts';
 import { buildProgressReader, type BuildProgress } from '../../summary/progress.ts';
 import { clearKinds, describeKinds, type ClearContext, type ClearPlan } from '../../clear.ts';
 import { escapeHtml } from '../../text.ts';
+import { record, setTimings, sinceStart, timed } from '../../timings.ts';
 import { isLightColor, THEME_COOKIE } from '../../theme.ts';
 import { parsedZoom, UI_ZOOM_COOKIE, UI_ZOOM_DEFAULT, zoomStyle } from '../../zoom.ts';
 import { bundleViewer } from './bundle.ts';
@@ -69,6 +77,8 @@ export interface ViewerInput {
   selfChecks: boolean;
   /** The Plan tab, the same way: a feature still behind its switch */
   planTab: boolean;
+  /** Timings (src/cli-app/timings.ts), the same way: the viewer measures its steps too while they're on */
+  timings: boolean;
   /** PR mode: "owner/repo#N — title", shown in the viewer header */
   label: string | null;
   /** PR mode: the default branch it was diffed against, when GitHub no longer says the PR's base */
@@ -275,6 +285,7 @@ export async function serveViewer(
   reanalyze?: (previous: ViewerInput) => Promise<ViewerInput>,
 ): Promise<void> {
   let current = input;
+  setTimings(current.root, current.timings);
   const ask = createAskRoutes(() => current, opts.port);
   // the page carries the notes and the marks: once they change, the page held for a reload has the old ones
   let savedVersion = 0;
@@ -325,7 +336,12 @@ export async function serveViewer(
               () => undefined,
             )
           : undefined;
-      return highlightFiles(files, theme, reuse);
+      return timed(
+        'server',
+        'tokens',
+        () => highlightFiles(files, theme, reuse),
+        () => theme,
+      );
     })();
     const entry = { files, theme, tokens };
     heldTokens = entry;
@@ -355,7 +371,10 @@ export async function serveViewer(
   }
 
   // Warm the initial theme before accepting requests, and bundle the page's script meanwhile.
-  const [, template] = await Promise.all([tokensFor(current.files, opts.theme), loadTemplate()]);
+  const [, template] = await Promise.all([
+    tokensFor(current.files, opts.theme),
+    timed('server', 'bundle', loadTemplate),
+  ]);
 
   // the reader keeps its last read, so it's made again only for another review's summary
   let progress: { at: string; read: ReturnType<typeof buildProgressReader> } | null = null;
@@ -440,8 +459,10 @@ export async function serveViewer(
     })
     .json('GET /api/refresh', noBody, async (_, { url }) => {
       if (!reanalyze) throw new HttpError(404, 'refresh not available');
-      const input = await reanalyze(current);
+      const input = await timed('server', 'analyze', () => reanalyze(current));
       current = input;
+      // the config or the switch may have changed with it
+      setTimings(input.root, input.timings);
       ask.refresh();
       return payloadFor(input, themeOf(url));
     })
@@ -471,7 +492,12 @@ export async function serveViewer(
     .json('POST /api/settings', parseSettings, (settings) => {
       writeSettings(current.root, settings);
       current = { ...current, ...settings };
+      if (settings.timings !== undefined) setTimings(current.root, settings.timings);
       return settings;
+    })
+    .json('POST /api/timings', parseTimings, ({ timings }) => {
+      for (const timing of timings) record('viewer', timing.name, timing.ms, timing.detail);
+      return { ok: true };
     })
     .json('GET /api/clear', noBody, () => {
       // the summary's key as it is now: it names the branch checked out
@@ -511,7 +537,11 @@ export async function serveViewer(
         return;
       }
       const url = new URL(req.url ?? '/', 'http://localhost');
-      if (!(await router.handle(req, res, url))) sendJson(res, 404, { error: 'not found' });
+      const start = performance.now();
+      const route = await router.handle(req, res, url);
+      if (!route) sendJson(res, 404, { error: 'not found' });
+      // the viewer's own timings aren't a step to measure
+      else if (route !== 'POST /api/timings') record('server', route, performance.now() - start);
     } catch (err) {
       sendJson(res, 500, { error: (err as Error).message });
     }
@@ -531,6 +561,7 @@ export async function serveViewer(
     const url = `http://127.0.0.1:${opts.port}/`;
     writeServerInfo(infoRoot, opts.port, planProxy.port); // before the banner: whoever waits for it can `lens ask` right away
     console.log(`lens viewer on ${url}  (ctrl-c to stop)`);
+    record('cli', 'ready', sinceStart());
     process.on('SIGINT', stop);
     process.on('SIGTERM', stop);
     if (opts.open) {
@@ -551,15 +582,37 @@ export async function serveViewer(
 }
 
 function parseSettings(raw: unknown): SettingsRequest | { error: string } {
-  const { buildPreviews, selfChecks, planTab } = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const { buildPreviews, selfChecks, planTab, timings } = (raw && typeof raw === 'object' ? raw : {}) as Record<
+    string,
+    unknown
+  >;
   const given = {
     ...(buildPreviews !== undefined && { buildPreviews }),
     ...(selfChecks !== undefined && { selfChecks }),
     ...(planTab !== undefined && { planTab }),
+    ...(timings !== undefined && { timings }),
   };
-  if (Object.keys(given).length === 0) return { error: 'name buildPreviews, selfChecks or planTab' };
+  if (Object.keys(given).length === 0) return { error: 'name buildPreviews, selfChecks, planTab or timings' };
   if (Object.values(given).some((on) => typeof on !== 'boolean')) return { error: 'a switch must be true or false' };
   return given as SettingsRequest;
+}
+
+const TIMINGS_MAX = 100;
+
+function parseTimings(raw: unknown): TimingsRequest | { error: string } {
+  const { timings } = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  if (!Array.isArray(timings) || timings.length > TIMINGS_MAX)
+    return { error: `timings: a list of at most ${TIMINGS_MAX}` };
+  const valid = timings.every(
+    (timing) =>
+      typeof timing?.name === 'string' &&
+      timing.name.length <= 80 &&
+      typeof timing.ms === 'number' &&
+      Number.isFinite(timing.ms) &&
+      (timing.detail === undefined || (typeof timing.detail === 'string' && timing.detail.length <= 200)),
+  );
+  if (!valid) return { error: 'a timing is { name, ms, detail? }' };
+  return { timings: timings.map(({ name, ms, detail }) => ({ name, ms, ...(detail !== undefined && { detail }) })) };
 }
 
 function parseClear(raw: unknown): ClearRequest | { error: string } {
