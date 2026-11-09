@@ -79,6 +79,23 @@ export function openInInbox(unitId: string): boolean {
   return true;
 }
 
+/**
+ * What a filter matched, unfolded: each flow it left with a card, and its Read area when a match is
+ * read. Folding them again is the reader's: lifting the filter leaves them as they are.
+ */
+export function revealMatches(state: LensState): Pick<LensState, 'inboxFlowOpen' | 'inboxReadOpen'> {
+  const list = listModel(state);
+  // a filter with nothing to match lifts itself: nothing to reveal
+  if (!list || list.signal === null) return { inboxFlowOpen: state.inboxFlowOpen, inboxReadOpen: state.inboxReadOpen };
+  const flowOpen = new Map(state.inboxFlowOpen);
+  const readOpen = new Set(state.inboxReadOpen);
+  for (const flow of list.inbox) {
+    flowOpen.set(flow.key, true);
+    if (flow.read.length > 0) readOpen.add(flow.key);
+  }
+  return { inboxFlowOpen: flowOpen, inboxReadOpen: readOpen };
+}
+
 export interface InboxMark {
   /** What the mark changes beside the mark itself, in the same commit */
   patch: Partial<LensState>;

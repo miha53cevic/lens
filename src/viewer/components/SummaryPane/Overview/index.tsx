@@ -28,10 +28,7 @@ export function Overview() {
   const flagged = SHOWN_SIGNALS.filter((signal) => list.counts[signal] > 0);
 
   return (
-    <div
-      data-part='sum-inner'
-      className='flex flex-col gap-5 px-6 pt-6 pb-[104px] [&>*]:min-w-0 mx-auto w-full max-w-[760px]'
-    >
+    <div data-part='sum-inner' className='flex flex-col gap-5 px-6 pt-6 pb-[104px] [&>*]:min-w-0'>
       <div data-part='kicker' className='-mb-3 flex items-center gap-2 text-md text-muted'>
         {plural(units.length, 'change') + ' in ' + plural(fileCount, 'file')}
         {stale > 0 && <span className='text-mod'>{' · ' + stale + ' stale'}</span>}

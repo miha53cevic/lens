@@ -31,6 +31,8 @@ export interface ApiRoutes {
   'GET /api/stamp': Endpoint<null, StampResponse>;
   /** The reader's switches (.lens/settings.json) */
   'POST /api/settings': Endpoint<SettingsRequest, SettingsRequest>;
+  /** The reader's view settings, the ones that changed (.lens/settings.json) */
+  'POST /api/view': Endpoint<ViewSettings, Ok>;
   /** What the viewer measured, while timings are on (src/cli-app/timings.ts) */
   'POST /api/timings': Endpoint<TimingsRequest, Ok>;
   /** What each kind of saved data holds */
@@ -71,6 +73,7 @@ export const API_ROUTES: { readonly [R in ApiRoute]: true } = {
   'GET /api/summary': true,
   'GET /api/stamp': true,
   'POST /api/settings': true,
+  'POST /api/view': true,
   'POST /api/timings': true,
   'GET /api/clear': true,
   'POST /api/clear': true,
@@ -113,6 +116,27 @@ export interface SettingsRequest {
   selfChecks?: boolean;
   planTab?: boolean;
   timings?: boolean;
+}
+
+/**
+ * How the reader left the viewer in this repository: the ⋯ menu's view settings and the panels.
+ * Kept by the server (.lens/settings.json), never in the browser. Each is left out until the reader
+ * sets it, and the viewer's default holds.
+ */
+export interface ViewSettings {
+  hideTests?: boolean;
+  hunksOnly?: boolean;
+  fullUnits?: boolean;
+  wordDiff?: boolean;
+  sideBySide?: boolean;
+  /** The fold level picked, with the config's level it was picked over: a new one in the config wins. null forgets it */
+  foldLevel?: { level: number; base: number } | null;
+  navCollapsed?: boolean;
+  /** px */
+  navWidth?: number;
+  askOpen?: boolean;
+  /** px */
+  askWidth?: number;
 }
 
 /** What POST /api/timings takes: the viewer's steps since its last post */

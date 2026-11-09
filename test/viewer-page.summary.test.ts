@@ -11,6 +11,7 @@ import {
   findOrdersId,
   withMarks,
   postedMarks,
+  postedView,
   open,
   close,
   settle,
@@ -567,6 +568,9 @@ pageTest('a concern marked real can be copied for the agent from the overview; n
   assert.equal($$('[data-part="ov-real"]').length, 0, 'nothing is confirmed yet');
   await key('j');
   await click($('[data-part="concern"] [data-part="vbtn"][data-mark="real"]'));
+  // the confirmed kind gets its dot: on the concern, and on the card's icon in the list
+  assert.ok($('[data-part="concern"] [data-part="confirmed-icon"]'));
+  assert.equal($$('[data-part="inbox-card"][data-selected] [data-part="confirmed-icon"]').length, 1);
   await key('g');
   assert.equal($('[data-part="ov-real-count"]').textContent, '1 confirmed concern in 1 change');
   // listed, each a row that opens its change
@@ -593,6 +597,7 @@ pageTest('a concern marked real can be copied for the agent from the overview; n
   // taking the verdict back takes the block away
   await key('j');
   await click($('[data-part="concern"] [data-part="vbtn"][data-mark="real"]'));
+  assert.equal($$('[data-part="confirmed-icon"]').length, 0, 'the dot goes with the verdict');
   await key('g');
   assert.equal($$('[data-part="ov-real"]').length, 0);
 });
@@ -645,7 +650,7 @@ test("a confirmed concern on code that changed since is counted, not copied: its
   }
 });
 
-pageTest('full units: the rest of the file sits above and below the unit, each behind a bar', async () => {
+pageTest('full units: the rest of the file sits above and below the unit, each behind a bar', async (page) => {
   await key('v');
   await key('j');
   const code = '[data-part="unit-code"] .code';
@@ -655,7 +660,7 @@ pageTest('full units: the rest of the file sits above and below the unit, each b
   assert.equal($$(code + ' .context').length, 0, 'off by default: only the unit');
   await click($('#full-units'));
   assert.equal($('#full-units').getAttribute('aria-checked'), 'true');
-  assert.equal(localStorage.getItem('lens.fullUnits'), '1');
+  assert.deepEqual(postedView(page).at(-1), { fullUnits: true });
   // both closed: the unit's rows are as they were, between the two bars
   assert.deepEqual(rows(code), unitRows);
   assert.equal(bar('above').textContent!.trim(), '4 lines', 'nothing declared above it, nothing changed');
@@ -702,7 +707,7 @@ test('full units: a unit that owns part of a removed block shows that part once,
       : unit,
   );
   try {
-    await open({ 'lens.fullUnits': '1' }, '', '', { ...payload, summary: { ...payload.summary!, units } });
+    await open({ fullUnits: true }, '', '', { ...payload, summary: { ...payload.summary!, units } });
     await key('v');
     await key('j');
     const code = '[data-part="unit-code"] .code';
@@ -774,6 +779,21 @@ pageTest(
 );
 
 pageTest(
+  'a signal filter unfolds the flows and Read areas its matches are folded in',
+  async () => {
+    await key('j');
+    await key('m');
+    await key('m');
+    assert.equal($$('[data-part="inbox-flow"][data-open]').length, 0, 'all read: the flow folded');
+    await click($('#sig-filter [data-value="bug"]'));
+    assert.equal($$('[data-part="inbox-flow"][data-open]').length, 1);
+    assert.deepEqual(cardNames('[data-part="inbox-read"]'), ['findOrders'], 'the read match is in sight');
+  },
+  {},
+  '#summary',
+);
+
+pageTest(
   'j steps into a folded flow and opens it; folding the open card’s flow keeps it folded',
   async () => {
     await click($('[data-part="inbox-flow-head"]'));
@@ -801,7 +821,7 @@ pageTest(
     assert.equal(open(), names[1], 'the mark opened it: the pill takes no second step');
     assert.equal($('#nav [data-part="progress-count"]').textContent, '1 of 3');
   },
-  { 'lens.hideTests': '0' },
+  { hideTests: false },
   '#summary',
 );
 

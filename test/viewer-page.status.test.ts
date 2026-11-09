@@ -12,6 +12,7 @@ import {
   withMarks,
   findOrdersId,
   open,
+  postedView,
   close,
   settle,
   key,
@@ -372,14 +373,14 @@ test('the page the server sends is at the UI size, so it arrives at it instead o
 
 pageTest(
   '/ shows a collapsed sidebar, remembers it, and focuses the filter',
-  async () => {
+  async (page) => {
     assert.equal($('#nav').style.display, 'none');
     await key('/');
     assert.equal($('#nav').style.display, '');
-    assert.equal(localStorage.getItem('lens.navCollapsed'), '0');
+    assert.deepEqual(postedView(page).at(-1), { navCollapsed: false });
     assert.equal(document.activeElement, $('#file-filter'));
   },
-  { 'lens.navCollapsed': '1' },
+  { navCollapsed: true },
 );
 
 pageTest('? opens the shortcuts in tabs: Global, Code and Summary', async () => {

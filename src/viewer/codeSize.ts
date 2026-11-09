@@ -7,8 +7,8 @@ export const CODE_SIZES = [10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24];
 export const CODE_SIZE_DEFAULT = 12;
 
 /**
- * A cookie rather than localStorage, which is per port: the desktop app gives each repository
- * its own, and a reader who needs larger code needs it in all of them.
+ * A cookie rather than a view setting, which the server keeps per repository: a reader who needs
+ * larger code needs it in all of them.
  */
 export const CODE_SIZE_COOKIE = 'lens-code-size';
 

@@ -113,20 +113,6 @@ export function catColor(cat: string): string {
   return CAT_COLORS[cat] || '#e9b04d';
 }
 
-// Reader preferences persist per browser via localStorage.
-export function readPref(key: string): string | null {
-  try {
-    return localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-export function writePref(key: string, value: string | number): void {
-  try {
-    localStorage.setItem(key, String(value));
-  } catch {}
-}
-
 // Matched like the server matches them (glob.ts), so "hide tests" agrees with the summary's test units.
 const testRegexes = compilePatterns(INITIAL_DATA.config.testFilePatterns);
 export function isTestFile(path: string): boolean {

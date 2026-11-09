@@ -5,7 +5,7 @@ import type { Unit } from '../model/signals.ts';
 import { currentUnit, listModel } from '../model/summaryList.ts';
 import { jumpToLine, landOn } from './views.ts';
 import { saveMark } from './marks.ts';
-import { openInInbox } from './inbox.ts';
+import { openInInbox, revealMatches } from './inbox.ts';
 
 export function openSummaryUnit(unitId: string): void {
   if (!openInInbox(unitId)) update({ summaryUnit: unitId });
@@ -35,7 +35,11 @@ export function openUnitInCode(unit: Unit | null): void {
 }
 
 export function setSignalFilter(signal: SignalFilter): void {
-  update((state) => ({ sumSignal: listModel(state)?.signal === signal ? null : signal }));
+  update((state) => {
+    const sumSignal = listModel(state)?.signal === signal ? null : signal;
+    // a match folded away under its flow or in Read is one the filter didn't find for the reader
+    return sumSignal === null ? { sumSignal } : { sumSignal, ...revealMatches({ ...state, sumSignal }) };
+  });
 }
 
 // The agent's findings are suspicions; the reader decides: "real" or "dismissed", kept for the

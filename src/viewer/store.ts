@@ -7,14 +7,14 @@ import { flushSync } from 'react-dom';
 import { create } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
 import { createStore } from 'zustand/vanilla';
-import type { ClearInfoResponse, PlansResponse } from '../cli-app/api/contract.ts';
+import type { ClearInfoResponse, PlansResponse, ViewSettings } from '../cli-app/api/contract.ts';
 import type { ViewerPayload } from '../cli-app/render/web/server.ts';
 import type { AskSelection, AskState } from '../cli-app/ask/session.ts';
 import type { BuildProgress } from '../cli-app/summary/progress.ts';
 import type { ConcernKind } from '../cli-app/summary/store.ts';
 import type { ReaderNote } from '../cli-app/notes/store.ts';
 import type { ConcernMark } from '../cli-app/marks/store.ts';
-import { INITIAL_DATA, readPref } from './shared.ts';
+import { INITIAL_DATA } from './shared.ts';
 import { CODE_SIZE_DEFAULT, savedCodeSize } from './codeSize.ts';
 import { savedZoom, UI_ZOOM_DEFAULT } from '../cli-app/zoom.ts';
 
@@ -161,20 +161,11 @@ export interface LensState {
   };
 }
 
-/** The fold level the reader picked, with the one it was picked over: `{ level, base }` */
-export const THRESHOLD_PREF = 'lens.threshold';
-
 /** The reader's fold level, while the config's (or --fold-level's) is still the one they picked it over. */
-function loadThreshold(): number {
+function pickedThreshold(view: ViewSettings): number {
   const base = INITIAL_DATA.config.foldLevel;
-  try {
-    const saved = JSON.parse(readPref(THRESHOLD_PREF) || 'null');
-    return saved?.base === base && Number.isInteger(saved.level) && saved.level >= -1 && saved.level <= 3
-      ? saved.level
-      : base;
-  } catch {
-    return base;
-  }
+  const picked = view.foldLevel;
+  return picked && picked.base === base && picked.level <= 3 ? picked.level : base;
 }
 
 function loadCodeSize(): number {
@@ -193,14 +184,49 @@ function loadUiZoom(): number {
   }
 }
 
-function savedWidth(key: string, min: number, max: number, fallback: number) {
-  const width = Number(readPref(key));
-  return width >= min && width <= max ? width : fallback;
+const within = (width: number | undefined, min: number, max: number) =>
+  width !== undefined && width >= min && width <= max ? width : undefined;
+
+/**
+ * What the reader's view settings (ViewSettings: the server keeps them) make of the state: each one
+ * given, and `state`'s own value for those that aren't.
+ */
+function viewState(
+  view: ViewSettings,
+  state: LensState,
+): Pick<
+  LensState,
+  | 'threshold'
+  | 'hideTests'
+  | 'hunksOnly'
+  | 'fullUnits'
+  | 'wordDiff'
+  | 'sideBySide'
+  | 'navCollapsed'
+  | 'navWidth'
+  | 'ask'
+> {
+  return {
+    threshold: view.foldLevel === undefined ? state.threshold : pickedThreshold(view),
+    hideTests: view.hideTests ?? state.hideTests,
+    hunksOnly: view.hunksOnly ?? state.hunksOnly,
+    fullUnits: view.fullUnits ?? state.fullUnits,
+    wordDiff: view.wordDiff ?? state.wordDiff,
+    sideBySide: view.sideBySide ?? state.sideBySide,
+    navCollapsed: view.navCollapsed ?? state.navCollapsed,
+    navWidth: within(view.navWidth, 160, 600) ?? state.navWidth,
+    ask: {
+      ...state.ask,
+      open: view.askOpen ?? state.ask.open,
+      width: within(view.askWidth, 280, 720) ?? state.ask.width,
+    },
+  };
 }
 
-const initialState: LensState = {
+/** The state before the reader's view settings: the defaults */
+const defaultState: LensState = {
   data: INITIAL_DATA,
-  threshold: loadThreshold(),
+  threshold: INITIAL_DATA.config.foldLevel,
   activities: [],
   notice: null,
   handoffCopied: false,
@@ -213,15 +239,15 @@ const initialState: LensState = {
   foldOverrides: new Map(),
   expandedGaps: new Set(),
   showRemoved: true,
-  hideTests: readPref('lens.hideTests') !== '0', // on by default
-  hunksOnly: readPref('lens.hunksOnly') !== '0', // on by default
-  fullUnits: readPref('lens.fullUnits') === '1', // off by default
-  wordDiff: readPref('lens.wordDiff') !== '0', // on by default
-  sideBySide: readPref('lens.sideBySide') === '1', // off by default
+  hideTests: true,
+  hunksOnly: true,
+  fullUnits: false,
+  wordDiff: true,
+  sideBySide: false,
   codeSize: loadCodeSize(),
   uiZoom: loadUiZoom(),
-  navCollapsed: readPref('lens.navCollapsed') === '1',
-  navWidth: savedWidth('lens.navWidth', 160, 600, 0),
+  navCollapsed: false,
+  navWidth: 0,
   navQuery: '',
   closedDirs: new Set(),
   // the review's marks, as the server keeps them (.lens/marks/<review>.json)
@@ -244,14 +270,16 @@ const initialState: LensState = {
   clearInfo: null,
   plan: { list: null, picked: null, frame: null, query: '', filter: 'all' },
   ask: {
-    open: readPref('lens.askOpen') === '1',
-    width: savedWidth('lens.askWidth', 280, 720, 360),
+    open: false,
+    width: 360,
     data: { listening: false, questions: [] },
     selection: null,
     error: null,
     tick: 0,
   },
 };
+
+const initialState: LensState = { ...defaultState, ...viewState(INITIAL_DATA.view, defaultState) };
 
 const useStore = create<LensState>()(() => initialState);
 

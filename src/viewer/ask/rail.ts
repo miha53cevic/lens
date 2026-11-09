@@ -5,7 +5,7 @@ import { commit, getState, type LensState, update } from '../store.ts';
 import { askContext, askFindings, askSelection, askShown } from '../model/askContext.ts';
 import { isBreak, isConcern } from '../model/signals.ts';
 import { waitingQuestion } from '../model/status.ts';
-import { writePref } from '../shared.ts';
+import { saveView } from '../actions/viewSettings.ts';
 import type { AskRequest } from '../../cli-app/api/contract.ts';
 import { api, endActivity, noteDone, noteFailure, reach, ServerGone, startActivity } from '../actions/status.ts';
 import { check, type Watcher } from '../../ui/poll.ts';
@@ -23,8 +23,8 @@ export function setAsk(patch: Partial<LensState['ask']>) {
 export function askSetOpen(open: boolean): void {
   const rail = document.getElementById('ask-rail');
   const set = () => {
-    writePref('lens.askOpen', open ? '1' : '0');
     commit((state) => ({ ask: { ...state.ask, open } }));
+    void saveView({ askOpen: open });
   };
   // opened again while it slides out: it stays
   if (open && stay(rail)) return;
@@ -45,8 +45,8 @@ export function askToggle(): void {
 export function askOpenAndFocus(): void {
   stay(document.getElementById('ask-rail'));
   if (!getState().ask.open) {
-    writePref('lens.askOpen', '1');
     commit((state) => ({ ask: { ...state.ask, open: true } }));
+    void saveView({ askOpen: true });
     slideIn(document.getElementById('ask-rail'), 'right');
     void check(askWatcher.id);
   }
@@ -54,8 +54,8 @@ export function askOpenAndFocus(): void {
 }
 
 export function askSetWidth(width: number): void {
-  writePref('lens.askWidth', width);
   setAsk({ width });
+  void saveView({ askWidth: width });
 }
 
 /** The textarea grows with its text, up to ASK_MAX_INPUT_ROWS lines. */

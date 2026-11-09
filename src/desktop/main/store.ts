@@ -43,8 +43,8 @@ interface Stored {
   recents: string[];
   visits: Record<string, Visit>;
   /**
-   * The viewer's port per repository. It stays the same between runs: the viewer keeps its
-   * view settings in localStorage, which the browser files under the page's port.
+   * The viewer's port per repository. It stays the same between runs, so the viewer is at the
+   * same address each time.
    */
   ports: Record<string, number>;
   window: WindowState | null;

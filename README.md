@@ -198,7 +198,8 @@ and `lens config` all say why.
 | `planTab` | the viewer shows the Plan tab (default `false`) |
 | `timings` | lens records how long its steps take, for `lens timings` (default `false`) |
 
-The ⋯ menu's switches override the last four for you, in `.lens/settings.json`. Patterns:
+The ⋯ menu's switches override the last four for you, in `.lens/settings.json`, which also keeps
+how you left the viewer in that repository (view settings, fold level, panels). Patterns:
 `*` matches within a path segment, `**` across them, anywhere in the path. The old names
 (`threshold`, `categories`, `scores`) still work, with a problem saying what to rename.
 

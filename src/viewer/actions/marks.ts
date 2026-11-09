@@ -10,12 +10,3 @@ export function saveMark(change: MarkChange): Promise<boolean> {
     await api('POST /api/marks', { body: change });
   });
 }
-
-/** Where marks were kept before the server kept them: left by an older lens, never read again. */
-const OLD_MARK_PREFS = ['lens.viewedFiles', 'lens.viewedUnits', 'lens.concernMarks'];
-
-export function forgetOldMarks(): void {
-  try {
-    for (const key of OLD_MARK_PREFS) localStorage.removeItem(key);
-  } catch {}
-}

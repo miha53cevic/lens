@@ -40,7 +40,13 @@ import { MAX_USAGES } from '../src/cli-app/summary/usages.ts';
 import { loadDiff, collectUnits, commitLog } from '../src/cli-app/summary/collect.ts';
 import { buildSummaryView } from '../src/cli-app/summary/view.ts';
 import { previewProblems, previewResponse, writeAssets } from '../src/cli-app/summary/previews.ts';
-import { buildPreviewsOn, readSettings, writeSettings } from '../src/cli-app/summary/settings.ts';
+import {
+  buildPreviewsOn,
+  checkView,
+  readSettings,
+  viewSettings,
+  writeSettings,
+} from '../src/cli-app/summary/settings.ts';
 import { buildProgressReader } from '../src/cli-app/summary/progress.ts';
 import { DEFAULT_CONFIG } from '../src/cli-app/config.ts';
 
@@ -1800,6 +1806,31 @@ test("Build previews: the reader's switch in .lens/settings.json wins over the c
   }
 });
 
+test('the view settings are kept one change at a time beside the switches, a null forgets one, and a bad one is skipped', () => {
+  const root = mkdtempSync(join(tmpdir(), 'lens-view-'));
+  try {
+    assert.deepEqual(viewSettings(root), {}, 'nothing set: the viewer keeps its defaults');
+    writeSettings(root, { buildPreviews: false });
+    writeSettings(root, { view: { wordDiff: false, foldLevel: { level: 0, base: 1 } } });
+    writeSettings(root, { view: { navWidth: 320 } });
+    assert.deepEqual(readSettings(root), {
+      buildPreviews: false,
+      view: { wordDiff: false, foldLevel: { level: 0, base: 1 }, navWidth: 320 },
+    });
+    writeSettings(root, { view: { foldLevel: null } });
+    assert.deepEqual(viewSettings(root), { wordDiff: false, navWidth: 320 });
+
+    writeFileSync(
+      join(root, '.lens/settings.json'),
+      JSON.stringify({ view: { wordDiff: 'no', navWidth: 5, hideTests: false } }),
+    );
+    assert.deepEqual(viewSettings(root), { hideTests: false }, 'a hand-edited value that does not check is skipped');
+    assert.deepEqual(checkView({ askOpen: 1, foldLevel: { level: 'x' } }).bad, ['askOpen', 'foldLevel']);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('prepare asks for previews of a UI diff and sequences while Build previews is on; the view shows them until their code changes', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'lens-drawings-'));
   const git = (...args: string[]) => execFileSync('git', args, { cwd: dir, encoding: 'utf8' });
@@ -1843,6 +1874,9 @@ test('prepare asks for previews of a UI diff and sequences while Build previews 
     const on = prepareBundle({ ...prep, drawings: true });
     assert.match(on.instructions, /^## Previews\nThis diff changes UI \(`src\/Orders.tsx#OrdersPage`\)/m);
     assert.match(on.instructions, /^## Sequences$/m);
+    assert.match(on.instructions, /fluid from\s+800px to 1600px wide/, 'drawn for the width the overview shows it at');
+    assert.match(on.instructions, /^## Per unit\nKeep it terse/m, 'terse is about the unit fields');
+    assert.doesNotMatch(on.instructions, /Keep everything terse/);
     assert.match(on.instructions, /A preview is a screen, never a component/);
     assert.ok(existsSync(join(on.dir, 'previews')), "a folder for the agent's files");
 

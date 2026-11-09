@@ -375,6 +375,7 @@ ${
     : ''
 }
 ## Per unit
+Keep it terse: the viewer shows these in a small table next to the code.
 - \`headline\` (≤${LIMITS.headline} chars): what the unit does now, in plain words.
 - \`gist\` (≤${LIMITS.gist} chars): the key change, e.g. "returns max 50 by default".
 - \`changes\`: behavior differences as rows {when, before, now, line}, each ≤${LIMITS.cell} chars:
@@ -424,9 +425,7 @@ ${FLOWS_RULE}
 ## Overview
 ${OVERVIEW_RULE}
 ${drawingRules(input, dir)}${checkRules(input)}`
-}
-Keep everything terse: the viewer shows it in a small table next to the code.
-`;
+}`;
 }
 
 const FLOWS_RULE = `Flows are how the reviewer reads the diff: they open a flow and walk its units in order.
@@ -546,7 +545,8 @@ change looks like without running the app.
   (or "changed", "removed"). The viewer outlines them.
 - One self-contained HTML file per state, in \`${folder}/\`: inline \`<style>\` only, ≤${PREVIEW_KB} KB.
   No scripts, \`<link>\`, forms or event handlers, and nothing from outside: system fonts, and an
-  image is a grey box or a data: URL. Lay it out fluid for a frame about 800px wide.
+  image is a grey box or a data: URL. Lay it out as the app's desktop layout, fluid from
+  800px to 1600px wide: the reviewer sees it at their window's width.
 - \`before\`: a second file for the screen before the change, only when something visible was
   removed or moved; mark what goes with data-lens-change="removed". A new screen has none.
 - {title (≤${LIMITS.previewTitle}), units: ["<unit id>", …], now: "${PREVIEWS_DIR}/<name>.html", before: "${PREVIEWS_DIR}/<name>.before.html"}.

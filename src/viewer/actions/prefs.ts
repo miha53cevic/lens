@@ -1,8 +1,8 @@
-// What the reader sets: the sidebar, the view settings (the header's ⋯ menu), the code's size and the UI's,
-// which the browser remembers, and the viewed marks, which the server keeps for the review.
+// What the reader sets: the sidebar and the view settings (the header's ⋯ menu), which the server keeps for
+// the repository, the code's size and the UI's, in cookies, and the viewed marks, which the server keeps for the review.
 
-import { commit, getState, THRESHOLD_PREF, toggled, update } from '../store.ts';
-import { fileViewKey, INITIAL_DATA, type ViewFile, writePref } from '../shared.ts';
+import { commit, getState, toggled, update } from '../store.ts';
+import { fileViewKey, INITIAL_DATA, type ViewFile } from '../shared.ts';
 import { CODE_SIZE_COOKIE, CODE_SIZE_DEFAULT, steppedSize } from '../codeSize.ts';
 import { steppedZoom, UI_ZOOM_COOKIE, UI_ZOOM_DEFAULT } from '../../cli-app/zoom.ts';
 import { type Unit, unitViewKey } from '../model/signals.ts';
@@ -11,6 +11,7 @@ import { toggledMark } from '../model/viewed.ts';
 import { currentUnit } from '../model/summaryList.ts';
 import { visibleActive } from './tabs.ts';
 import { saveMark } from './marks.ts';
+import { saveView } from './viewSettings.ts';
 import { inboxMark } from './inbox.ts';
 import { growClosed, growOpen, pop, slideIn, slideOut, stay } from '../../ui/motion.ts';
 
@@ -21,19 +22,19 @@ export function toggleNav(): void {
   const nav = document.getElementById('nav');
   // pressed again while it slides out: it stays
   if (stay(nav)) return;
-  const flip = () =>
-    commit((state) => {
-      writePref('lens.navCollapsed', !state.navCollapsed ? '1' : '0');
-      return { navCollapsed: !state.navCollapsed };
-    });
+  const flip = () => {
+    const navCollapsed = !getState().navCollapsed;
+    commit({ navCollapsed });
+    void saveView({ navCollapsed });
+  };
   if (!getState().navCollapsed) return slideOut(nav, 'left', flip);
   flip();
   slideIn(nav, 'left');
 }
 
 export function setNavWidth(width: number): void {
-  writePref('lens.navWidth', width);
   update({ navWidth: width });
+  void saveView({ navWidth: width });
 }
 
 export function toggleDir(path: string): void {
@@ -50,21 +51,21 @@ export function toggleDir(path: string): void {
 // The view settings: hunks only, full units, removed lines, word diff, side by side, hide tests, the fold level.
 
 export function setHunksOnly(on: boolean): void {
-  writePref('lens.hunksOnly', on ? '1' : '0');
   update({ hunksOnly: on, expandedGaps: new Set() }); // toggling starts fresh — no stale expansions
+  void saveView({ hunksOnly: on });
 }
 
 export function setFullUnits(on: boolean): void {
-  writePref('lens.fullUnits', on ? '1' : '0');
   update({ fullUnits: on });
+  void saveView({ fullUnits: on });
 }
 
 export function setHideTests(on: boolean): void {
-  writePref('lens.hideTests', on ? '1' : '0');
   update((state) => ({
     hideTests: on,
     ...(state.view === 'code' ? visibleActive({ ...state, hideTests: on }) : {}),
   }));
+  void saveView({ hideTests: on });
 }
 
 export function setShowRemoved(on: boolean): void {
@@ -72,13 +73,13 @@ export function setShowRemoved(on: boolean): void {
 }
 
 export function setWordDiff(on: boolean): void {
-  writePref('lens.wordDiff', on ? '1' : '0');
   update({ wordDiff: on });
+  void saveView({ wordDiff: on });
 }
 
 export function setSideBySide(on: boolean): void {
-  writePref('lens.sideBySide', on ? '1' : '0');
   update({ sideBySide: on });
+  void saveView({ sideBySide: on });
 }
 
 /**
@@ -87,8 +88,8 @@ export function setSideBySide(on: boolean): void {
  */
 export function setThreshold(threshold: number): void {
   const base = INITIAL_DATA.config.foldLevel;
-  writePref(THRESHOLD_PREF, threshold === base ? '' : JSON.stringify({ level: threshold, base }));
   update({ threshold });
+  void saveView({ foldLevel: threshold === base ? null : { level: threshold, base } });
 }
 
 // The code's size, in both views. Kept in a cookie, so every repository's viewer opens at it.

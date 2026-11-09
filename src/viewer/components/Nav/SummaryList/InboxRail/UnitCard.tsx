@@ -1,7 +1,14 @@
 import clsx from 'clsx';
 import { PanelsTopLeft } from 'lucide-react';
 import { type SignalId, useLens } from '../../../../store.ts';
-import { signalTip, type Unit, unitLabel, unitSignals, unitViewKey } from '../../../../model/signals.ts';
+import {
+  confirmedSignals,
+  signalTip,
+  type Unit,
+  unitLabel,
+  unitSignals,
+  unitViewKey,
+} from '../../../../model/signals.ts';
 import { changedSinceViewed } from '../../../../model/viewed.ts';
 import { drawnUnits } from '../../../../model/drawings.ts';
 import { fileByPath, unitNotes } from '../../../../model/notes.ts';
@@ -22,7 +29,7 @@ function keepInSight(card: HTMLElement | null) {
  * and the reader's own notes on it, by their kind) and of its preview.
  */
 export function UnitCard({ unit, active }: { unit: Unit; active: boolean }) {
-  const { marks, read, changed, drawn, notes, signalKey } = useLens((state) => {
+  const { marks, read, changed, drawn, notes, signalKey, confirmedKey } = useLens((state) => {
     const notes = unitNotes(state.notes, fileByPath(state.data, unit.displayFile), unit);
     return {
       marks: state.concernMarks,
@@ -32,9 +39,11 @@ export function UnitCard({ unit, active }: { unit: Unit; active: boolean }) {
       notes,
       // as text: the signals are a new array each time
       signalKey: unitSignals(state.concernMarks, unit, new Set(notes.map((note) => note.kind))).join(' '),
+      confirmedKey: confirmedSignals(state.concernMarks, unit).join(' '),
     };
   });
   const signals = (signalKey ? signalKey.split(' ') : []) as SignalId[];
+  const confirmed = new Set(confirmedKey.split(' '));
   const summary = unit.summary;
   return (
     <div
@@ -63,8 +72,9 @@ export function UnitCard({ unit, active }: { unit: Unit; active: boolean }) {
         variant='ghost'
         size='xs'
         data-part='inbox-read-btn'
-        // text only: the way a caption reads, its text alone answers the pointer
-        className='h-auto self-baseline border-0 p-0 text-xs leading-[1.35] font-medium text-faint group-hover/card:text-muted group-data-selected/card:text-muted not-disabled:hover:bg-transparent not-disabled:hover:font-semibold not-disabled:hover:text-text'
+        // text only: the way a caption reads, its text alone answers the pointer. Held to the card's
+        // edge: the icons under it can make the column wider than the word
+        className='h-auto self-baseline justify-self-end border-0 p-0 text-xs leading-[1.35] font-medium text-faint group-hover/card:text-muted group-data-selected/card:text-muted not-disabled:hover:bg-transparent not-disabled:hover:font-semibold not-disabled:hover:text-text'
         aria-pressed={read}
         onClick={(event) => {
           event.stopPropagation();
@@ -90,7 +100,7 @@ export function UnitCard({ unit, active }: { unit: Unit; active: boolean }) {
             className={clsx('inline-flex text-(--sig)', 'sig-' + signal)}
             title={signalTip(marks, unit, signal, notes)}
           >
-            <SignalIcon signal={signal} size={12} />
+            <SignalIcon signal={signal} size={12} confirmed={confirmed.has(signal)} />
           </span>
         ))}
         {drawn && (

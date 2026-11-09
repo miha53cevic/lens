@@ -31,7 +31,7 @@ export function Concerns({ unit }: { unit: Unit }) {
                   data-part='kind'
                   className='inline-flex items-center gap-2 text-(--k) group-data-[mark=dismissed]/concern:text-muted eyebrow'
                 >
-                  <SignalIcon signal={concern.kind} /> {concernLabel(concern, mark)}
+                  <SignalIcon signal={concern.kind} confirmed={mark === 'real'} /> {concernLabel(concern, mark)}
                 </span>
                 <Cite label={concern.line} />
               </div>
