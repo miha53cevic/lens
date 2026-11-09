@@ -567,6 +567,9 @@ pageTest('a concern marked real can be copied for the agent from the overview; n
   assert.equal($$('[data-part="ov-real"]').length, 0, 'nothing is confirmed yet');
   await key('j');
   await click($('[data-part="concern"] [data-part="vbtn"][data-mark="real"]'));
+  // the confirmed kind gets its dot: on the concern, and on the card's icon in the list
+  assert.ok($('[data-part="concern"] [data-part="sig-icon"][data-confirmed]'));
+  assert.equal($$('[data-part="inbox-card"][data-selected] [data-part="sig-icon"][data-confirmed]').length, 1);
   await key('g');
   assert.equal($('[data-part="ov-real-count"]').textContent, '1 confirmed concern in 1 change');
   // listed, each a row that opens its change
@@ -593,6 +596,7 @@ pageTest('a concern marked real can be copied for the agent from the overview; n
   // taking the verdict back takes the block away
   await key('j');
   await click($('[data-part="concern"] [data-part="vbtn"][data-mark="real"]'));
+  assert.equal($$('[data-part="sig-icon"][data-confirmed]').length, 0, 'the dot goes with the verdict');
   await key('g');
   assert.equal($$('[data-part="ov-real"]').length, 0);
 });

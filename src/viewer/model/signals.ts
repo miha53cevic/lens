@@ -96,6 +96,15 @@ export function unitSignals(marks: Marks, unit: Unit, also: ReadonlySet<SignalId
   return SIGNAL_ORDER.filter((kind) => kinds.has(kind) || also.has(kind));
 }
 
+/** The kinds whose open findings the reader marked real, every one: a card's dot. Notes don't count. */
+export function confirmedSignals(marks: Marks, unit: Unit): SignalId[] {
+  const open = openFindings(marks, unit);
+  return SIGNAL_ORDER.filter((kind) => {
+    const ofKind = open.filter((finding) => finding.kind === kind);
+    return ofKind.length > 0 && ofKind.every((finding) => findingMark(marks, finding) === 'real');
+  });
+}
+
 export function isFlagged(marks: Marks, unit: Unit): boolean {
   return unitSignals(marks, unit).length > 0;
 }
@@ -113,7 +122,15 @@ export function signalTip(
   notes: readonly { kind: string; text: string }[] = [],
 ): string {
   const finding = openFindings(marks, unit).find((candidate) => candidate.kind === signal);
-  if (finding) return SIGNALS[signal].one + ': ' + finding.text;
+  if (finding) {
+    const real = findingMark(marks, finding) === 'real';
+    const label = !real
+      ? SIGNALS[signal].one
+      : isConcern(finding)
+        ? concernLabel(finding.concern, 'real')
+        : 'confirmed break';
+    return label + ': ' + finding.text;
+  }
   return 'your ' + signal + ': ' + (notes.find((note) => note.kind === signal)?.text ?? '');
 }
 

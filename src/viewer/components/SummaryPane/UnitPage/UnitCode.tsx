@@ -64,7 +64,7 @@ export function UnitCode({ unit, hoveredCite }: { unit: Unit; hoveredCite: strin
       >
         <div className='mb-1 flex flex-wrap items-center gap-x-2 gap-y-1'>
           <b className='eyebrow sm inline-flex items-center gap-1 text-(--k,var(--line-strong))'>
-            <SignalIcon signal={concern.kind} /> {concernLabel(concern, mark)}
+            <SignalIcon signal={concern.kind} confirmed={mark === 'real'} /> {concernLabel(concern, mark)}
           </b>
           <span className='ml-auto inline-flex flex-wrap items-center gap-1'>
             <Verdict finding={finding} mark={mark} size='xs' />
