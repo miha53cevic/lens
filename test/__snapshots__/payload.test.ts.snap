@@ -164,5 +164,6 @@ payload.themes[].fg: string
 payload.themes[].name: string
 payload.themes[]: object
 payload.timings: boolean
+payload.view: object
 payload: object"
 `;

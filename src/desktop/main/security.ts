@@ -12,7 +12,7 @@ import { themeAttributes } from '../shared/page.ts';
 /** The app's own pages are served from its files under this scheme, never from the network. */
 const APP_SCHEME = 'lens-app';
 export const APP_ORIGIN = APP_SCHEME + '://app';
-/** Reviews keep their cookies and localStorage in a profile of their own, apart from the app's pages. */
+/** Reviews keep their cookies in a profile of their own, apart from the app's pages. */
 const VIEWER_PARTITION = 'persist:lens-viewer';
 
 /** Only the app's own files run or style its pages: no inline or remote script, no requests anywhere. */

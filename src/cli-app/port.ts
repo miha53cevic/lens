@@ -4,8 +4,9 @@ import { runningServer } from './ask/discovery.ts';
 import { toPosix } from './paths.ts';
 
 // The viewer's port when --port isn't given: each repository has its own, the same on every run.
-// Two reviews then run side by side, and a repository's page keeps what the browser files under
-// its port (the view settings, in localStorage; the marks and notes are on disk, per review).
+// Two reviews then run side by side, and a repository's page is at the same address every time.
+// What the reader sets is on disk, not filed under the port: the view settings (.lens/settings.json),
+// the marks and the notes.
 
 /** The ports repositories are spread over: 5400 to 6399. */
 const FIRST_PORT = 5400;

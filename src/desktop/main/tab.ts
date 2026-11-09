@@ -333,7 +333,7 @@ export class Tab {
     }
   }
 
-  /** The repository's own port, so its viewer keeps its localStorage; another when that one is taken. */
+  /** The repository's own port, so its viewer is at the same address every run; another when that one is taken. */
   private async start(root: string, args: string[]): Promise<ReviewSession> {
     const kept = this.store.port(root);
     let port = kept ?? (await freePort());

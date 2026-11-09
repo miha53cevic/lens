@@ -1,8 +1,8 @@
 // What the server and the viewer share about the code theme. Pure: the viewer bundles this file too.
 
 /**
- * The cookie that holds the theme the reader picked. A cookie rather than localStorage,
- * because the server reads it: the page then arrives in that theme instead of switching to it.
+ * The cookie that holds the theme the reader picked. A cookie, because the server reads it: the
+ * page then arrives in that theme instead of switching to it.
  */
 export const THEME_COOKIE = 'lens-theme';
 

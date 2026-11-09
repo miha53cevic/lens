@@ -21,10 +21,11 @@ import type {
   StampResponse,
   TimingsRequest,
   TokensResponse,
+  ViewSettings,
 } from '../../api/contract.ts';
 import { createRouter, HttpError, noBody, type RouteContext } from '../../api/router.ts';
 import { previewResponse } from '../../summary/previews.ts';
-import { writeSettings } from '../../summary/settings.ts';
+import { checkView, viewSettings, writeSettings } from '../../summary/settings.ts';
 import { buildProgressReader, type BuildProgress } from '../../summary/progress.ts';
 import { clearKinds, describeKinds, type ClearContext, type ClearPlan } from '../../clear.ts';
 import { escapeHtml } from '../../text.ts';
@@ -122,6 +123,8 @@ export type ViewerPayload = Omit<ViewerInput, 'root' | 'cwd' | 'files' | 'latest
   notes: ReaderNote[];
   /** The reader's viewed marks and verdicts in this review (.lens/marks/<review>.json) */
   marks: ReviewMarks;
+  /** How the reader left the viewer in this repository (.lens/settings.json) */
+  view: ViewSettings;
 };
 
 export interface ThemeTokens {
@@ -241,7 +244,14 @@ export function viewerPayload(
   input: ViewerInput,
   t: ThemeTokens,
   themes: ThemeSwatch[],
-  opts: { themePinned: boolean; canRefresh: boolean; analysis: string; notes?: ReaderNote[]; marks?: ReviewMarks },
+  opts: {
+    themePinned: boolean;
+    canRefresh: boolean;
+    analysis: string;
+    notes?: ReaderNote[];
+    marks?: ReviewMarks;
+    view?: ViewSettings;
+  },
 ): ViewerPayload {
   const { root: _root, cwd: _cwd, latestSummary: _latest, latestChange: _change, ...data } = input;
   return {
@@ -255,6 +265,7 @@ export function viewerPayload(
     ...opts,
     notes: opts.notes ?? [],
     marks: opts.marks ?? { files: [], units: [], concerns: {} },
+    view: opts.view ?? {},
   };
 }
 
@@ -367,6 +378,7 @@ export async function serveViewer(
         input.files.map((file) => file.file),
       ),
       marks: marksFor(input),
+      view: viewSettings(input.root),
     });
   }
 
@@ -495,6 +507,12 @@ export async function serveViewer(
       if (settings.timings !== undefined) setTimings(current.root, settings.timings);
       return settings;
     })
+    .json('POST /api/view', parseView, (view) => {
+      writeSettings(current.root, { view });
+      // the page held for a reload carries the view as it was
+      savedVersion++;
+      return { ok: true };
+    })
     .json('POST /api/timings', parseTimings, ({ timings }) => {
       for (const timing of timings) record('viewer', timing.name, timing.ms, timing.detail);
       return { ok: true };
@@ -595,6 +613,13 @@ function parseSettings(raw: unknown): SettingsRequest | { error: string } {
   if (Object.keys(given).length === 0) return { error: 'name buildPreviews, selfChecks, planTab or timings' };
   if (Object.values(given).some((on) => typeof on !== 'boolean')) return { error: 'a switch must be true or false' };
   return given as SettingsRequest;
+}
+
+function parseView(raw: unknown): ViewSettings | { error: string } {
+  const { view, bad } = checkView(raw);
+  if (bad.length > 0) return { error: 'not a view setting it can be: ' + bad.join(', ') };
+  if (Object.keys(view).length === 0) return { error: 'name a view setting' };
+  return view;
 }
 
 const TIMINGS_MAX = 100;

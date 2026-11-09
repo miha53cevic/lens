@@ -11,6 +11,7 @@ import {
   findOrdersId,
   withMarks,
   postedMarks,
+  postedView,
   open,
   close,
   settle,
@@ -649,7 +650,7 @@ test("a confirmed concern on code that changed since is counted, not copied: its
   }
 });
 
-pageTest('full units: the rest of the file sits above and below the unit, each behind a bar', async () => {
+pageTest('full units: the rest of the file sits above and below the unit, each behind a bar', async (page) => {
   await key('v');
   await key('j');
   const code = '[data-part="unit-code"] .code';
@@ -659,7 +660,7 @@ pageTest('full units: the rest of the file sits above and below the unit, each b
   assert.equal($$(code + ' .context').length, 0, 'off by default: only the unit');
   await click($('#full-units'));
   assert.equal($('#full-units').getAttribute('aria-checked'), 'true');
-  assert.equal(localStorage.getItem('lens.fullUnits'), '1');
+  assert.deepEqual(postedView(page).at(-1), { fullUnits: true });
   // both closed: the unit's rows are as they were, between the two bars
   assert.deepEqual(rows(code), unitRows);
   assert.equal(bar('above').textContent!.trim(), '4 lines', 'nothing declared above it, nothing changed');
@@ -706,7 +707,7 @@ test('full units: a unit that owns part of a removed block shows that part once,
       : unit,
   );
   try {
-    await open({ 'lens.fullUnits': '1' }, '', '', { ...payload, summary: { ...payload.summary!, units } });
+    await open({ fullUnits: true }, '', '', { ...payload, summary: { ...payload.summary!, units } });
     await key('v');
     await key('j');
     const code = '[data-part="unit-code"] .code';
@@ -820,7 +821,7 @@ pageTest(
     assert.equal(open(), names[1], 'the mark opened it: the pill takes no second step');
     assert.equal($('#nav [data-part="progress-count"]').textContent, '1 of 3');
   },
-  { 'lens.hideTests': '0' },
+  { hideTests: false },
   '#summary',
 );
 

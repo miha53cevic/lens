@@ -10,7 +10,7 @@ import { GlobalRegistrator } from '@happy-dom/global-registrator';
 import { fireEvent } from '@testing-library/dom';
 import { bundleViewer } from '../../src/cli-app/render/web/bundle.ts';
 import { highlightFiles, viewerPayload, type ViewerPayload } from '../../src/cli-app/render/web/server.ts';
-import type { ClearInfoResponse, ClearResponse, PlansResponse } from '../../src/cli-app/api/contract.ts';
+import type { ClearInfoResponse, ClearResponse, PlansResponse, ViewSettings } from '../../src/cli-app/api/contract.ts';
 import { themeSwatch } from '../../src/cli-app/render/highlight.ts';
 import type { AskState } from '../../src/cli-app/ask/session.ts';
 import type { ReaderNote } from '../../src/cli-app/notes/store.ts';
@@ -62,6 +62,11 @@ export function withMarks(marks: Partial<ViewerPayload['marks']>): ViewerPayload
   return { ...payload, marks: { files: [], units: [], concerns: {}, ...marks } };
 }
 
+/** The view settings the page posted, in order */
+export function postedView(page: Page): unknown[] {
+  return page.requests.filter((request) => request.path === '/api/view').map((request) => request.body);
+}
+
 export const findOrdersId = () => payload.summary!.units.find((unit) => unit.name === 'findOrders')!.id;
 
 /** The mark changes the page posted, in order */
@@ -69,8 +74,8 @@ export function postedMarks(page: Page): unknown[] {
   return page.requests.filter((request) => request.path === '/api/marks').map((request) => request.body);
 }
 
-/** Opens the viewer on the payload (or `data`), with these localStorage entries (and this cookie) already there. */
-export async function open(prefs: Record<string, string> = {}, hash = '', cookie = '', data = payload): Promise<Page> {
+/** Opens the viewer on the payload (or `data`), with these view settings kept by the server (and this cookie). */
+export async function open(view: ViewSettings = {}, hash = '', cookie = '', data = payload): Promise<Page> {
   // a preview's frame isn't loaded, and says nothing about it: there is no server, and what it shows is the agent's, not the page's
   GlobalRegistrator.register({
     url: 'http://127.0.0.1:5326/' + hash,
@@ -116,6 +121,7 @@ export async function open(prefs: Record<string, string> = {}, hash = '', cookie
     }
     switch (method + ' ' + url.pathname) {
       case 'POST /api/marks':
+      case 'POST /api/view':
         return reply({ ok: true });
       case 'GET /api/ask':
         return reply(page.ask);
@@ -177,10 +183,9 @@ export async function open(prefs: Record<string, string> = {}, hash = '', cookie
     }
     return new Response('{}', { status: 404 });
   }) as typeof fetch;
-  for (const [key, value] of Object.entries(prefs)) localStorage.setItem(key, value);
   if (cookie) document.cookie = cookie;
   document.body.innerHTML = '<div id="root"></div><script id="lens-data" type="application/json"></script>';
-  document.getElementById('lens-data')!.textContent = JSON.stringify(data);
+  document.getElementById('lens-data')!.textContent = JSON.stringify({ ...data, view: { ...data.view, ...view } });
   new Function(bundle)();
   await settle();
   return page;
@@ -234,13 +239,13 @@ export function treeFiles(): string[] {
 export function pageTest(
   name: string,
   run: (page: Page) => Promise<void>,
-  prefs?: Record<string, string>,
+  view?: ViewSettings,
   hash?: string,
   /** The payload to open on, made once the analysis is there */
   data?: () => ViewerPayload,
 ) {
   test(name, async () => {
-    const page = await open(prefs, hash, '', data?.());
+    const page = await open(view, hash, '', data?.());
     try {
       await run(page);
     } finally {

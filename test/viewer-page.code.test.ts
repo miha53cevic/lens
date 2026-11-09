@@ -9,6 +9,7 @@ import {
   lightTokens,
   withMarks,
   postedMarks,
+  postedView,
   open,
   close,
   settle,
@@ -93,13 +94,13 @@ pageTest('the fold level pins the regions scored above it', async () => {
 });
 
 pageTest(
-  "the fold level is remembered with the config's it was picked over, and the config's keeps nothing",
-  async () => {
+  "the fold level is kept with the config's it was picked over, and the config's keeps nothing",
+  async (page) => {
     assert.equal(payload.config.foldLevel, 1);
     await click($('#threshold [data-value="0"]'));
-    assert.deepEqual(JSON.parse(localStorage.getItem('lens.threshold')!), { level: 0, base: 1 });
+    assert.deepEqual(postedView(page).at(-1), { foldLevel: { level: 0, base: 1 } });
     await click($('#threshold [data-value="1"]'));
-    assert.equal(localStorage.getItem('lens.threshold'), '');
+    assert.deepEqual(postedView(page).at(-1), { foldLevel: null });
   },
 );
 
@@ -112,7 +113,7 @@ pageTest(
       ['guard', 'logging'],
     );
   },
-  { 'lens.threshold': JSON.stringify({ level: 0, base: 1 }) },
+  { foldLevel: { level: 0, base: 1 } },
 );
 
 pageTest(
@@ -121,7 +122,7 @@ pageTest(
     assert.equal($('#threshold [aria-checked="true"]').dataset.value, '1');
     assert.equal($$('#code .region.pinned').length, 0);
   },
-  { 'lens.threshold': JSON.stringify({ level: 0, base: 2 }) },
+  { foldLevel: { level: 0, base: 2 } },
 );
 
 pageTest('the code size: the stepper sets it, the cookie keeps it, and the default keeps none', async () => {
@@ -220,13 +221,13 @@ pageTest('removed lines show where they were removed; x hides them', async () =>
   assert.deepEqual(rows(), HUNKS);
 });
 
-pageTest('word diff (d, on by default) marks the words a replaced line changed, in both views', async () => {
+pageTest('word diff (d, on by default) marks the words a replaced line changed, in both views', async (page) => {
   const added = () => $$('#code .row[data-line="10"] .w-add').map((word) => word.textContent);
   assert.equal($('#word-diff').getAttribute('aria-checked'), 'true', 'on by default');
   await key('d');
   assert.deepEqual(added(), [], 'd turns it off');
   assert.equal($('#word-diff').getAttribute('aria-checked'), 'false', 'the ⋯ menu switch follows the key');
-  assert.equal(localStorage.getItem('lens.wordDiff'), '0', 'remembered');
+  assert.deepEqual(postedView(page).at(-1), { wordDiff: false }, 'kept by the server');
   await key('d');
   // the inserted log line (9) doesn't shift the pair: the old query pairs with the new one
   assert.deepEqual(added(), ['and deleted = 0']);
@@ -245,77 +246,80 @@ pageTest('word diff (d, on by default) marks the words a replaced line changed, 
 
 /** Side by side's rows: "10|11" old|new numbers, "−9|·" a removed line beside nothing, "R6" a fold, "⋯" a gap */
 
-pageTest('side by side (l, off by default) puts each removed line beside what replaced it, in both views', async () => {
-  assert.equal($$('#code .srow').length, 0, 'off by default');
-  await key('l');
-  assert.equal($('#side-by-side').getAttribute('aria-checked'), 'true', 'the ⋯ menu switch follows the key');
-  assert.equal(localStorage.getItem('lens.sideBySide'), '1', 'remembered');
-  // unchanged lines on both sides, numbered on each; the old query sits apart from the new one, past the log fold
-  assert.deepEqual(splitRows(), [
-    '⋯',
-    'R6',
-    '−9|·',
-    'R9',
-    '·|10',
-    '10|11',
-    '11|12',
-    '12|13',
-    '⋯',
-    '14|15',
-    '15|16',
-    '16|17',
-    '−17|·',
-    '−18|·',
-    '−19|·',
-    '−20|·',
-    '21|18',
-    '22|19',
-    '23|20',
-    '⋯',
-  ]);
-  // a fold's pill sits on the new side, over the code it quotes; the old side says what it folds
-  const foldHalves = (row: Element) =>
-    [...row.children].map((half) => (half.classList.contains('none') ? '·' : half.textContent!.trim()));
-  assert.deepEqual($$('#code .region > .srow.pill-row').map(foldHalves), [
-    ['6guard1 guard → throw Error (3 lines)', '63 lines folded'],
-    ['9logginglog.info — "finding orders"', '·'],
-  ]);
-  assert.ok($$('#code .region .pill-row > .left .pill').length === 0, 'no pill on the old side');
-  // hidden lines: each side numbers its own
-  assert.deepEqual(
-    $$('#code .gap-row').map((row) => [...row.children].map((half) => half.textContent!.replace('⋯', '').trim())),
-    [
-      ['5 unchanged lines · 1–5', '5 unchanged lines · 1–5'],
-      ['1 unchanged line · 14', '1 unchanged line · 13'],
-      ['7 unchanged lines · 21–27', '7 unchanged lines · 24–30'],
-    ],
-  );
-  await click($('#code .region > .srow.pill-row > .left'));
-  assert.ok($('#code .region[data-cat="guard"]').classList.contains('open'), 'either half opens the fold');
-  await click($('#code .region > .srow.pill-row > .left'));
-  // a lookup by line finds the new side
-  assert.ok($('#code .row[data-line="11"]').classList.contains('right'));
-  assert.equal($$('[data-part="code-pane"] [data-part="ruler"]').length, 0, 'no overview ruler');
-  const removed = $('#show-removed') as HTMLButtonElement;
-  assert.ok(removed.disabled, 'the removed lines are its left side');
-  assert.equal(removed.getAttribute('aria-checked'), 'true');
-  await key('x');
-  assert.equal($$('#code .half.removed').length, 5, 'x leaves them');
-  await key('x');
-  // word diff, on by default
-  assert.deepEqual(
-    $$('#code .half.right[data-line="10"] .w-add').map((word) => word.textContent),
-    ['and deleted = 0'],
-  );
-  await key('v');
-  await key('j');
-  assert.ok($('[data-part="unit-code"] .code').classList.contains('split'), 'the Summary tab too');
-  assert.ok($$('[data-part="unit-code"] .srow').length > 0);
-  assert.equal($$('[data-card="unit-card"] [data-part="ruler"]').length, 0);
-  await key('l');
-  assert.equal($$('[data-part="unit-code"] .srow').length, 0, 'l works on the Summary tab');
-  assert.equal(localStorage.getItem('lens.sideBySide'), '0');
-});
+pageTest(
+  'side by side (l, off by default) puts each removed line beside what replaced it, in both views',
+  async (page) => {
+    assert.equal($$('#code .srow').length, 0, 'off by default');
+    await key('l');
+    assert.equal($('#side-by-side').getAttribute('aria-checked'), 'true', 'the ⋯ menu switch follows the key');
+    assert.deepEqual(postedView(page).at(-1), { sideBySide: true }, 'kept by the server');
+    // unchanged lines on both sides, numbered on each; the old query sits apart from the new one, past the log fold
+    assert.deepEqual(splitRows(), [
+      '⋯',
+      'R6',
+      '−9|·',
+      'R9',
+      '·|10',
+      '10|11',
+      '11|12',
+      '12|13',
+      '⋯',
+      '14|15',
+      '15|16',
+      '16|17',
+      '−17|·',
+      '−18|·',
+      '−19|·',
+      '−20|·',
+      '21|18',
+      '22|19',
+      '23|20',
+      '⋯',
+    ]);
+    // a fold's pill sits on the new side, over the code it quotes; the old side says what it folds
+    const foldHalves = (row: Element) =>
+      [...row.children].map((half) => (half.classList.contains('none') ? '·' : half.textContent!.trim()));
+    assert.deepEqual($$('#code .region > .srow.pill-row').map(foldHalves), [
+      ['6guard1 guard → throw Error (3 lines)', '63 lines folded'],
+      ['9logginglog.info — "finding orders"', '·'],
+    ]);
+    assert.ok($$('#code .region .pill-row > .left .pill').length === 0, 'no pill on the old side');
+    // hidden lines: each side numbers its own
+    assert.deepEqual(
+      $$('#code .gap-row').map((row) => [...row.children].map((half) => half.textContent!.replace('⋯', '').trim())),
+      [
+        ['5 unchanged lines · 1–5', '5 unchanged lines · 1–5'],
+        ['1 unchanged line · 14', '1 unchanged line · 13'],
+        ['7 unchanged lines · 21–27', '7 unchanged lines · 24–30'],
+      ],
+    );
+    await click($('#code .region > .srow.pill-row > .left'));
+    assert.ok($('#code .region[data-cat="guard"]').classList.contains('open'), 'either half opens the fold');
+    await click($('#code .region > .srow.pill-row > .left'));
+    // a lookup by line finds the new side
+    assert.ok($('#code .row[data-line="11"]').classList.contains('right'));
+    assert.equal($$('[data-part="code-pane"] [data-part="ruler"]').length, 0, 'no overview ruler');
+    const removed = $('#show-removed') as HTMLButtonElement;
+    assert.ok(removed.disabled, 'the removed lines are its left side');
+    assert.equal(removed.getAttribute('aria-checked'), 'true');
+    await key('x');
+    assert.equal($$('#code .half.removed').length, 5, 'x leaves them');
+    await key('x');
+    // word diff, on by default
+    assert.deepEqual(
+      $$('#code .half.right[data-line="10"] .w-add').map((word) => word.textContent),
+      ['and deleted = 0'],
+    );
+    await key('v');
+    await key('j');
+    assert.ok($('[data-part="unit-code"] .code').classList.contains('split'), 'the Summary tab too');
+    assert.ok($$('[data-part="unit-code"] .srow').length > 0);
+    assert.equal($$('[data-card="unit-card"] [data-part="ruler"]').length, 0);
+    await key('l');
+    assert.equal($$('[data-part="unit-code"] .srow').length, 0, 'l works on the Summary tab');
+    assert.deepEqual(postedView(page).at(-1), { sideBySide: false });
+  },
+);
 
 /** Selects from the start of one row to the first character of another, as a drag would. */
 
@@ -425,17 +429,6 @@ test('↻ takes the marks the review has now: another branch is another review',
     // the refresh's payload has no marks: the review checked out now has none
     await click($('#refresh'));
     assert.ok(!$('#tree [data-part="file"]').hasAttribute('data-viewed'));
-  } finally {
-    await close();
-  }
-});
-
-test('marks an older lens kept in the browser are dropped: they were for no review in particular', async () => {
-  await open({ 'lens.viewedFiles': '["src/orders.ts@x"]', 'lens.concernMarks': '{}' });
-  try {
-    assert.ok(!$('#tree [data-part="file"]').hasAttribute('data-viewed'));
-    assert.equal(localStorage.getItem('lens.viewedFiles'), null);
-    assert.equal(localStorage.getItem('lens.concernMarks'), null);
   } finally {
     await close();
   }
