@@ -568,8 +568,8 @@ pageTest('a concern marked real can be copied for the agent from the overview; n
   await key('j');
   await click($('[data-part="concern"] [data-part="vbtn"][data-mark="real"]'));
   // the confirmed kind gets its dot: on the concern, and on the card's icon in the list
-  assert.ok($('[data-part="concern"] [data-part="sig-icon"][data-confirmed]'));
-  assert.equal($$('[data-part="inbox-card"][data-selected] [data-part="sig-icon"][data-confirmed]').length, 1);
+  assert.ok($('[data-part="concern"] [data-part="confirmed-icon"]'));
+  assert.equal($$('[data-part="inbox-card"][data-selected] [data-part="confirmed-icon"]').length, 1);
   await key('g');
   assert.equal($('[data-part="ov-real-count"]').textContent, '1 confirmed concern in 1 change');
   // listed, each a row that opens its change
@@ -596,7 +596,7 @@ pageTest('a concern marked real can be copied for the agent from the overview; n
   // taking the verdict back takes the block away
   await key('j');
   await click($('[data-part="concern"] [data-part="vbtn"][data-mark="real"]'));
-  assert.equal($$('[data-part="sig-icon"][data-confirmed]').length, 0, 'the dot goes with the verdict');
+  assert.equal($$('[data-part="confirmed-icon"]').length, 0, 'the dot goes with the verdict');
   await key('g');
   assert.equal($$('[data-part="ov-real"]').length, 0);
 });
@@ -772,6 +772,21 @@ pageTest(
       $$('[data-part="inbox-read"] [data-part="inbox-read-btn"]').map((button) => button.textContent),
       ['Unread', 'Unread'],
     );
+  },
+  {},
+  '#summary',
+);
+
+pageTest(
+  'a signal filter unfolds the flows and Read areas its matches are folded in',
+  async () => {
+    await key('j');
+    await key('m');
+    await key('m');
+    assert.equal($$('[data-part="inbox-flow"][data-open]').length, 0, 'all read: the flow folded');
+    await click($('#sig-filter [data-value="bug"]'));
+    assert.equal($$('[data-part="inbox-flow"][data-open]').length, 1);
+    assert.deepEqual(cardNames('[data-part="inbox-read"]'), ['findOrders'], 'the read match is in sight');
   },
   {},
   '#summary',

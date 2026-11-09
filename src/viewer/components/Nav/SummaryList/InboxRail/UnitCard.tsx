@@ -72,8 +72,9 @@ export function UnitCard({ unit, active }: { unit: Unit; active: boolean }) {
         variant='ghost'
         size='xs'
         data-part='inbox-read-btn'
-        // text only: the way a caption reads, its text alone answers the pointer
-        className='h-auto self-baseline border-0 p-0 text-xs leading-[1.35] font-medium text-faint group-hover/card:text-muted group-data-selected/card:text-muted not-disabled:hover:bg-transparent not-disabled:hover:font-semibold not-disabled:hover:text-text'
+        // text only: the way a caption reads, its text alone answers the pointer. Held to the card's
+        // edge: the icons under it can make the column wider than the word
+        className='h-auto self-baseline justify-self-end border-0 p-0 text-xs leading-[1.35] font-medium text-faint group-hover/card:text-muted group-data-selected/card:text-muted not-disabled:hover:bg-transparent not-disabled:hover:font-semibold not-disabled:hover:text-text'
         aria-pressed={read}
         onClick={(event) => {
           event.stopPropagation();
