@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.3](https://github.com/miha53cevic/lens/compare/v0.6.2...v0.6.3) (2026-11-09)
+
+
+### Bug Fixes
+
+* Tidying up ([#57](https://github.com/miha53cevic/lens/issues/57)) ([d1f67b9](https://github.com/miha53cevic/lens/commit/d1f67b90f8347c526f8a4c1c8ba5dd5c455aee84))
+
 ## [0.6.2](https://github.com/miha53cevic/lens/compare/v0.6.1...v0.6.2) (2026-11-07)
 
 
