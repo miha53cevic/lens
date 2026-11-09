@@ -1874,6 +1874,9 @@ test('prepare asks for previews of a UI diff and sequences while Build previews 
     const on = prepareBundle({ ...prep, drawings: true });
     assert.match(on.instructions, /^## Previews\nThis diff changes UI \(`src\/Orders.tsx#OrdersPage`\)/m);
     assert.match(on.instructions, /^## Sequences$/m);
+    assert.match(on.instructions, /fluid from\s+800px to 1600px wide/, 'drawn for the width the overview shows it at');
+    assert.match(on.instructions, /^## Per unit\nKeep it terse/m, 'terse is about the unit fields');
+    assert.doesNotMatch(on.instructions, /Keep everything terse/);
     assert.match(on.instructions, /A preview is a screen, never a component/);
     assert.ok(existsSync(join(on.dir, 'previews')), "a folder for the agent's files");
 
