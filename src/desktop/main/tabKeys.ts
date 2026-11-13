@@ -1,6 +1,8 @@
 // ⌘1–⌘9 (Ctrl elsewhere) pick a tab, and the modifier held on its own numbers the tabs in the strip.
 // The keys go to the tab's page, never to the strip, so the window hands this every key bound for
-// any of its views (`before-input-event`), before the page sees it. No Electron here.
+// any of its views (`before-input-event`), before the page sees it. It only listens: a key it kept
+// from the page would make Chromium drop the key-ups after it, ⌘'s release with them, and the
+// numbers would stay up. No Electron here.
 
 /** The parts of Electron's `Input` this reads. */
 export interface KeyInput {
@@ -20,8 +22,6 @@ export interface TabKeysHost {
   hints(on: boolean): void;
   /** The tab at this index (0-based), or the last one (⌘9, as in a browser) */
   select(index: number | 'last'): void;
-  /** The modifier was let go, or the keys went elsewhere: whatever waited on that can stop */
-  released(): void;
 }
 
 /** Runs `run` after `ms`; what it returns cancels it. */
@@ -48,9 +48,9 @@ export class TabKeys {
     this.schedule = schedule;
   }
 
-  /** One key bound for a page. True when it was a tab's key: the page doesn't get it. */
-  input(input: KeyInput): boolean {
-    if (input.type !== 'keyDown' && input.type !== 'keyUp') return false;
+  /** One key bound for a page, which gets it too. */
+  input(input: KeyInput): void {
+    if (input.type !== 'keyDown' && input.type !== 'keyUp') return;
     const modifier = this.mac ? 'Meta' : 'Control';
     if (input.key === modifier) {
       if (input.type === 'keyUp') this.reset();
@@ -61,18 +61,17 @@ export class TabKeys {
           this.host.hints(true);
         }, HINT_DELAY_MS);
       }
-      return false;
+      return;
     }
-    if (input.type === 'keyUp') return false;
+    if (input.type === 'keyUp') return;
     const digit = /^Digit([1-9])$/.exec(input.code);
     if (digit && this.alone(input)) {
       const number = Number(digit[1]);
       this.host.select(number === 9 ? 'last' : number - 1);
-      return true;
+      return;
     }
     // ⌘C, ⌘⇧…: a shortcut of the page's, not a look at the tabs
     this.reset();
-    return false;
   }
 
   /** The numbers go: the modifier was let go, or the window lost the keys and won't hear it let go. */
@@ -83,7 +82,6 @@ export class TabKeys {
       this.shown = false;
       this.host.hints(false);
     }
-    this.host.released();
   }
 
   /** The platform's modifier is held, and nothing else is. */

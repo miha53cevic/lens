@@ -11,7 +11,6 @@ function keys(platform = 'darwin') {
     {
       hints: (on) => told.push(on ? 'hints on' : 'hints off'),
       select: (index) => told.push('select ' + index),
-      released: () => told.push('released'),
     },
     (run, ms) => {
       due = { run, ms };
@@ -44,44 +43,44 @@ const up = (name: string, held: Partial<KeyInput> = {}) => key('keyUp', name, he
 
 test('tab keys: ⌘ held alone numbers the tabs after a moment, and let go hides them', () => {
   const { told, tabKeys, wait } = keys();
-  assert.equal(tabKeys.input(down('Meta')), false, 'the modifier itself goes on to the page');
+  tabKeys.input(down('Meta'));
   assert.deepEqual(told, []);
   tabKeys.input({ ...down('Meta'), isAutoRepeat: true });
   wait();
   assert.deepEqual(told, ['hints on']);
   tabKeys.input(up('Meta'));
-  assert.deepEqual(told, ['hints on', 'hints off', 'released']);
+  assert.deepEqual(told, ['hints on', 'hints off']);
 });
 
 test('tab keys: a quick ⌘C never shows the numbers, and goes on to the page', () => {
   const { told, tabKeys, wait } = keys();
   tabKeys.input(down('Meta'));
-  assert.equal(tabKeys.input(down('c', 'KeyC')), false);
+  tabKeys.input(down('c', 'KeyC'));
   wait();
   tabKeys.input(up('Meta'));
-  assert.deepEqual(told, ['released', 'released'], 'no numbers, only the modifier let go');
+  assert.deepEqual(told, []);
 });
 
 test('tab keys: ⌘1–⌘8 pick that tab, ⌘9 the last, and the numbers stay while ⌘ is held', () => {
   const { told, tabKeys, wait } = keys();
   tabKeys.input(down('Meta'));
   wait();
-  assert.equal(tabKeys.input(down('2', 'Digit2')), true, "a tab's key: the page doesn't get it");
-  assert.equal(tabKeys.input(up('2', MOD)), false);
+  tabKeys.input(down('2', 'Digit2'));
+  tabKeys.input(up('2', MOD));
   tabKeys.input(down('&', 'Digit1'));
   tabKeys.input(down('9', 'Digit9'));
-  assert.deepEqual(told, ['hints on', 'select 1', 'select 0', 'select last']);
-  assert.equal(tabKeys.input(down('0', 'Digit0')), false, '⌘0 is not a tab');
+  tabKeys.input(down('0', 'Digit0'));
+  assert.deepEqual(told, ['hints on', 'select 1', 'select 0', 'select last', 'hints off'], '⌘0 is not a tab');
 });
 
 test('tab keys: with ⇧ or ⌥ too, a digit is the page’s, and the numbers go', () => {
   const { told, tabKeys, wait } = keys();
   tabKeys.input(down('Meta'));
   wait();
-  assert.equal(tabKeys.input(down('Shift', 'ShiftLeft', { ...MOD, shift: true })), false);
-  assert.equal(tabKeys.input(down('!', 'Digit1', { ...MOD, shift: true })), false);
-  assert.equal(tabKeys.input(down('¡', 'Digit1', { ...MOD, alt: true })), false);
-  assert.deepEqual(told, ['hints on', 'hints off', 'released', 'released', 'released']);
+  tabKeys.input(down('Shift', 'ShiftLeft', { ...MOD, shift: true }));
+  tabKeys.input(down('!', 'Digit1', { ...MOD, shift: true }));
+  tabKeys.input(down('¡', 'Digit1', { ...MOD, alt: true }));
+  assert.deepEqual(told, ['hints on', 'hints off']);
 });
 
 test('tab keys: Ctrl off macOS, where ⊞ (meta) is not the modifier', () => {
@@ -89,13 +88,13 @@ test('tab keys: Ctrl off macOS, where ⊞ (meta) is not the modifier', () => {
   const ctrl = { meta: false, control: true };
   tabKeys.input(down('Meta', '', { meta: true }));
   wait();
-  assert.equal(tabKeys.input(down('3', 'Digit3', { meta: true })), false);
+  tabKeys.input(down('3', 'Digit3', { meta: true }));
   tabKeys.input(down('Control', '', ctrl));
   wait();
-  assert.equal(tabKeys.input(down('3', 'Digit3', ctrl)), true);
+  tabKeys.input(down('3', 'Digit3', ctrl));
   // AltGr comes as Ctrl and Alt: not a tab's key
-  assert.equal(tabKeys.input(down('{', 'Digit7', { ...ctrl, alt: true })), false);
-  assert.deepEqual(told, ['released', 'released', 'hints on', 'select 2', 'hints off', 'released']);
+  tabKeys.input(down('{', 'Digit7', { ...ctrl, alt: true }));
+  assert.deepEqual(told, ['hints on', 'select 2', 'hints off']);
 });
 
 test('tab keys: the window losing the keys hides the numbers and drops the wait', () => {
@@ -103,9 +102,9 @@ test('tab keys: the window losing the keys hides the numbers and drops the wait'
   tabKeys.input(down('Meta'));
   tabKeys.reset();
   wait();
-  assert.deepEqual(told, ['released']);
+  assert.deepEqual(told, []);
   tabKeys.input(down('Meta'));
   wait();
   tabKeys.reset();
-  assert.deepEqual(told, ['released', 'hints on', 'hints off', 'released']);
+  assert.deepEqual(told, ['hints on', 'hints off']);
 });

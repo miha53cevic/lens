@@ -79,12 +79,6 @@ export class AppWindow implements TabHost {
   private pageBackground: string | null = null;
   /** The tabs show their numbers (⌘ held alone) */
   private hints = false;
-  /**
-   * The page ⌘ went down in, while it is held after ⌘1–⌘9 picked another tab: it keeps the keys,
-   * under the tab now in front, until ⌘ is let go. Chromium gives a page no key-up for a key it
-   * didn't see go down, so the tab in front would never hear ⌘ let go, and the numbers would stay.
-   */
-  private keyHolder: WebContentsView | null = null;
   private readonly tabKeys = new TabKeys(process.platform, {
     hints: (on) => {
       this.hints = on;
@@ -92,14 +86,7 @@ export class AppWindow implements TabHost {
     },
     select: (index) => {
       const tab = index === 'last' ? this.tabs.all.at(-1) : this.tabs.all[index];
-      if (!tab) return;
-      this.keyHolder ??= this.frontView();
-      this.selectTab(tab.id);
-    },
-    released: () => {
-      if (!this.keyHolder) return;
-      this.keyHolder = null;
-      this.layout();
+      if (tab) this.selectTab(tab.id);
     },
   });
 
@@ -278,15 +265,12 @@ export class AppWindow implements TabHost {
     }
   }
 
-  /** ⌘1–⌘9 pick a tab from whichever page has the keys, before that page sees them. */
+  /** ⌘1–⌘9 pick a tab from whichever page has the keys; the page gets them too (tabKeys.ts says why). */
   private watchKeys(contents: WebContents): void {
-    contents.on('before-input-event', (event, input) => {
-      if (this.tabKeys.input(input)) event.preventDefault();
-    });
+    contents.on('before-input-event', (_event, input) => this.tabKeys.input(input));
   }
 
   private dropView(view: WebContentsView): void {
-    if (view === this.keyHolder) this.keyHolder = null;
     if (this.win.contentView.children.includes(view)) this.win.contentView.removeChildView(view);
     view.webContents.close();
   }
@@ -305,12 +289,8 @@ export class AppWindow implements TabHost {
         tab === this.tabs.active ? (tab.showing === 'review' && views.review ? views.review : views.launcher) : null;
       for (const view of [views.launcher, views.review]) {
         if (!view) continue;
-        // the page holding the keys stays under the one in front, which goes on top
-        view.setVisible(view === front || view === this.keyHolder);
-        if (view === front) {
-          view.setBounds(bounds);
-          if (this.keyHolder) this.win.contentView.addChildView(view);
-        }
+        view.setVisible(view === front);
+        if (view === front) view.setBounds(bounds);
       }
     }
     this.focusFront();
@@ -318,20 +298,15 @@ export class AppWindow implements TabHost {
     if (this.menuAt) this.win.contentView.addChildView(this.menu);
   }
 
-  /** The active tab's page that is showing: its review, or its launcher. */
-  private frontView(): WebContentsView | null {
-    const active = this.tabs.active;
-    const views = active && this.views.get(active.id);
-    if (!active || !views) return null;
-    return active.showing === 'review' && views.review ? views.review : views.launcher;
-  }
-
   /** The keys go to the active tab's page, while the window has the focus. */
   private focusFront(): void {
-    // not from under the open theme menu: its keys are its own; nor while ⌘ is held after a tab key (keyHolder)
-    if (this.menuAt || this.keyHolder || !this.win.isFocused()) return;
-    const front = this.frontView();
-    if (front && !front.webContents.isFocused()) front.webContents.focus();
+    // not from under the open theme menu: its keys are its own
+    if (this.menuAt || !this.win.isFocused()) return;
+    const active = this.tabs.active;
+    const views = active && this.views.get(active.id);
+    if (!active || !views) return;
+    const front = active.showing === 'review' && views.review ? views.review : views.launcher;
+    if (!front.webContents.isFocused()) front.webContents.focus();
   }
 
   /** After anything a tab shows changed: its page, the strip, which view is in front. */
