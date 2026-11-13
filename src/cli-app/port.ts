@@ -5,7 +5,7 @@ import { toPosix } from './paths.ts';
 
 // The viewer's port when --port isn't given: each repository has its own, the same on every run.
 // Two reviews then run side by side, and a repository's page is at the same address every time.
-// What the reader sets is on disk, not filed under the port: the view settings (.lens/settings.json),
+// What the reader sets is on disk, not filed under the port: the view settings (~/.lens/settings.json),
 // the marks and the notes.
 
 /** The ports repositories are spread over: 5400 to 6399. */

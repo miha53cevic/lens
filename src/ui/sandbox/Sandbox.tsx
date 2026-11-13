@@ -31,6 +31,7 @@ import { Select } from '../Select.tsx';
 import { Skeleton } from '../Skeleton.tsx';
 import { Spinner } from '../Spinner.tsx';
 import { Stepper } from '../Stepper.tsx';
+import { Switch } from '../Switch.tsx';
 import { StatusBar } from '../StatusBar.tsx';
 import { Swatch } from '../Swatch.tsx';
 import { Tab, TAB_BUTTON } from '../Tab.tsx';
@@ -83,6 +84,7 @@ export function Sandbox() {
   const [wordDiff, setWordDiff] = useState(true);
   const [query, setQuery] = useState('orders');
   const [disclosed, setDisclosed] = useState(true);
+  const [switched, setSwitched] = useState(true);
 
   return (
     <main className='min-h-0 flex-1 overflow-y-auto px-7 pt-6 pb-8'>
@@ -162,6 +164,12 @@ export function Sandbox() {
           onStep={(delta) => setSize(size + delta)}
         />
         <Stepper label='at its end' value='24px' lessLabel='Smaller' moreLabel='Larger' atMax onStep={() => {}} />
+      </Section>
+
+      <Section id='g-switch' title='Switch'>
+        <Switch label='word diff' checked={switched} onChange={setSwitched} />
+        <Switch label='off' checked={false} onChange={() => {}} />
+        <Switch label='decided by another setting' checked disabled onChange={() => {}} />
       </Section>
 
       <Section id='g-chip' title='Chip'>

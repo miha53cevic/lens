@@ -1,200 +1,29 @@
 import { Keyboard, MoreHorizontal, Power, Settings, Trash2 } from 'lucide-react';
-import { useLens } from '../../store.ts';
-import { treeModel } from '../../model/tree.ts';
 import { collapseAll, expandAll } from '../../actions/folds.ts';
-import {
-  setFullUnits,
-  setHideTests,
-  setHunksOnly,
-  setShowRemoved,
-  setSideBySide,
-  setThreshold,
-  setWordDiff,
-  stepCodeSize,
-  stepUiZoom,
-} from '../../actions/prefs.ts';
-import { CODE_SIZE_DEFAULT, CODE_SIZES } from '../../codeSize.ts';
-import { UI_ZOOM_DEFAULT, UI_ZOOMS } from '../../../cli-app/zoom.ts';
-import { openDialog } from '../../actions/dialogs.ts';
+import { openDialog, openSettings } from '../../actions/dialogs.ts';
 import { endSession } from '../../actions/session.ts';
-import { isDiffMode } from '../../shared.ts';
-import { isSplit } from '../../model/plans.ts';
-import { Menu, MenuItem, MenuSection, MenuSeparator, MenuSwitch } from '../../../ui/Menu.tsx';
-import { Segmented } from '../../../ui/Segmented.tsx';
-import { Stepper } from '../../../ui/Stepper.tsx';
-import { foldLevelHint } from './util.ts';
-import { setBuildPreviews, setPlanTab, setSelfChecks } from '../../actions/previews.ts';
+import { Menu, MenuItem, MenuSeparator } from '../../../ui/Menu.tsx';
 import { openClearData } from '../../actions/clear.ts';
-import { setTimings } from '../../actions/timings.ts';
-
-const LEVELS = [
-  { value: -1, label: 'off', title: 'nothing folds' },
-  { value: 0, label: '0' },
-  { value: 1, label: '1' },
-  { value: 2, label: '2' },
-  { value: 3, label: '3' },
-];
 
 /**
- * ⋯: the code's size, the UI's and the view settings first (they act on the Code tab's file and the
- * Summary tab's change alike), then the summary's own switch, the shortcuts and the settings, then the two that
- * remove something: clear saved data and end session.
+ * ⋯: actions only. The settings (the code's size, folding, what the code shows, the summary's and the
+ * tabs' switches) are in Settings; then the folds' two, then the two that remove something.
  */
 export function MoreMenu() {
-  const more = useLens((state) => ({
-    threshold: state.threshold,
-    levelHint: foldLevelHint(state),
-    diffMode: isDiffMode(state.data),
-    testsPresent: treeModel(state).testsPresent,
-    hunksOnly: state.hunksOnly,
-    showRemoved: state.showRemoved,
-    wordDiff: state.wordDiff,
-    split: isSplit(state),
-    hideTests: state.hideTests,
-    codeSize: state.codeSize,
-    uiZoom: state.uiZoom,
-    hasSummary: state.data.summary !== null,
-    buildPreviews: state.data.buildPreviews,
-    selfChecks: state.data.selfChecks,
-    planTab: state.data.planTab,
-    timings: state.data.timings,
-    fullUnits: state.fullUnits,
-  }));
-
   return (
-    <Menu id='more-btn' label='View settings and more' trigger={<MoreHorizontal size={17} />}>
-      <MenuSection title='Code'>
-        <div className='flex items-center gap-2 px-2 py-1'>
-          <span className='min-w-0 flex-1'>
-            Code size
-            <span className='ml-2 text-faint' id='code-size-hint'>
-              default {CODE_SIZE_DEFAULT}px
-            </span>
-          </span>
-          <Stepper
-            id='code-size'
-            label='code size'
-            value={more.codeSize + 'px'}
-            lessLabel='Smaller'
-            moreLabel='Larger'
-            atMin={more.codeSize === CODE_SIZES[0]}
-            atMax={more.codeSize === CODE_SIZES[CODE_SIZES.length - 1]}
-            onStep={stepCodeSize}
-          />
-        </div>
-        <div className='flex items-center gap-2 px-2 py-1'>
-          <span className='min-w-0 flex-1'>
-            UI size
-            <span className='ml-2 text-faint' id='ui-zoom-hint'>
-              default {UI_ZOOM_DEFAULT}%
-            </span>
-          </span>
-          <Stepper
-            id='ui-zoom'
-            label='UI size'
-            value={more.uiZoom + '%'}
-            lessLabel='Smaller'
-            moreLabel='Larger'
-            atMin={more.uiZoom === UI_ZOOMS[0]}
-            atMax={more.uiZoom === UI_ZOOMS[UI_ZOOMS.length - 1]}
-            onStep={stepUiZoom}
-          />
-        </div>
-      </MenuSection>
-      <MenuSeparator />
-      <MenuSection title='Folding'>
-        <div className='flex items-center gap-2 px-2 py-1'>
-          <span className='min-w-0 flex-1'>Fold level</span>
-          <Segmented
-            id='threshold'
-            label='fold level'
-            options={LEVELS}
-            value={more.threshold}
-            onChange={setThreshold}
-          />
-        </div>
-        <div className='px-2 pb-1 text-xs/[1.45] text-faint' id='threshold-hint'>
-          {more.levelHint}
-        </div>
-        <MenuItem id='expand-all' shortcut='e' onSelect={expandAll}>
-          Expand all
-        </MenuItem>
-        <MenuItem id='collapse-all' shortcut='c' onSelect={collapseAll}>
-          Collapse all
-        </MenuItem>
-      </MenuSection>
-      {(more.diffMode || more.testsPresent) && (
-        <>
-          <MenuSeparator />
-          <MenuSection title='Show'>
-            {more.diffMode && (
-              <MenuSwitch id='hunks-only' shortcut='h' checked={more.hunksOnly} onChange={setHunksOnly}>
-                Hunks only
-              </MenuSwitch>
-            )}
-            {more.diffMode && (
-              <MenuSwitch
-                id='show-removed'
-                shortcut='x'
-                disabled={more.split}
-                checked={more.showRemoved || more.split}
-                onChange={setShowRemoved}
-              >
-                Removed lines
-              </MenuSwitch>
-            )}
-            {more.diffMode && (
-              <MenuSwitch id='word-diff' shortcut='d' checked={more.wordDiff} onChange={setWordDiff}>
-                Word diff
-              </MenuSwitch>
-            )}
-            {more.diffMode && (
-              <MenuSwitch id='side-by-side' shortcut='l' checked={more.split} onChange={setSideBySide}>
-                Side by side
-              </MenuSwitch>
-            )}
-            {more.testsPresent && (
-              <MenuSwitch id='hide-tests' shortcut='t' checked={more.hideTests} onChange={setHideTests}>
-                Hide tests
-              </MenuSwitch>
-            )}
-          </MenuSection>
-        </>
-      )}
-      {more.hasSummary && (
-        <>
-          <MenuSeparator />
-          <MenuSection title='Summary'>
-            <MenuSwitch id='build-previews' checked={more.buildPreviews} onChange={setBuildPreviews}>
-              Build previews
-            </MenuSwitch>
-            <MenuSwitch id='self-checks' checked={more.selfChecks} onChange={setSelfChecks}>
-              Check yourself
-            </MenuSwitch>
-            <MenuSwitch id='full-units' checked={more.fullUnits} onChange={setFullUnits}>
-              Full units
-            </MenuSwitch>
-          </MenuSection>
-        </>
-      )}
-      <MenuSeparator />
-      <MenuSection title='Plan'>
-        <MenuSwitch id='plan-tab' checked={more.planTab} onChange={setPlanTab}>
-          Plan tab
-        </MenuSwitch>
-      </MenuSection>
-      <MenuSeparator />
-      <MenuSection title='Debug'>
-        <MenuSwitch id='timings' checked={more.timings} onChange={setTimings}>
-          Timings
-        </MenuSwitch>
-      </MenuSection>
-      <MenuSeparator />
+    <Menu id='more-btn' label='Settings and more' trigger={<MoreHorizontal size={17} />}>
+      <MenuItem id='settings-btn' icon={<Settings size={14} />} shortcut=',' onSelect={() => openSettings()}>
+        Settings
+      </MenuItem>
       <MenuItem id='keys-btn' icon={<Keyboard size={14} />} shortcut='?' onSelect={() => openDialog('keys-modal')}>
         Keyboard shortcuts
       </MenuItem>
-      <MenuItem id='settings-btn' icon={<Settings size={14} />} onSelect={() => openDialog('settings-modal')}>
-        Settings
+      <MenuSeparator />
+      <MenuItem id='expand-all' shortcut='e' onSelect={expandAll}>
+        Expand all
+      </MenuItem>
+      <MenuItem id='collapse-all' shortcut='c' onSelect={collapseAll}>
+        Collapse all
       </MenuItem>
       <MenuSeparator />
       <MenuItem id='clear-data' danger icon={<Trash2 size={14} />} onSelect={openClearData}>

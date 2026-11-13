@@ -85,10 +85,11 @@ test('stats: count, median, max and the last of each step, in the order they fir
 test('the switch: the reader’s setting wins over the config', () => {
   const root = tempRoot();
   try {
-    assert.equal(timingsOn(root, DEFAULT_CONFIG), true);
-    assert.equal(timingsOn(root, { ...DEFAULT_CONFIG, timings: true }), true);
-    writeSettings(root, { timings: false });
-    assert.equal(timingsOn(root, { ...DEFAULT_CONFIG, timings: true }), false);
+    process.env.LENS_HOME = root;
+    assert.equal(timingsOn(DEFAULT_CONFIG), true);
+    assert.equal(timingsOn({ ...DEFAULT_CONFIG, timings: true }), true);
+    writeSettings({ timings: false });
+    assert.equal(timingsOn({ ...DEFAULT_CONFIG, timings: true }), false);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

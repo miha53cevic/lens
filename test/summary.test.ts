@@ -1781,27 +1781,43 @@ test("writeAssets keeps the previews' files and drops the ones no preview names;
   }
 });
 
-test("Build previews: the reader's switch in .lens/settings.json wins over the config's", () => {
+test("Build previews: the reader's switch in ~/.lens/settings.json wins over the config's, in every repository", () => {
   const root = mkdtempSync(join(tmpdir(), 'lens-settings-'));
+  process.env.LENS_HOME = join(root, 'home');
   try {
     assert.equal(DEFAULT_CONFIG.buildPreviews, true, 'on by default');
-    assert.deepEqual(readSettings(root), {});
-    assert.equal(
-      buildPreviewsOn(root, { ...DEFAULT_CONFIG, buildPreviews: false }),
-      false,
-      "the config's, without a switch",
-    );
-    writeSettings(root, { buildPreviews: false });
-    assert.equal(buildPreviewsOn(root, DEFAULT_CONFIG), false);
-    assert.equal(
-      readFileSync(join(root, '.lens/.gitignore'), 'utf8').trim().split('\n').pop(),
-      '*',
-      "in lens's ignored folder",
-    );
-    writeSettings(root, { buildPreviews: true });
-    assert.equal(buildPreviewsOn(root, { ...DEFAULT_CONFIG, buildPreviews: false }), true);
-    writeFileSync(join(root, '.lens/settings.json'), 'not json');
-    assert.deepEqual(readSettings(root), {}, 'a broken file is no switch');
+    assert.deepEqual(readSettings(), {});
+    assert.equal(buildPreviewsOn({ ...DEFAULT_CONFIG, buildPreviews: false }), false, "the config's, without a switch");
+    writeSettings({ buildPreviews: false });
+    assert.equal(buildPreviewsOn(DEFAULT_CONFIG), false);
+    assert.ok(existsSync(join(root, 'home', 'settings.json')), "in the reader's own folder");
+    writeSettings({ buildPreviews: true });
+    assert.equal(buildPreviewsOn({ ...DEFAULT_CONFIG, buildPreviews: false }), true);
+    writeFileSync(join(root, 'home', 'settings.json'), 'not json');
+    assert.deepEqual(readSettings(), {}, 'a broken file is no switch');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("Settings' reveal: the file made when nothing was set yet, and shown in Finder or Explorer", async () => {
+  const { revealCommand, revealSettings, settingsPath } = await import('../src/cli-app/summary/settings.ts');
+  const root = mkdtempSync(join(tmpdir(), 'lens-reveal-'));
+  process.env.LENS_HOME = join(root, 'home');
+  try {
+    assert.equal(settingsPath(), join(root, 'home', 'settings.json'));
+    revealSettings(); // LENS_NO_REVEAL (the preload's): no file manager opens
+    assert.equal(readFileSync(settingsPath(), 'utf8'), '{}\n', 'made, empty, to have something to show');
+    assert.deepEqual(readSettings(), {});
+    writeSettings({ planTab: false });
+    revealSettings();
+    assert.deepEqual(readSettings(), { planTab: false }, 'one already there is left as it is');
+    assert.deepEqual(revealCommand('/u/.lens/settings.json', 'darwin'), ['open', ['-R', '/u/.lens/settings.json']]);
+    assert.deepEqual(revealCommand('C:\\u\\.lens\\settings.json', 'win32'), [
+      'explorer.exe',
+      ['/select,C:\\u\\.lens\\settings.json'],
+    ]);
+    assert.deepEqual(revealCommand('/u/.lens/settings.json', 'linux'), ['xdg-open', ['/u/.lens']]);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -1809,23 +1825,24 @@ test("Build previews: the reader's switch in .lens/settings.json wins over the c
 
 test('the view settings are kept one change at a time beside the switches, a null forgets one, and a bad one is skipped', () => {
   const root = mkdtempSync(join(tmpdir(), 'lens-view-'));
+  process.env.LENS_HOME = root;
   try {
-    assert.deepEqual(viewSettings(root), {}, 'nothing set: the viewer keeps its defaults');
-    writeSettings(root, { buildPreviews: false });
-    writeSettings(root, { view: { wordDiff: false, foldLevel: { level: 0, base: 1 } } });
-    writeSettings(root, { view: { navWidth: 320 } });
-    assert.deepEqual(readSettings(root), {
+    assert.deepEqual(viewSettings(), {}, 'nothing set: the viewer keeps its defaults');
+    writeSettings({ buildPreviews: false });
+    writeSettings({ view: { wordDiff: false, foldLevel: { level: 0, base: 1 } } });
+    writeSettings({ view: { navWidth: 320 } });
+    assert.deepEqual(readSettings(), {
       buildPreviews: false,
       view: { wordDiff: false, foldLevel: { level: 0, base: 1 }, navWidth: 320 },
     });
-    writeSettings(root, { view: { foldLevel: null } });
-    assert.deepEqual(viewSettings(root), { wordDiff: false, navWidth: 320 });
+    writeSettings({ view: { foldLevel: null } });
+    assert.deepEqual(viewSettings(), { wordDiff: false, navWidth: 320 });
 
     writeFileSync(
-      join(root, '.lens/settings.json'),
+      join(root, 'settings.json'),
       JSON.stringify({ view: { wordDiff: 'no', navWidth: 5, hideTests: false } }),
     );
-    assert.deepEqual(viewSettings(root), { hideTests: false }, 'a hand-edited value that does not check is skipped');
+    assert.deepEqual(viewSettings(), { hideTests: false }, 'a hand-edited value that does not check is skipped');
     assert.deepEqual(checkView({ askOpen: 1, foldLevel: { level: 'x' } }).bad, ['askOpen', 'foldLevel']);
   } finally {
     rmSync(root, { recursive: true, force: true });

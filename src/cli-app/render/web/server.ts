@@ -25,7 +25,7 @@ import type {
 } from '../../api/contract.ts';
 import { createRouter, HttpError, noBody, type RouteContext } from '../../api/router.ts';
 import { previewResponse } from '../../summary/previews.ts';
-import { checkView, viewSettings, writeSettings } from '../../summary/settings.ts';
+import { checkView, revealSettings, settingsPath, viewSettings, writeSettings } from '../../summary/settings.ts';
 import { buildProgressReader, type BuildProgress } from '../../summary/progress.ts';
 import { clearKinds, describeKinds, type ClearContext, type ClearPlan } from '../../clear.ts';
 import { escapeHtml } from '../../text.ts';
@@ -72,7 +72,7 @@ export interface ViewerInput {
   configSource: string | null;
   /** What in .lens.json was skipped, and why: the status bar says so, Settings lists them */
   configProblems: ConfigProblem[];
-  /** Build previews, as summary mode follows it: the reader's switch (.lens/settings.json), else the config's */
+  /** Build previews, as summary mode follows it: the reader's switch (~/.lens/settings.json), else the config's */
   buildPreviews: boolean;
   /** Check yourself, the same way */
   selfChecks: boolean;
@@ -123,8 +123,10 @@ export type ViewerPayload = Omit<ViewerInput, 'root' | 'cwd' | 'files' | 'latest
   notes: ReaderNote[];
   /** The reader's viewed marks and verdicts in this review (.lens/marks/<review>.json) */
   marks: ReviewMarks;
-  /** How the reader left the viewer in this repository (.lens/settings.json) */
+  /** How the reader left the viewer (~/.lens/settings.json, the same in every repository) */
   view: ViewSettings;
+  /** Where that file is, as Settings shows it: the whole path, for this machine */
+  settingsFile: string;
 };
 
 export interface ThemeTokens {
@@ -266,6 +268,7 @@ export function viewerPayload(
     notes: opts.notes ?? [],
     marks: opts.marks ?? { files: [], units: [], concerns: {} },
     view: opts.view ?? {},
+    settingsFile: settingsPath(),
   };
 }
 
@@ -378,7 +381,7 @@ export async function serveViewer(
         input.files.map((file) => file.file),
       ),
       marks: marksFor(input),
-      view: viewSettings(input.root),
+      view: viewSettings(),
     });
   }
 
@@ -502,15 +505,19 @@ export async function serveViewer(
       res.end(preview.body);
     })
     .json('POST /api/settings', parseSettings, (settings) => {
-      writeSettings(current.root, settings);
+      writeSettings(settings);
       current = { ...current, ...settings };
       if (settings.timings !== undefined) setTimings(current.root, settings.timings);
       return settings;
     })
     .json('POST /api/view', parseView, (view) => {
-      writeSettings(current.root, { view });
+      writeSettings({ view });
       // the page held for a reload carries the view as it was
       savedVersion++;
+      return { ok: true };
+    })
+    .json('POST /api/settings/reveal', noBody, () => {
+      revealSettings();
       return { ok: true };
     })
     .json('POST /api/timings', parseTimings, ({ timings }) => {

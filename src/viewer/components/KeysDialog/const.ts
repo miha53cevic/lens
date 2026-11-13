@@ -30,6 +30,7 @@ export const KEY_TABS: { id: KeyTab; label: string; keys: KeyHelp[] }[] = [
       { keys: ['a'], action: 'ask your agent about the open change (and your selection) · close the Ask rail' },
       { keys: ['N'], action: 'jump to your next note, on into the next file or change with one' },
       { keys: ['\\'], action: 'show / hide the Ask rail' },
+      { keys: [','], action: 'settings' },
       { keys: ['?'], action: 'this help' },
       { keys: ['Esc'], action: 'close dialogs · clear the filter · leave the Ask input' },
     ],

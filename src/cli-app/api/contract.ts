@@ -29,10 +29,12 @@ export interface ApiRoutes {
   'GET /api/summary': Endpoint<null, SummaryView | null>;
   /** Everything the page watches for, in one request */
   'GET /api/stamp': Endpoint<null, StampResponse>;
-  /** The reader's switches (.lens/settings.json) */
+  /** The reader's switches (~/.lens/settings.json) */
   'POST /api/settings': Endpoint<SettingsRequest, SettingsRequest>;
-  /** The reader's view settings, the ones that changed (.lens/settings.json) */
+  /** The reader's view settings, the ones that changed (~/.lens/settings.json) */
   'POST /api/view': Endpoint<ViewSettings, Ok>;
+  /** The settings file shown in Finder or Explorer (the server picks the path, never the page) */
+  'POST /api/settings/reveal': Endpoint<null, Ok>;
   /** What the viewer measured, while timings are on (src/cli-app/timings.ts) */
   'POST /api/timings': Endpoint<TimingsRequest, Ok>;
   /** What each kind of saved data holds */
@@ -74,6 +76,7 @@ export const API_ROUTES: { readonly [R in ApiRoute]: true } = {
   'GET /api/stamp': true,
   'POST /api/settings': true,
   'POST /api/view': true,
+  'POST /api/settings/reveal': true,
   'POST /api/timings': true,
   'GET /api/clear': true,
   'POST /api/clear': true,
@@ -119,8 +122,8 @@ export interface SettingsRequest {
 }
 
 /**
- * How the reader left the viewer in this repository: the ⋯ menu's view settings and the panels.
- * Kept by the server (.lens/settings.json), never in the browser. Each is left out until the reader
+ * How the reader left the viewer, in any repository: Settings' view settings and the panels.
+ * Kept by the server (~/.lens/settings.json), never in the browser. Each is left out until the reader
  * sets it, and the viewer's default holds.
  */
 export interface ViewSettings {

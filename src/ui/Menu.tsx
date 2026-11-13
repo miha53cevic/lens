@@ -2,10 +2,10 @@
 // Esc or a click outside, and puts it above everything, as <dialog> does for the dialogs.
 
 import { useId, useRef, type ReactNode, type Ref } from 'react';
-import clsx from 'clsx';
 import { cn } from './cn.ts';
 import { IconButton } from './IconButton.tsx';
 import { Kbd } from './Kbd.tsx';
+import { SwitchTrack } from './Switch.tsx';
 import { cssPx } from './zoom.ts';
 
 // it grows from its button's corner, and goes quicker than it came
@@ -181,14 +181,7 @@ export function MenuSwitch({ id, shortcut, title, disabled, checked, onChange, c
     >
       <span className='min-w-0 flex-1'>{children}</span>
       {shortcut && <Kbd combo={shortcut} />}
-      {/* on / off */}
-      <span
-        className={clsx(
-          "relative h-[15px] w-[26px] flex-none rounded-full motion-bg after:absolute after:top-[2px] after:size-[11px] after:rounded-full after:bg-surface after:[transition:left_var(--motion)] after:content-['']",
-          checked ? 'bg-accent after:left-[13px]' : 'bg-line-strong after:left-[2px]',
-        )}
-        aria-hidden
-      />
+      <SwitchTrack checked={checked} />
     </button>
   );
 }

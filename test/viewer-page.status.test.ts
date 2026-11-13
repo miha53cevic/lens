@@ -300,6 +300,8 @@ test('problems in .lens.json show as a notice, and a click opens Settings on the
       $$('#settings-modal [data-part="config-problem"]').map((problem) => problem.textContent),
       ['folds.loging', 'foldLevel'],
     );
+    assert.equal($('#settings-tab-config').getAttribute('aria-selected'), 'true', 'on the Config page');
+    assert.equal($('[data-part="settings-page"][data-page="config"]').hidden, false);
   } finally {
     await close();
   }

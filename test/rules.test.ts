@@ -55,7 +55,7 @@ test('the pages reach the server through actions/status.ts, never with a bare fe
 // "The browser keeps nothing: what the reader sets is the server's (.lens/), or a cookie the server reads."
 test('the pages keep nothing in localStorage or sessionStorage', () => {
   const stored = lines(PAGES, /\b(localStorage|sessionStorage|indexedDB)\b/);
-  assert.deepEqual(stored, [], 'keep it on the server (.lens/settings.json, POST /api/view) or in a cookie');
+  assert.deepEqual(stored, [], 'keep it on the server (~/.lens/settings.json, POST /api/view) or in a cookie');
 });
 
 // "Avoid useEffect and useLayoutEffect ... when none of those fit, use an effect and say why in a comment."

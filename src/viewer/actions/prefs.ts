@@ -1,4 +1,4 @@
-// What the reader sets: the sidebar and the view settings (the header's ⋯ menu), which the server keeps for
+// What the reader sets: the sidebar and the view settings (the Settings dialog), which the server keeps for
 // the repository, the code's size and the UI's, in cookies, and the viewed marks, which the server keeps for the review.
 
 import { commit, getState, update } from '../store.ts';

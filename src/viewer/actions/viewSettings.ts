@@ -1,9 +1,19 @@
-// How the reader leaves the viewer (the ⋯ menu's view settings, the panels) is kept by the server for
-// the repository (.lens/settings.json), as the marks are for a review: the state changes first, then
+// How the reader leaves the viewer (Settings' view settings, the panels) is kept by the server, the
+// same in every repository (~/.lens/settings.json), as the marks are for a review: the state changes first, then
 // the one change is posted, and a failure says so in the status bar. The browser keeps none of it.
 
 import type { ViewSettings } from '../../cli-app/api/contract.ts';
 import { api, tracked } from './status.ts';
+
+/** Settings' footer: the server shows the settings file in Finder or Explorer. */
+export function revealSettingsFile(): Promise<boolean> {
+  return tracked(
+    { id: 'reveal-settings', label: 'Showing the settings file…', failed: "Couldn't show the settings file" },
+    async () => {
+      await api('POST /api/settings/reveal');
+    },
+  );
+}
 
 export function saveView(change: ViewSettings): Promise<boolean> {
   return tracked({ id: 'view', label: 'Saving the view…', failed: "Couldn't save the view setting" }, async () => {

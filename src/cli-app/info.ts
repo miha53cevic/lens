@@ -159,7 +159,7 @@ async function repoInfo(cwd: string, wantedBase: string | undefined): Promise<Re
     changed: countPaths(changed) + countPaths(untrackedList),
     staged: countPaths(staged),
     github: github ? { remote: github.remote, owner: github.ref.owner, repo: github.ref.repo } : null,
-    planTab: planTabOn(root, loadConfig(cwd)),
+    planTab: planTabOn(loadConfig(cwd)),
   };
 }
 

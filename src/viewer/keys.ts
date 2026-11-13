@@ -7,7 +7,7 @@ import { treeModel } from './model/tree.ts';
 import { isBusy } from './model/status.ts';
 import { closeTab, pinTab, stepFile } from './actions/tabs.ts';
 import { collapseAll, expandAll } from './actions/folds.ts';
-import { openDialog, openSearch } from './actions/dialogs.ts';
+import { openDialog, openSearch, openSettings } from './actions/dialogs.ts';
 import { openUnitInCode, showOverview, stepSummary } from './actions/summary.ts';
 import { refresh } from './actions/session.ts';
 import {
@@ -27,12 +27,12 @@ import { askOpenAndFocus, askToggle } from './ask/rail.ts';
 import { isDiffMode } from './shared.ts';
 
 /** The keys that also work on the Summary tab: the view settings' keys act on the open unit's code. */
-const SUMMARY_KEYS = ['?', 'x', 'd', 'l', 's', 'r', 'e', 'c', 'h', 't', 'a', 'N', '\\'];
+const SUMMARY_KEYS = ['?', ',', 'x', 'd', 'l', 's', 'r', 'e', 'c', 'h', 't', 'a', 'N', '\\'];
 /** Every key a shortcut takes, on either tab. */
 const SHORTCUT_KEYS = [...SUMMARY_KEYS, 'v', 'p', 'j', 'k', 'w', 'm', 'o', 'g', '/', 'f'];
 /** The keys that do something on the Plan tab: the rest act on code it doesn't show. */
 // no a or \\: the Ask rail is about code, and the Plan tab has none
-const PLAN_KEYS = ['?', 'v', 'p', 's', 'r', '/', 'f', 'g'];
+const PLAN_KEYS = ['?', ',', 'v', 'p', 's', 'r', '/', 'f', 'g'];
 
 /** Shows the nav (if it's collapsed, and remembers that) and focuses one of its filters. */
 function focusFilter(selector: string) {
@@ -104,6 +104,10 @@ export function onKeyDown(event: KeyboardEvent): void {
   switch (event.key) {
     case '?':
       openDialog('keys-modal');
+      event.preventDefault();
+      break;
+    case ',':
+      openSettings();
       event.preventDefault();
       break;
     case 'N':

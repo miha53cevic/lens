@@ -32,7 +32,7 @@ summary mode (written by your own coding agent — see skills/lens-review):
   lens summary submit <bundle-dir | result.json>
                               validate the agent's result.json and store it for the viewer
 
-timings (turn them on in the viewer's ⋯ menu, or "timings": true in .lens.json):
+timings (turn them on in the viewer's Settings, or "timings": true in .lens.json):
   lens timings [--json]       how long each step took: the CLI's, the server's and the viewer's
 
 saved data (also the viewer's ⋯ → Clear saved data…):
@@ -126,7 +126,7 @@ async function main(): Promise<void> {
   if (command === 'clear') return runClear(rest, repoRootOr(cwd));
   if (command === 'timings') {
     const root = repoRootOr(cwd);
-    return runTimings(root, opts.json, timingsOn(root, readConfig(cwd).config));
+    return runTimings(root, opts.json, timingsOn(readConfig(cwd).config));
   }
 
   if (opts.portSet && (!Number.isInteger(opts.port) || opts.port < 1 || opts.port > 65535)) {
