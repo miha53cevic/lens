@@ -32,7 +32,7 @@ summary mode (written by your own coding agent — see skills/lens-review):
   lens summary submit <bundle-dir | result.json>
                               validate the agent's result.json and store it for the viewer
 
-timings (turn them on in the viewer's ⋯ menu, or "timings": true in .lens.json):
+timings (turn them on in the viewer's Settings, or "timings": true in .lens.json):
   lens timings [--json]       how long each step took: the CLI's, the server's and the viewer's
 
 saved data (also the viewer's ⋯ → Clear saved data…):

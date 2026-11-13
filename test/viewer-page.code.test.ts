@@ -227,7 +227,7 @@ pageTest('word diff (d, on by default) marks the words a replaced line changed, 
   assert.equal($('#word-diff').getAttribute('aria-checked'), 'true', 'on by default');
   await key('d');
   assert.deepEqual(added(), [], 'd turns it off');
-  assert.equal($('#word-diff').getAttribute('aria-checked'), 'false', 'the ⋯ menu switch follows the key');
+  assert.equal($('#word-diff').getAttribute('aria-checked'), 'false', 'the Settings switch follows the key');
   assert.deepEqual(postedView(page).at(-1), { wordDiff: false }, 'kept by the server');
   await key('d');
   // the inserted log line (9) doesn't shift the pair: the old query pairs with the new one
@@ -255,7 +255,7 @@ pageTest(
     assert.equal($$('#code .srow').length, 0, 'l turns it off');
     assert.deepEqual(postedView(page).at(-1), { sideBySide: false });
     await key('l');
-    assert.equal($('#side-by-side').getAttribute('aria-checked'), 'true', 'the ⋯ menu switch follows the key');
+    assert.equal($('#side-by-side').getAttribute('aria-checked'), 'true', 'the Settings switch follows the key');
     assert.deepEqual(postedView(page).at(-1), { sideBySide: true }, 'kept by the server');
     // unchanged lines on both sides, numbered on each; the old query sits apart from the new one, past the log fold
     assert.deepEqual(splitRows(), [
@@ -517,7 +517,21 @@ pageTest('the review pill marks the file viewed and opens the next one, stopping
   );
 });
 
-pageTest('the ⋯ menu holds the view settings', async () => {
+pageTest('Settings (,) holds the view settings, a page per section of its rail', async () => {
+  const shownPages = () =>
+    $$('#settings-modal [data-part="settings-page"]')
+      .filter((page) => !page.hidden)
+      .map((page) => page.dataset.page);
+  await key(',');
+  assert.ok(($('#settings-modal') as HTMLDialogElement).open);
+  assert.deepEqual(
+    $$('#settings-modal [role="tab"]').map((tab) => tab.textContent),
+    ['Code', 'Folding', 'Show', 'Summary', 'Tabs', 'Debug', 'Config'],
+  );
+  assert.deepEqual(shownPages(), ['code']);
+  await click($('#settings-tab-show'));
+  assert.deepEqual(shownPages(), ['show']);
+  assert.equal($('#settings-tab-show').getAttribute('aria-selected'), 'true');
   await click($('#hunks-only'));
   assert.equal($('#hunks-only').getAttribute('aria-checked'), 'false');
   assert.equal($$('#code .row.gap').length, 0, 'the whole file');
@@ -525,6 +539,19 @@ pageTest('the ⋯ menu holds the view settings', async () => {
   await click($('#word-diff'));
   assert.equal($('#word-diff').getAttribute('aria-checked'), 'false');
   assert.equal($$('#code .w-add').length, 0);
+  fireEvent.keyDown($('#settings-tab-show'), { key: 'ArrowDown' });
+  await settle();
+  assert.deepEqual(shownPages(), ['summary'], '↓ moves down the rail');
+  ($('#settings-modal') as HTMLDialogElement).close();
+  await key(',');
+  assert.deepEqual(shownPages(), ['summary'], 'it opens again where it was left');
+  ($('#settings-modal') as HTMLDialogElement).close();
+
+  assert.deepEqual(
+    [...$('#settings-btn').closest('[data-part="menu"]')!.querySelectorAll('[role="menuitem"]')].map((item) => item.id),
+    ['settings-btn', 'keys-btn', 'expand-all', 'collapse-all', 'clear-data', 'end-session'],
+    '⋯ holds actions only',
+  );
   await click($('#keys-btn'));
   assert.ok(($('#keys-modal') as HTMLDialogElement).open);
 });

@@ -102,10 +102,10 @@ Loose files and these flags are CLI-only; the app's picker covers the diff and P
 - **Search** in files (⌘P), by path (⌘⇧P), ⌥-click for usages.
 - **Viewed marks** and a progress ring, kept per review in `.lens/marks/`.
 - **Notes** on a line or selection (right-click), kept per review in `.lens/notes/`, and copied along for your agent.
-- **Code size and UI size** in the ⋯ menu.
+- **Settings** (`,`, or ⋯ → Settings): code size and UI size, folding, what the code shows, the summary's and the tabs' switches, and the config in effect.
 - **Reload** (`r`) re-runs the analysis; the status bar says when the code changed on disk.
 - **Clear saved data** (⋯ menu): summaries, notes, marks and timings, for this review or all. Settings stay.
-- **Timings** (⋯ → Debug, on by default): lens records how long its steps take in `.lens/timings.jsonl`; `lens timings` lists them.
+- **Timings** (Settings → Debug, on by default): lens records how long its steps take in `.lens/timings.jsonl`; `lens timings` lists them.
 
 Press `?` in the viewer for every key.
 
@@ -121,10 +121,10 @@ smallest fix), what behaves differently, and callers it may break. Mark each con
 /lens-review --staged           # in your agent; or: pr 87
 ```
 
-- **Build previews** (⋯ menu, on by default): the agent also draws the screens a UI diff
+- **Build previews** (Settings → Summary, on by default): the agent also draws the screens a UI diff
   changes, and **sequences** of what now happens at run time. Previews run sandboxed.
-- **Check yourself** (⋯ menu, off by default): a few questions per flow, answer behind a click.
-- **Full units** (⋯ menu): the rest of a unit's file above and below it.
+- **Check yourself** (Settings → Summary, off by default): a few questions per flow, answer behind a click.
+- **Full units** (Settings → Summary): the rest of a unit's file above and below it.
 
 The skill runs `lens summary prepare` (splits the diff, writes the agent's instructions) and
 `lens summary submit` (checks the result). Any agent with a shell can follow them. `submit`
@@ -141,7 +141,7 @@ Press `a` to ask about the open change, with your selection and its open concern
 
 ## Plan mode
 
-The Plan tab (`p`; on by default, off in the ⋯ menu or with `planTab`) lists the
+The Plan tab (`p`; on by default, off in Settings → Tabs or with `planTab`) lists the
 [Lavish](https://github.com/kunchenguid/lavish-axi) plans in `.lavish/` and opens Lavish's
 editor in the tab, so annotating, sending feedback and pressing **Build it** happen in lens.
 **New plan** makes a `/lavish …` command for your agent. With the tab on, `lens diff` on a
@@ -151,7 +151,7 @@ It needs Lavish's skill (`npx skills add kunchenguid/lavish-axi --skill lavish -
 ## How folding works
 
 Each region gets a category and a score (0–3) and folds when its score ≤ the fold level
-(default 1, changed live from the ⋯ menu). TODO/FIXME comments and `lens:keep` regions never fold.
+(default 1, changed live in Settings → Folding). TODO/FIXME comments and `lens:keep` regions never fold.
 
 | category            | what folds (conservatively) |
 | ------------------- | --------------------------- |
@@ -201,7 +201,7 @@ and `lens config` all say why.
 | `planTab` | the viewer shows the Plan tab (default `true`) |
 | `timings` | lens records how long its steps take, for `lens timings` (default `true`) |
 
-The ⋯ menu's switches override the last four for you, in `.lens/settings.json`, which also keeps
+Settings' switches override the last four for you, in `.lens/settings.json`, which also keeps
 how you left the viewer in that repository (view settings, fold level, panels). Patterns:
 `*` matches within a path segment, `**` across them, anywhere in the path. The old names
 (`threshold`, `categories`, `scores`) still work, with a problem saying what to rename.

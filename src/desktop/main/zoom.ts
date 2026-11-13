@@ -27,7 +27,7 @@ export class UiZoom {
     this.current = await this.saved();
   }
 
-  /** Follows the viewer: a step in a review's ⋯ menu resizes the launcher's pages too. */
+  /** Follows the viewer: a step in a review's Settings resizes the launcher's pages too. */
   watch(): void {
     this.cookies.on('changed', (_event, cookie) => {
       if (cookie.name !== UI_ZOOM_COOKIE || cookie.domain !== '127.0.0.1') return;

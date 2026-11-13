@@ -30,7 +30,7 @@
   --text-2xl: 27px;
   /* the Start screen's name, and nothing else */
   --text-3xl: 44px;
-  /* the code itself, until the reader picks another size (the viewer's ⋯ menu) */
+  /* the code itself, until the reader picks another size (the viewer's Settings) */
   --text-code: 12px;
 
   /* the window's size. CSS zoom on <html> (the UI size, ui/zoom.ts) zooms vw and vh too, so a

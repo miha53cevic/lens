@@ -1,7 +1,7 @@
 // What the bar's buttons do. The model (model/status.ts) names an action; this is where it runs.
 
 import type { NoticeActionId, StatusActionId } from '../../model/status.ts';
-import { openDialog } from '../../actions/dialogs.ts';
+import { openSettings } from '../../actions/dialogs.ts';
 import { refresh } from '../../actions/session.ts';
 import { dismissNotice, retryServer } from '../../actions/status.ts';
 import { showOverview } from '../../actions/summary.ts';
@@ -32,5 +32,5 @@ export const NOTICE_ACTIONS: Record<NoticeActionId, () => void> = {
   // the code moved on: take it as it is now
   refresh: () => void refresh(),
   // Settings lists each problem, with the field and why
-  openSettings: () => openDialog('settings-modal'),
+  openSettings: () => openSettings('config'),
 };

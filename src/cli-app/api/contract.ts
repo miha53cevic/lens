@@ -119,7 +119,7 @@ export interface SettingsRequest {
 }
 
 /**
- * How the reader left the viewer in this repository: the ⋯ menu's view settings and the panels.
+ * How the reader left the viewer in this repository: Settings' view settings and the panels.
  * Kept by the server (.lens/settings.json), never in the browser. Each is left out until the reader
  * sets it, and the viewer's default holds.
  */

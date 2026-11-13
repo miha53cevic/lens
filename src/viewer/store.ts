@@ -62,6 +62,9 @@ export interface StatusNotice {
   detail?: string;
 }
 
+/** A page of the Settings dialog: the view settings' sections, then the config in effect */
+export type SettingsPage = 'code' | 'folding' | 'show' | 'summary' | 'tabs' | 'debug' | 'config';
+
 export interface LensState {
   data: ViewerPayload;
   /** The fold level: regions scored at or below it fold. The reader's choice survives a refresh and a reopen. */
@@ -138,6 +141,8 @@ export interface LensState {
   landed: { path: string; label: string } | null;
   /** What the Clear saved data dialog offers, read when it opened; `opened` tells one opening from the next */
   clearInfo: (ClearInfoResponse & { opened: number }) | null;
+  /** The Settings dialog's page: the one it was left on, or the one a notice opened it on */
+  settingsPage: SettingsPage;
   // Plan tab
   plan: {
     /** The root's plans as last read; null: not read yet (the tab reads them when it opens) */
@@ -271,6 +276,7 @@ const defaultState: LensState = {
   noteDraft: null,
   landed: null,
   clearInfo: null,
+  settingsPage: 'code',
   plan: { list: null, picked: null, frame: null, query: '', filter: 'all' },
   ask: {
     open: false,

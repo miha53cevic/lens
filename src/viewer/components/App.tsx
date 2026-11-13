@@ -13,7 +13,7 @@ import { SummaryPane } from './SummaryPane/index.tsx';
 import { PlanPane } from './PlanPane/index.tsx';
 import { AskRail } from './AskRail/index.tsx';
 import { Resizer } from './Resizer.tsx';
-import { SettingsDialog } from './SettingsDialog.tsx';
+import { SettingsDialog } from './SettingsDialog/index.tsx';
 import { KeysDialog } from './KeysDialog/index.tsx';
 import { SearchDialog } from './SearchDialog/index.tsx';
 import { ClearDataDialog } from './ClearDataDialog/index.tsx';

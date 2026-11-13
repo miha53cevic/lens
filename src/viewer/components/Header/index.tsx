@@ -1,5 +1,5 @@
 // The header: the sidebar toggle, the change's name, Code | Summary | Plan, and the session's buttons.
-// Everything else (the view settings, the shortcuts, the settings, end session) is in ⋯.
+// Everything else (Settings, the shortcuts, expand / collapse all, end session) is in ⋯.
 
 import { MessageSquare, PanelLeft, RefreshCw, Search } from 'lucide-react';
 import { useLens } from '../../store.ts';

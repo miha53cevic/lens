@@ -1,6 +1,6 @@
 // The dialogs (each <dialog> keeps its own open state) and the search palette.
 
-import { commit, getState, type LensState, update } from '../store.ts';
+import { commit, getState, type LensState, type SettingsPage, update } from '../store.ts';
 import { jumpToLine, setView } from './views.ts';
 import { openFile } from './tabs.ts';
 
@@ -11,6 +11,17 @@ export function dialog(id: string): HTMLDialogElement | null {
 export function openDialog(id: 'settings-modal' | 'keys-modal' | 'clear-modal'): void {
   const element = dialog(id);
   if (element && !element.open) element.showModal();
+}
+
+/** Settings, on the page it was left on, or on `page` (the config notice opens it on Config). */
+export function openSettings(page?: SettingsPage): void {
+  if (page) update({ settingsPage: page });
+  openDialog('settings-modal');
+}
+
+/** A page picked in Settings' rail. */
+export function showSettingsPage(page: SettingsPage): void {
+  update({ settingsPage: page });
 }
 
 /**
