@@ -279,6 +279,76 @@ export function readBlobs(shas: Iterable<string>, cwd: string): Map<string, stri
 }
 
 /** The branch HEAD is on; null when it's detached. */
+export interface Worktree {
+  /** Its root, `/`-separated */
+  root: string;
+  /** The checked-out branch, or null on a detached HEAD */
+  branch: string | null;
+  /** HEAD's short SHA, or null before the first commit */
+  head: string | null;
+  /** git can't find its folder anymore (`prunable`): listed, not openable */
+  missing: boolean;
+}
+
+/**
+ * `git worktree list --porcelain` read: a record per worktree, its lines `worktree <path>`,
+ * `HEAD <sha>`, `branch refs/heads/<name>` or `detached`, and `bare`, `locked`, `prunable` with an
+ * optional reason. The main worktree comes first. With `-z` each line ends with NUL, so a path may
+ * hold a newline; without it (git before 2.36) lines end with newlines.
+ */
+export function parseWorktrees(listing: string, nul: boolean): { main: string; worktrees: Worktree[] } | null {
+  const lineEnd = nul ? '\0' : '\n';
+  const records = listing.split(lineEnd + lineEnd).filter((record) => record.trim() !== '');
+  let main: string | null = null;
+  const worktrees: Worktree[] = [];
+  for (const record of records) {
+    const lines = record.split(lineEnd).filter(Boolean);
+    const field = (name: string) => lines.find((line) => line === name || line.startsWith(name + ' '));
+    const path = field('worktree')?.slice('worktree '.length);
+    if (!path) continue;
+    const root = toPosix(path);
+    main ??= root;
+    if (field('bare') !== undefined) continue;
+    const sha = field('HEAD')?.slice('HEAD '.length) ?? '';
+    worktrees.push({
+      root,
+      branch:
+        field('branch')
+          ?.slice('branch '.length)
+          .replace(/^refs\/heads\//, '') ?? null,
+      // before the first commit HEAD is all zeros
+      head: /^0*$/.test(sha) ? null : sha.slice(0, 7),
+      missing: field('prunable') !== undefined,
+    });
+  }
+  return main === null ? null : { main, worktrees };
+}
+
+/**
+ * The other worktree `branch` is checked out in, or null when none is (or git can't say). Asked only
+ * when a diff ends at a branch that isn't checked out here, so a sync git call is fine.
+ */
+export function worktreeWith(branch: string, cwd: string): string | null {
+  const name = branch.replace(/^refs\/heads\//, '');
+  const list = (args: string[]) =>
+    execFileSync('git', ['worktree', 'list', '--porcelain', ...args], {
+      cwd,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+  let listed: ReturnType<typeof parseWorktrees> = null;
+  try {
+    listed = parseWorktrees(list(['-z']), true);
+  } catch {
+    try {
+      listed = parseWorktrees(list([]), false);
+    } catch {
+      return null;
+    }
+  }
+  return listed?.worktrees.find((worktree) => worktree.branch === name && !worktree.missing)?.root ?? null;
+}
+
 export function currentBranch(cwd: string): string | null {
   try {
     // quiet: outside a repository (paths mode can be) "no branch" is the answer, not an error

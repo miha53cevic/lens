@@ -350,6 +350,9 @@ export class AppWindow implements TabHost {
     return {
       ...tab.state(),
       repoPath: tab.repo ? tildePath(tab.repo.root, homedir()) : null,
+      worktreePaths: Object.fromEntries(
+        (tab.repo?.worktrees ?? []).map((worktree) => [worktree.root, tildePath(worktree.root, homedir())]),
+      ),
       recents: store.recents().map((root) => {
         const visit = store.visit(root);
         return {
@@ -358,8 +361,12 @@ export class AppWindow implements TabHost {
           path: tildePath(root, homedir()),
           branch: visit?.branch ?? null,
           opened: visit?.at ?? null,
+          main: visit?.main ?? null,
         };
       }),
+      openTabs: Object.fromEntries(
+        this.tabs.all.flatMap((other, index) => (other.repo ? [[other.repo.root, index + 1]] : [])),
+      ),
       git: themes.git,
       version: themes.version,
       setup: setupState(setup),
@@ -535,6 +542,12 @@ export class AppWindow implements TabHost {
       openRecent: async (root) => {
         // only a folder the app itself listed: a page can't name an arbitrary one
         if (store.recents().includes(root)) await tab.openFolder(root);
+      },
+      openWorktree: async (root) => {
+        if (!tab.otherWorktree(root) || this.goTo(root, tab)) return;
+        // the tab it was picked from shows its review again, untouched; one without a review keeps its picker
+        if (tab.reviewUrl) tab.back();
+        await this.addTab('start').openFolder(root);
       },
       forgetRecent: (root) => {
         store.forget(root);

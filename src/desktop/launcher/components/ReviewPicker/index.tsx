@@ -2,19 +2,19 @@
 // `lens pr`; the command under the choices is the one the app runs.
 
 import { useState } from 'react';
-import { ArrowLeft, FileDiff, Folder, GitBranch, GitPullRequest } from 'lucide-react';
+import { ArrowLeft, FileDiff, Folder, GitPullRequest } from 'lucide-react';
 import { choiceCommand, choiceProblem, type ReviewChoice } from '../../../shared/choice.ts';
 import { Button } from '../../../../ui/Button.tsx';
 import { CopyCommand } from '../../../../ui/CopyCommand.tsx';
 import { IconButton } from '../../../../ui/IconButton.tsx';
 import { Kbd } from '../../../../ui/Kbd.tsx';
 import { Segmented } from '../../../../ui/Segmented.tsx';
-import { Tag } from '../../../../ui/Tag.tsx';
 import { Brand } from '../../../../ui/Brand.tsx';
 import { TopBar, TopBarDivider } from '../../../../ui/TopBar.tsx';
 import { useApp } from '../../store.ts';
 import { Changes } from './Changes.tsx';
 import { PullRequest } from './PullRequest.tsx';
+import { Worktrees } from './Worktrees.tsx';
 import { emptyRange, startingRange, type Mode, type Range } from './util.ts';
 
 const MODES = [
@@ -63,7 +63,7 @@ export function ReviewPicker() {
         <span data-part='repo-id' className='flex min-w-0 items-center gap-2 [&>svg]:flex-none [&>svg]:text-muted'>
           <Folder size={15} />
           <span className='flex-none font-semibold'>{repo.name}</span>
-          <Tag icon={<GitBranch size={11} />}>{repo.branch ?? 'detached at ' + (repo.head ?? 'no commit')}</Tag>
+          <Worktrees repo={repo} />
           {/* a long path is cut: the whole of it is in the title */}
           <span
             className='overflow-hidden font-mono text-sm text-ellipsis whitespace-nowrap text-faint'

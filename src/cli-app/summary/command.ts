@@ -31,10 +31,16 @@ export async function runSummary(rest: string[], cwd: string): Promise<void> {
     if (command === 'pr' && args.length !== 1)
       throw new Error('summary prepare pr takes one argument — a PR URL or number');
     const checkout = checkoutFirst(cwd, command, args);
+    if (checkout?.worktree) {
+      throw new Error(
+        `this diff ends at ${checkout.branch}, which is checked out in ${checkout.worktree.root}: ` +
+          `a summary is written from the code on disk there. Prepare it in that worktree`,
+      );
+    }
     if (checkout) {
       throw new Error(
-        `this diff ends at ${checkout}, which isn't checked out: a summary is written from the code on disk. ` +
-          `Run \`git checkout ${checkout}\`, then prepare again`,
+        `this diff ends at ${checkout.branch}, which isn't checked out: a summary is written from the code on disk. ` +
+          `Run \`git checkout ${checkout.branch}\`, then prepare again`,
       );
     }
     const config = loadConfig(cwd);

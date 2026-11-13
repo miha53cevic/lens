@@ -38,6 +38,8 @@ const LIGHT: ThemeSwatch = { name: 'github-light', bg: '#ffffff', fg: '#24292e',
 const REPO: RepoInfo = {
   root: '/Users/ana/repos/storefront',
   name: 'storefront',
+  main: '/Users/ana/repos/storefront',
+  worktrees: [{ root: '/Users/ana/repos/storefront', branch: 'feature', head: 'abc1234', missing: false }],
   branch: 'feature',
   head: 'abc1234',
   branches: ['feature', 'main', 'release'],
@@ -61,14 +63,24 @@ const START: LauncherState = {
       path: '~/repos/lens',
       branch: 'main',
       opened: Date.now() - 2 * HOUR,
+      main: null,
     },
     // opened before the app kept when: nothing to say beside it
-    { root: '/Users/ana/repos/storefront', name: 'storefront', path: '~/repos/storefront', branch: null, opened: null },
+    {
+      root: '/Users/ana/repos/storefront',
+      name: 'storefront',
+      path: '~/repos/storefront',
+      branch: null,
+      opened: null,
+      main: null,
+    },
   ],
   repo: null,
   repoPath: null,
+  worktreePaths: {},
   current: null,
   running: null,
+  openTabs: {},
   reopening: null,
   opening: false,
   status: { kind: 'idle' },
@@ -235,6 +247,53 @@ pageTest(
   },
 );
 
+pageTest(
+  "Start: a repository's linked worktrees under it, named by their branch",
+  'launcher',
+  {
+    ...START,
+    recents: [
+      {
+        root: '/Users/ana/repos/lens-wt/plan',
+        name: 'plan',
+        path: '~/repos/lens-wt/plan',
+        branch: 'features/plan',
+        opened: Date.now(),
+        main: '/Users/ana/repos/lens',
+      },
+      START.recents[0],
+      {
+        root: '/Users/ana/repos/shop-wt/fix',
+        name: 'fix',
+        path: '~/repos/shop-wt/fix',
+        branch: 'fix',
+        opened: null,
+        main: '/Users/ana/repos/shop',
+      },
+    ],
+  },
+  async (page) => {
+    assert.deepEqual(
+      $$('[data-part="recent-group"]').map((group) =>
+        [...group.querySelectorAll('[data-part="recent-open"], [data-part="recent-repo"]')].map(
+          (row) => (row.closest('[data-worktree]') ? '  ' : '') + row.textContent,
+        ),
+      ),
+      [
+        ['lens~/repos/lensmain · 2h ago', '  features/plan~/repos/lens-wt/planjust now'],
+        // only its worktree was opened here: the repository is a heading, not a row to open
+        ['shop', '  fix~/repos/shop-wt/fix'],
+      ],
+    );
+    await click($$('[data-part="recent-open"]')[1]);
+    await click($('[aria-label="Forget features/plan"]'));
+    assert.deepEqual(page.calls, [
+      ['openRecent', '/Users/ana/repos/lens-wt/plan'],
+      ['forgetRecent', '/Users/ana/repos/lens-wt/plan'],
+    ]);
+  },
+);
+
 // ---- the picker ----
 
 pageTest(
@@ -268,6 +327,67 @@ pageTest(
     await page.push({ ...PICKER, repo: { ...REPO, changed: 0 } });
     assert.equal(text('[data-part="picker-problem"]'), 'Nothing unstaged to review');
     assert.equal(($('#open-review') as HTMLButtonElement).disabled, true);
+  },
+);
+
+const WORKTREES: LauncherState = {
+  ...PICKER,
+  repo: {
+    ...REPO,
+    root: '/Users/ana/repos/storefront-wt/search',
+    name: 'search',
+    branch: 'search',
+    worktrees: [
+      { root: '/Users/ana/repos/storefront', branch: 'main', head: 'abc1234', missing: false },
+      { root: '/Users/ana/repos/storefront-wt/search', branch: 'search', head: 'def5678', missing: false },
+      { root: '/Users/ana/repos/storefront-wt/perf', branch: 'perf', head: 'abc1234', missing: false },
+      { root: '/tmp/bisect', branch: null, head: '0123abc', missing: true },
+    ],
+  },
+  repoPath: '~/repos/storefront-wt/search',
+  worktreePaths: {
+    '/Users/ana/repos/storefront': '~/repos/storefront',
+    '/Users/ana/repos/storefront-wt/search': '~/repos/storefront-wt/search',
+    '/Users/ana/repos/storefront-wt/perf': '~/repos/storefront-wt/perf',
+    '/tmp/bisect': '/tmp/bisect',
+  },
+  openTabs: { '/Users/ana/repos/storefront': 1, '/Users/ana/repos/storefront-wt/search': 2 },
+};
+
+pageTest('the picker: a repository with no other worktree has no menu of them', 'launcher', PICKER, async () => {
+  assert.equal(text('[data-part="repo-id"] [data-part="tag"]'), 'feature');
+  assert.equal(document.getElementById('worktrees'), null);
+});
+
+pageTest(
+  "the picker: the repository's worktrees, each opening in a tab of its own",
+  'launcher',
+  WORKTREES,
+  async (page) => {
+    assert.equal(text('#worktrees'), 'search');
+    const rows = $$('[data-part="worktree"]');
+    assert.deepEqual(
+      rows.map((row) => row.textContent),
+      [
+        'main~/repos/storefrontin tab 1',
+        'search~/repos/storefront-wt/searchthis tab',
+        'perf~/repos/storefront-wt/perf',
+        'detached at 0123abc/tmp/bisect · folder gone',
+      ],
+    );
+    const item = (index: number) => rows[index].closest('button')!;
+    assert.deepEqual(
+      rows.map((_, index) => item(index).disabled),
+      [false, true, false, true],
+      'its own is where it is, and a folder that is gone opens nothing',
+    );
+    await click($('#worktrees'));
+    await click(item(2));
+    await click(item(0));
+    assert.deepEqual(page.calls, [
+      ['openWorktree', '/Users/ana/repos/storefront-wt/perf'],
+      ['openWorktree', '/Users/ana/repos/storefront'],
+    ]);
   },
 );
 

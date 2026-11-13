@@ -36,6 +36,8 @@ export interface Visit {
   branch: string | null;
   /** ms since the epoch */
   at: number;
+  /** A linked worktree: its repository's main worktree (RepoInfo.main). Absent: not one */
+  main?: string;
 }
 
 interface Stored {
@@ -87,9 +89,9 @@ function readVisits(raw: unknown): Record<string, Visit> {
   const visits: Record<string, Visit> = {};
   if (typeof raw !== 'object' || raw === null) return visits;
   for (const [root, visit] of Object.entries(raw)) {
-    const { branch, at } = (visit ?? {}) as Record<string, unknown>;
+    const { branch, at, main } = (visit ?? {}) as Record<string, unknown>;
     if ((typeof branch === 'string' || branch === null) && Number.isFinite(at)) {
-      visits[root] = { branch, at: at as number };
+      visits[root] = { branch, at: at as number, ...(typeof main === 'string' && main !== root ? { main } : {}) };
     }
   }
   return visits;
@@ -118,8 +120,8 @@ function read(file: string): Stored {
 export interface Store {
   /** The recent repositories that still exist, most recent first. */
   recents(): string[];
-  /** Puts a repository first in the recents, opened now on `branch`. */
-  touch(root: string, branch?: string | null): void;
+  /** Puts a repository first in the recents, opened now on `branch`; `main` when it is a linked worktree. */
+  touch(root: string, branch?: string | null, main?: string): void;
   /** When a recent repository was last opened, and on which branch; null for one opened before the app kept it. */
   visit(root: string): Visit | null;
   forget(root: string): void;
@@ -153,10 +155,11 @@ export function openStore(file: string): Store {
       }
       return existing;
     },
-    touch(root, branch = null) {
+    touch(root, branch = null, main) {
       const recents = [root, ...stored.recents.filter((other) => other !== root)].slice(0, MAX_RECENTS);
       const visits = Object.fromEntries(Object.entries(stored.visits).filter(([other]) => recents.includes(other)));
-      stored = { ...stored, recents, visits: { ...visits, [root]: { branch, at: Date.now() } } };
+      const visit: Visit = { branch, at: Date.now(), ...(main && main !== root ? { main } : {}) };
+      stored = { ...stored, recents, visits: { ...visits, [root]: visit } };
       save();
     },
     visit: (root) => stored.visits[root] ?? null,

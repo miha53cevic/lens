@@ -137,11 +137,15 @@ export class Tab {
       : this.restored
         ? choiceLabel(this.restored) // as it was left: its review starts when the tab is first in front
         : 'choose a review';
+    // a linked worktree's folder is often named for nothing: it says its repository, then its branch
+    const { root, main, branch, head } = this.repo;
+    const worktree = root !== main;
+    const where = branch ?? 'detached at ' + (head ?? 'no commit');
     return {
       id,
       icon: 'folder',
-      title: this.repo.name,
-      detail,
+      title: worktree ? basename(main) : this.repo.name,
+      detail: worktree ? `${where} · ${detail}` : detail,
       canChange: review !== null && this.showing === 'review',
     };
   }
@@ -225,8 +229,17 @@ export class Tab {
     this.repo = info.repo;
     this.screen = 'picker';
     this.running = runningServer(info.repo.root);
-    this.store.touch(info.repo.root, info.repo.branch);
+    this.store.touch(info.repo.root, info.repo.branch, info.repo.main);
     this.host.changed(this);
+  }
+
+  /**
+   * Whether `root` is another of this repository's worktrees that can be opened: one git listed for
+   * it, and still there. A page names it, so nothing else is: never an arbitrary folder.
+   */
+  otherWorktree(root: string): boolean {
+    const repo = this.repo;
+    return !!repo && root !== repo.root && repo.worktrees.some((listed) => listed.root === root && !listed.missing);
   }
 
   /** Reads the repository again: the counts, the branch, and "this branch vs" against `base`. */

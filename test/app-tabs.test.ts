@@ -187,6 +187,34 @@ test('a tab: a folder outside a repository, a repository another tab has, and a 
   });
 }, 90_000);
 
+test('a tab on a linked worktree: titled by its repository and branch, and only listed worktrees open', async () => {
+  await withApp(async (dir, tab, _host, data) => {
+    const linked = dir + '-linked';
+    execFileSync('git', ['worktree', 'add', '-q', '-b', 'linked', linked], { cwd: dir });
+    try {
+      await tab.openFolder(linked);
+      assert.equal(tab.repo?.root, toPosix(linked));
+      assert.equal(tab.repo?.main, toPosix(dir));
+      assert.deepEqual(tab.strip(), {
+        id: 1,
+        icon: 'folder',
+        title: basename(dir),
+        detail: 'linked · choose a review',
+        canChange: false,
+      });
+      const visit = openStore(join(data, 'state.json')).visit(toPosix(linked));
+      assert.equal(visit?.main, toPosix(dir), 'the recent knows its repository');
+
+      // the window opens a worktree a page names only when git listed it for this tab's repository
+      assert.equal(tab.otherWorktree(toPosix(dir)), true);
+      assert.equal(tab.otherWorktree(toPosix(linked)), false, 'its own: nothing to open');
+      assert.equal(tab.otherWorktree(data), false, 'any other folder');
+    } finally {
+      execFileSync('git', ['worktree', 'remove', '--force', linked], { cwd: dir });
+    }
+  });
+}, 60_000);
+
 test("a tab's picker follows the repository: a quiet poll reports what changed, once, and a folder that is gone", async () => {
   await withApp(async (dir, tab, host) => {
     await tab.poll();

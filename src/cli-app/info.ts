@@ -3,11 +3,13 @@ import { promisify } from 'node:util';
 import { basename } from 'node:path';
 import { loadConfig } from './config.ts';
 import { planTabOn } from './summary/settings.ts';
-import { untrackedCommand } from './git.ts';
+import { parseWorktrees, untrackedCommand, type Worktree } from './git.ts';
 import { toPosix } from './paths.ts';
 import { matchRemote } from './pr.ts';
 import { SUGGESTED_THEMES, isBundledTheme, themeSwatch, type ThemeSwatch } from './render/highlight.ts';
 import { plural } from './text.ts';
+export type { Worktree };
+
 // imported, so the compiled `lens` carries it
 import manifest from '../../package.json' with { type: 'json' };
 
@@ -16,9 +18,16 @@ import manifest from '../../package.json' with { type: 'json' };
 // The desktop app reads it as JSON; all git logic stays here, under the node tests.
 
 export interface RepoInfo {
-  /** The repository's root, `/`-separated */
+  /** The repository's root, `/`-separated: a linked worktree's own folder, not the main one */
   root: string;
   name: string;
+  /**
+   * The main worktree's root, the same for every worktree of a repository: what the app groups them
+   * by. The repository's own folder when it is bare.
+   */
+  main: string;
+  /** The repository's worktrees, this one included; a bare main one isn't (it has nothing to review) */
+  worktrees: Worktree[];
   /** The checked-out branch, or null on a detached HEAD */
   branch: string | null;
   /** HEAD's short SHA, or null before the first commit */
@@ -68,9 +77,10 @@ async function git(args: string[], cwd?: string): Promise<string> {
 }
 
 /** git's answer, or null when it fails (no such ref, no commits yet, no remote). */
-async function tryGit(args: string[], cwd: string): Promise<string | null> {
+async function tryGit(args: string[], cwd: string, trim = true): Promise<string | null> {
   try {
-    return (await git(args, cwd)).trim();
+    const output = await git(args, cwd);
+    return trim ? output.trim() : output;
   } catch {
     return null;
   }
@@ -88,6 +98,13 @@ async function gitVersion(): Promise<string | null> {
 /** How many paths a `--name-only -z` listing names. */
 function countPaths(listing: string): number {
   return listing.split('\0').filter(Boolean).length;
+}
+
+async function listWorktrees(cwd: string): Promise<{ main: string; worktrees: Worktree[] } | null> {
+  const nul = await tryGit(['worktree', 'list', '--porcelain', '-z'], cwd, false);
+  if (nul !== null) return parseWorktrees(nul, true);
+  const plain = await tryGit(['worktree', 'list', '--porcelain'], cwd, false);
+  return plain === null ? null : parseWorktrees(plain, false);
 }
 
 /**
@@ -108,7 +125,7 @@ async function repoInfo(cwd: string, wantedBase: string | undefined): Promise<Re
   if (!top) return null;
   const root = toPosix(top);
   const untracked = untrackedCommand(top, cwd, []);
-  const [refs, head, wanted, remoteHead, remotes, branch, changed, untrackedList, staged] = await Promise.all([
+  const [refs, head, wanted, remoteHead, remotes, branch, changed, untrackedList, staged, listed] = await Promise.all([
     git(['for-each-ref', '--format=%(refname:short)', 'refs/heads'], cwd),
     tryGit(['rev-parse', '--short', 'HEAD'], cwd),
     wantedBase === undefined ? null : tryGit(['rev-parse', '--verify', '--quiet', `${wantedBase}^{commit}`], cwd),
@@ -118,6 +135,7 @@ async function repoInfo(cwd: string, wantedBase: string | undefined): Promise<Re
     git(['diff', '--name-only', '-z', '--no-relative'], cwd),
     git(untracked.args, untracked.dir),
     git(['diff', '--staged', '--name-only', '-z', '--no-relative'], cwd),
+    listWorktrees(cwd),
   ]);
   const branches = refs.split('\n').filter(Boolean);
   if (wantedBase !== undefined && wanted === null) {
@@ -130,6 +148,9 @@ async function repoInfo(cwd: string, wantedBase: string | undefined): Promise<Re
   return {
     root,
     name: basename(root),
+    main: listed?.main ?? root,
+    // a git that can't list them still has this one
+    worktrees: listed?.worktrees ?? [{ root, branch, head, missing: false }],
     branch,
     head,
     branches,
@@ -171,6 +192,13 @@ function describe(info: LensInfo): string {
   lines.push(`changes     ${plural(repo.changed, 'file')} changed, ${repo.staged} staged`);
   if (repo.base !== null && repo.ahead !== null)
     lines.push(`ahead       ${plural(repo.ahead, 'commit')} since ${repo.base}`);
+  const others = repo.worktrees.filter((worktree) => worktree.root !== repo.root);
+  for (const [index, worktree] of others.entries()) {
+    const what = worktree.branch ?? `detached at ${worktree.head ?? 'no commit'}`;
+    lines.push(
+      `${index === 0 ? 'worktrees' : '         '}   ${worktree.root} · ${what}${worktree.missing ? ' (gone)' : ''}`,
+    );
+  }
   if (repo.github) lines.push(`github      ${repo.github.remote} → ${repo.github.owner}/${repo.github.repo}`);
   return lines.join('\n');
 }
