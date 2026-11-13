@@ -83,8 +83,7 @@ export function SettingsDialog() {
           <ConfigFoot />
         ) : (
           <>
-            Applied as you change them, and kept for this repository in <code>.lens/settings.json</code>; the code and
-            UI size for every repository.
+            Applied as you change them, and kept for every repository in <code>~/.lens/settings.json</code>.
           </>
         )}
       </div>

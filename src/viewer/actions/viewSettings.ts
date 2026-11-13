@@ -1,5 +1,5 @@
-// How the reader leaves the viewer (Settings' view settings, the panels) is kept by the server for
-// the repository (.lens/settings.json), as the marks are for a review: the state changes first, then
+// How the reader leaves the viewer (Settings' view settings, the panels) is kept by the server, the
+// same in every repository (~/.lens/settings.json), as the marks are for a review: the state changes first, then
 // the one change is posted, and a failure says so in the status bar. The browser keeps none of it.
 
 import type { ViewSettings } from '../../cli-app/api/contract.ts';

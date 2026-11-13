@@ -61,8 +61,8 @@ export async function runSummary(rest: string[], cwd: string): Promise<void> {
       commits: commitLog(diff.diffArgs, cwd),
       units,
       sources: new Map([...diff.sources].map(([abs, src]) => [relPath(diff.root, abs), src])),
-      drawings: buildPreviewsOn(diff.root, config),
-      checks: selfChecksOn(diff.root, config),
+      drawings: buildPreviewsOn(config),
+      checks: selfChecksOn(config),
     });
     console.log(result.instructions);
     return;

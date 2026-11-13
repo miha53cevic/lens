@@ -201,8 +201,10 @@ and `lens config` all say why.
 | `planTab` | the viewer shows the Plan tab (default `true`) |
 | `timings` | lens records how long its steps take, for `lens timings` (default `true`) |
 
-Settings' switches override the last four for you, in `.lens/settings.json`, which also keeps
-how you left the viewer in that repository (view settings, fold level, panels). Patterns:
+Settings' switches override the last four for you, in `~/.lens/settings.json` (your home
+folder, on macOS and Windows alike), which also keeps how you left the viewer (view settings,
+fold level, panels): the same in every repository. What belongs to a repository stays in its
+`.lens/` (summaries, marks, notes, timings) and `.lavish/`. Patterns:
 `*` matches within a path segment, `**` across them, anywhere in the path. The old names
 (`threshold`, `categories`, `scores`) still work, with a problem saying what to rename.
 

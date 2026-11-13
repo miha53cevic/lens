@@ -9,7 +9,7 @@ import { cssPx } from '../../ui/zoom.ts';
 const FRAME_MIN = 120;
 const FRAME_MAX = 900;
 
-/** The switch: summary mode asks the agent for previews and sequences (the CLI reads .lens/settings.json). */
+/** The switch: summary mode asks the agent for previews and sequences (the CLI reads ~/.lens/settings.json). */
 export function setBuildPreviews(on: boolean): Promise<boolean> {
   return tracked(
     { id: 'build-previews', label: 'Saving Build previews…', failed: "Couldn't save Build previews" },

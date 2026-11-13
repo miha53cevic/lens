@@ -126,7 +126,7 @@ async function main(): Promise<void> {
   if (command === 'clear') return runClear(rest, repoRootOr(cwd));
   if (command === 'timings') {
     const root = repoRootOr(cwd);
-    return runTimings(root, opts.json, timingsOn(root, readConfig(cwd).config));
+    return runTimings(root, opts.json, timingsOn(readConfig(cwd).config));
   }
 
   if (opts.portSet && (!Number.isInteger(opts.port) || opts.port < 1 || opts.port > 65535)) {
