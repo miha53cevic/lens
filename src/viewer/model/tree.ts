@@ -96,6 +96,19 @@ export function treeModel(state: LensState): TreeModel {
   return buildTree(state.data, state.hideTests, state.navQuery, state.closedDirs);
 }
 
+/** Every folder of the tree as it shows with no filter, by its path ("src/render/web/"): what Collapse All closes. */
+export function allDirPaths(state: LensState): string[] {
+  const paths: string[] = [];
+  const walk = (node: TreeDir, path: string) => {
+    for (const dir of node.dirs.values()) {
+      paths.push(path + dir.name + '/');
+      walk(dir, path + dir.name + '/');
+    }
+  };
+  walk(buildTree(state.data, state.hideTests, '', state.closedDirs).root, '');
+  return paths;
+}
+
 // Merge single-child directory chains ("src" > "render" > "web" → "src/render/web").
 function compressChains(node: TreeDir) {
   for (const [key, firstChild] of [...node.dirs]) {

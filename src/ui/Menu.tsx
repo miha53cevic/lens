@@ -96,6 +96,32 @@ export function placeAt(menu: HTMLElement, x: number, y: number) {
   menu.style.top = Math.max(8, Math.min(top, bottom - 8)) + 'px';
 }
 
+/** Where a right-click was, and whether a button was still down (`buttons`) */
+interface MenuPoint {
+  clientX: number;
+  clientY: number;
+  buttons: number;
+}
+
+/** A menu opens where the reader right-clicked (the caller has prevented the browser's own). */
+export function openAt(menu: HTMLElement | null, { clientX, clientY, buttons }: MenuPoint) {
+  if (!menu) return;
+  const show = () => {
+    menu.showPopover?.(); // happy-dom has no popovers: the page tests click its items as they are
+    placeAt(menu, clientX, clientY); // once it's open: it has a size to keep inside the window
+  };
+  if (!buttons) return show();
+  // macOS fires contextmenu on the press, not the release: opened now, the popover's light dismiss
+  // would close it again on the pointerup that follows. So it opens once that has gone by.
+  const settle = (up: Event) => {
+    window.removeEventListener('pointerup', settle, true);
+    window.removeEventListener('pointercancel', settle, true);
+    if (up.type === 'pointerup') setTimeout(show);
+  };
+  window.addEventListener('pointerup', settle, true);
+  window.addEventListener('pointercancel', settle, true);
+}
+
 function closeMenu(item: HTMLElement) {
   item.closest<HTMLElement>('[popover]')?.hidePopover?.();
 }

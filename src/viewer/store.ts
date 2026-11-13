@@ -79,6 +79,8 @@ export interface LensState {
   /** The open file's index, -1 for none */
   active: number;
   tabs: Tab[];
+  /** The file of the tab the right-click menu was opened on (components/Tabs/TabMenu.tsx) */
+  tabMenu: number;
   /** Categories toggled to "show" (their regions open) */
   openCats: ReadonlySet<string>;
   /** Regions the reader opened or closed one by one (regionKey in model/plans.ts); overrides openCats */
@@ -235,6 +237,7 @@ const defaultState: LensState = {
   view: 'code', // Code is always the default
   active: -1, // set at start-up (main.tsx)
   tabs: [],
+  tabMenu: -1,
   openCats: new Set(),
   foldOverrides: new Map(),
   expandedGaps: new Set(),
