@@ -102,7 +102,7 @@ Loose files and these flags are CLI-only; the app's picker covers the diff and P
 - **Search** in files (⌘P), by path (⌘⇧P), ⌥-click for usages.
 - **Viewed marks** and a progress ring, kept per review in `.lens/marks/`.
 - **Notes** on a line or selection (right-click), kept per review in `.lens/notes/`, and copied along for your agent.
-- **Settings** (`,`, or ⋯ → Settings): code size and UI size, folding, what the code shows, the summary's and the tabs' switches, and the config in effect.
+- **Settings** (`,`, or ⋯ → Settings): General (code and UI size), Code (fold level, diff reading), Summary, Feature flags, Debug, and the config in effect.
 - **Reload** (`r`) re-runs the analysis; the status bar says when the code changed on disk.
 - **Clear saved data** (⋯ menu): summaries, notes, marks and timings, for this review or all. Settings stay.
 - **Timings** (Settings → Debug, on by default): lens records how long its steps take in `.lens/timings.jsonl`; `lens timings` lists them.
@@ -141,7 +141,7 @@ Press `a` to ask about the open change, with your selection and its open concern
 
 ## Plan mode
 
-The Plan tab (`p`; on by default, off in Settings → Tabs or with `planTab`) lists the
+The Plan tab (`p`; on by default, off in Settings → Feature flags or with `planTab`) lists the
 [Lavish](https://github.com/kunchenguid/lavish-axi) plans in `.lavish/` and opens Lavish's
 editor in the tab, so annotating, sending feedback and pressing **Build it** happen in lens.
 **New plan** makes a `/lavish …` command for your agent. With the tab on, `lens diff` on a
@@ -151,7 +151,7 @@ It needs Lavish's skill (`npx skills add kunchenguid/lavish-axi --skill lavish -
 ## How folding works
 
 Each region gets a category and a score (0–3) and folds when its score ≤ the fold level
-(default 1, changed live in Settings → Folding). TODO/FIXME comments and `lens:keep` regions never fold.
+(default 1, changed live in Settings → Code). TODO/FIXME comments and `lens:keep` regions never fold.
 
 | category            | what folds (conservatively) |
 | ------------------- | --------------------------- |

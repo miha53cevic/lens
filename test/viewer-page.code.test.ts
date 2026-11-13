@@ -526,12 +526,16 @@ pageTest('Settings (,) holds the view settings, a page per section of its rail',
   assert.ok(($('#settings-modal') as HTMLDialogElement).open);
   assert.deepEqual(
     $$('#settings-modal [role="tab"]').map((tab) => tab.textContent),
-    ['Code', 'Folding', 'Show', 'Summary', 'Tabs', 'Debug', 'Config'],
+    ['General', 'Code', 'Summary', 'Feature flags', 'Debug', 'Config'],
   );
+  assert.deepEqual(shownPages(), ['general']);
+  await click($('#settings-tab-code'));
   assert.deepEqual(shownPages(), ['code']);
-  await click($('#settings-tab-show'));
-  assert.deepEqual(shownPages(), ['show']);
-  assert.equal($('#settings-tab-show').getAttribute('aria-selected'), 'true');
+  assert.equal($('#settings-tab-code').getAttribute('aria-selected'), 'true');
+  assert.deepEqual(
+    $$('[data-page="code"] [data-part="settings-group"] > h3').map((title) => title.textContent),
+    ['Folding', 'Diff'],
+  );
   await click($('#hunks-only'));
   assert.equal($('#hunks-only').getAttribute('aria-checked'), 'false');
   assert.equal($$('#code .row.gap').length, 0, 'the whole file');
@@ -539,7 +543,7 @@ pageTest('Settings (,) holds the view settings, a page per section of its rail',
   await click($('#word-diff'));
   assert.equal($('#word-diff').getAttribute('aria-checked'), 'false');
   assert.equal($$('#code .w-add').length, 0);
-  fireEvent.keyDown($('#settings-tab-show'), { key: 'ArrowDown' });
+  fireEvent.keyDown($('#settings-tab-code'), { key: 'ArrowDown' });
   await settle();
   assert.deepEqual(shownPages(), ['summary'], '↓ moves down the rail');
   ($('#settings-modal') as HTMLDialogElement).close();

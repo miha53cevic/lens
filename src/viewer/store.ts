@@ -63,7 +63,7 @@ export interface StatusNotice {
 }
 
 /** A page of the Settings dialog: the view settings' sections, then the config in effect */
-export type SettingsPage = 'code' | 'folding' | 'show' | 'summary' | 'tabs' | 'debug' | 'config';
+export type SettingsPage = 'general' | 'code' | 'summary' | 'flags' | 'debug' | 'config';
 
 export interface LensState {
   data: ViewerPayload;
@@ -276,7 +276,7 @@ const defaultState: LensState = {
   noteDraft: null,
   landed: null,
   clearInfo: null,
-  settingsPage: 'code',
+  settingsPage: 'general',
   plan: { list: null, picked: null, frame: null, query: '', filter: 'all' },
   ask: {
     open: false,

@@ -10,10 +10,9 @@ export const LEVELS = [
 
 /** The rail's view pages, in order; Config sits apart at its foot. */
 export const VIEW_PAGES: { id: Exclude<SettingsPage, 'config'>; label: string }[] = [
+  { id: 'general', label: 'General' },
   { id: 'code', label: 'Code' },
-  { id: 'folding', label: 'Folding' },
-  { id: 'show', label: 'Show' },
   { id: 'summary', label: 'Summary' },
-  { id: 'tabs', label: 'Tabs' },
+  { id: 'flags', label: 'Feature flags' },
   { id: 'debug', label: 'Debug' },
 ];

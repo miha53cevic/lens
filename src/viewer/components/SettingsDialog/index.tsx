@@ -1,7 +1,5 @@
 import type { KeyboardEvent } from 'react';
 import { useLens, type SettingsPage } from '../../store.ts';
-import { treeModel } from '../../model/tree.ts';
-import { isDiffMode } from '../../shared.ts';
 import { showSettingsPage } from '../../actions/dialogs.ts';
 import { cn } from '../../../ui/cn.ts';
 import { ListRow } from '../../../ui/ListRow.tsx';
@@ -15,16 +13,13 @@ import { ViewPages } from './ViewPages.tsx';
  * effect apart at its foot. A view setting applies as it changes; the config is read-only.
  */
 export function SettingsDialog() {
-  const { picked, showPage, summaryPage } = useLens((state) => ({
+  const { picked, summaryPage } = useLens((state) => ({
     picked: state.settingsPage,
-    // a page with nothing on it leaves the rail
-    showPage: isDiffMode(state.data) || treeModel(state).testsPresent,
+    // without a summary its page would be empty: it leaves the rail
     summaryPage: state.data.summary !== null,
   }));
   const pages: SettingsPage[] = [
-    ...VIEW_PAGES.filter(({ id }) => (id !== 'show' || showPage) && (id !== 'summary' || summaryPage)).map(
-      ({ id }) => id,
-    ),
+    ...VIEW_PAGES.filter(({ id }) => id !== 'summary' || summaryPage).map(({ id }) => id),
     'config',
   ];
   const page = pages.includes(picked) ? picked : pages[0];
