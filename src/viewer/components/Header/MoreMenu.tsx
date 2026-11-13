@@ -13,7 +13,7 @@ export function MoreMenu() {
   return (
     <Menu id='more-btn' label='Settings and more' trigger={<MoreHorizontal size={17} />}>
       <MenuItem id='settings-btn' icon={<Settings size={14} />} shortcut=',' onSelect={() => openSettings()}>
-        Settings…
+        Settings
       </MenuItem>
       <MenuItem id='keys-btn' icon={<Keyboard size={14} />} shortcut='?' onSelect={() => openDialog('keys-modal')}>
         Keyboard shortcuts
