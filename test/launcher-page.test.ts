@@ -826,6 +826,7 @@ const STRIP: StripState = {
   theme: VESPER,
   platform: 'darwin',
   fullscreen: false,
+  hints: false,
 };
 
 pageTest(
@@ -868,6 +869,22 @@ pageTest(
     assert.ok(document.documentElement.hasAttribute('data-fullscreen'));
   },
 );
+
+pageTest('the strip: ⌘ held alone numbers the tabs, the ninth key the last one', 'strip', STRIP, async (page) => {
+  const hints = () => $$('[data-tab]').map((tab) => tab.querySelector('[data-part="kbd-combo"]')?.textContent ?? '');
+  assert.deepEqual(hints(), ['', '', ''], 'no numbers until the main process says ⌘ is held');
+
+  await page.push({ ...STRIP, hints: true });
+  assert.deepEqual(hints(), ['1', '2', '3']);
+  assert.ok($('[role=tablist]').hasAttribute('data-hints'));
+
+  const tabs = Array.from({ length: 11 }, (_, index) => ({ ...STRIP.tabs[0], id: index + 1, title: 'tab' + index }));
+  await page.push({ ...STRIP, tabs, hints: true });
+  assert.deepEqual(hints(), ['1', '2', '3', '4', '5', '6', '7', '8', '', '', '9'], '⌘9 is the last tab, past eight');
+
+  await page.push({ ...STRIP, tabs, hints: false });
+  assert.deepEqual(hints(), Array(11).fill(''));
+});
 
 // ---- the strip's theme menu ----
 
