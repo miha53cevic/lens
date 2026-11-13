@@ -40,7 +40,7 @@ payload.config.theme: string
 payload.config.timings: boolean
 payload.config: object
 payload.configProblems: array
-payload.configSource: null
+payload.configSource: string
 payload.deleted: array
 payload.excluded: array
 payload.fg: string

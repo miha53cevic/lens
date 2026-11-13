@@ -247,9 +247,12 @@ pageTest('word diff (d, on by default) marks the words a replaced line changed, 
 /** Side by side's rows: "10|11" old|new numbers, "−9|·" a removed line beside nothing, "R6" a fold, "⋯" a gap */
 
 pageTest(
-  'side by side (l, off by default) puts each removed line beside what replaced it, in both views',
+  'side by side (l, on by default) puts each removed line beside what replaced it, in both views',
   async (page) => {
-    assert.equal($$('#code .srow').length, 0, 'off by default');
+    assert.ok($$('#code .srow').length > 0, 'on by default');
+    await key('l');
+    assert.equal($$('#code .srow').length, 0, 'l turns it off');
+    assert.deepEqual(postedView(page).at(-1), { sideBySide: false });
     await key('l');
     assert.equal($('#side-by-side').getAttribute('aria-checked'), 'true', 'the ⋯ menu switch follows the key');
     assert.deepEqual(postedView(page).at(-1), { sideBySide: true }, 'kept by the server');
@@ -319,6 +322,8 @@ pageTest(
     assert.equal($$('[data-part="unit-code"] .srow').length, 0, 'l works on the Summary tab');
     assert.deepEqual(postedView(page).at(-1), { sideBySide: false });
   },
+  // the viewer's own default, not the harness's
+  { sideBySide: undefined },
 );
 
 /** Selects from the start of one row to the first character of another, as a drag would. */

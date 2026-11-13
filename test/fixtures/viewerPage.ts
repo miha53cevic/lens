@@ -185,7 +185,11 @@ export async function open(view: ViewSettings = {}, hash = '', cookie = '', data
   }) as typeof fetch;
   if (cookie) document.cookie = cookie;
   document.body.innerHTML = '<div id="root"></div><script id="lens-data" type="application/json"></script>';
-  document.getElementById('lens-data')!.textContent = JSON.stringify({ ...data, view: { ...data.view, ...view } });
+  // side by side is on by default, but the tests read the inline rows unless they turn it on
+  document.getElementById('lens-data')!.textContent = JSON.stringify({
+    ...data,
+    view: { sideBySide: false, ...data.view, ...view },
+  });
   new Function(bundle)();
   await settle();
   return page;

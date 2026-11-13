@@ -105,7 +105,7 @@ Loose files and these flags are CLI-only; the app's picker covers the diff and P
 - **Code size and UI size** in the ⋯ menu.
 - **Reload** (`r`) re-runs the analysis; the status bar says when the code changed on disk.
 - **Clear saved data** (⋯ menu): summaries, notes, marks and timings, for this review or all. Settings stay.
-- **Timings** (⋯ → Debug, off by default): lens records how long its steps take in `.lens/timings.jsonl`; `lens timings` lists them.
+- **Timings** (⋯ → Debug, on by default): lens records how long its steps take in `.lens/timings.jsonl`; `lens timings` lists them.
 
 Press `?` in the viewer for every key.
 
@@ -141,7 +141,7 @@ Press `a` to ask about the open change, with your selection and its open concern
 
 ## Plan mode
 
-The Plan tab (`p`; turn it on in the ⋯ menu or with `planTab`) lists the
+The Plan tab (`p`; on by default, off in the ⋯ menu or with `planTab`) lists the
 [Lavish](https://github.com/kunchenguid/lavish-axi) plans in `.lavish/` and opens Lavish's
 editor in the tab, so annotating, sending feedback and pressing **Build it** happen in lens.
 **New plan** makes a `/lavish …` command for your agent. With the tab on, `lens diff` on a
@@ -198,8 +198,8 @@ and `lens config` all say why.
 | `exclude` | listed in a diff as `⊘` without being read; skipped in directory walks |
 | `buildPreviews` | summary mode asks for previews and sequences (default `true`) |
 | `selfChecks` | summary mode asks for questions to check yourself with (default `false`) |
-| `planTab` | the viewer shows the Plan tab (default `false`) |
-| `timings` | lens records how long its steps take, for `lens timings` (default `false`) |
+| `planTab` | the viewer shows the Plan tab (default `true`) |
+| `timings` | lens records how long its steps take, for `lens timings` (default `true`) |
 
 The ⋯ menu's switches override the last four for you, in `.lens/settings.json`, which also keeps
 how you left the viewer in that repository (view settings, fold level, panels). Patterns:
