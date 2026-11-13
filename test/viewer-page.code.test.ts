@@ -3,6 +3,7 @@
 // The harness is test/fixtures/viewerPage.ts.
 
 import { test } from 'bun:test';
+import { fireEvent } from '@testing-library/dom';
 import assert from 'node:assert/strict';
 import {
   payload,
@@ -588,6 +589,59 @@ pageTest("a tab closes from its button, which is the design system's icon button
   assert.equal(close.getAttribute('aria-label'), 'Close orders.ts', 'it names the tab it closes');
   await click(close);
   assert.equal($$('#tabbar [data-part="tab"]').length, 0);
+});
+
+pageTest('Collapse All closes every folder, and a file opened from its tab opens its folders again', async () => {
+  const folder = () => $('#tree [data-part="dir"]');
+  assert.equal(folder().getAttribute('aria-expanded'), 'true');
+  assert.ok($('#tree [data-dir-files] [data-part="guide"]'), 'an open folder draws its indent guide');
+  await click($('#collapse-folders'));
+  assert.equal(folder().getAttribute('aria-expanded'), 'false');
+  assert.deepEqual(treeFiles(), []);
+  await click($('#tabbar [data-part="tab"] [data-part="tab-main"]'));
+  assert.equal(folder().getAttribute('aria-expanded'), 'true', 'revealed: its folder opened');
+  assert.deepEqual(treeFiles(), ['orders.ts']);
+  assert.ok($('#tree [data-part="file"][data-active] [data-part="kind-icon"]'));
+});
+
+pageTest('the tabs close as in VS Code: others, to the right, viewed, all', async () => {
+  const tabNames = () => $$('#tabbar [data-part="tab-name"]').map((name) => name.textContent);
+  const activeTab = () => $('#tabbar [data-part="tab"][data-active] [data-part="tab-name"]').textContent;
+  const tab = (name: string) =>
+    $$('#tabbar [data-part="tab"]').find((candidate) => candidate.textContent!.includes(name))!;
+  const treeFile = (name: string) =>
+    $$('#tree [data-part="file"]').find((file) => file.querySelector('[data-part="fname"]')!.textContent === name)!;
+  const openBoth = async () => {
+    fireEvent.dblClick(treeFile('orders.test.ts'));
+    await settle();
+    await click(treeFile('orders.ts'));
+  };
+  const fromMenu = async (name: string, item: string) => {
+    fireEvent.contextMenu(tab(name), { button: 2 });
+    await settle();
+    await click($(item));
+  };
+  await key('t');
+  await openBoth();
+  assert.deepEqual(tabNames(), ['orders.ts', 'orders.test.ts']);
+  assert.equal(activeTab(), 'orders.ts');
+
+  await fromMenu('orders.test.ts', '#tab-menu-others');
+  assert.deepEqual(tabNames(), ['orders.test.ts']);
+  assert.equal(activeTab(), 'orders.test.ts', 'the one in front closed: the one kept shows');
+
+  await openBoth();
+  assert.deepEqual(tabNames(), ['orders.test.ts', 'orders.ts']);
+  await fromMenu('orders.test.ts', '#tab-menu-right');
+  assert.deepEqual(tabNames(), ['orders.test.ts']);
+
+  await key('m');
+  await click($('#tabs-close-viewed'));
+  assert.deepEqual(tabNames(), [], 'the viewed file closed');
+
+  await openBoth();
+  await click($('#tabs-close-all'));
+  assert.deepEqual(tabNames(), []);
 });
 
 pageTest("the shortcuts' tabs sit above the scrolling keys, not in them", async () => {

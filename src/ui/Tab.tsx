@@ -14,6 +14,8 @@ interface TabProps {
   onSelect: () => void;
   onDoubleClick?: () => void;
   onClose: () => void;
+  /** A right-click on it: the page's own menu for the tab */
+  onContextMenu?: (event: MouseEvent) => void;
   /** The close button's name: "Close orders.ts" */
   closeLabel: string;
   /** More buttons before the close one (ui/IconButton, size sm): shown with it */
@@ -41,6 +43,7 @@ export function Tab({
   onSelect,
   onDoubleClick,
   onClose,
+  onContextMenu,
   closeLabel,
   actions,
   mono,
@@ -66,6 +69,7 @@ export function Tab({
       onAuxClick={(event: MouseEvent) => {
         if (event.button === 1) onClose();
       }}
+      onContextMenu={onContextMenu}
     >
       <button
         ref={mainRef}

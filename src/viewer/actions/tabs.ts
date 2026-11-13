@@ -1,11 +1,12 @@
 // Opening files: the editor tabs, and stepping through the tree.
 
 import { commit, getState, type LensState, type Tab, update } from '../store.ts';
-import { isTestFile } from '../shared.ts';
+import { fileViewKey, isTestFile } from '../shared.ts';
 import { activeFile } from '../model/plans.ts';
 import { firstTreeFile, treeModel, visibleFile } from '../model/tree.ts';
 import { narrowOut, stay, widenIn } from '../../ui/motion.ts';
 import { measure } from './timings.ts';
+import { revealInTree } from './tree.ts';
 
 // The file gets a tab. A new file takes over the preview tab when one exists; otherwise it
 // opens next to the active tab.
@@ -42,7 +43,7 @@ export function openFile(fileIndex: number, pin?: boolean): void {
   const file = state.data.files[fileIndex];
   if (fileIndex !== state.active && file) measure('open file', file.file + ', ' + file.lineCount + ' lines')();
   const tabs = withTab(state.tabs, state.active, fileIndex, pin);
-  const patch = { ...revealIfTest(state, fileIndex), tabs, active: fileIndex };
+  const patch = { ...revealIfTest(state, fileIndex), ...revealInTree(state, fileIndex), tabs, active: fileIndex };
   // a tab that joins the bar widens into its place; one that replaces the preview just shows
   if (tabs.length <= state.tabs.length) return update(patch);
   commit(patch);
@@ -61,9 +62,46 @@ function withoutTab(state: LensState, fileIndex: number): Partial<LensState> {
 
 /** The file next to the tab shows at once; the tab narrows out of the bar, then leaves it. */
 export function closeTab(fileIndex: number): void {
-  const { active } = withoutTab(getState(), fileIndex);
-  if (active !== undefined) update({ active });
-  narrowOut(tabElement(fileIndex), () => update((state) => withoutTab(state, fileIndex)));
+  closeTabs([fileIndex]);
+}
+
+/**
+ * Several tabs close as one does: if the tab in front is among them, the nearest one left after it
+ * (else before it) shows at once, and each narrows out, then leaves the bar.
+ */
+function closeTabs(fileIndexes: number[]): void {
+  const closing = new Set(fileIndexes);
+  const { tabs, active } = getState();
+  if (closing.has(active)) {
+    const at = tabs.findIndex((tab) => tab.index === active);
+    const staying = (tab: Tab) => !closing.has(tab.index);
+    const next = tabs.slice(at + 1).find(staying) ?? tabs.slice(0, at).findLast(staying);
+    update({ active: next ? next.index : -1 });
+  }
+  for (const fileIndex of closing) {
+    narrowOut(tabElement(fileIndex), () => update((state) => withoutTab(state, fileIndex)));
+  }
+}
+
+const tabIndexes = (tabs: Tab[]) => tabs.map((tab) => tab.index);
+
+export function closeAllTabs(): void {
+  closeTabs(tabIndexes(getState().tabs));
+}
+
+export function closeOtherTabs(fileIndex: number): void {
+  closeTabs(tabIndexes(getState().tabs.filter((tab) => tab.index !== fileIndex)));
+}
+
+export function closeTabsToTheRight(fileIndex: number): void {
+  const { tabs } = getState();
+  closeTabs(tabIndexes(tabs.slice(tabs.findIndex((tab) => tab.index === fileIndex) + 1)));
+}
+
+/** The tabs of files marked viewed. One viewed, then changed, counts as not viewed: it stays. */
+export function closeViewedTabs(): void {
+  const { tabs, data, viewedFiles } = getState();
+  closeTabs(tabIndexes(tabs.filter((tab) => viewedFiles.has(fileViewKey(data.files[tab.index])))));
 }
 
 export function pinTab(fileIndex: number): void {

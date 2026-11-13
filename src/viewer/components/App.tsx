@@ -7,7 +7,7 @@ import { setNavWidth } from '../actions/prefs.ts';
 import { askSetWidth } from '../ask/rail.ts';
 import { Header } from './Header/index.tsx';
 import { Nav } from './Nav/index.tsx';
-import { Tabs } from './Tabs.tsx';
+import { Tabs } from './Tabs/index.tsx';
 import { CodePane } from './CodePane/index.tsx';
 import { SummaryPane } from './SummaryPane/index.tsx';
 import { PlanPane } from './PlanPane/index.tsx';

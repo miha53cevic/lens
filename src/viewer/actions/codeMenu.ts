@@ -4,17 +4,10 @@
 import { getState } from '../store.ts';
 import { askSelection } from '../model/askContext.ts';
 import { askSelLabel, codeRowAt, keepRow, selectionHas } from '../ask/selection.ts';
-import { placeAt } from '../../ui/Menu.tsx';
+import { openAt } from '../../ui/Menu.tsx';
 import { noteDone, noteFailure } from './status.ts';
 
 export const CODE_MENU = 'code-menu';
-
-function showMenu(x: number, y: number) {
-  const menu = document.getElementById(CODE_MENU);
-  if (!menu) return;
-  menu.showPopover?.(); // happy-dom has no popovers: the page tests click its items as they are
-  placeAt(menu, x, y); // once it's open: it has a size to keep inside the window
-}
 
 /** A right-click on a line: inside the kept selection the menu acts on it, outside it the line becomes the selection. */
 export function onContextMenu(event: MouseEvent): void {
@@ -23,23 +16,10 @@ export function onContextMenu(event: MouseEvent): void {
   if (!row) return;
   event.preventDefault();
   if (!selectionHas(row)) keepRow(row);
-  const { clientX, clientY } = event;
-  if (!event.buttons) {
-    showMenu(clientX, clientY);
-    return;
-  }
-  // macOS fires contextmenu on the press, not the release: opened now, the popover's light dismiss
-  // would close it again on the pointerup that follows. So it opens once that has gone by.
-  const settle = (up: Event) => {
-    window.removeEventListener('pointerup', settle, true);
-    window.removeEventListener('pointercancel', settle, true);
-    if (up.type === 'pointerup') setTimeout(() => showMenu(clientX, clientY));
-  };
-  window.addEventListener('pointerup', settle, true);
-  window.addEventListener('pointercancel', settle, true);
+  openAt(document.getElementById(CODE_MENU), event);
 }
 
-async function copy(text: string, what: string) {
+export async function copy(text: string, what: string) {
   try {
     await navigator.clipboard.writeText(text);
     noteDone('Copied ' + what);

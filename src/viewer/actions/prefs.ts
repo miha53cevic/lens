@@ -1,7 +1,7 @@
 // What the reader sets: the sidebar and the view settings (the header's ⋯ menu), which the server keeps for
 // the repository, the code's size and the UI's, in cookies, and the viewed marks, which the server keeps for the review.
 
-import { commit, getState, toggled, update } from '../store.ts';
+import { commit, getState, update } from '../store.ts';
 import { fileViewKey, INITIAL_DATA, type ViewFile } from '../shared.ts';
 import { CODE_SIZE_COOKIE, CODE_SIZE_DEFAULT, steppedSize } from '../codeSize.ts';
 import { steppedZoom, UI_ZOOM_COOKIE, UI_ZOOM_DEFAULT } from '../../cli-app/zoom.ts';
@@ -13,9 +13,9 @@ import { visibleActive } from './tabs.ts';
 import { saveMark } from './marks.ts';
 import { saveView } from './viewSettings.ts';
 import { inboxMark } from './inbox.ts';
-import { growClosed, growOpen, pop, slideIn, slideOut, stay } from '../../ui/motion.ts';
+import { pop, slideIn, slideOut, stay } from '../../ui/motion.ts';
 
-// The sidebar: collapsed or not, its width, the tree's closed folders.
+// The sidebar: collapsed or not, its width (its folders are actions/tree.ts).
 
 /** Committed: a filter in the sidebar can take focus right after it shows (keys.ts). */
 export function toggleNav(): void {
@@ -35,17 +35,6 @@ export function toggleNav(): void {
 export function setNavWidth(width: number): void {
   update({ navWidth: width });
   void saveView({ navWidth: width });
-}
-
-export function toggleDir(path: string): void {
-  const files = document.querySelector(`[data-dir-files="${CSS.escape(path)}"]`);
-  // clicked again while it closes: it stays open
-  if (stay(files)) return;
-  const flip = () => commit((state) => ({ closedDirs: toggled(state.closedDirs, path) }));
-  // a folder the reader closes shrinks shut; one the reader opens grows open (one opened by a filter, or shown again, just shows)
-  if (files && !getState().closedDirs.has(path)) return growClosed(files, flip);
-  flip();
-  if (!getState().closedDirs.has(path)) growOpen(document.querySelector(`[data-dir-files="${CSS.escape(path)}"]`));
 }
 
 // The view settings: hunks only, full units, removed lines, word diff, side by side, hide tests, the fold level.

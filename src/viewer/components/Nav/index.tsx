@@ -6,7 +6,8 @@ import { useCallback } from 'react';
 import { scrollStore, update, useLens } from '../../store.ts';
 import { navShown } from '../../model/tree.ts';
 import { Filter } from './Filter.tsx';
-import { Tree } from './Tree.tsx';
+import { Tree } from './Tree/index.tsx';
+import { ExplorerHeader } from './ExplorerHeader.tsx';
 import { SummaryList } from './SummaryList/index.tsx';
 import { ChangesProgress, FilesProgress } from './Progress.tsx';
 import { PlanList } from './PlanList/index.tsx';
@@ -39,7 +40,7 @@ export function Nav() {
       key={view}
       className={clsx(
         // a row scrolled into sight from below the top stops under the sticky filter, not behind it
-        'w-[270px] flex-none overflow-x-hidden overflow-y-auto bg-bg px-3 pt-4 pb-6 scroll-pt-[calc(var(--control-h)+var(--space-2))] text-sm',
+        'group/nav w-[270px] flex-none overflow-x-hidden overflow-y-auto bg-bg px-3 pt-4 pb-6 scroll-pt-[calc(var(--control-h)+var(--space-2))] text-sm',
         // the Summary list's cards need the room
         summaryView ? 'min-w-[340px]' : 'min-w-0',
       )}
@@ -51,6 +52,7 @@ export function Nav() {
       }}
     >
       {planView ? <PlanList /> : summaryView ? <ChangesProgress /> : <FilesProgress />}
+      {view === 'code' && <ExplorerHeader />}
       <Filter
         inputId='file-filter'
         clearId='filter-clear'
@@ -59,7 +61,7 @@ export function Nav() {
         value={navQuery}
         onChange={(query) => update({ navQuery: query })}
       />
-      <div id='tree' style={hiddenStyle(summaryView || planView)}>
+      <div id='tree' className='-mx-3' style={hiddenStyle(summaryView || planView)}>
         {view === 'code' && <Tree />}
       </div>
       <Filter

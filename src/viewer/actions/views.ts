@@ -6,6 +6,7 @@ import { flashRow } from '../shared.ts';
 import { fileSpans } from '../rows.ts';
 import { revealIfTest, visibleActive, withTab } from './tabs.ts';
 import { openFoldAround } from './folds.ts';
+import { revealInTree } from './tree.ts';
 import { isBusy } from '../model/status.ts';
 import type { Watcher } from '../../ui/poll.ts';
 import { api, noteDone, reach, tracked } from './status.ts';
@@ -120,6 +121,7 @@ export function jumpToLine(fileIndex: number, line: number, pinOrigin?: boolean)
     return {
       ...viewChange(state, 'code'),
       ...revealIfTest(state, fileIndex),
+      ...revealInTree(state, fileIndex),
       tabs: withTab(tabs, state.active, fileIndex),
       active: fileIndex,
       expandedGaps: gap ? toggled(state.expandedGaps, gap.gap!, true) : state.expandedGaps,
