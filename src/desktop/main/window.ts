@@ -12,6 +12,7 @@ import {
   screen,
   type IpcMainEvent,
   type IpcMainInvokeEvent,
+  type WebContents,
 } from 'electron';
 import type { LauncherApi, LauncherState, MenuApi, MenuState, SetupPart, StripApi, StripState } from '../shared/api.ts';
 import { LAUNCHER_ARGS, LAUNCHER_CALLS, MENU_ARGS, MENU_CALLS, STRIP_ARGS, STRIP_CALLS } from '../shared/ipc.ts';
@@ -24,6 +25,7 @@ import { planProxyOrigin } from './session.ts';
 import { install, setupState, uninstall, type SetupEnv } from './setup.ts';
 import type { Session, Store } from './store.ts';
 import { Tab, type OwnScreen, type TabHost } from './tab.ts';
+import { TabKeys } from './tabKeys.ts';
 import { TabList } from './tabs.ts';
 import type { Themes } from './themes.ts';
 import type { UiZoom } from './zoom.ts';
@@ -75,6 +77,18 @@ export class AppWindow implements TabHost {
   private placeTimer: ReturnType<typeof setTimeout> | null = null;
   /** The pages' own background in the theme of the moment, as the strip's page measured it */
   private pageBackground: string | null = null;
+  /** The tabs show their numbers (⌘ held alone) */
+  private hints = false;
+  private readonly tabKeys = new TabKeys(process.platform, {
+    hints: (on) => {
+      this.hints = on;
+      this.sendStrip();
+    },
+    select: (index) => {
+      const tab = index === 'last' ? this.tabs.all.at(-1) : this.tabs.all[index];
+      if (tab) this.selectTab(tab.id);
+    },
+  });
 
   constructor(deps: WindowDeps) {
     this.deps = deps;
@@ -99,10 +113,12 @@ export class AppWindow implements TabHost {
       webPreferences: appPagePreferences(deps.preload),
     });
     allowOrigin(this.win.webContents, APP_ORIGIN);
+    this.watchKeys(this.win.webContents);
     void this.win.loadURL(APP_ORIGIN + '/shell.html');
     this.menu = new WebContentsView({ webPreferences: appPagePreferences(deps.preload) });
     this.menu.setBackgroundColor('#00000000');
     allowOrigin(this.menu.webContents, APP_ORIGIN);
+    this.watchKeys(this.menu.webContents);
     // loaded now, in the window only while it is open: a view over the others, even a hidden one, is in their way
     void this.menu.webContents.loadURL(APP_ORIGIN + '/menu.html');
     this.win.once('ready-to-show', () => {
@@ -117,6 +133,8 @@ export class AppWindow implements TabHost {
     });
     // back in the window, Electron gives the focus to its own page, the strip: the keys belong to the tab's
     this.win.on('focus', () => this.focusFront());
+    // ⌘Tab away: the modifier is let go where the window doesn't hear it
+    this.win.on('blur', () => this.tabKeys.reset());
     this.win.on('move', () => this.placeChanged());
     this.win.on('maximize', () => this.savePlace());
     this.win.on('unmaximize', () => this.savePlace());
@@ -188,6 +206,7 @@ export class AppWindow implements TabHost {
     const launcher = new WebContentsView({ webPreferences: appPagePreferences(this.deps.preload) });
     launcher.setBackgroundColor(this.background());
     allowOrigin(launcher.webContents, APP_ORIGIN);
+    this.watchKeys(launcher.webContents);
     void launcher.webContents.loadURL(APP_ORIGIN + '/launcher.html');
     this.win.contentView.addChildView(launcher);
     this.views.set(tab.id, { launcher, review: null });
@@ -244,6 +263,11 @@ export class AppWindow implements TabHost {
       views.launcher.setBackgroundColor(color);
       views.review?.setBackgroundColor(color);
     }
+  }
+
+  /** ⌘1–⌘9 pick a tab from whichever page has the keys; the page gets them too (tabKeys.ts says why). */
+  private watchKeys(contents: WebContents): void {
+    contents.on('before-input-event', (_event, input) => this.tabKeys.input(input));
   }
 
   private dropView(view: WebContentsView): void {
@@ -315,6 +339,7 @@ export class AppWindow implements TabHost {
       const view = new WebContentsView({ webPreferences: viewerPreferences() });
       view.setBackgroundColor(this.background());
       allowOrigin(view.webContents, new URL(url).origin);
+      this.watchKeys(view.webContents);
       // the Plan tab frames Lavish through the viewer's own proxy (server.json says where)
       const plans = tab.repo ? planProxyOrigin(tab.repo.root) : null;
       if (plans) allowFrames(view.webContents, plans);
@@ -342,6 +367,7 @@ export class AppWindow implements TabHost {
       theme: this.deps.themes.current,
       platform: process.platform,
       fullscreen: this.win.isFullScreen(),
+      hints: this.hints,
     };
   }
 

@@ -1,6 +1,7 @@
 import { ArrowLeftRight, Folder, Plus, Settings, Shapes } from 'lucide-react';
 import type { StripTab } from '../shared/api.ts';
 import { IconButton } from '../../ui/IconButton.tsx';
+import { Kbd } from '../../ui/Kbd.tsx';
 import { Tab, TAB_BUTTON } from '../../ui/Tab.tsx';
 import { narrowOut, widenIn } from '../../ui/motion.ts';
 import { THEME_TRIGGER, ThemeTrigger } from '../../ui/ThemeMenu.tsx';
@@ -13,6 +14,12 @@ function TabIcon({ icon }: { icon: StripTab['icon'] }) {
   return <Plus size={13} />;
 }
 
+/** The number that picks the tab at this index: ⌘1–⌘8, and ⌘9 the last one, as in a browser. */
+function hintOf(index: number, count: number): string | null {
+  if (index < 8) return String(index + 1);
+  return index === count - 1 ? '9' : null;
+}
+
 /**
  * The tab in front stays in sight when there are more tabs than the strip has room for. On the
  * tab's button, since the tab's own ref widens it in when it opens.
@@ -21,7 +28,7 @@ function keepInSight(button: HTMLElement | null) {
   button?.closest('[data-tab]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 }
 
-function RepoTab({ tab, active }: { tab: StripTab; active: boolean }) {
+function RepoTab({ tab, active, hint }: { tab: StripTab; active: boolean; hint: string | null }) {
   const { strip } = window.lensApp;
   return (
     <Tab
@@ -49,7 +56,17 @@ function RepoTab({ tab, active }: { tab: StripTab; active: boolean }) {
         )
       }
     >
-      <TabIcon icon={tab.icon} />
+      {/* the number over the icon, which keeps its place: the tabs don't move while ⌘ is held */}
+      <span className='relative inline-flex'>
+        <span className={hint ? 'invisible inline-flex' : 'inline-flex'}>
+          <TabIcon icon={tab.icon} />
+        </span>
+        {hint && (
+          <span className='absolute inset-0 flex items-center justify-center'>
+            <Kbd size='sm' combo={hint} />
+          </span>
+        )}
+      </span>
       <span className='font-semibold'>{tab.title}</span>
       {tab.detail && <span className='overflow-hidden text-ellipsis text-muted'>{tab.detail}</span>}
     </Tab>
@@ -71,13 +88,19 @@ export function Strip() {
       <div
         className='-mx-1 flex min-w-0 gap-1 overflow-x-auto p-1 [scrollbar-width:none] [-webkit-app-region:no-drag]'
         role='tablist'
+        data-hints={state.hints || undefined}
         // a mouse's wheel turns only up and down: here it moves the tabs sideways
         onWheel={(event) => {
           if (event.deltaX === 0) event.currentTarget.scrollLeft += event.deltaY;
         }}
       >
-        {state.tabs.map((tab) => (
-          <RepoTab key={tab.id} tab={tab} active={tab.id === state.activeId} />
+        {state.tabs.map((tab, index) => (
+          <RepoTab
+            key={tab.id}
+            tab={tab}
+            active={tab.id === state.activeId}
+            hint={state.hints ? hintOf(index, state.tabs.length) : null}
+          />
         ))}
       </div>
       <IconButton id='new-tab' label='New tab' onClick={() => strip.add()}>

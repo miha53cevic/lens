@@ -28,6 +28,8 @@ export interface StripState {
   platform: string;
   /** macOS full screen: the window buttons are gone, the strip can use their room */
   fullscreen: boolean;
+  /** ⌘ (Ctrl elsewhere) is held on its own: the tabs show the numbers that pick them (main/tabKeys.ts) */
+  hints: boolean;
 }
 
 /** One status, as the viewer's status bar has one: what the tab is doing, or what went wrong. */
