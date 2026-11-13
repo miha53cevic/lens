@@ -1,11 +1,9 @@
-import { Ellipsis } from 'lucide-react';
 import { useLens } from '../../store.ts';
 import { baseName, hiddenStyle } from '../../shared.ts';
-import { closeAllTabs, closeTab, closeViewedTabs, openFile, pinTab } from '../../actions/tabs.ts';
+import { closeTab, openFile, pinTab } from '../../actions/tabs.ts';
 import { openTabMenu } from '../../actions/tabMenu.ts';
 import { StatusLetter } from '../../../ui/FileStatus.tsx';
 import { Tab } from '../../../ui/Tab.tsx';
-import { Menu, MenuItem } from '../../../ui/Menu.tsx';
 import { TabMenu } from './TabMenu.tsx';
 
 /** The tab in front stays in sight when there are more tabs than the bar has room for. */
@@ -73,14 +71,6 @@ export function Tabs() {
           );
         })}
       </div>
-      <Menu id='tabs-menu' label='Tab actions' trigger={<Ellipsis size={16} />} className='w-[200px]'>
-        <MenuItem id='tabs-close-viewed' onSelect={closeViewedTabs}>
-          Close Viewed
-        </MenuItem>
-        <MenuItem id='tabs-close-all' onSelect={closeAllTabs}>
-          Close All
-        </MenuItem>
-      </Menu>
       <TabMenu />
     </div>
   );

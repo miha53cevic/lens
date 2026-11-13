@@ -675,11 +675,11 @@ pageTest('the tabs close as in VS Code: others, to the right, viewed, all', asyn
   assert.deepEqual(tabNames(), ['orders.test.ts']);
 
   await key('m');
-  await click($('#tabs-close-viewed'));
+  await fromMenu('orders.test.ts', '#tab-menu-viewed');
   assert.deepEqual(tabNames(), [], 'the viewed file closed');
 
   await openBoth();
-  await click($('#tabs-close-all'));
+  await fromMenu('orders.ts', '#tab-menu-all');
   assert.deepEqual(tabNames(), []);
 });
 
