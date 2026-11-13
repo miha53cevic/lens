@@ -85,7 +85,7 @@ test('stats: count, median, max and the last of each step, in the order they fir
 test('the switch: the reader’s setting wins over the config', () => {
   const root = tempRoot();
   try {
-    assert.equal(timingsOn(root, DEFAULT_CONFIG), false);
+    assert.equal(timingsOn(root, DEFAULT_CONFIG), true);
     assert.equal(timingsOn(root, { ...DEFAULT_CONFIG, timings: true }), true);
     writeSettings(root, { timings: false });
     assert.equal(timingsOn(root, { ...DEFAULT_CONFIG, timings: true }), false);
@@ -99,7 +99,7 @@ test('Clear saved data lists the timings and clears them, and lens timings reads
   try {
     execFileSync('git', ['init', '-q'], { cwd: root });
     const empty = execFileSync('bun', [cli, 'timings'], { cwd: root, encoding: 'utf8' });
-    assert.match(empty, /no timings: turn them on/);
+    assert.match(empty, /no timings yet: open or refresh a review/, 'on by default, with nothing recorded');
 
     setTimings(root, true);
     record('cli', 'analyze', 120, '3 files');

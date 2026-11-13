@@ -80,6 +80,8 @@ export function makeViewerRepo(): string {
   writeFileSync(join(dir, 'src/orders.ts'), OLD_ORDERS);
   writeFileSync(join(dir, 'src/orders.test.ts'), OLD_TEST);
   writeFileSync(join(dir, 'src/report.ts'), REPORT);
+  // the tests were written against these off: a clean tree fails to open instead of showing the Plan tab
+  writeFileSync(join(dir, '.lens.json'), JSON.stringify({ planTab: false, timings: false }));
   git('add', '-A');
   git('-c', 'user.email=lens@test', '-c', 'user.name=lens', 'commit', '-q', '-m', 'base');
   writeFileSync(join(dir, 'src/orders.ts'), NEW_ORDERS);

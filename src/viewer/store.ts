@@ -243,7 +243,7 @@ const defaultState: LensState = {
   hunksOnly: true,
   fullUnits: false,
   wordDiff: true,
-  sideBySide: false,
+  sideBySide: true,
   codeSize: loadCodeSize(),
   uiZoom: loadUiZoom(),
   navCollapsed: false,

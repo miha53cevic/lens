@@ -204,7 +204,7 @@ The Ask rail (`src/viewer/ask/`, `components/AskRail/`) asks the user's agent ab
 
 The Plan tab shows the user's Lavish plans (github.com/kunchenguid/lavish-axi). As elsewhere, lens writes nothing: the agent makes the plan with the lavish skill, and Lavish's own page is where it's annotated and built.
 
-- It is behind a feature flag, `planTab` (off by default): the config field, overridden by the reader's ⋯ switch in `.lens/settings.json` (`planTabOn`), and in the payload as `planTab`. Off, nothing of the tab shows and `p` does nothing; the server's routes and proxy are there either way.
+- It is behind a feature flag, `planTab` (on by default): the config field, overridden by the reader's ⋯ switch in `.lens/settings.json` (`planTabOn`), and in the payload as `planTab`. Turned off, nothing of the tab shows and `p` does nothing; the server's routes and proxy are there either way.
 
 - lens reads Lavish's state file (`~/.lavish-axi/state.json`, or `LAVISH_AXI_STATE_DIR`) and its server's `/health` (who listens), and runs only `lavish-axi <plan> --no-open` (`--reopen` only on the reader's click: Lavish's rule is never to reopen a plan the user ended uninvited). These are Lavish's internals, not a contract: keep what lens reads of them small, and fail to "not known", never to a wrong claim.
 - Lavish's page refuses framing and checks Host and Origin, so `proxy.ts` forwards to it from a second loopback port per server (`planPort` in `.lens/server.json`, which the desktop app reads to let the viewer's frames load it, `allowFrames` in `security.ts`). It forwards only a session page's own paths and only sessions `admit`ted by `/api/plans/open`, and puts back a `frame-ancestors` naming only this viewer. Keep all of that.
