@@ -91,6 +91,7 @@ payload.planTab: boolean
 payload.renamed: array
 payload.review: string
 payload.selfChecks: boolean
+payload.settingsFile: string
 payload.summary.checkout: null
 payload.summary.checks: array
 payload.summary.cli: string

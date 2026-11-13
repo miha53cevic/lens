@@ -25,7 +25,7 @@ import type {
 } from '../../api/contract.ts';
 import { createRouter, HttpError, noBody, type RouteContext } from '../../api/router.ts';
 import { previewResponse } from '../../summary/previews.ts';
-import { checkView, viewSettings, writeSettings } from '../../summary/settings.ts';
+import { checkView, revealSettings, settingsPath, viewSettings, writeSettings } from '../../summary/settings.ts';
 import { buildProgressReader, type BuildProgress } from '../../summary/progress.ts';
 import { clearKinds, describeKinds, type ClearContext, type ClearPlan } from '../../clear.ts';
 import { escapeHtml } from '../../text.ts';
@@ -125,6 +125,8 @@ export type ViewerPayload = Omit<ViewerInput, 'root' | 'cwd' | 'files' | 'latest
   marks: ReviewMarks;
   /** How the reader left the viewer (~/.lens/settings.json, the same in every repository) */
   view: ViewSettings;
+  /** Where that file is, as Settings shows it: the whole path, for this machine */
+  settingsFile: string;
 };
 
 export interface ThemeTokens {
@@ -266,6 +268,7 @@ export function viewerPayload(
     notes: opts.notes ?? [],
     marks: opts.marks ?? { files: [], units: [], concerns: {} },
     view: opts.view ?? {},
+    settingsFile: settingsPath(),
   };
 }
 
@@ -511,6 +514,10 @@ export async function serveViewer(
       writeSettings({ view });
       // the page held for a reload carries the view as it was
       savedVersion++;
+      return { ok: true };
+    })
+    .json('POST /api/settings/reveal', noBody, () => {
+      revealSettings();
       return { ok: true };
     })
     .json('POST /api/timings', parseTimings, ({ timings }) => {

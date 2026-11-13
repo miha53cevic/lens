@@ -1,6 +1,7 @@
-import { existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { spawn } from 'node:child_process';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import type { LensConfig } from '../model.ts';
 import type { ViewSettings } from '../api/contract.ts';
 import { writeAtomic } from './store.ts';
@@ -66,8 +67,34 @@ export function lensHome(): string {
   return process.env.LENS_HOME || join(homedir(), '.lens');
 }
 
-function settingsPath(): string {
+export function settingsPath(): string {
   return join(lensHome(), 'settings.json');
+}
+
+/** What shows the file selected in the system's file manager: Finder, Explorer, else its folder opened. */
+export function revealCommand(path: string, platform: NodeJS.Platform): [string, string[]] {
+  if (platform === 'darwin') return ['open', ['-R', path]];
+  // one argument: Explorer reads `/select,` and the path as one
+  if (platform === 'win32') return ['explorer.exe', ['/select,' + path]];
+  return ['xdg-open', [dirname(path)]];
+}
+
+/**
+ * Settings' footer: the settings file shown in Finder or Explorer, made first when nothing was set
+ * yet (an empty one, as reading finds no file). The page never names the path: it's always this one.
+ * LENS_NO_REVEAL (the tests') leaves the file manager closed.
+ */
+export function revealSettings(): void {
+  const path = settingsPath();
+  if (!existsSync(path)) {
+    mkdirSync(lensHome(), { recursive: true });
+    writeFileSync(path, '{}\n');
+  }
+  if (process.env.LENS_NO_REVEAL) return;
+  const [command, args] = revealCommand(path, process.platform);
+  const child = spawn(command, args, { stdio: 'ignore', detached: true, windowsHide: true });
+  child.on('error', () => console.log(`lens: couldn't show ${path} — it is there to open yourself`));
+  child.unref();
 }
 
 export function readSettings(): LocalSettings {

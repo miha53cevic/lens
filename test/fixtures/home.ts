@@ -5,3 +5,5 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 process.env.LENS_HOME = mkdtempSync(join(tmpdir(), 'lens-home-'));
+// and Settings' reveal leaves Finder / Explorer closed (summary/settings.ts)
+process.env.LENS_NO_REVEAL = '1';

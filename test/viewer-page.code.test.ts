@@ -517,7 +517,7 @@ pageTest('the review pill marks the file viewed and opens the next one, stopping
   );
 });
 
-pageTest('Settings (,) holds the view settings, a page per section of its rail', async () => {
+pageTest('Settings (,) holds the view settings, a page per section of its rail', async (page) => {
   const shownPages = () =>
     $$('#settings-modal [data-part="settings-page"]')
       .filter((page) => !page.hidden)
@@ -556,6 +556,14 @@ pageTest('Settings (,) holds the view settings, a page per section of its rail',
     ['settings-btn', 'keys-btn', 'expand-all', 'collapse-all', 'clear-data', 'end-session'],
     '⋯ holds actions only',
   );
+  await key(',');
+  assert.equal($('#settings-file').textContent, payload.settingsFile, 'where the settings are kept, whole');
+  await click($('#settings-file'));
+  assert.ok(
+    page.requests.some((request) => request.method === 'POST' && request.path === '/api/settings/reveal'),
+    'a click asks the server to show it in Finder or Explorer',
+  );
+  ($('#settings-modal') as HTMLDialogElement).close();
   await click($('#keys-btn'));
   assert.ok(($('#keys-modal') as HTMLDialogElement).open);
 });

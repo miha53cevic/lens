@@ -1800,6 +1800,29 @@ test("Build previews: the reader's switch in ~/.lens/settings.json wins over the
   }
 });
 
+test("Settings' reveal: the file made when nothing was set yet, and shown in Finder or Explorer", async () => {
+  const { revealCommand, revealSettings, settingsPath } = await import('../src/cli-app/summary/settings.ts');
+  const root = mkdtempSync(join(tmpdir(), 'lens-reveal-'));
+  process.env.LENS_HOME = join(root, 'home');
+  try {
+    assert.equal(settingsPath(), join(root, 'home', 'settings.json'));
+    revealSettings(); // LENS_NO_REVEAL (the preload's): no file manager opens
+    assert.equal(readFileSync(settingsPath(), 'utf8'), '{}\n', 'made, empty, to have something to show');
+    assert.deepEqual(readSettings(), {});
+    writeSettings({ planTab: false });
+    revealSettings();
+    assert.deepEqual(readSettings(), { planTab: false }, 'one already there is left as it is');
+    assert.deepEqual(revealCommand('/u/.lens/settings.json', 'darwin'), ['open', ['-R', '/u/.lens/settings.json']]);
+    assert.deepEqual(revealCommand('C:\\u\\.lens\\settings.json', 'win32'), [
+      'explorer.exe',
+      ['/select,C:\\u\\.lens\\settings.json'],
+    ]);
+    assert.deepEqual(revealCommand('/u/.lens/settings.json', 'linux'), ['xdg-open', ['/u/.lens']]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('the view settings are kept one change at a time beside the switches, a null forgets one, and a bad one is skipped', () => {
   const root = mkdtempSync(join(tmpdir(), 'lens-view-'));
   process.env.LENS_HOME = root;

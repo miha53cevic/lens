@@ -7,6 +7,7 @@ import { DIALOG, ModalHead } from '../ModalHead.tsx';
 import { VIEW_PAGES } from './const.ts';
 import { ConfigFoot, ConfigPage } from './ConfigPage.tsx';
 import { ViewPages } from './ViewPages.tsx';
+import { SettingsFile } from './SettingsFile.tsx';
 
 /**
  * Settings: the view settings a page per section, picked in the rail on the left, and the config in
@@ -79,13 +80,7 @@ export function SettingsDialog() {
         </div>
       </div>
       <div className='flex-none border-t border-line px-4 py-3 text-sm [overflow-wrap:anywhere] text-faint [&_code]:text-text'>
-        {page === 'config' ? (
-          <ConfigFoot />
-        ) : (
-          <>
-            Applied as you change them, and kept for every repository in <code>~/.lens/settings.json</code>.
-          </>
-        )}
+        {page === 'config' ? <ConfigFoot /> : <SettingsFile />}
       </div>
     </dialog>
   );
