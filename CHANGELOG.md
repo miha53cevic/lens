@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.7.0](https://github.com/miha53cevic/lens/compare/v0.6.3...v0.7.0) (2026-11-13)
+
+
+### Features
+
+* Settings modal ([#64](https://github.com/miha53cevic/lens/issues/64)) ([ff875c2](https://github.com/miha53cevic/lens/commit/ff875c2c034962f5135537b6f0f25a52c5022566))
+* side by side, the Plan tab and timings on by default ([#62](https://github.com/miha53cevic/lens/issues/62)) ([1d27b07](https://github.com/miha53cevic/lens/commit/1d27b07b4437ba5754e80600994bb43a9872306a))
+* tab number keys ([#61](https://github.com/miha53cevic/lens/issues/61)) ([9521109](https://github.com/miha53cevic/lens/commit/952110917eb23903dd9244787b3edc2aad131c97))
+* VS Code-style file tree, Close All and Collapse All ([#63](https://github.com/miha53cevic/lens/issues/63)) ([b5a2191](https://github.com/miha53cevic/lens/commit/b5a21915d846d728d4b38bdab1502be97269e53f))
+* worktree support in the desktop app ([#59](https://github.com/miha53cevic/lens/issues/59)) ([4b7657d](https://github.com/miha53cevic/lens/commit/4b7657dfac8d6cfe2119d126d4cff5dd0b896cdd))
+
 ## [0.6.3](https://github.com/miha53cevic/lens/compare/v0.6.2...v0.6.3) (2026-11-09)
 
 
