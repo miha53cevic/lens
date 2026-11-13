@@ -75,9 +75,40 @@ test('with nothing summarized, the Summary tab opens on the overview: what to ru
   }
 });
 
+test('a diff that ends at a branch another worktree has says to review it there', async () => {
+  const fresh = payload.summary!;
+  const worktree = { root: '/repos/shop-feature', command: 'cd /repos/shop-feature && lens diff main...feature' };
+  payload.summary = {
+    ...fresh,
+    checkout: { branch: 'feature', worktree },
+    units: fresh.units.map((unit) => ({ ...unit, summary: null })),
+  };
+  try {
+    await open();
+    await key('v');
+    await settle();
+    const how = $('#no-summary');
+    assert.match(
+      how.textContent!,
+      /this diff ends at feature, which is checked out in \/repos\/shop-feature\. Review it there/,
+    );
+    assert.deepEqual(
+      [...how.querySelectorAll('[data-part="copy-cmd-text"]')].map((command) => command.textContent),
+      [worktree.command],
+    );
+  } finally {
+    payload.summary = fresh;
+    await close();
+  }
+});
+
 test('a diff that ends at a branch not checked out says to check it out, instead of what to run', async () => {
   const fresh = payload.summary!;
-  payload.summary = { ...fresh, checkout: 'feature', units: fresh.units.map((unit) => ({ ...unit, summary: null })) };
+  payload.summary = {
+    ...fresh,
+    checkout: { branch: 'feature', worktree: null },
+    units: fresh.units.map((unit) => ({ ...unit, summary: null })),
+  };
   try {
     await open();
     await key('v');

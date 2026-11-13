@@ -4,6 +4,7 @@ import { relPath } from '../paths.ts';
 import { prepareCommand } from './bundle.ts';
 import {
   checkoutFirst,
+  type CheckoutFirst,
   HOUSEKEEPING,
   isHousekeeping,
   readStored,
@@ -84,7 +85,7 @@ export interface SummaryView {
   /** The same without the skill, for any agent with a shell */
   cli: string;
   /** The branch to check out before a summary can be written (`checkoutFirst`); null: it can be now */
-  checkout: string | null;
+  checkout: CheckoutFirst | null;
   /** summary.json mtime; null when nothing was submitted yet */
   stamp: number | null;
   units: ViewUnit[];

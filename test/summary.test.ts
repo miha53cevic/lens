@@ -15,6 +15,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { Window } from 'happy-dom';
 import { parseDiff, uncheckedOutRevision } from '../src/cli-app/git.ts';
+import { toPosix } from '../src/cli-app/paths.ts';
 import {
   extractUnits,
   checkCoverage,
@@ -2122,10 +2123,30 @@ test("a branch diff isn't summarized until that branch is checked out; a PR, the
     const diff = await loadDiff('diff', ['main...feature'], dir, DEFAULT_CONFIG);
     const units = await collectUnits(diff, DEFAULT_CONFIG, dir);
     const view = (args: string[]) => buildSummaryView({ root: diff.root, cwd: dir, command: 'diff', args, units });
-    assert.equal(view(['main...feature']).checkout, 'feature', 'the Summary tab says the same');
+    assert.deepEqual(
+      view(['main...feature']).checkout,
+      { branch: 'feature', worktree: null },
+      'the Summary tab says the same',
+    );
     // the viewer's own summary, which the page polls
     const open = await analyze('diff', ['main...feature'], dir, DEFAULT_CONFIG);
-    assert.equal(open.summary?.checkout, 'feature');
+    assert.equal(open.summary?.checkout?.branch, 'feature');
+
+    // the branch is checked out in another worktree: git won't check it out here, so lens says where it is
+    const there = realpathSync.native(dir) + '-feature';
+    git('worktree', 'add', '-q', there, 'feature');
+    try {
+      assert.deepEqual(checkoutFirst(dir, 'diff', ['main...feature']), {
+        branch: 'feature',
+        worktree: { root: toPosix(there), command: `cd ${toPosix(there)} && lens diff main...feature` },
+      });
+      await assert.rejects(
+        runSummary(['prepare', 'main...feature'], dir),
+        /checked out in [^\n]*-feature: a summary is written from the code on disk there/,
+      );
+    } finally {
+      git('worktree', 'remove', '--force', there);
+    }
 
     // checked out, the same diff is summarized as any other
     git('checkout', '-q', 'feature');

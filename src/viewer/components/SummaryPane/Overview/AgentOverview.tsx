@@ -27,7 +27,7 @@ export function AgentOverview({ summary, anySummarized, checking }: AgentOvervie
           Agent summary
         </div>
         <p className='[&&]:m-0 [&&]:text-md/[1.6] [&&]:text-muted'>
-          <CheckoutFirst branch={summary.checkout} />
+          <CheckoutFirst checkout={summary.checkout} />
         </p>
       </div>
     );
@@ -85,7 +85,7 @@ export function AgentOverview({ summary, anySummarized, checking }: AgentOvervie
         >
           The diff changed since this overview was written.{' '}
           {summary.checkout ? (
-            <CheckoutFirst branch={summary.checkout} />
+            <CheckoutFirst checkout={summary.checkout} />
           ) : (
             <>
               Run <CopyCommand command={summary.command} /> again to update it.

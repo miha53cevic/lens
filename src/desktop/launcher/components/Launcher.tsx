@@ -3,7 +3,7 @@ import { useLauncher } from '../store.ts';
 import { Reopening } from './Reopening.tsx';
 import { ReviewPicker } from './ReviewPicker/index.tsx';
 import { Settings } from './Settings.tsx';
-import { Start } from './Start.tsx';
+import { Start } from './Start/index.tsx';
 import { StatusLine } from './StatusLine.tsx';
 
 export function Launcher() {

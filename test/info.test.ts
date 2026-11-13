@@ -5,6 +5,7 @@ import { mkdtempSync, mkdirSync, realpathSync, rmSync, writeFileSync } from 'nod
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { lensInfo } from '../src/cli-app/info.ts';
+import { parseWorktrees } from '../src/cli-app/git.ts';
 import { toPosix } from '../src/cli-app/paths.ts';
 import manifest from '../package.json' with { type: 'json' };
 
@@ -139,4 +140,62 @@ test("lens --version prints package.json's version", () => {
   const cli = join(import.meta.dirname, '..', 'src', 'cli-app', 'cli.ts');
   const out = execFileSync(process.execPath, [cli, '--version'], { encoding: 'utf8' });
   assert.equal(out.trim(), 'lens ' + manifest.version);
+});
+
+test("lens info: the repository's worktrees, from any of them, the main one first", async () => {
+  await withRepo(async (dir, git) => {
+    const feature = dir + '-feature';
+    const gone = dir + '-gone';
+    git('worktree', 'add', '-q', '-b', 'feature', feature);
+    git('worktree', 'add', '-q', '--detach', gone);
+    rmSync(gone, { recursive: true, force: true }); // git still lists it, as prunable
+    try {
+      const head = git('rev-parse', '--short=7', 'HEAD').trim();
+      const expected = [
+        { root: toPosix(dir), branch: 'main', head, missing: false },
+        { root: toPosix(feature), branch: 'feature', head, missing: false },
+        { root: toPosix(gone), branch: null, head, missing: true },
+      ];
+
+      const { repo } = await lensInfo(feature);
+      assert.ok(repo);
+      assert.equal(repo.root, toPosix(feature), 'a linked worktree is a repository of its own, at its own root');
+      assert.equal(repo.main, toPosix(dir));
+      assert.deepEqual(repo.worktrees, expected);
+
+      const fromMain = (await lensInfo(dir)).repo;
+      assert.equal(fromMain?.main, toPosix(dir));
+      assert.deepEqual(fromMain?.worktrees, expected);
+    } finally {
+      git('worktree', 'remove', '--force', feature);
+      git('worktree', 'prune');
+    }
+  });
+});
+
+test('parseWorktrees: both of git porcelain forms, a bare main worktree left out', () => {
+  const plain = [
+    'worktree /srv/app.git',
+    'bare',
+    '',
+    'worktree /srv/app',
+    'HEAD 0123456789abcdef0123456789abcdef01234567',
+    'branch refs/heads/main',
+    '',
+    'worktree /srv/new',
+    'HEAD 0000000000000000000000000000000000000000',
+    'branch refs/heads/fresh',
+    'locked',
+    '',
+  ].join('\n');
+  const expected = {
+    main: '/srv/app.git',
+    worktrees: [
+      { root: '/srv/app', branch: 'main', head: '0123456', missing: false },
+      { root: '/srv/new', branch: 'fresh', head: null, missing: false },
+    ],
+  };
+  assert.deepEqual(parseWorktrees(plain, false), expected);
+  assert.deepEqual(parseWorktrees(plain.replaceAll('\n', '\0'), true), expected);
+  assert.equal(parseWorktrees('', true), null);
 });

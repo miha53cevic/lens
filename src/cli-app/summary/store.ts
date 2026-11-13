@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { currentBranch, uncheckedOutRevision } from '../git.ts';
+import { currentBranch, uncheckedOutRevision, worktreeWith } from '../git.ts';
 import { parsePrRef } from '../pr.ts';
 import { HOUSEKEEPING, isHousekeeping } from './housekeeping.ts';
 import { placedHash, type Anchor, type LineRange, type UnitKind, type UnitStatus } from './units.ts';
@@ -242,8 +242,27 @@ export function reviewKey(root: string, command: 'diff' | 'pr' | 'paths', args: 
  * a diff that ends at a branch not checked out isn't summarized. A PR is: its callers are close
  * enough from the base branch, and checking out every PR to review it would be a chore.
  */
-export function checkoutFirst(cwd: string, command: 'diff' | 'pr', args: string[]): string | null {
-  return command === 'diff' ? uncheckedOutRevision(args, cwd) : null;
+export function checkoutFirst(cwd: string, command: 'diff' | 'pr', args: string[]): CheckoutFirst | null {
+  const branch = command === 'diff' ? uncheckedOutRevision(args, cwd) : null;
+  if (!branch) return null;
+  // git won't check out a branch another worktree has: the summary is written there instead
+  const root = worktreeWith(branch, cwd);
+  return {
+    branch,
+    worktree: root ? { root, command: `cd ${shellWord(root)} && lens diff ${summaryArgs(command, args)}` } : null,
+  };
+}
+
+export interface CheckoutFirst {
+  /** What the diff ends at, as typed */
+  branch: string;
+  /** The worktree that has it checked out, and the command that reviews it there; null: none has */
+  worktree: { root: string; command: string } | null;
+}
+
+/** One word for a shell: quoted where a shell needs it. */
+function shellWord(word: string): string {
+  return /^[\w@%+=:,./~^-]+$/.test(word) ? word : '"' + word.replace(/(["\\$`])/g, '\\$1') + '"';
 }
 
 /**
@@ -251,9 +270,7 @@ export function checkoutFirst(cwd: string, command: 'diff' | 'pr', args: string[
  * `lens summary prepare`: "--staged", "pr 87", quoted where a shell needs it.
  */
 export function summaryArgs(command: 'diff' | 'pr', args: string[]): string {
-  return [...(command === 'pr' ? ['pr'] : []), ...args]
-    .map((a) => (/^[\w@%+=:,./~^-]+$/.test(a) ? a : '"' + a.replace(/(["\\$`])/g, '\\$1') + '"'))
-    .join(' ');
+  return [...(command === 'pr' ? ['pr'] : []), ...args].map(shellWord).join(' ');
 }
 
 export function bundleDir(root: string, key: string): string {

@@ -60,7 +60,7 @@ export function UnitPage({ unit }: { unit: Unit }) {
           {running ? (
             'Your agent is writing it again.'
           ) : checkout ? (
-            <CheckoutFirst branch={checkout} />
+            <CheckoutFirst checkout={checkout} />
           ) : (
             <>
               Run <CopyCommand command={command} /> again to update it.
@@ -75,7 +75,7 @@ export function UnitPage({ unit }: { unit: Unit }) {
           >
             {running ? 'On its way: your agent is writing this summary.' : 'Not summarized yet. '}
             {running ? null : checkout ? (
-              <CheckoutFirst branch={checkout} />
+              <CheckoutFirst checkout={checkout} />
             ) : (
               <>
                 Run <CopyCommand command={command} /> in your agent.

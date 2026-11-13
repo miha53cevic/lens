@@ -2,11 +2,11 @@
 // and what it tells them. The preload script exposes exactly this as `window.lensApp`; the viewer
 // gets no preload, so none of it exists there.
 
-import type { RepoInfo } from '../../cli-app/info.ts';
+import type { RepoInfo, Worktree } from '../../cli-app/info.ts';
 import type { ThemeSwatch } from '../../cli-app/render/highlight.ts';
 import type { ReviewChoice } from './choice.ts';
 
-export type { RepoInfo, ThemeSwatch };
+export type { RepoInfo, ThemeSwatch, Worktree };
 
 export type TabIcon = 'new' | 'folder' | 'settings' | 'sandbox';
 
@@ -46,6 +46,8 @@ export interface Recent {
   branch: string | null;
   /** When it was last opened here, in ms since the epoch; null when not known */
   opened: number | null;
+  /** A linked worktree: its repository's main worktree, which Start lists it under. Null: not one, or not known */
+  main: string | null;
 }
 
 export type SetupPart = 'cli' | 'skills';
@@ -69,10 +71,14 @@ export interface LauncherState {
   repo: RepoInfo | null;
   /** Its root as shown: the home folder as ~ */
   repoPath: string | null;
+  /** Its worktrees' roots as shown, by root */
+  worktreePaths: Record<string, string>;
   /** What the review behind the picker shows, to start the picker on it */
   current: ReviewChoice | null;
   /** A lens that already runs for this repository, started somewhere else */
   running: { port: number } | null;
+  /** The window's tabs that have a repository: its root → the tab's place in the strip, from 1 */
+  openTabs: Record<string, number>;
   /**
    * A tab the app reopened that is still on its way back to its review: the page shows that
    * instead of a screen to pick from. `review` is null while its repository is still being read.
@@ -112,6 +118,8 @@ export interface LauncherApi {
   /** The system's folder dialog */
   openRepository(): void;
   openRecent(root: string): void;
+  /** Another of the repository's worktrees, in a tab of its own: this tab stays as it was */
+  openWorktree(root: string): void;
   forgetRecent(root: string): void;
   /** Recount "this branch vs" against another base */
   setBase(base: string): void;

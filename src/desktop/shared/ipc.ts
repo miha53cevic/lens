@@ -43,6 +43,7 @@ export const STRIP_ARGS: Parsers<StripApi> = {
 export const LAUNCHER_ARGS: Parsers<LauncherApi> = {
   openRepository: none,
   openRecent: text,
+  openWorktree: text,
   forgetRecent: text,
   setBase: text,
   refresh: none,

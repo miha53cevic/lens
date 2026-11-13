@@ -60,7 +60,9 @@ In the app, **Settings → Agent** installs the `lens` command and the agent ski
 
 Open the desktop app and pick a repository and what to review: the working tree, staged
 changes, a branch against a base, any `git diff` arguments, or a PR. Each repository gets a
-tab, and the app reopens as you left it. Then, in your agent:
+tab, and the app reopens as you left it. **Git worktrees** are repositories of their own: the
+picker's branch menu lists the others and opens one in a tab beside this one, and Start lists
+them under their repository. Then, in your agent:
 
 ```bash
 /lens-review            # writes the Summary tab; same arguments as `lens diff`
@@ -77,7 +79,7 @@ The app runs the `lens` command for you, and the skills call it too. You can run
 | `lens diff --staged` | staged changes |
 | `lens diff HEAD~1` | any `git diff` arguments pass through |
 | `lens pr 123` / `lens pr <url>` | a GitHub PR, fetched with plain git (no API, no gh) |
-| `lens info` | what could be reviewed here: the branch, its changes, the PR remote |
+| `lens info` | what could be reviewed here: the branch, its changes, the PR remote, the other worktrees |
 | `lens config` | the config in effect, where each value comes from, and its problems (`--json` for scripts) |
 | `lens clear` | what lens keeps in `.lens/`, by kind; `lens clear <kind> --all` (or one review's `<key>`) clears `summaries`, `notes`, `marks` or `timings` |
 | `lens timings` | how long each step took, while timings are on (`--json` for every one) |
@@ -127,7 +129,8 @@ smallest fix), what behaves differently, and callers it may break. Mark each con
 The skill runs `lens summary prepare` (splits the diff, writes the agent's instructions) and
 `lens summary submit` (checks the result). Any agent with a shell can follow them. `submit`
 drops claims that don't point at real code, and a summary goes stale when its code changes.
-A branch diff is summarized with that branch checked out; a PR from any branch.
+A branch diff is summarized with that branch checked out (in another worktree, it is
+summarized there); a PR from any branch.
 `/lens-build-review` does the whole review step after an agent's build.
 
 ## Ask mode

@@ -152,6 +152,16 @@ test("the store keeps recent repositories and each one's port, and drops folders
     assert.equal(reopened.visit(first)?.branch, 'feature');
     assert.ok(reopened.visit(first)!.at >= before);
     assert.equal(reopened.visit(second)?.branch, null);
+    assert.equal(reopened.visit(first)?.main, undefined, 'not a linked worktree');
+
+    // a linked worktree's visit names its repository's main worktree, which Start lists it under
+    const linked = join(home, 'linked');
+    execFileSync('git', ['init', '-q', linked]);
+    store.touch(linked, 'feature', first);
+    store.touch(first, 'feature', first); // the main one names itself: nothing to keep
+    assert.equal(openStore(file).visit(linked)?.main, first);
+    assert.equal(openStore(file).visit(first)?.main, undefined);
+    store.forget(linked);
 
     rmSync(second, { recursive: true, force: true });
     assert.deepEqual(reopened.recents(), [first]);

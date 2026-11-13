@@ -20,6 +20,8 @@ test('each parser takes its own arguments and drops anything else', () => {
 
   assert.deepEqual(LAUNCHER_ARGS.openRecent(['/repo']), ['/repo']);
   assert.equal(LAUNCHER_ARGS.openRecent([{ root: '/repo' }]), null);
+  assert.deepEqual(LAUNCHER_ARGS.openWorktree(['/repo-feature']), ['/repo-feature']);
+  assert.equal(LAUNCHER_ARGS.openWorktree([['/repo-feature']]), null);
   assert.deepEqual(LAUNCHER_ARGS.install(['skills']), ['skills']);
   assert.equal(LAUNCHER_ARGS.install(['everything']), null);
   assert.deepEqual(LAUNCHER_ARGS.open([{ kind: 'diff', range: 'staged', extra: 1 }]), [
