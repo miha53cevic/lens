@@ -7,7 +7,9 @@ import { flushSync } from 'react-dom';
 import { create } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
 import { createStore } from 'zustand/vanilla';
-import type { ClearInfoResponse, PlansResponse, ViewSettings } from '../cli-app/api/contract.ts';
+import type { ClearInfoResponse, HoverInfo, LspStatus, PlansResponse, ViewSettings } from '../cli-app/api/contract.ts';
+import type { ViewerToken } from '../cli-app/render/highlight.ts';
+import type { HoverAnchor } from '../ui/HoverCard.tsx';
 import type { ViewerPayload } from '../cli-app/render/web/server.ts';
 import type { AskSelection, AskState } from '../cli-app/ask/session.ts';
 import type { BuildProgress } from '../cli-app/summary/progress.ts';
@@ -143,6 +145,17 @@ export interface LensState {
   clearInfo: (ClearInfoResponse & { opened: number }) | null;
   /** The Settings dialog's page: the one it was left on, or the one a notice opened it on */
   settingsPage: SettingsPage;
+  /** What TypeScript says of the name under the pointer (actions/lsp.ts); `info` null with the reason it wasn't asked */
+  lspHover: {
+    key: string;
+    anchor: HoverAnchor;
+    info: HoverInfo | null;
+    /** `info.code` highlighted, a line per line */
+    tokens: ViewerToken[][] | null;
+    unavailable: string | null;
+  } | null;
+  /** The TypeScript server, as the last stamp poll found it; null while the switch is off or before the first poll */
+  lspStatus: LspStatus | null;
   // Plan tab
   plan: {
     /** The root's plans as last read; null: not read yet (the tab reads them when it opens) */
@@ -243,6 +256,8 @@ const defaultState: LensState = {
   active: -1, // set at start-up (main.tsx)
   tabs: [],
   tabMenu: -1,
+  lspHover: null,
+  lspStatus: null,
   openCats: new Set(),
   foldOverrides: new Map(),
   expandedGaps: new Set(),

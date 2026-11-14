@@ -1,13 +1,30 @@
 // The reader's switches (Build previews, Check yourself, Plan tab), and what the preview frames tell the page.
 
 import { commit, getState, update } from '../store.ts';
-import { setView } from './views.ts';
+import { hideLspHover } from './lsp.ts';
+import { setView, stampWatcher } from './views.ts';
+import { check } from '../../ui/poll.ts';
 import { api, noteDone, tracked } from './status.ts';
 import { cssPx } from '../../ui/zoom.ts';
 
 /** How tall a preview's frame may grow to fit its screen */
 const FRAME_MIN = 120;
 const FRAME_MAX = 900;
+
+/** The switch: TypeScript on the code (actions/lsp.ts). Turned off, a card that's open goes. */
+export function setTypescriptLsp(on: boolean): Promise<boolean> {
+  return tracked(
+    { id: 'typescript-lsp', label: 'Saving TypeScript…', failed: "Couldn't save TypeScript" },
+    async () => {
+      await api('POST /api/settings', { body: { typescriptLsp: on } });
+      if (!on) hideLspHover();
+      update((state) => ({ data: { ...state.data, typescriptLsp: on }, lspStatus: on ? state.lspStatus : null }));
+      // the server starts on the stamp's ask: the bar says so now, not at the next poll
+      if (on) void check(stampWatcher.id);
+      noteDone(on ? 'TypeScript on' : 'TypeScript off', on ? 'hover a name, or ⌘-click it' : undefined);
+    },
+  );
+}
 
 /** The switch: summary mode asks the agent for previews and sequences (the CLI reads ~/.lens/settings.json). */
 export function setBuildPreviews(on: boolean): Promise<boolean> {

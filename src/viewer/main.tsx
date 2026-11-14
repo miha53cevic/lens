@@ -20,6 +20,7 @@ import { dropForeignSelection, onSelectionChange } from './ask/selection.ts';
 import { onKeyDown } from './keys.ts';
 import { onPreviewMessage } from './actions/previews.ts';
 import { onContextMenu } from './actions/codeMenu.ts';
+import { hideLspHover, onCodeClick, onCodePointerMove, onScrollHide } from './actions/lsp.ts';
 import { check, watch } from '../ui/poll.ts';
 import { motionReady } from '../ui/motion.ts';
 import { measureLoad } from './actions/timings.ts';
@@ -56,6 +57,12 @@ document.addEventListener('keydown', onKeyDown);
 document.addEventListener('selectionchange', onSelectionChange);
 // a right-click on a line of code: lens's own menu (Ask, Note, Copy) instead of the browser's
 document.addEventListener('contextmenu', onContextMenu);
+// TypeScript on the code, while it's on: a name's card on hover, ⌘-click to its definition (actions/lsp.ts)
+document.addEventListener('pointermove', onCodePointerMove);
+document.addEventListener('click', onCodeClick, true);
+// the card sits where the name was drawn: anything that moves the code or takes the reader elsewhere ends it
+document.addEventListener('scroll', onScrollHide, true);
+document.addEventListener('keydown', hideLspHover);
 // the preview frames' clicks and heights (actions/previews.ts)
 window.addEventListener('message', onPreviewMessage);
 subscribe(syncDocument);

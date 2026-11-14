@@ -12,7 +12,7 @@ import {
   stepCodeSize,
   stepUiZoom,
 } from '../../actions/prefs.ts';
-import { setBuildPreviews, setPlanTab, setSelfChecks } from '../../actions/previews.ts';
+import { setBuildPreviews, setPlanTab, setSelfChecks, setTypescriptLsp } from '../../actions/previews.ts';
 import { setTimings } from '../../actions/timings.ts';
 import { CODE_SIZE_DEFAULT, CODE_SIZES } from '../../codeSize.ts';
 import { UI_ZOOM_DEFAULT, UI_ZOOMS } from '../../../cli-app/zoom.ts';
@@ -47,6 +47,7 @@ export function ViewPages({ page }: { page: SettingsPage }) {
     buildPreviews: state.data.buildPreviews,
     selfChecks: state.data.selfChecks,
     planTab: state.data.planTab,
+    typescriptLsp: state.data.typescriptLsp,
     timings: state.data.timings,
     fullUnits: state.fullUnits,
   }));
@@ -202,9 +203,18 @@ export function ViewPages({ page }: { page: SettingsPage }) {
         'flags',
         group(
           'Feature flags',
-          <SettingRow label='Plan tab' htmlFor='plan-tab' hint='your Lavish plans, in a tab beside Code and Summary'>
-            <Switch id='plan-tab' checked={view.planTab} onChange={setPlanTab} />
-          </SettingRow>,
+          <>
+            <SettingRow label='Plan tab' htmlFor='plan-tab' hint='your Lavish plans, in a tab beside Code and Summary'>
+              <Switch id='plan-tab' checked={view.planTab} onChange={setPlanTab} />
+            </SettingRow>
+            <SettingRow
+              label='TypeScript'
+              htmlFor='typescript-lsp'
+              hint="a name's type on hover, ⌘- or Ctrl-click to its definition (the repository's TypeScript 7)"
+            >
+              <Switch id='typescript-lsp' checked={view.typescriptLsp} onChange={setTypescriptLsp} />
+            </SettingRow>
+          </>,
         ),
       )}
       {shown(
