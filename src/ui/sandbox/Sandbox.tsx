@@ -20,6 +20,7 @@ import { CrashPanel } from '../ErrorBoundary.tsx';
 import { Disclosure } from '../Disclosure.tsx';
 import { Field } from '../Field.tsx';
 import { StatusBadge, StatusLetter, type FileStatus } from '../FileStatus.tsx';
+import { HoverCard, type HoverAnchor } from '../HoverCard.tsx';
 import { IconButton } from '../IconButton.tsx';
 import { Kbd } from '../Kbd.tsx';
 import { ListRow } from '../ListRow.tsx';
@@ -345,6 +346,10 @@ export function Sandbox() {
         />
       </Section>
 
+      <Section id='g-hover-card' title='HoverCard'>
+        <HoverTarget />
+      </Section>
+
       <Section id='g-status' title='FileStatus'>
         {STATUSES.map((status) => (
           <StatusLetter key={status} status={status} />
@@ -471,5 +476,28 @@ export function Sandbox() {
         ))}
       </Section>
     </main>
+  );
+}
+
+/** A name to hover, as in the code: its card says what it is */
+function HoverTarget() {
+  const [anchor, setAnchor] = useState<HoverAnchor | null>(null);
+  return (
+    <>
+      <code
+        data-part='hover-target'
+        className='rounded-xs font-mono text-code text-accent hover:bg-hover-bg'
+        onPointerEnter={(event) => setAnchor(event.currentTarget.getBoundingClientRect())}
+        onPointerLeave={() => setAnchor(null)}
+      >
+        findTsc
+      </code>
+      {anchor && (
+        <HoverCard anchor={anchor}>
+          <pre className='font-mono text-code whitespace-pre-wrap'>function findTsc(root: string): string | null</pre>
+          <p>The repository&apos;s TypeScript 7, else lens&apos;s own.</p>
+        </HoverCard>
+      )}
+    </>
   );
 }

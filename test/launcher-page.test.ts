@@ -751,6 +751,13 @@ pageTest(
       1,
       'the theme the menu is given is checked',
     );
+    assert.equal(count('[data-part="hover-card"]'), 0, 'a hover card waits for the pointer');
+    fireEvent.pointerOver($('#g-hover-card [data-part="hover-target"]'));
+    await settle();
+    assert.equal(count('[data-part="hover-card"][popover="manual"] pre'), 1, 'it says what the name is');
+    fireEvent.pointerOut($('#g-hover-card [data-part="hover-target"]'));
+    await settle();
+    assert.equal(count('[data-part="hover-card"]'), 0, 'and goes with it');
     assert.equal(count('#g-status [data-part="status-letter"]'), 5);
     assert.equal(count('#g-status [data-part="status-badge"]'), 5);
     assert.equal(count('#g-kbd [data-part="kbd-combo"]'), 5);
