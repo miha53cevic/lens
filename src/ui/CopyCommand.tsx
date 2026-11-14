@@ -1,6 +1,7 @@
 import { useState, type MouseEvent } from 'react';
 import clsx from 'clsx';
 import { Check, Copy } from 'lucide-react';
+import { tipAttrs } from './Tip.tsx';
 
 // the hover tint over its own surface, as ui/Button's: the selected look is for what's picked
 const COPY_COMMAND =
@@ -17,7 +18,7 @@ interface CopyCommandProps {
   block?: boolean;
   /** a block that grows to as many lines as the command needs (a long one the reader should read first) instead of cutting it off */
   wrap?: boolean;
-  /** what it shows, when the whole command is too long for its place (a header's row); the whole command is copied, and its tooltip */
+  /** what it shows, when the whole command is too long for its place (a header's row); the whole command is copied, and its tooltip; without it, the tooltip shows only while the command is cut off */
   shown?: string;
 }
 
@@ -44,7 +45,7 @@ export function CopyCommand({ command, block = false, wrap = false, shown }: Cop
       data-part='copy-cmd'
       data-copied={copied || undefined}
       data-wrap={lines || undefined}
-      title={shown && command}
+      {...tipAttrs(command, { cut: !shown })}
       className={clsx(
         COPY_COMMAND,
         block ? BLOCK : INLINE,

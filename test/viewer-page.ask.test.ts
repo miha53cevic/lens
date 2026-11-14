@@ -140,7 +140,7 @@ pageTest('a question about a unit takes its open concerns along; a dismissed one
   await click($('#ask-send'));
   assert.deepEqual(sentConcerns(), [{ kind: 'bug', text: 'deleted is a string column', line: 'N10' }]);
 
-  await click($('[data-part="concern"] [data-part="vbtn"][data-mark="dismissed"]'));
+  await click($('[data-part="sum-inner"] [data-part="vbtn"][data-mark="dismissed"]'));
   assert.equal($('#ask-chips').textContent, 'findOrders');
   await type($('#ask-input'), 'and now?');
   await click($('#ask-send'));
@@ -339,7 +339,7 @@ pageTest("an answer's markdown is drawn, its cites link, and nothing in it runs 
     [...answer.querySelectorAll<HTMLElement>('[data-part="ask-mark"]')].map((mark) => [
       mark.textContent,
       mark.dataset.line,
-      mark.title,
+      mark.dataset.tip,
     ]),
     [
       ['1', '10', 'src/orders.ts:10'],

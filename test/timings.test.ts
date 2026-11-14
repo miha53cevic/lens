@@ -1,24 +1,29 @@
-import { test } from 'bun:test';
+import { beforeEach, test } from 'bun:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { readTimings, record, setTimings, timed, timingStats, TIMINGS_PATH } from '../src/cli-app/timings.ts';
+import { readTimings, record, setTimings, timed, timingStats, timingsPath } from '../src/cli-app/timings.ts';
 import { clearKinds, describeKinds } from '../src/cli-app/clear.ts';
 import { DEFAULT_CONFIG } from '../src/cli-app/config.ts';
 import { timingsOn, writeSettings } from '../src/cli-app/summary/settings.ts';
 
 const cli = join(import.meta.dir, '..', 'src', 'cli-app', 'cli.ts');
 const tempRoot = () => mkdtempSync(join(tmpdir(), 'lens-timings-'));
+// each test its own ~/.lens: the timings file is the machine's, not a repository's
+beforeEach(() => {
+  process.env.LENS_HOME = tempRoot();
+});
 
 test('steps wait for the switch: on, they are written with what came before; off, nothing is', async () => {
-  const root = tempRoot();
+  const root = join(tempRoot(), 'shop');
+  mkdirSync(root);
   try {
     record('cli', 'before', 5);
     setTimings(root, false);
     record('cli', 'off', 1);
-    assert.equal(existsSync(join(root, TIMINGS_PATH)), false);
+    assert.equal(existsSync(timingsPath()), false);
 
     setTimings(root, true);
     record('server', 'tokens', 12.34, 'vesper');
@@ -37,7 +42,14 @@ test('steps wait for the switch: on, they are written with what came before; off
     );
     // a step that throws is still timed, and still throws
     await assert.rejects(timed('cli', 'fails', () => Promise.reject(new Error('no'))));
-    const timings = readTimings(root);
+    const { timings, hosts } = readTimings();
+    assert.ok(!existsSync(join(root, '.lens')), 'nothing in the repository: the file is the machine’s');
+    assert.ok(
+      timings.every((timing) => timing.repo === 'shop'),
+      'each step names its repository',
+    );
+    assert.equal(hosts.length, 1, 'the run starts with the machine it ran on');
+    assert.equal(typeof hosts[0].host.cores, 'number');
     // "before" waited for a switch that said off: it was dropped then, not kept for later
     assert.deepEqual(
       timings.map((timing) => [timing.side, timing.name]),
@@ -100,23 +112,39 @@ test('Clear saved data lists the timings and clears them, and lens timings reads
   try {
     execFileSync('git', ['init', '-q'], { cwd: root });
     const empty = execFileSync('bun', [cli, 'timings'], { cwd: root, encoding: 'utf8' });
+    const other = join(tempRoot(), 'other');
+    mkdirSync(other);
     assert.match(empty, /no timings yet: open or refresh a review/, 'on by default, with nothing recorded');
 
     setTimings(root, true);
     record('cli', 'analyze', 120, '3 files');
     record('viewer', 'open file', 40, 'src/a.ts, 10 lines');
+    setTimings(other, true);
+    record('cli', 'analyze', 300, '9 files');
     setTimings(root, false);
-    const printed = execFileSync('bun', [cli, 'timings'], { cwd: root, encoding: 'utf8' });
-    assert.match(printed, /cli analyze\s+1\s+120 ms\s+120 ms\s+120 ms\s+3 files/);
+    // read from anywhere: a folder that is no repository at all
+    const anywhere = { cwd: tmpdir(), encoding: 'utf8' } as const;
+    const printed = execFileSync('bun', [cli, 'timings'], anywhere);
+    const name = root.split(/[\\/]/).pop()!;
+    assert.match(printed, new RegExp(name + '\\s+cli analyze\\s+1\\s+120 ms\\s+120 ms\\s+120 ms\\s+3 files'));
+    assert.match(printed, /other\s+cli analyze\s+1\s+300 ms/);
     assert.match(printed, /viewer open file/);
-    const json = JSON.parse(execFileSync('bun', [cli, 'timings', '--json'], { cwd: root, encoding: 'utf8' }));
-    assert.equal(json.length, 2);
+    assert.match(printed, /cores\), \d+ GB, bun /, 'the machine the last run ran on');
+    const json = JSON.parse(execFileSync('bun', [cli, 'timings', '--json'], anywhere));
+    assert.equal(json.timings.length, 3);
+    assert.equal(json.hosts.length, 1);
+    const one = JSON.parse(execFileSync('bun', [cli, 'timings', '--json', '--repo', 'other'], anywhere));
+    assert.deepEqual(
+      one.timings.map((timing: { repo: string; ms: number }) => [timing.repo, timing.ms]),
+      [['other', 300]],
+    );
 
     const at = { root, key: null, review: null };
+    const path = timingsPath().replaceAll('\\', '/');
     const kind = describeKinds(at).find((info) => info.id === 'timings')!;
-    assert.deepEqual(kind.plans, { all: { count: 2, paths: ['.lens/timings.jsonl'] } });
-    assert.deepEqual(clearKinds(at, { timings: 'all' }).timings, { count: 2, paths: ['.lens/timings.jsonl'] });
-    assert.equal(existsSync(join(root, TIMINGS_PATH)), false);
+    assert.deepEqual(kind.plans, { all: { count: 3, paths: [path] } });
+    assert.deepEqual(clearKinds(at, { timings: 'all' }).timings, { count: 3, paths: [path] });
+    assert.equal(existsSync(timingsPath()), false);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -126,12 +154,11 @@ test('a file past its size keeps its newer half', () => {
   const root = tempRoot();
   try {
     setTimings(root, true);
-    mkdirSync(join(root, '.lens'));
     const line = JSON.stringify({ at: 'x', run: 'r', side: 'cli', name: 'old', ms: 1, detail: 'y'.repeat(900) });
-    writeFileSync(join(root, '.lens', 'timings.jsonl'), (line + '\n').repeat(2500));
+    writeFileSync(timingsPath(), (line + '\n').repeat(11_000));
     record('cli', 'new', 1);
-    const kept = readFileSync(join(root, TIMINGS_PATH), 'utf8').trim().split('\n');
-    assert.ok(kept.length < 1300 && kept.length > 1200);
+    const kept = readFileSync(timingsPath(), 'utf8').trim().split('\n');
+    assert.ok(kept.length < 5600 && kept.length > 5400, 'past 10 MB: the newer half');
     assert.equal(JSON.parse(kept[kept.length - 1]).name, 'new');
   } finally {
     setTimings(root, false);

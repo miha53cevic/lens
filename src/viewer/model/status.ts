@@ -99,8 +99,8 @@ export interface Notice {
   /** null: a fact, with nothing to click */
   action: NoticeActionId | null;
   icon?: NoticeIconId;
-  /** More than the text says, on hover */
-  title?: string;
+  /** More than the text says: its tooltip */
+  tip?: string;
 }
 
 type NoticeSource = (state: LensState) => Notice | null;
@@ -220,7 +220,7 @@ const typescriptServer: NoticeSource = (state) => {
         text: 'TypeScript ' + lsp.version,
         tone: 'plain',
         icon: 'typescript',
-        title: 'Running ' + whose + ' TypeScript ' + lsp.version + ' (tsc --lsp): hover a name, ⌘-click it',
+        tip: 'Running ' + whose + ' TypeScript ' + lsp.version + ' (tsc --lsp): hover a name, ⌘-click it',
       };
     case 'starting':
       return { ...base, text: 'TypeScript starting', tone: 'plain', icon: 'typescript-busy' };
@@ -229,14 +229,14 @@ const typescriptServer: NoticeSource = (state) => {
         ...base,
         text: 'TypeScript stopped',
         tone: 'warn',
-        title: 'The TypeScript server exited: the next hover starts it again',
+        tip: 'The TypeScript server exited: the next hover starts it again',
       };
     case 'missing':
       return {
         ...base,
         text: 'No TypeScript 7',
         tone: 'warn',
-        title: 'Add typescript@7 to the repository: lens runs its tsc --lsp',
+        tip: 'Add typescript@7 to the repository: lens runs its tsc --lsp',
       };
   }
 };

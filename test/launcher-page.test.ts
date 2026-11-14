@@ -699,7 +699,7 @@ pageTest(
     assert.equal(count('#g-disclosure [data-part="disclosure"][aria-expanded="true"]'), 1);
     assert.equal(count('#g-disclosure [data-part="disclosure"]:disabled'), 1);
     assert.equal(
-      count('#g-button [data-part="btn"] [data-part="tip"][data-side="start"] kbd'),
+      count('#g-button [data-part="btn"][data-tip-key="r"]:not([data-tip-side])'),
       1,
       'a button with a key teaches it',
     );

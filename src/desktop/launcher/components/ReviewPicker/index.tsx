@@ -16,6 +16,7 @@ import { Changes } from './Changes.tsx';
 import { PullRequest } from './PullRequest.tsx';
 import { Worktrees } from './Worktrees.tsx';
 import { emptyRange, startingRange, type Mode, type Range } from './util.ts';
+import { tipAttrs } from '../../../../ui/Tip.tsx';
 
 const MODES = [
   { value: 'changes' as Mode, label: 'Changes', icon: <FileDiff size={13} /> },
@@ -64,10 +65,10 @@ export function ReviewPicker() {
           <Folder size={15} />
           <span className='flex-none font-semibold'>{repo.name}</span>
           <Worktrees repo={repo} />
-          {/* a long path is cut: the whole of it is in the title */}
+          {/* a long path is cut: the whole of it is in its tooltip */}
           <span
             className='overflow-hidden font-mono text-sm text-ellipsis whitespace-nowrap text-faint'
-            title={repo.root}
+            {...tipAttrs(repo.root, { cut: true })}
           >
             {repoPath}
           </span>

@@ -145,7 +145,7 @@ pageTest(
     page.lsp.status = { state: 'running', version: '7.0.2', source: 'repository' };
     await pollNow();
     assert.equal(notice()!.textContent, 'TypeScript 7.0.2');
-    assert.match(notice()!.title, /the repository's TypeScript 7\.0\.2/);
+    assert.match(notice()!.getAttribute('data-tip')!, /the repository's TypeScript 7\.0\.2/);
     page.lsp.status = { state: 'missing', version: null, source: null };
     await pollNow();
     assert.equal(notice()!.textContent, 'No TypeScript 7');

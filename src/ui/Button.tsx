@@ -1,6 +1,6 @@
 import type { ButtonHTMLAttributes } from 'react';
 import { cn } from './cn.ts';
-import { Tip } from './Tip.tsx';
+import { tipAttrs } from './Tip.tsx';
 
 const BUTTON =
   'relative inline-flex flex-none items-center gap-2 rounded-full border text-sm font-medium whitespace-nowrap motion-colors';
@@ -34,7 +34,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   shortcut?: string;
   /** What the tooltip says before the key, when the label alone doesn't */
   tip?: string;
-  /** Which edge the tooltip lines up with */
+  /** Which edge the tooltip lines up with: end (the default), start for a control on the left */
   tipSide?: 'start' | 'end';
 }
 
@@ -44,7 +44,7 @@ export function Button({
   size = 'md',
   shortcut,
   tip,
-  tipSide,
+  tipSide = 'end',
   className,
   children,
   ...props
@@ -52,13 +52,13 @@ export function Button({
   return (
     <button
       data-part='btn'
+      {...(shortcut && tipAttrs(tip, { shortcut, side: tipSide }))}
       {...props}
       data-variant={variant}
       data-size={size}
       className={cn(BUTTON, VARIANTS[variant], SIZES[size], className)}
     >
       {children}
-      {shortcut && <Tip label={tip} shortcut={shortcut} side={tipSide} />}
     </button>
   );
 }

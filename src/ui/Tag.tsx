@@ -26,7 +26,6 @@ interface TagProps {
   /** A button tag that's on (a filter, the picked unit): the selected look, or its tone's */
   pressed?: boolean;
   id?: string;
-  title?: string;
   className?: string;
   /** Data attributes, for the page's own use (`data-sig`) */
   [data: `data-${string}`]: string | undefined;
@@ -36,7 +35,7 @@ interface TagProps {
  * A short label in a pill: a branch, a file's kind, what a question is about. With `onClick` it's
  * a button (a filter, a unit to open). A toggle in a form or a fold category is ui/Chip.
  */
-export function Tag({ children, color, dot, icon, mono, onClick, pressed, id, title, className, ...data }: TagProps) {
+export function Tag({ children, color, dot, icon, mono, onClick, pressed, id, className, ...data }: TagProps) {
   const classes = cn(
     TAG,
     color && TONED,
@@ -60,7 +59,7 @@ export function Tag({ children, color, dot, icon, mono, onClick, pressed, id, ti
   );
   if (!onClick) {
     return (
-      <span {...hook} {...data} id={id} className={classes} style={style} title={title}>
+      <span {...hook} {...data} id={id} className={classes} style={style}>
         {inner}
       </span>
     );
@@ -73,7 +72,6 @@ export function Tag({ children, color, dot, icon, mono, onClick, pressed, id, ti
       type='button'
       className={classes}
       style={style}
-      title={title}
       aria-pressed={pressed}
       onClick={onClick}
     >

@@ -9,7 +9,7 @@ import { openUnitInCode } from '../../../actions/summary.ts';
 import { fileStatus } from '../../../../ui/FileStatus.tsx';
 import { Button } from '../../../../ui/Button.tsx';
 import { CopyCommand } from '../../../../ui/CopyCommand.tsx';
-import { CodeCard, removedCount } from '../../CodeCard.tsx';
+import { CodeCard, removedCount } from '../../CodeCard/index.tsx';
 import { Concerns } from './Concerns.tsx';
 import { Changes } from './Changes.tsx';
 import { Breaks } from './Breaks.tsx';

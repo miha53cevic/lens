@@ -5,6 +5,7 @@ import { RunProgress } from './RunProgress.tsx';
 import { useLens } from '../../../store.ts';
 import { runGoing } from '../../../model/status.ts';
 import { AgentText } from '../../AgentText.tsx';
+import { Headlines } from './Headlines.tsx';
 
 interface AgentOverviewProps {
   summary: SummaryView;
@@ -34,11 +35,15 @@ export function AgentOverview({ summary, anySummarized, checking }: AgentOvervie
   }
   // the agent is on it: where it has got to, not what to run
   if (!overview && build) return <RunProgress build={build} command={summary.command} />;
+  // what is known without it: the units' headlines, and how to get the overview under them
   if (!overview && anySummarized) {
     return (
-      <div data-part='sum-note' className='rounded-md border border-line bg-surface px-3 py-2 text-md/[1.5] text-muted'>
-        No overview yet — run <CopyCommand command={summary.command} /> again to add one.
-      </div>
+      <>
+        <Headlines />
+        <div data-part='sum-note' className='text-md/[1.5] text-muted'>
+          No overview yet — run <CopyCommand command={summary.command} /> again to add one.
+        </div>
+      </>
     );
   }
   if (!overview) {

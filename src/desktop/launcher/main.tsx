@@ -11,6 +11,7 @@ import type { LauncherState } from '../shared/api.ts';
 import { applyTheme } from '../shared/page.ts';
 import { applyZoom } from '../../cli-app/zoom.ts';
 import { motionReady } from '../../ui/motion.ts';
+import { installTooltips } from '../../ui/tooltip.tsx';
 import { Launcher } from './components/Launcher.tsx';
 import { ErrorBoundary } from '../../ui/ErrorBoundary.tsx';
 import { useLauncher } from './store.ts';
@@ -27,6 +28,7 @@ function show(state: LauncherState | null): void {
 /** How often the picker asks whether its repository is still as shown. */
 const PICKER_POLL_MS = 5000;
 
+installTooltips();
 window.lensApp.launcher.onState(show);
 // The picker's counts follow the repository: asked again while the picker is in sight, and at once
 // when it comes back into sight (the loop is the viewer's, poll.ts). A `git add` in a terminal shows.

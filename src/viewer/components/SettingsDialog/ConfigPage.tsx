@@ -2,6 +2,7 @@ import clsx from 'clsx';
 import type { ReactNode } from 'react';
 import { useLens } from '../../store.ts';
 import { catColor } from '../../shared.ts';
+import { tipAttrs } from '../../../ui/Tip.tsx';
 
 function CodeList({ items }: { items: readonly (string | number)[] | undefined }) {
   if (!items || items.length === 0) return <span className='text-muted'>none</span>;
@@ -130,7 +131,7 @@ export function ConfigFoot() {
           <code
             data-part='config-source'
             className='inline-block max-w-[360px] overflow-hidden align-bottom text-ellipsis whitespace-nowrap'
-            title={configSource}
+            {...tipAttrs(configSource, { cut: true })}
           >
             {configSource}
           </code>

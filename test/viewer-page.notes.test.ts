@@ -155,7 +155,7 @@ test('the overview copies the notes for the agent with the confirmed findings', 
     assert.notEqual(status().label, 'Copied 1 note', 'the button says it, not the status bar');
     // with a confirmed concern too
     await key('j');
-    await click($('[data-part="concern"] [data-part="vbtn"][data-mark="real"]'));
+    await click($('[data-part="sum-inner"] [data-part="vbtn"][data-mark="real"]'));
     await key('g');
     assert.equal($('[data-part="ov-real-count"]').textContent, '1 note and 1 confirmed concern');
     await click($('[data-part="ov-real-copy"]'));
@@ -182,7 +182,9 @@ test('your notes are marked in the tree and the summary list, and ⇧N steps thr
     const file = $$('#nav [data-part="file"]').find((row) => row.textContent!.includes('orders.ts'))!;
     // each kind's signal icon, as a change's card shows them
     assert.deepEqual(
-      [...file.querySelectorAll('[data-part="note-mark"] [class*="sig-"]')].map((icon) => icon.getAttribute('title')),
+      [...file.querySelectorAll('[data-part="note-mark"] [class*="sig-"]')].map((icon) =>
+        icon.getAttribute('data-tip'),
+      ),
       ['1 risk of yours', '1 question of yours'],
     );
 
@@ -206,7 +208,7 @@ test('your notes are marked in the tree and the summary list, and ⇧N steps thr
     );
     assert.deepEqual(icons['findOrders'], ['sig-bug', 'sig-risk'], "the agent's bug, the reader's risk");
     assert.equal(
-      $$('#nav [data-part="inbox-card"] [data-part="icons"] .sig-risk')[0].getAttribute('title'),
+      $$('#nav [data-part="inbox-card"] [data-part="icons"] .sig-risk')[0].getAttribute('data-tip'),
       'your risk: deleted is a string column',
     );
     assert.equal($$('#nav [data-part="inbox-card"] [data-part="note-mark"]').length, 0, 'no dot of its own');

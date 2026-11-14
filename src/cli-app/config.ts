@@ -51,8 +51,6 @@ const STRING_LISTS = ['keepCommentMarkers', 'testFilePatterns', 'exclude'] as co
 type StringList = (typeof STRING_LISTS)[number];
 const BOOLEANS = ['buildPreviews', 'selfChecks', 'planTab', 'typescriptLsp', 'timings'] as const;
 const STRINGS = ['theme', 'keepDirective'] as const;
-/** Names a file may still use, read as the new ones with a problem saying to move */
-const RENAMED: Record<string, string> = { threshold: 'foldLevel', categories: 'folds', scores: 'folds' };
 const META_FIELDS = ['$comment', 'base'];
 const CONFIG_FIELDS: readonly string[] = [...Object.keys(EMPTY_CONFIG), ...META_FIELDS];
 
@@ -88,20 +86,18 @@ function parse(raw: unknown, file: string, problems: ConfigProblem[]): Parsed {
     return out;
   }
   for (const field of Object.keys(raw)) {
-    if (RENAMED[field]) problem(field, `is now "${RENAMED[field]}": still read, but rename it`);
-    else if (!CONFIG_FIELDS.includes(field)) problem(field, 'is not a config field');
+    if (!CONFIG_FIELDS.includes(field)) problem(field, 'is not a config field');
   }
   if ('base' in raw) {
     if (typeof raw.base === 'boolean') out.base = raw.base;
     else problem('base', 'must be true or false');
   }
 
-  const level =
-    'foldLevel' in raw ? ['foldLevel', raw.foldLevel] : 'threshold' in raw ? ['threshold', raw.threshold] : null;
-  if (level) {
-    if (Number.isInteger(level[1]) && (level[1] as number) >= -1 && (level[1] as number) <= 3) {
-      out.values.foldLevel = level[1] as number;
-    } else problem(level[0] as string, `must be a whole number from -1 (fold nothing) to 3, not ${describe(level[1])}`);
+  if ('foldLevel' in raw) {
+    const level = raw.foldLevel;
+    if (Number.isInteger(level) && (level as number) >= -1 && (level as number) <= 3)
+      out.values.foldLevel = level as number;
+    else problem('foldLevel', `must be a whole number from -1 (fold nothing) to 3, not ${describe(level)}`);
   }
 
   for (const field of STRINGS) {
@@ -115,27 +111,17 @@ function parse(raw: unknown, file: string, problems: ConfigProblem[]): Parsed {
     else problem(field, `must be true or false, not ${describe(raw[field])}`);
   }
 
-  // folds, and the two maps it replaces: categories' false and scores' numbers. `take` gives undefined for a
-  // value that says nothing (categories' true, the old "on": a category folds unless it's false)
   const folds: Record<string, number | false> = {};
-  const readMap = (
-    field: 'folds' | 'categories' | 'scores',
-    take: (value: unknown) => number | false | null | undefined,
-    want: string,
-  ) => {
-    if (!(field in raw)) return;
-    const map = raw[field];
-    if (!isObject(map)) return problem(field, `must be an object of category → ${want}, not ${describe(map)}`);
-    for (const [category, value] of Object.entries(map)) {
-      const taken = take(value);
-      if (taken === null) problem(field + '.' + category, `must be ${want}, not ${describe(value)}`);
-      // a category turned off stays off whatever its old score
-      else if (taken !== undefined && !(field === 'scores' && folds[category] === false)) folds[category] = taken;
-    }
-  };
-  readMap('categories', (value) => (value === false ? false : value === true ? undefined : null), 'true or false');
-  readMap('scores', (value) => (isScore(value) ? value : null), 'a score from 0 to 3');
-  readMap('folds', (value) => (value === false || isScore(value) ? value : null), 'a score from 0 to 3, or false');
+  if ('folds' in raw) {
+    const map = raw.folds;
+    if (!isObject(map))
+      problem('folds', `must be an object of category → a score from 0 to 3, or false, not ${describe(map)}`);
+    else
+      for (const [category, value] of Object.entries(map)) {
+        if (value === false || isScore(value)) folds[category] = value;
+        else problem('folds.' + category, `must be a score from 0 to 3, or false, not ${describe(value)}`);
+      }
+  }
   if (Object.keys(folds).length > 0 || 'folds' in raw) out.values.folds = folds;
 
   for (const field of STRING_LISTS) {

@@ -4,6 +4,7 @@ import type { ConcernMark } from '../../../store.ts';
 import type { Finding } from '../../../model/signals.ts';
 import { setMark } from '../../../actions/summary.ts';
 import { Button } from '../../../../ui/Button.tsx';
+import { tipAttrs } from '../../../../ui/Tip.tsx';
 
 interface VerdictProps {
   finding: Finding;
@@ -14,7 +15,7 @@ interface VerdictProps {
 
 /** The reader's call on one finding: real, or dismiss (which hides it from the counts and the code). */
 export function Verdict({ finding, mark, size = 'sm' }: VerdictProps) {
-  const button = (value: ConcernMark, icon: ReactNode, label: string, tip: string) => (
+  const button = (value: ConcernMark, icon: ReactNode, label: string, tip?: string) => (
     <Button
       variant={value === 'dismissed' ? 'ghost' : 'default'}
       size={size}
@@ -23,7 +24,7 @@ export function Verdict({ finding, mark, size = 'sm' }: VerdictProps) {
       data-part='vbtn'
       data-mark={value}
       aria-pressed={mark === value}
-      title={tip}
+      {...tipAttrs(tip)}
       onClick={() => setMark(finding.key, value)}
     >
       {icon} {label}
@@ -31,9 +32,7 @@ export function Verdict({ finding, mark, size = 'sm' }: VerdictProps) {
   );
   if (mark === 'dismissed') {
     return (
-      <span className='inline-flex items-center gap-2'>
-        {button('dismissed', <RotateCcw size={11} />, 'Restore', 'bring it back')}
-      </span>
+      <span className='inline-flex items-center gap-2'>{button('dismissed', <RotateCcw size={11} />, 'Restore')}</span>
     );
   }
   return (

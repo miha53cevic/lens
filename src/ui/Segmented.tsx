@@ -1,10 +1,12 @@
 import { useCallback, type ReactNode } from 'react';
 import clsx from 'clsx';
+import { tipAttrs } from './Tip.tsx';
 
 interface Option<T> {
   value: T;
   label: ReactNode;
-  title?: string;
+  /** Its tooltip */
+  tip?: string;
   /** Its name, when the label doesn't say it (an icon and a count) */
   ariaLabel?: string;
   id?: string;
@@ -91,7 +93,7 @@ export function Segmented<T extends string | number>({
             size === 'lg' ? 'px-4 font-medium' : 'px-2',
             fill && 'flex-1',
           )}
-          title={option.title}
+          {...tipAttrs(option.tip)}
           aria-label={option.ariaLabel}
           onClick={() => onChange(option.value)}
         >

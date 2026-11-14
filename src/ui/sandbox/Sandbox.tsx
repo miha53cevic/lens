@@ -40,6 +40,7 @@ import { Tag } from '../Tag.tsx';
 import { TextArea } from '../TextArea.tsx';
 import { ThemeMenu } from '../ThemeMenu.tsx';
 import { TopBar, TopBarDivider } from '../TopBar.tsx';
+import { tipAttrs } from '../Tip.tsx';
 
 /** Two code themes for the theme menu to list: the page itself is in the theme of the page that shows it. */
 const THEMES = {
@@ -350,6 +351,21 @@ export function Sandbox() {
         <HoverTarget />
       </Section>
 
+      <Section id='g-tooltip' title='Tooltip'>
+        <span className='text-sm text-muted' {...tipAttrs('Says more than the text does')}>
+          Hover me
+        </span>
+        <span
+          className='max-w-[160px] overflow-hidden font-mono text-sm text-ellipsis whitespace-nowrap text-muted'
+          {...tipAttrs('src/viewer/components/Nav/Tree/FileRow.tsx', { cut: true })}
+        >
+          src/viewer/components/Nav/Tree/FileRow.tsx
+        </span>
+        <span className='font-mono text-sm text-muted' {...tipAttrs('src/short.ts', { cut: true })}>
+          src/short.ts
+        </span>
+      </Section>
+
       <Section id='g-status' title='FileStatus'>
         {STATUSES.map((status) => (
           <StatusLetter key={status} status={status} />
@@ -450,7 +466,7 @@ export function Sandbox() {
             key={step}
             className='h-4 rounded-xs bg-accent'
             style={{ width: `var(--space-${step})` }}
-            title={'--space-' + step}
+            data-tip={'--space-' + step}
           />
         ))}
       </Section>

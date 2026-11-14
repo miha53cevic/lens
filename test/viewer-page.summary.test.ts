@@ -340,7 +340,14 @@ pageTest("a unit's code has the Code view's folds and toolbar keys, but shows wh
   assert.equal($('[data-part="sum-headline"]').textContent, 'findOrders skips deleted orders');
   // the card's header says where the unit is: no path line over the headline
   assert.equal($$('[data-part="sum-inner"] [data-part="kicker"]').length, 0);
-  assert.equal($('[data-card="unit-card"] [data-part="code-path"]').textContent, 'src/orders.tsfindOrders');
+  assert.equal($('[data-card="unit-card"] [data-part="code-path"]').textContent, 'srcorders.tsfindOrders');
+  assert.equal($('[data-card="unit-card"] [data-part="crumb-scope"]').textContent, 'findOrders');
+  assert.equal(
+    $('[data-card="unit-card"] [data-part="code-tabs"] [data-part="tab"][data-active]').textContent,
+    'Morders.ts',
+    'its own tab: the status letter and the file',
+  );
+  assert.equal($$('[data-card="unit-card"] [data-part="tab-close"]').length, 0, 'the one tab: nothing to close');
   const code = '[data-part="unit-code"] .code';
   // hunks only is on, but the unit shows whole: line 5 is far from the changes and the cited line, and still there
   assert.deepEqual(rows(code), ['5', 'R6', '−9', 'R9', '10', '11', '12']);
@@ -481,7 +488,7 @@ pageTest("a concern sits under its line; dismissing it drops the note and the un
   assert.ok((line.nextElementSibling as HTMLElement).dataset.note === 'inline');
   assert.ok($('[data-part="inbox-card"][data-selected] .sig-bug'));
 
-  await click($('[data-part="concern"] [data-part="vbtn"][data-mark="dismissed"]'));
+  await click($('[data-part="sum-inner"] [data-part="vbtn"][data-mark="dismissed"]'));
   assert.equal($$('[data-note="inline"]').length, 0);
   assert.ok($('[data-part=\"concern\"]').dataset.mark === 'dismissed');
   assert.equal($('[data-part="progress"] [data-part="legend"]').textContent, '1 flagged');
@@ -503,12 +510,12 @@ pageTest("a verdict doesn't move the list: the order stays, and a signal filter 
   await key('v');
   await key('j');
   assert.deepEqual(listed(), ['>findOrders', 'legacyTotal']);
-  await click($('[data-part="concern"] [data-part="vbtn"][data-mark="dismissed"]'));
+  await click($('[data-part="sum-inner"] [data-part="vbtn"][data-mark="dismissed"]'));
   assert.deepEqual(listed(), ['>findOrders', 'legacyTotal'], 'no longer flagged, but it keeps its place');
 
-  await click($('[data-part="concern"] [data-part="vbtn"][data-mark="dismissed"]')); // restore
+  await click($('[data-part="sum-inner"] [data-part="vbtn"][data-mark="dismissed"]')); // restore
   await click($('#sig-filter [data-value="any"]'));
-  await click($('[data-part="concern"] [data-part="vbtn"][data-mark="dismissed"]'));
+  await click($('[data-part="sum-inner"] [data-part="vbtn"][data-mark="dismissed"]'));
   assert.equal(
     $('#sig-filter [data-value="any"]').getAttribute('aria-checked'),
     'true',
@@ -549,14 +556,14 @@ pageTest('a dismissed chip lists the changes whose concerns the reader dismissed
   await key('v');
   await key('j');
   assert.equal($$('#sig-filter [data-value="dismissed"]').length, 0, 'nothing dismissed yet');
-  await click($('[data-part="concern"] [data-part="vbtn"][data-mark="dismissed"]'));
+  await click($('[data-part="sum-inner"] [data-part="vbtn"][data-mark="dismissed"]'));
   assert.equal($('#sig-filter [data-value="dismissed"] [data-part="n"]').textContent, '1');
   await click($('#sig-filter [data-value="dismissed"]'));
   assert.deepEqual(
     $$('[data-part="inbox-card"] [data-part="caption-unit"]').map((name) => name.textContent),
     ['findOrders'],
   );
-  await click($('[data-part="concern"] [data-part="vbtn"][data-mark="dismissed"]')); // restore: nothing is dismissed, the filter lifts
+  await click($('[data-part="sum-inner"] [data-part="vbtn"][data-mark="dismissed"]')); // restore: nothing is dismissed, the filter lifts
   assert.equal($$('#sig-filter [data-value="dismissed"]').length, 0);
   assert.deepEqual(
     $$('[data-part="inbox-card"] [data-part="caption-unit"]').map((name) => name.textContent),
@@ -588,7 +595,7 @@ pageTest('a deleted unit is its removed lines; o opens a unit in the code view',
   assert.equal($('[data-part="inbox-card"][data-selected] [data-part="caption-unit"]').textContent, 'legacyTotal');
   assert.deepEqual(rows('[data-part="unit-code"] .code'), ['−17', '−18', '−19', '−20']);
   await key('k');
-  assert.equal($('#open-in-code [data-part="tip"] kbd').textContent, 'o', 'its button teaches the key');
+  assert.equal($('#open-in-code').getAttribute('data-tip-key'), 'o', 'its button teaches the key');
   await key('o');
   assert.equal($('main').style.display, '', 'back on the code view');
   assert.ok($('#code .row[data-line="9"]').classList.contains('flash'), "at the unit's first changed line");
@@ -598,7 +605,7 @@ pageTest('a concern marked real can be copied for the agent from the overview; n
   await key('v');
   assert.equal($$('[data-part="ov-real"]').length, 0, 'nothing is confirmed yet');
   await key('j');
-  await click($('[data-part="concern"] [data-part="vbtn"][data-mark="real"]'));
+  await click($('[data-part="sum-inner"] [data-part="vbtn"][data-mark="real"]'));
   // the confirmed kind gets its dot: on the concern, and on the card's icon in the list
   assert.ok($('[data-part="concern"] [data-part="confirmed-icon"]'));
   assert.equal($$('[data-part="inbox-card"][data-selected] [data-part="confirmed-icon"]').length, 1);
@@ -627,7 +634,7 @@ pageTest('a concern marked real can be copied for the agent from the overview; n
 
   // taking the verdict back takes the block away
   await key('j');
-  await click($('[data-part="concern"] [data-part="vbtn"][data-mark="real"]'));
+  await click($('[data-part="sum-inner"] [data-part="vbtn"][data-mark="real"]'));
   assert.equal($$('[data-part="confirmed-icon"]').length, 0, 'the dot goes with the verdict');
   await key('g');
   assert.equal($$('[data-part="ov-real"]').length, 0);
@@ -762,6 +769,59 @@ test('full units: a unit that owns part of a removed block shows that part once,
 const cardNames = (root = '[data-part="inbox-rail"]') =>
   $$(root + ' [data-part="inbox-card"] [data-part="caption-unit"]').map((name) => name.textContent);
 
+/** The payload with every unit in one story: a flow has its head to fold it by */
+const oneStory = (): ViewerPayload => {
+  const summary = payload.summary!;
+  const units = Object.fromEntries(summary.units.map((unit) => [unit.id, 'repo']));
+  return { ...payload, summary: { ...summary, flows: [{ title: 'Orders', path: 'repo', priority: 1, units }] } };
+};
+
+pageTest(
+  "a unit's concern is one line at the top; its verdict is under its line in the code",
+  async () => {
+    await key('j');
+    const top = $('[data-part="concern"]');
+    assert.equal(top.querySelector('[data-part="text"]')!.textContent, 'deleted is a string column');
+    assert.equal(top.querySelectorAll('[data-part="vbtn"]').length, 0, 'no second set of buttons');
+    assert.equal($$('[data-part="line-note"] [data-part="vbtn"]').length, 2, 'Real and Dismiss, under line 10');
+    await click($('[data-part="line-note"] [data-part="vbtn"][data-mark="dismissed"]'));
+    assert.equal(
+      $('[data-part="concern"] [data-part="vbtn"]').textContent!.trim(),
+      'Restore',
+      'gone from the code: its Restore is at the top',
+    );
+  },
+  {},
+  '#summary',
+);
+
+pageTest(
+  'without an overview, the overview lists what each change does, and a row opens it',
+  async () => {
+    const rows = () => $$('[data-part="ov-headline"]');
+    assert.deepEqual(
+      rows().map((row) => row.firstElementChild!.textContent),
+      ['findOrders skips deleted orders', 'legacyTotal is gone'],
+    );
+    assert.ok(rows()[0].querySelector('.sig-bug'), 'its findings as their icons');
+    await click(rows()[1]);
+    assert.equal($('#summary-pane').dataset.unit, 'src/orders.ts#legacyTotal');
+  },
+  {},
+  '#summary',
+);
+
+pageTest(
+  'with no stories the inbox is the cards alone, with no "not in a story" section',
+  async () => {
+    assert.equal($$('[data-part="inbox-flow-head"]').length, 0);
+    assert.ok($('[data-part="inbox-flow"]').hasAttribute('data-bare'));
+    assert.deepEqual(cardNames('[data-part="inbox-body"]'), ['findOrders', 'legacyTotal']);
+  },
+  {},
+  '#summary',
+);
+
 pageTest(
   'the inbox shows each flow as a section of cards, and reading one opens the next',
   async (page) => {
@@ -769,7 +829,7 @@ pageTest(
       'findOrders',
       'legacyTotal',
     ]);
-    assert.equal($('[data-part="inbox-flow-head"] [data-part="t"]').textContent, 'Not in a story');
+    assert.equal($('[data-part="inbox-flow-head"] [data-part="t"]').textContent, 'Orders');
     assert.equal($('[data-part="inbox-flow-head"] [data-part="n"]').textContent, '2 to read');
     assert.ok($('[data-part="inbox-card"] [data-part="icons"] .sig-bug'), 'a finding shows as its icon on the card');
 
@@ -807,6 +867,7 @@ pageTest(
   },
   {},
   '#summary',
+  oneStory,
 );
 
 pageTest(
@@ -822,6 +883,7 @@ pageTest(
   },
   {},
   '#summary',
+  oneStory,
 );
 
 pageTest(
@@ -838,6 +900,7 @@ pageTest(
   },
   {},
   '#summary',
+  oneStory,
 );
 
 pageTest(
@@ -867,6 +930,7 @@ pageTest(
   },
   {},
   '#summary',
+  oneStory,
 );
 
 pageTest(

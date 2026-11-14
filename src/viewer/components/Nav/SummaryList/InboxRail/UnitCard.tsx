@@ -18,6 +18,7 @@ import { baseName } from '../../../../shared.ts';
 import { SignalIcon } from '../../../SignalIcon.tsx';
 import { Button } from '../../../../../ui/Button.tsx';
 import { listRow } from '../../../../../ui/ListRow.tsx';
+import { tipAttrs } from '../../../../../ui/Tip.tsx';
 
 /** The open card stays in sight as the reader steps through the inbox. */
 function keepInSight(card: HTMLElement | null) {
@@ -83,7 +84,10 @@ export function UnitCard({ unit, active }: { unit: Unit; active: boolean }) {
       >
         {read ? 'Unread' : 'Read'}
       </Button>
-      <span className='flex min-w-0 items-baseline gap-1 text-xs text-faint' title={unit.displayFile}>
+      <span
+        className='flex min-w-0 items-baseline gap-1 text-xs text-faint'
+        {...tipAttrs(unit.displayFile, { cut: true })}
+      >
         <span className='min-w-0 overflow-hidden text-ellipsis whitespace-nowrap'>{baseName(unit.displayFile)}</span>
         <span className='flex-none'>›</span>
         <span
@@ -98,13 +102,13 @@ export function UnitCard({ unit, active }: { unit: Unit; active: boolean }) {
           <span
             key={signal}
             className={clsx('inline-flex text-(--sig)', 'sig-' + signal)}
-            title={signalTip(marks, unit, signal, notes)}
+            {...tipAttrs(signalTip(marks, unit, signal, notes))}
           >
             <SignalIcon signal={signal} size={12} confirmed={confirmed.has(signal)} />
           </span>
         ))}
         {drawn && (
-          <span data-part='drawn' className='inline-flex text-muted' title='Has a preview or a sequence'>
+          <span data-part='drawn' className='inline-flex text-muted' {...tipAttrs('Has a preview or a sequence')}>
             <PanelsTopLeft size={12} />
           </span>
         )}

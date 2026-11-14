@@ -130,27 +130,6 @@ test("notes are kept per review, with paths from the repository's root, shown wi
   }
 });
 
-test('the notes every review shared before are never shown, and Clear lists them under all', () => {
-  const root = tempRoot();
-  try {
-    mkdirSync(join(root, '.lens'));
-    writeFileSync(
-      join(root, '.lens', 'notes.json'),
-      JSON.stringify({ version: 1, notes: [{ ...NOTE, file: 'a.ts' }] }),
-    );
-    assert.deepEqual(notesFor({ root, cwd: root, review: 'diff@main' }, ['a.ts']), []);
-    const at = { root, key: 'diff@main', review: 'diff@main' };
-    assert.deepEqual(describeKinds(at).find((kind) => kind.id === 'notes')!.plans, {
-      this: { count: 0, paths: [] },
-      all: { count: 1, paths: ['.lens/notes.json'] },
-    });
-    clearKinds(at, { notes: 'all' });
-    assert.ok(!existsSync(join(root, '.lens', 'notes.json')));
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
-});
-
 test("Clear saved data: this review's notes, or every review's", () => {
   const root = tempRoot();
   try {

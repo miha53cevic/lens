@@ -26,6 +26,7 @@ import {
   splitRows,
   selectRows,
   ticks,
+  pause,
   usePage,
 } from './fixtures/viewerPage.ts';
 
@@ -39,9 +40,14 @@ pageTest('the page opens on the first file of the tree, folded, hunks only', asy
     $$('#code .row.gap').map((gap) => gap.lastElementChild!.textContent),
     ['⋯ 5 unchanged lines', '⋯ 1 unchanged line', '⋯ 7 unchanged lines'],
   );
-  // the code card's header: the file's status, its path, the lines the diff added and removed
-  assert.equal($('[data-part="code-head"] [data-part="status-badge"]').textContent, 'MModified');
-  assert.equal($('[data-part="code-head"] [data-part="code-path"]').textContent, 'src/orders.ts');
+  // the editor's header: its path as a breadcrumb, the lines the diff added and removed; the tab has its status
+  assert.equal($('[data-part="tab"][data-active] [data-part="status-letter"]').textContent, 'M');
+  assert.equal($$('[data-part="code-head"] [data-part="status-badge"]').length, 0, 'the tab says it');
+  assert.deepEqual(
+    $$('[data-part="code-head"] [data-part="crumb"]').map((crumb) => crumb.textContent),
+    ['src'],
+  );
+  assert.equal($('[data-part="code-head"] [data-part="crumb-file"]').textContent, 'orders.ts');
   assert.equal($('[data-part="code-head"] [data-part="counts"]').textContent, '+2−5');
   assert.equal($('#tree [data-part="file"] [data-part="status-letter"]').textContent, 'M');
   assert.equal($('#nav [data-part="progress-count"]').textContent, '0 of 1');
@@ -382,7 +388,7 @@ pageTest("a unit's ruler ticks its open concerns too; a dismissed one drops off"
     ),
     ['N10'],
   );
-  await click($('[data-part="concern"] [data-part="vbtn"][data-mark="dismissed"]'));
+  await click($('[data-part="sum-inner"] [data-part="vbtn"][data-mark="dismissed"]'));
   assert.deepEqual(ticks('[data-card="unit-card"]'), ['del O9', 'add N9']);
 });
 
@@ -446,14 +452,14 @@ pageTest(
     const box = () => $('#tree [data-part="file"] [data-part="viewed-box"]');
     assert.equal(box().getAttribute('aria-checked'), 'false', 'not viewed: the code is new');
     assert.ok(box().hasAttribute('data-changed'));
-    assert.match($('#tree [data-part="file"]').getAttribute('title')!, /changed since you viewed it/);
+    assert.match($('#tree [data-part="file"]').getAttribute('data-tip')!, /changed since you viewed it/);
     assert.equal($('#nav [data-part="progress-count"]').textContent, '0 of 1');
     assert.equal($('#nav [data-part="legend"][data-changed]').textContent, '1 changed since viewed');
 
     // its folder: each file viewed, one changed since: the dot, not the tick
     const folder = () => $('#tree [data-part="dir"]');
     assert.ok(folder().dataset.through === 'changed');
-    assert.match(folder().getAttribute('title')!, /a file changed since you viewed it/);
+    assert.match(folder().getAttribute('data-tip')!, /a file changed since you viewed it/);
 
     await key('m');
     assert.equal(box().getAttribute('aria-checked'), 'true');
@@ -699,7 +705,8 @@ test('a changed binary file is a row of the tree: its status, dimmed, and nothin
       row.dataset.status === 'modified' && row.querySelector('[data-part="status-letter"][data-status="modified"]'),
     );
     assert.ok((row as HTMLButtonElement).disabled, "it can't be opened");
-    assert.match(row.title, /^src\/logo\.png — modified, a binary file/);
+    assert.equal(row.getAttribute('data-tip'), 'src/logo.png', 'its path, and only while the name is cut off');
+    assert.ok(row.hasAttribute('data-tip-cut'));
     assert.equal(
       $$('#tree [data-part="file"] [data-part="viewed-box"]:not(.placeholder)').length,
       1,
@@ -760,4 +767,38 @@ pageTest('removed lines keep their syntax colors, in both views', async () => {
   await key('v');
   await key('j');
   assert.ok(colored('[data-part="unit-code"] .row.removed').length > 0, 'the Summary tab too');
+});
+
+pageTest("the page's tooltip: a button's shows on hover, after a wait, and leaves with the pointer", async () => {
+  const tooltip = () => $('[data-part="tooltip"]');
+  const button = $('#search-btn');
+  fireEvent.pointerOver(button);
+  assert.ok(!tooltip().dataset.open, 'not at once: the pointer may only be passing');
+  await pause(400);
+  assert.equal(tooltip().dataset.open, 'true');
+  assert.equal(tooltip().querySelector('kbd')?.textContent, '⌘', 'its label and the keycap');
+  assert.equal(button.getAttribute('aria-describedby'), tooltip().id, 'read out as the title was');
+
+  fireEvent.pointerOut(button, { relatedTarget: document.body });
+  assert.ok(!tooltip().dataset.open);
+  assert.ok(!button.hasAttribute('aria-describedby'));
+
+  fireEvent.pointerOver($('#ask-btn'));
+  assert.equal(tooltip().dataset.open, 'true', 'just after another: at once');
+  assert.match(tooltip().textContent!, /^Ask your agent/);
+  await key('Escape');
+  assert.ok(!tooltip().dataset.open, 'Esc closes it');
+
+  // a tree row's path shows only while its name is cut off, and the page's rows aren't
+  fireEvent.pointerOver($('#tree [data-part="file"]'));
+  await pause(400);
+  assert.ok(!tooltip().dataset.open, 'nothing the row does not already say');
+});
+
+pageTest("the editor's ruler is its scrollbar", async () => {
+  assert.equal($$('[data-part="code-pane"] [data-part="ruler-thumb"]').length, 1);
+  assert.ok(
+    $('[data-part="code-pane"] [data-part="code-card"]').style.getPropertyValue('--view-h'),
+    'it knows what is in sight',
+  );
 });

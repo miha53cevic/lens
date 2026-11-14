@@ -119,7 +119,7 @@ planTest('a plan nobody polls says so, with the command to go on with it', async
   // short enough for the header's row: the whole command is what's copied, and its tooltip
   assert.equal(line.querySelector('[data-part="copy-cmd-text"]')!.textContent, '/lavish continue the plan');
   assert.equal(
-    line.querySelector('[data-part="copy-cmd"]')!.getAttribute('title'),
+    line.querySelector('[data-part="copy-cmd"]')!.getAttribute('data-tip'),
     "/lavish continue the plan in .lavish/cache.html. Open it with lavish-axi's --no-open: I'm reviewing it in lens.",
   );
   assert.ok(notices().includes('No agent on this plan'));

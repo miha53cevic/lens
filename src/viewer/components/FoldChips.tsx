@@ -4,7 +4,10 @@ import { setCategoryOpen } from '../actions/folds.ts';
 import { catColor } from '../shared.ts';
 import { Chip } from '../../ui/Chip.tsx';
 
-/** The fold chips in a code card's header: one per category that folds in this code, opening them all. */
+/**
+ * The fold chips in a code card's header: one per category that folds in this code, opening them all.
+ * Quiet until one is on (no border, a hover tint), so they read as controls, not as the header's tags.
+ */
 export function FoldChips() {
   const { categories, openCats } = useLens((state) => ({
     categories: foldCategories(state),
@@ -20,6 +23,7 @@ export function FoldChips() {
           color={catColor(category)}
           checked={openCats.has(category)}
           onChange={(open) => setCategoryOpen(category, open)}
+          className='border-transparent hover:bg-hover-bg has-checked:hover:bg-tone-tint'
         >
           {category}
         </Chip>

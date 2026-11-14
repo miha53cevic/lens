@@ -8,13 +8,14 @@ import clsx from 'clsx';
 import { Button } from './Button.tsx';
 import { riseIn } from './motion.ts';
 import { Spinner } from './Spinner.tsx';
+import { tipAttrs } from './Tip.tsx';
 
 export type StatusKind = 'gone' | 'failed' | 'working' | 'waiting' | 'done' | 'idle';
 
 export interface BarStatus {
   kind: StatusKind;
   label: string;
-  /** The reason, after the label: cut when long, whole in its title */
+  /** The reason, after the label: cut when long, whole in its tooltip */
   detail?: string | null;
   action?: BarAction | null;
 }
@@ -37,8 +38,8 @@ export interface BarNotice {
   buttonId?: string;
   /** In place of the dot: what the notice is about (a language server's mark) */
   icon?: ReactNode;
-  /** More than the text says, on hover */
-  title?: string;
+  /** More than the text says: its tooltip */
+  tip?: string;
 }
 
 // the color carries meaning only on the icon and the label; the reason after it is ordinary muted text
@@ -112,9 +113,13 @@ export function StatusBar({ status, notices }: { status: BarStatus; notices: Bar
         >
           {status.label}
         </span>
-        {/* a long reason is cut: the whole of it is in the title */}
+        {/* a long reason is cut: the whole of it is in the tooltip */}
         {status.detail && (
-          <span data-part='status-detail' className='min-w-0 overflow-hidden text-ellipsis' title={status.detail}>
+          <span
+            data-part='status-detail'
+            className='min-w-0 overflow-hidden text-ellipsis'
+            {...tipAttrs(status.detail, { cut: true })}
+          >
             {status.detail}
           </span>
         )}
@@ -148,7 +153,7 @@ export function StatusBar({ status, notices }: { status: BarStatus; notices: Bar
               data-part='status-notice'
               className={clsx(BAR_BUTTON, 'border-line text-muted hover:text-text')}
               data-tone={notice.tone}
-              title={notice.title}
+              {...tipAttrs(notice.tip)}
               onClick={notice.run}
             >
               {dot}
@@ -159,7 +164,7 @@ export function StatusBar({ status, notices }: { status: BarStatus; notices: Bar
               key={notice.id}
               className='inline-flex flex-none items-center gap-2 px-1'
               data-tone={notice.tone}
-              title={notice.title}
+              {...tipAttrs(notice.tip)}
             >
               {dot}
               {notice.text}

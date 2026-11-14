@@ -11,19 +11,23 @@ interface TabProps {
   active: boolean;
   /** What the tab shows: an icon or a status, the name, a detail */
   children: ReactNode;
-  onSelect: () => void;
+  onSelect?: () => void;
   onDoubleClick?: () => void;
-  onClose: () => void;
+  /** Without it the tab can't be closed and has no close button: the only one there is */
+  onClose?: () => void;
   /** A right-click on it: the page's own menu for the tab */
   onContextMenu?: (event: MouseEvent) => void;
   /** The close button's name: "Close orders.ts" */
-  closeLabel: string;
+  closeLabel?: string;
   /** More buttons before the close one (ui/IconButton, size sm): shown with it */
   actions?: ReactNode;
   /** The code's font, for a tab named by a file */
   mono?: boolean;
-  /** The whole path when the name is cut */
-  title?: string;
+  /**
+   * Joined to the editor under it, as an editor's tabs are (the viewer's file tabs): square, ruled
+   * off from the next, the one in front in the editor's own surface with the accent along its top.
+   */
+  flat?: boolean;
   className?: string;
   /** On the tab (the strip widens it in) */
   tabRef?: Ref<HTMLDivElement>;
@@ -47,7 +51,7 @@ export function Tab({
   closeLabel,
   actions,
   mono,
-  title,
+  flat,
   className,
   tabRef,
   mainRef,
@@ -63,11 +67,12 @@ export function Tab({
         // the focus ring goes around the whole tab, its buttons included
         'group/tab flex max-w-[280px] flex-none items-center rounded-full border border-transparent pr-1 text-sm whitespace-nowrap text-muted select-none hover:text-text has-[[role=tab]:focus-visible]:outline-2 has-[[role=tab]:focus-visible]:outline-offset-2 has-[[role=tab]:focus-visible]:outline-focus data-active:border-selected-ring data-active:bg-selected-bg data-active:text-text',
         mono && 'font-mono',
+        flat &&
+          'h-full rounded-none border-0 border-r border-line pr-2 data-active:border-line data-active:bg-surface data-active:shadow-[inset_0_1px_0_var(--accent)] [&>[role=tab]]:rounded-none [&>[role=tab]]:pl-4',
         className,
       )}
-      title={title}
       onAuxClick={(event: MouseEvent) => {
-        if (event.button === 1) onClose();
+        if (event.button === 1) onClose?.();
       }}
       onContextMenu={onContextMenu}
     >
@@ -83,18 +88,20 @@ export function Tab({
         {children}
       </button>
       {actions}
-      <IconButton
-        size='sm'
-        className={TAB_BUTTON}
-        data-part='tab-close'
-        label={closeLabel}
-        onClick={(event) => {
-          event.stopPropagation();
-          onClose();
-        }}
-      >
-        <X size={12} />
-      </IconButton>
+      {onClose && (
+        <IconButton
+          size='sm'
+          className={TAB_BUTTON}
+          data-part='tab-close'
+          label={closeLabel ?? 'Close'}
+          onClick={(event) => {
+            event.stopPropagation();
+            onClose();
+          }}
+        >
+          <X size={12} />
+        </IconButton>
+      )}
     </div>
   );
 }

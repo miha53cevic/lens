@@ -28,11 +28,12 @@ export function Tabs() {
   return (
     <div
       id='tabbar'
-      className='flex flex-none items-center gap-1 bg-bg pt-3 pr-3 pb-2 pl-6'
+      // the row's bottom line is its own shadow, so the tab in front, in the editor's surface, covers it
+      className='flex h-control-lg flex-none items-stretch bg-bg pr-3 shadow-[inset_0_-1px_0_var(--line)]'
       style={hiddenStyle(hidden)}
     >
       <div
-        className='flex min-w-0 flex-1 gap-1 overflow-x-auto [scrollbar-width:none]'
+        className='flex min-w-0 flex-1 overflow-x-auto [scrollbar-width:none]'
         role='tablist'
         // a mouse's wheel turns only up and down: here it moves the tabs sideways
         onWheel={(event) => {
@@ -53,7 +54,7 @@ export function Tabs() {
               className='max-w-[260px]'
               data-preview={tab.pinned ? undefined : ''}
               mono
-              title={path}
+              flat
               onSelect={() => openFile(tab.index)}
               onDoubleClick={() => pinTab(tab.index)}
               onClose={() => closeTab(tab.index)}

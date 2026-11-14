@@ -45,7 +45,7 @@ export function SignalChips({ counts, signal }: SignalChipsProps) {
         onChange={(id) => setSignalFilter(id as NonNullable<SignalFilter>)}
         options={ids.map((id) => ({
           value: id,
-          title: NAMES[id],
+          tip: NAMES[id],
           ariaLabel: NAMES[id] + ': ' + counts[id],
           // its signal's color, until it's the picked one: then the accent's text color
           icon: id !== 'any' && (

@@ -1,23 +1,32 @@
 import type { ButtonHTMLAttributes } from 'react';
 import { cn } from './cn.ts';
-import { Tip } from './Tip.tsx';
+import { tipAttrs } from './Tip.tsx';
 
 interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   /** What it does: its accessible name, and its tooltip when it has a key */
   label: string;
   /** Its key. A button with one gets a tooltip that teaches it; one without needs none. */
   shortcut?: string;
-  /** Which edge the tooltip lines up with */
+  /** Which edge the tooltip lines up with: end (the default), start for a control on the left */
   tipSide?: 'start' | 'end';
   /** md: a control of its own · sm: inside another control (a tab's close, a field's clear) */
   size?: 'md' | 'sm';
 }
 
 /** A button that is only an icon. With a key, a tooltip says what it does and its key. */
-export function IconButton({ label, shortcut, tipSide, size = 'md', className, children, ...props }: IconButtonProps) {
+export function IconButton({
+  label,
+  shortcut,
+  tipSide = 'end',
+  size = 'md',
+  className,
+  children,
+  ...props
+}: IconButtonProps) {
   return (
     <button
       data-part='icon-btn'
+      {...(shortcut && tipAttrs(label, { shortcut, side: tipSide }))}
       {...props}
       data-size={size}
       className={cn(
@@ -28,7 +37,6 @@ export function IconButton({ label, shortcut, tipSide, size = 'md', className, c
       aria-label={label}
     >
       {children}
-      {shortcut && <Tip label={label} shortcut={shortcut} side={tipSide} />}
     </button>
   );
 }
