@@ -33,4 +33,6 @@ export const NOTICE_ACTIONS: Record<NoticeActionId, () => void> = {
   refresh: () => void refresh(),
   // Settings lists each problem, with the field and why
   openSettings: () => openSettings('config'),
+  // the TypeScript switch, and the hint of what it runs
+  openFlags: () => openSettings('flags'),
 };

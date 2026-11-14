@@ -38,6 +38,7 @@ payload.config.testFilePatterns: array
 payload.config.testFilePatterns[]: string
 payload.config.theme: string
 payload.config.timings: boolean
+payload.config.typescriptLsp: boolean
 payload.config: object
 payload.configProblems: array
 payload.configSource: string
@@ -165,6 +166,7 @@ payload.themes[].fg: string
 payload.themes[].name: string
 payload.themes[]: object
 payload.timings: boolean
+payload.typescriptLsp: boolean
 payload.view: object
 payload: object"
 `;

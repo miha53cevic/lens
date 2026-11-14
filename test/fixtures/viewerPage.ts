@@ -10,7 +10,15 @@ import { GlobalRegistrator } from '@happy-dom/global-registrator';
 import { fireEvent } from '@testing-library/dom';
 import { bundleViewer } from '../../src/cli-app/render/web/bundle.ts';
 import { highlightFiles, viewerPayload, type ViewerPayload } from '../../src/cli-app/render/web/server.ts';
-import type { ClearInfoResponse, ClearResponse, PlansResponse, ViewSettings } from '../../src/cli-app/api/contract.ts';
+import type {
+  ClearInfoResponse,
+  ClearResponse,
+  LspDefinitionResponse,
+  LspHoverResponse,
+  LspStatus,
+  PlansResponse,
+  ViewSettings,
+} from '../../src/cli-app/api/contract.ts';
 import { themeSwatch } from '../../src/cli-app/render/highlight.ts';
 import type { AskState } from '../../src/cli-app/ask/session.ts';
 import type { ReaderNote } from '../../src/cli-app/notes/store.ts';
@@ -34,6 +42,8 @@ export interface Page {
   notes: ReaderNote[];
   /** What GET /api/plans answers (its stamp is what /api/stamp?plans says) */
   plans: PlansResponse;
+  /** What TypeScript's routes answer */
+  lsp: { hover: LspHoverResponse; definition: LspDefinitionResponse; status: LspStatus | null };
 }
 
 /** Lavish set up, and the plans the Plan tab lists: one an agent polls, one nobody does, one the reader ended */
@@ -103,6 +113,11 @@ export async function open(view: ViewSettings = {}, hash = '', cookie = '', data
     },
     notes: [],
     plans: lavishPlans(),
+    lsp: {
+      hover: { hover: null, tokens: null, unavailable: null },
+      definition: { places: [], unavailable: null },
+      status: null,
+    },
   };
   globalThis.fetch = (async (input: string | URL, init?: RequestInit) => {
     const url = new URL(String(input), 'http://127.0.0.1:5326');
@@ -135,7 +150,12 @@ export async function open(view: ViewSettings = {}, hash = '', cookie = '', data
           key: payload.summary!.key,
           change: payload.changeStamp,
           plans: url.searchParams.has('plans') ? page.plans.stamp : null,
+          lsp: page.lsp.status,
         });
+      case 'POST /api/lsp/hover':
+        return reply(page.lsp.hover);
+      case 'POST /api/lsp/definition':
+        return reply(page.lsp.definition);
       case 'GET /api/plans':
         return reply(page.plans);
       case 'POST /api/plans/end': {

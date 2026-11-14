@@ -100,6 +100,7 @@ Loose files and these flags are CLI-only; the app's picker covers the diff and P
 
 - **Diff reading**: hunks only, inline removed lines, word diff, side by side, hide tests.
 - **Search** in files (⌘P), by path (⌘⇧P), ⌥-click for usages.
+- **TypeScript** (Settings → Feature flags, off by default): a name's type and doc on hover, ⌘-click (Ctrl elsewhere) to its definition. lens runs the repository's TypeScript 7 (`tsc --lsp`), and only on files whose text on disk is the code shown.
 - **Viewed marks** and a progress ring, kept per review in `.lens/marks/`.
 - **Notes** on a line or selection (right-click), kept per review in `.lens/notes/`, and copied along for your agent.
 - **Settings** (`,`, or ⋯ → Settings): General (code and UI size), Code (fold level, diff reading), Summary, Feature flags, Debug, and the config in effect.
@@ -199,9 +200,10 @@ and `lens config` all say why.
 | `buildPreviews` | summary mode asks for previews and sequences (default `true`) |
 | `selfChecks` | summary mode asks for questions to check yourself with (default `false`) |
 | `planTab` | the viewer shows the Plan tab (default `true`) |
+| `typescriptLsp` | the viewer asks TypeScript 7's language server about the code under the pointer (default `false`) |
 | `timings` | lens records how long its steps take, for `lens timings` (default `true`) |
 
-Settings' switches override the last four for you, in `~/.lens/settings.json` (your home
+Settings' switches override the last five for you, in `~/.lens/settings.json` (your home
 folder, on macOS and Windows alike), which also keeps how you left the viewer (view settings,
 fold level, panels): the same in every repository. What belongs to a repository stays in its
 `.lens/` (summaries, marks, notes, timings) and `.lavish/`. Patterns:
@@ -224,6 +226,5 @@ release-please: merging its release PR publishes the macOS app.
 ## Non-goals
 
 - **No AI calls.** Summary, ask and plan mode hand the writing to your own agent.
-- **No semantic analysis or type checking.**
 - **No editing.** lens is read-only.
 - **No terminal UI.** The viewer is the interface (`--json` is for debugging).

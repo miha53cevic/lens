@@ -2,6 +2,7 @@
 // (always one status); on the right, the standing notices. The page decides what it says; this
 // draws it, the same in the viewer and in the app's own screens.
 
+import type { ReactNode } from 'react';
 import { Check, CircleAlert, MessageSquare, Unplug } from 'lucide-react';
 import clsx from 'clsx';
 import { Button } from './Button.tsx';
@@ -34,6 +35,10 @@ export interface BarNotice {
   run?: () => void;
   /** The button's id, for the page's own use */
   buttonId?: string;
+  /** In place of the dot: what the notice is about (a language server's mark) */
+  icon?: ReactNode;
+  /** More than the text says, on hover */
+  title?: string;
 }
 
 // the color carries meaning only on the icon and the label; the reason after it is ordinary muted text
@@ -127,12 +132,14 @@ export function StatusBar({ status, notices }: { status: BarStatus; notices: Bar
       )}
       <div data-part='status-notices' className='ml-auto flex min-w-0 items-center gap-2 overflow-hidden'>
         {notices.map((notice) => {
-          const dot = notice.tone !== 'plain' && (
-            <span
-              data-part='notice-dot'
-              className={clsx('dot', NOTICE_DOTS[notice.tone], notice.tone === 'live' && 'pulse')}
-            />
-          );
+          const dot =
+            notice.icon ??
+            (notice.tone !== 'plain' && (
+              <span
+                data-part='notice-dot'
+                className={clsx('dot', NOTICE_DOTS[notice.tone], notice.tone === 'live' && 'pulse')}
+              />
+            ));
           return notice.run ? (
             <Button
               key={notice.id}
@@ -141,13 +148,19 @@ export function StatusBar({ status, notices }: { status: BarStatus; notices: Bar
               data-part='status-notice'
               className={clsx(BAR_BUTTON, 'border-line text-muted hover:text-text')}
               data-tone={notice.tone}
+              title={notice.title}
               onClick={notice.run}
             >
               {dot}
               {notice.text}
             </Button>
           ) : (
-            <span key={notice.id} className='inline-flex flex-none items-center gap-2 px-1' data-tone={notice.tone}>
+            <span
+              key={notice.id}
+              className='inline-flex flex-none items-center gap-2 px-1'
+              data-tone={notice.tone}
+              title={notice.title}
+            >
               {dot}
               {notice.text}
             </span>

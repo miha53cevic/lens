@@ -87,8 +87,10 @@ export function barStatus(state: LensState): Status {
   return { kind: 'idle', label: 'Ready', detail: null, action: null };
 }
 
-export type NoticeTone = 'warn' | 'accent' | 'live';
-export type NoticeActionId = 'openOverview' | 'openSummary' | 'refresh' | 'openSettings';
+export type NoticeTone = 'warn' | 'accent' | 'live' | 'plain';
+export type NoticeActionId = 'openOverview' | 'openSummary' | 'refresh' | 'openSettings' | 'openFlags';
+/** A notice's own icon in place of its dot (components/StatusBar/const.ts draws it) */
+export type NoticeIconId = 'typescript' | 'typescript-busy';
 
 export interface Notice {
   id: string;
@@ -96,6 +98,9 @@ export interface Notice {
   tone: NoticeTone;
   /** null: a fact, with nothing to click */
   action: NoticeActionId | null;
+  icon?: NoticeIconId;
+  /** More than the text says, on hover */
+  title?: string;
 }
 
 type NoticeSource = (state: LensState) => Notice | null;
@@ -202,6 +207,40 @@ const planAgent: NoticeSource = (state) => {
     : { id: 'plan-agent', text: 'No agent on this plan', tone: 'warn', action: null };
 };
 
+const typescriptServer: NoticeSource = (state) => {
+  // known only from the stamp poll, which runs while the switch is on
+  const lsp = state.lspStatus;
+  if (!state.data.typescriptLsp || !lsp || state.serverGone) return null;
+  const whose = lsp.source === 'repository' ? "the repository's" : "lens's own";
+  const base = { id: 'typescript', action: 'openFlags' as const };
+  switch (lsp.state) {
+    case 'running':
+      return {
+        ...base,
+        text: 'TypeScript ' + lsp.version,
+        tone: 'plain',
+        icon: 'typescript',
+        title: 'Running ' + whose + ' TypeScript ' + lsp.version + ' (tsc --lsp): hover a name, ⌘-click it',
+      };
+    case 'starting':
+      return { ...base, text: 'TypeScript starting', tone: 'plain', icon: 'typescript-busy' };
+    case 'stopped':
+      return {
+        ...base,
+        text: 'TypeScript stopped',
+        tone: 'warn',
+        title: 'The TypeScript server exited: the next hover starts it again',
+      };
+    case 'missing':
+      return {
+        ...base,
+        text: 'No TypeScript 7',
+        tone: 'warn',
+        title: 'Add typescript@7 to the repository: lens runs its tsc --lsp',
+      };
+  }
+};
+
 const NOTICE_SOURCES: NoticeSource[] = [
   configProblems,
   guessedBase,
@@ -211,6 +250,7 @@ const NOTICE_SOURCES: NoticeSource[] = [
   summaryBuilding,
   agentListening,
   planAgent,
+  typescriptServer,
 ];
 
 // The last list: the same array comes back while what it says stays the same, so the bar's

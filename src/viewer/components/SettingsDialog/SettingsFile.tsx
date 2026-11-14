@@ -17,8 +17,9 @@ export function SettingsFile() {
         id='settings-file'
         variant='ghost'
         size='xs'
-        className='min-w-0 font-mono text-text'
-        title='Show it in Finder or Explorer'
+        // a long home folder is cut, never the line: the whole path is in the title
+        className='max-w-[360px] min-w-0 flex-initial font-mono text-text'
+        title={'Show ' + path + ' in Finder or Explorer'}
         disabled={revealing}
         onClick={() => void revealSettingsFile()}
       >

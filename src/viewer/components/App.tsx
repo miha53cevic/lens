@@ -20,6 +20,7 @@ import { ClearDataDialog } from './ClearDataDialog/index.tsx';
 import { ReviewPill } from './ReviewPill.tsx';
 import { StatusBar } from './StatusBar/index.tsx';
 import { CodeMenu } from './CodeMenu.tsx';
+import { LspHover } from './LspHover.tsx';
 import { cssPx } from '../../ui/zoom.ts';
 
 export function App() {
@@ -38,6 +39,7 @@ export function App() {
       <SearchDialog />
       <ClearDataDialog />
       <CodeMenu />
+      <LspHover />
       <div className='flex min-h-0 flex-1 overflow-clip'>
         <Nav />
         <Resizer

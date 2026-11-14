@@ -63,6 +63,8 @@ export async function checkStamp(): Promise<void> {
     // only what both sides know: a review without a fingerprint (a PR) claims nothing
     const changed = stamp.change !== null && data.changeStamp !== null && stamp.change !== data.changeStamp;
     if (changed !== changedOnDisk) update({ changedOnDisk: changed });
+    const lsp = stamp.lsp ?? null;
+    if (JSON.stringify(lsp) !== JSON.stringify(getState().lspStatus)) update({ lspStatus: lsp });
     const building = stamp.building ?? null;
     if (JSON.stringify(building) !== JSON.stringify(summaryBuild)) update({ summaryBuild: building });
     // another branch checked out: its summary, and whether to check one out first, in either view
@@ -96,7 +98,12 @@ export const stampWatcher: Watcher = {
   every: STAMP_POLL_MS,
   when: () => {
     const state = getState();
-    const watched = state.data.summary !== null || state.data.changeStamp !== null || state.view === 'plan';
+    // TypeScript's server: the status bar's notice is only as true as the last poll
+    const watched =
+      state.data.summary !== null ||
+      state.data.changeStamp !== null ||
+      state.view === 'plan' ||
+      state.data.typescriptLsp;
     return watched && !isBusy(state, 'refresh');
   },
   run: checkStamp,
