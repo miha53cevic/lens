@@ -2,7 +2,6 @@ import { ArrowRight } from 'lucide-react';
 import type { ChangeRow } from '../../../../cli-app/summary/store.ts';
 import { Cite } from './Cite.tsx';
 import { AgentText } from '../../AgentText.tsx';
-import { tipAttrs } from '../../../../ui/Tip.tsx';
 
 interface ChangesProps {
   changes: ChangeRow[];
@@ -37,12 +36,7 @@ export function Changes({ changes, onHover }: ChangesProps) {
               <ArrowRight size={12} className='align-[-1px] text-faint' />{' '}
             </>
           ) : (
-            <span
-              className='mr-2 rounded-xs bg-add p-1 align-[2px] leading-none text-surface eyebrow sm'
-              {...tipAttrs("behavior that didn't exist before")}
-            >
-              new
-            </span>
+            <span className='mr-2 rounded-xs bg-add p-1 align-[2px] leading-none text-surface eyebrow sm'>new</span>
           )}
           <ins>
             <AgentText text={change.now} />

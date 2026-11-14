@@ -1,16 +1,8 @@
-import type { TreeStatus } from '../../model/tree.ts';
+/** What a tree row's tooltip adds for a file the reader's config excludes. */
+export const EXCLUDED_TIP = 'changed, but excluded from analysis (exclude patterns in config)';
 
-/** A tree row's tooltip: what its status letter means. */
-export const STATUS_TITLE: Record<TreeStatus, string> = {
-  added: 'added',
-  modified: 'modified',
-  deleted: 'deleted in this diff',
-  excluded: 'changed, but excluded from analysis (exclude patterns in config)',
-  renamed: 'renamed, content unchanged',
-};
-
-/** What a binary file's row adds to its status: why it can't be opened. */
-export const BINARY_TITLE = 'a binary file: nothing to show';
+/** What a renamed file's row adds to its tooltip, before the old path. */
+export const RENAMED_FROM = 'renamed from ';
 
 /** What the row of a file viewed, then changed, adds to its tooltip. */
 export const CHANGED_SINCE_VIEWED = 'changed since you viewed it';

@@ -55,7 +55,6 @@ export function Tabs() {
               data-preview={tab.pinned ? undefined : ''}
               mono
               flat
-              tip={path}
               onSelect={() => openFile(tab.index)}
               onDoubleClick={() => pinTab(tab.index)}
               onClose={() => closeTab(tab.index)}

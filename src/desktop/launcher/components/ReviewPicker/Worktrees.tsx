@@ -29,7 +29,7 @@ export function Worktrees({ repo }: { repo: RepoInfo }) {
   };
   return (
     <>
-      <Tag id='worktrees' icon={<GitBranch size={11} />} onClick={open} tip='Worktrees of this repository'>
+      <Tag id='worktrees' icon={<GitBranch size={11} />} onClick={open}>
         {where(repo)}
         <ChevronDown size={11} />
       </Tag>

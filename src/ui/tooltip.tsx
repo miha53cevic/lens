@@ -31,7 +31,7 @@ export function installTooltips() {
   tip.setAttribute('role', 'tooltip');
   tip.dataset.part = 'tooltip';
   tip.className =
-    'pointer-events-none fixed inset-auto m-0 inline-flex max-w-[min(480px,calc(var(--screen-w)-16px))] items-center gap-2 rounded-md border border-line-strong bg-raised py-1 pr-2 pl-3 font-sans text-sm/[1.3] font-normal text-text shadow-1 [overflow-wrap:anywhere] [transition:opacity_var(--motion),translate_var(--motion)] starting:opacity-0 starting:[translate:0_-3px]';
+    'pointer-events-none fixed inset-auto m-0 hidden data-open:inline-flex max-w-[min(480px,calc(var(--screen-w)-16px))] items-center gap-2 rounded-md border border-line-strong bg-raised py-1 pr-2 pl-3 font-sans text-sm/[1.3] font-normal text-text shadow-1 [overflow-wrap:anywhere] [transition:opacity_var(--motion),translate_var(--motion)] starting:opacity-0 starting:[translate:0_-3px]';
   document.body.append(tip);
   root = createRoot(tip);
 

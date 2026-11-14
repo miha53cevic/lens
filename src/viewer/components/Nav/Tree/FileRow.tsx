@@ -6,7 +6,7 @@ import { changedSinceViewed } from '../../../model/viewed.ts';
 import { ViewedBox } from '../../ViewedBox.tsx';
 import { StatusLetter } from '../../../../ui/FileStatus.tsx';
 import { ListRow } from '../../../../ui/ListRow.tsx';
-import { BINARY_TITLE, CHANGED_SINCE_VIEWED, STATUS_TITLE } from '../const.ts';
+import { CHANGED_SINCE_VIEWED, EXCLUDED_TIP, RENAMED_FROM } from '../const.ts';
 import { NoteMark } from '../NoteMark.tsx';
 import { KindIcon } from './KindIcon.tsx';
 import type { TreeContext } from './types.ts';
@@ -24,12 +24,13 @@ export function FileRow({ entry, depth, context }: { entry: TreeFile; depth: num
   const viewKey = fileIndex !== null ? fileViewKey(context.files[fileIndex]) : null;
   const viewed = viewKey !== null && context.viewedFiles.has(viewKey);
   const changed = viewKey !== null && changedSinceViewed(context.viewedFiles, viewKey);
-  const title =
-    (entry.status === 'renamed'
-      ? entry.renamedFrom + ' → ' + entry.path + ' — ' + STATUS_TITLE.renamed
-      : entry.path +
-        (entry.status ? ' — ' + STATUS_TITLE[entry.status] : '') +
-        (entry.binary ? ', ' + BINARY_TITLE : '')) + (changed ? '\n' + CHANGED_SINCE_VIEWED : '');
+  // only what the row doesn't show: where it was renamed from, why it's excluded, that it changed
+  // since viewed; else the path, while the name is cut off
+  const adds = [
+    entry.status === 'renamed' && RENAMED_FROM + entry.renamedFrom,
+    entry.status === 'excluded' && EXCLUDED_TIP,
+    changed && CHANGED_SINCE_VIEWED,
+  ].filter(Boolean);
   return (
     <ListRow
       ref={active ? keepInSight : undefined}
@@ -41,7 +42,7 @@ export function FileRow({ entry, depth, context }: { entry: TreeFile; depth: num
       data-viewed={viewed || undefined}
       className='group/file flex h-control-xs w-full items-center gap-1 rounded-none pr-3 font-mono text-sm text-muted data-selected:shadow-[inset_0_0_0_1px_var(--selected-ring)] data-binary:opacity-60 data-[status=excluded]:opacity-60 disabled:cursor-default disabled:opacity-100 data-binary:disabled:opacity-60 data-[status=excluded]:disabled:opacity-60'
       style={{ paddingLeft: indentAt(depth) + 'px' }}
-      {...tipAttrs(title)}
+      {...tipAttrs(entry.path + (adds.length ? ' — ' + adds.join(', ') : ''), { cut: !adds.length })}
       disabled={fileIndex === null}
       onClick={fileIndex !== null ? () => openFile(fileIndex) : undefined}
       onDoubleClick={fileIndex !== null ? () => openFile(fileIndex, true) : undefined}

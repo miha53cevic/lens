@@ -2,7 +2,6 @@ import type { MouseEvent, ReactNode, Ref } from 'react';
 import { cn } from './cn.ts';
 import { X } from 'lucide-react';
 import { IconButton } from './IconButton.tsx';
-import { tipAttrs } from './Tip.tsx';
 
 /** A button on a tab, shown on the tab in front and on the one under the pointer. */
 export const TAB_BUTTON =
@@ -23,8 +22,6 @@ interface TabProps {
   actions?: ReactNode;
   /** The code's font, for a tab named by a file */
   mono?: boolean;
-  /** The whole path: the tab shows only the name */
-  tip?: string;
   /**
    * Joined to the editor under it, as an editor's tabs are (the viewer's file tabs): square, ruled
    * off from the next, the one in front in the editor's own surface with the accent along its top.
@@ -53,7 +50,6 @@ export function Tab({
   closeLabel,
   actions,
   mono,
-  tip,
   flat,
   className,
   tabRef,
@@ -74,7 +70,6 @@ export function Tab({
           'h-full rounded-none border-0 border-r border-line pr-2 data-active:border-line data-active:bg-surface data-active:shadow-[inset_0_1px_0_var(--accent)] [&>[role=tab]]:rounded-none [&>[role=tab]]:pl-4',
         className,
       )}
-      {...tipAttrs(tip)}
       onAuxClick={(event: MouseEvent) => {
         if (event.button === 1) onClose();
       }}

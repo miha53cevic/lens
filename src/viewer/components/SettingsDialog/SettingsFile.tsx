@@ -20,7 +20,7 @@ export function SettingsFile() {
         size='xs'
         // a long home folder is cut, never the line: the whole path is in the tooltip
         className='max-w-[360px] min-w-0 flex-initial font-mono text-text'
-        {...tipAttrs('Show ' + path + ' in Finder or Explorer')}
+        {...tipAttrs(path, { cut: true })}
         disabled={revealing}
         onClick={() => void revealSettingsFile()}
       >

@@ -705,7 +705,8 @@ test('a changed binary file is a row of the tree: its status, dimmed, and nothin
       row.dataset.status === 'modified' && row.querySelector('[data-part="status-letter"][data-status="modified"]'),
     );
     assert.ok((row as HTMLButtonElement).disabled, "it can't be opened");
-    assert.match(row.getAttribute('data-tip')!, /^src\/logo\.png — modified, a binary file/);
+    assert.equal(row.getAttribute('data-tip'), 'src/logo.png', 'its path, and only while the name is cut off');
+    assert.ok(row.hasAttribute('data-tip-cut'));
     assert.equal(
       $$('#tree [data-part="file"] [data-part="viewed-box"]:not(.placeholder)').length,
       1,
@@ -768,26 +769,30 @@ pageTest('removed lines keep their syntax colors, in both views', async () => {
   assert.ok(colored('[data-part="unit-code"] .row.removed').length > 0, 'the Summary tab too');
 });
 
-pageTest("the page's tooltip: what a row says shows on hover, after a wait, and leaves with the pointer", async () => {
+pageTest("the page's tooltip: a button's shows on hover, after a wait, and leaves with the pointer", async () => {
   const tooltip = () => $('[data-part="tooltip"]');
-  const row = $('#tree [data-part="file"]');
-  fireEvent.pointerOver(row);
+  const button = $('#search-btn');
+  fireEvent.pointerOver(button);
   assert.ok(!tooltip().dataset.open, 'not at once: the pointer may only be passing');
   await pause(400);
   assert.equal(tooltip().dataset.open, 'true');
-  assert.equal(tooltip().textContent, row.getAttribute('data-tip'));
-  assert.equal(row.getAttribute('aria-describedby'), tooltip().id, 'read out as the title was');
+  assert.equal(tooltip().querySelector('kbd')?.textContent, '⌘', 'its label and the keycap');
+  assert.equal(button.getAttribute('aria-describedby'), tooltip().id, 'read out as the title was');
 
-  fireEvent.pointerOut(row, { relatedTarget: document.body });
+  fireEvent.pointerOut(button, { relatedTarget: document.body });
   assert.ok(!tooltip().dataset.open);
-  assert.ok(!row.hasAttribute('aria-describedby'));
+  assert.ok(!button.hasAttribute('aria-describedby'));
 
-  // a key's tooltip: its label and the keycap
-  fireEvent.pointerOver($('#search-btn'));
+  fireEvent.pointerOver($('#ask-btn'));
   assert.equal(tooltip().dataset.open, 'true', 'just after another: at once');
-  assert.equal(tooltip().querySelector('kbd')?.textContent, '⌘');
+  assert.match(tooltip().textContent!, /^Ask your agent/);
   await key('Escape');
   assert.ok(!tooltip().dataset.open, 'Esc closes it');
+
+  // a tree row's path shows only while its name is cut off, and the page's rows aren't
+  fireEvent.pointerOver($('#tree [data-part="file"]'));
+  await pause(400);
+  assert.ok(!tooltip().dataset.open, 'nothing the row does not already say');
 });
 
 pageTest("the editor's breadcrumb: a folder opens in the tree; the ruler is its scrollbar", async () => {
