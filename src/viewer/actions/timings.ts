@@ -1,6 +1,6 @@
 // Timings: while they're on (the ⋯ switch, or the config's), the viewer measures its own steps,
 // each until the browser has painted what it changed, and posts them to the server, which keeps
-// them with its own in .lens/timings.jsonl for `lens timings` (src/cli-app/timings.ts).
+// them with its own in ~/.lens/timings.jsonl for `lens timings` (src/cli-app/timings.ts).
 
 import type { TimingsRequest } from '../../cli-app/api/contract.ts';
 import { getState, update } from '../store.ts';

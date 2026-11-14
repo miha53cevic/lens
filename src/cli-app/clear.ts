@@ -4,7 +4,7 @@ import { buildProgressReader } from './summary/progress.ts';
 import { NOTES_DIR, OLD_NOTES_PATH, readStoredNotes } from './notes/store.ts';
 import { countMarks, MARKS_DIR, readStoredMarks } from './marks/store.ts';
 import { countText } from './text.ts';
-import { readTimings, TIMINGS_PATH } from './timings.ts';
+import { readTimings, timingsPath } from './timings.ts';
 import { toPosix } from './paths.ts';
 
 // What lens keeps on disk that the reader can clear: one entry per kind in CLEAR_KINDS. The
@@ -165,19 +165,19 @@ const marks = perReview(
   (root, review) => countMarks(readStoredMarks(root, review)),
 );
 
-/** How long lens's steps took, while timings were on: one file for the repository. */
+/** How long lens's steps took, while timings were on: one file for the machine, every repository's. */
 const timings: ClearKind = {
   id: 'timings',
   label: 'Timings',
   unit: ['timing', 'timings'],
   scopes: () => ['all'],
-  describe(at) {
-    const count = readTimings(at.root).length;
-    return { count, paths: count > 0 ? [toPosix(TIMINGS_PATH)] : [] };
+  describe() {
+    const count = readTimings().timings.length;
+    return { count, paths: count > 0 ? [toPosix(timingsPath())] : [] };
   },
   clear(at) {
     const plan = timings.describe(at, 'all');
-    rmSync(join(at.root, TIMINGS_PATH), { force: true });
+    rmSync(timingsPath(), { force: true });
     return plan;
   },
 };

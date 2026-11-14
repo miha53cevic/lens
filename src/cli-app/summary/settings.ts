@@ -7,7 +7,7 @@ import type { ViewSettings } from '../api/contract.ts';
 import { writeAtomic } from './store.ts';
 
 // The reader's own switches, set from the viewer: ~/.lens/settings.json, the same in every
-// repository (what is a repository's own stays in its .lens/: summaries, marks, notes, timings).
+// repository (what is a repository's own stays in its .lens/: summaries, marks, notes; timings are the machine's, timings.ts).
 // A switch here never edits a checked-in .lens.json; it wins over it. `view` is how the reader
 // left the viewer (its view settings, its panels): the browser keeps none of it.
 

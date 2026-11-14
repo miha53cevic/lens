@@ -82,7 +82,7 @@ The app runs the `lens` command for you, and the skills call it too. You can run
 | `lens info` | what could be reviewed here: the branch, its changes, the PR remote, the other worktrees |
 | `lens config` | the config in effect, where each value comes from, and its problems (`--json` for scripts) |
 | `lens clear` | what lens keeps in `.lens/`, by kind; `lens clear <kind> --all` (or one review's `<key>`) clears `summaries`, `notes`, `marks` or `timings` |
-| `lens timings` | how long each step took, while timings are on (`--json` for every one) |
+| `lens timings` | how long each step took, while timings are on, in every repository (`--repo <name>` for one, `--json` for every one) |
 
 | flag | meaning |
 | --- | --- |
@@ -106,7 +106,7 @@ Loose files and these flags are CLI-only; the app's picker covers the diff and P
 - **Settings** (`,`, or ⋯ → Settings): General (code and UI size), Code (fold level, diff reading), Summary, Feature flags, Debug, and the config in effect.
 - **Reload** (`r`) re-runs the analysis; the status bar says when the code changed on disk.
 - **Clear saved data** (⋯ menu): summaries, notes, marks and timings, for this review or all. Settings stay.
-- **Timings** (Settings → Debug, on by default): lens records how long its steps take in `.lens/timings.jsonl`; `lens timings` lists them.
+- **Timings** (Settings → Debug, on by default): lens records how long its steps take, in every repository, in `~/.lens/timings.jsonl` (with the machine each run ran on): `lens timings` lists them, and the file is what to send when lens is slow.
 
 Press `?` in the viewer for every key.
 
@@ -205,8 +205,8 @@ and `lens config` all say why.
 
 Settings' switches override the last five for you, in `~/.lens/settings.json` (your home
 folder, on macOS and Windows alike), which also keeps how you left the viewer (view settings,
-fold level, panels): the same in every repository. What belongs to a repository stays in its
-`.lens/` (summaries, marks, notes, timings) and `.lavish/`. Patterns:
+fold level, panels), and the timings: the same in every repository. What belongs to a repository stays in its
+`.lens/` (summaries, marks, notes) and `.lavish/`. Patterns:
 `*` matches within a path segment, `**` across them, anywhere in the path. The old names
 (`threshold`, `categories`, `scores`) still work, with a problem saying what to rename.
 

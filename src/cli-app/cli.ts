@@ -33,7 +33,8 @@ summary mode (written by your own coding agent — see skills/lens-review):
                               validate the agent's result.json and store it for the viewer
 
 timings (turn them on in the viewer's Settings, or "timings": true in .lens.json):
-  lens timings [--json]       how long each step took: the CLI's, the server's and the viewer's
+  lens timings [--repo <name>] [--json]
+                              how long each step took, in every repository (~/.lens/timings.jsonl)
 
 saved data (also the viewer's ⋯ → Clear saved data…):
   lens clear                  list what lens keeps in .lens/, by kind
@@ -125,8 +126,7 @@ async function main(): Promise<void> {
   if (command === 'ask') return runAsk(rest, cwd, opts.portSet ? opts.port : null);
   if (command === 'clear') return runClear(rest, repoRootOr(cwd));
   if (command === 'timings') {
-    const root = repoRootOr(cwd);
-    return runTimings(root, opts.json, timingsOn(readConfig(cwd).config));
+    return runTimings(rest, opts.json, timingsOn(readConfig(cwd).config));
   }
 
   if (opts.portSet && (!Number.isInteger(opts.port) || opts.port < 1 || opts.port > 65535)) {
