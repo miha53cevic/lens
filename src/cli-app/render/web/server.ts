@@ -11,6 +11,7 @@ import { createNoteRoutes } from '../../notes/routes.ts';
 import { notesFor, type ReaderNote } from '../../notes/store.ts';
 import { createMarkRoutes } from '../../marks/routes.ts';
 import { createPlanRoutes, plansNow } from '../../plan/routes.ts';
+import { createLspRoutes } from '../../lsp/routes.ts';
 import { hostEnv } from '../../plan/lavish.ts';
 import { startPlanProxy } from '../../plan/proxy.ts';
 import { marksFor, type ReviewMarks } from '../../marks/store.ts';
@@ -78,6 +79,8 @@ export interface ViewerInput {
   selfChecks: boolean;
   /** The Plan tab, the same way: a feature still behind its switch */
   planTab: boolean;
+  /** TypeScript's hover and go to definition (lsp/), the same way: a feature still behind its switch */
+  typescriptLsp: boolean;
   /** Timings (src/cli-app/timings.ts), the same way: the viewer measures its steps too while they're on */
   timings: boolean;
   /** PR mode: "owner/repo#N — title", shown in the viewer header */
@@ -318,6 +321,7 @@ export async function serveViewer(
   const infoRoot = input.root;
   const stop = () => {
     removeServerInfo(infoRoot);
+    lsp.stop();
     process.exit(0);
   };
 
@@ -451,6 +455,9 @@ export async function serveViewer(
     return asked && isBundledTheme(asked) ? asked : opts.theme;
   };
 
+  // the page's theme, for a hover's code
+  const lsp = createLspRoutes(() => current, themeOf);
+
   const page = async ({ req, res, url }: RouteContext) => {
     // the theme the reader picked (the viewer keeps it in a cookie), unless --theme pinned this run's
     const picked = url.searchParams.get('theme') || opts.themePinned ? null : readCookie(req, THEME_COOKIE);
@@ -495,6 +502,7 @@ export async function serveViewer(
         building: buildingNow(),
         // only the Plan tab asks: the list reads Lavish's state and asks its server
         plans: url.searchParams.has('plans') ? (await plansNow(current.root, hostEnv())).stamp : null,
+        lsp: lsp.status(),
       };
       return stamp;
     })
@@ -553,6 +561,7 @@ export async function serveViewer(
     .use(notes)
     .use(marks)
     .use(plans)
+    .use(lsp.router)
     .use(ask);
 
   const server = createServer(async (req, res) => {
@@ -607,17 +616,18 @@ export async function serveViewer(
 }
 
 function parseSettings(raw: unknown): SettingsRequest | { error: string } {
-  const { buildPreviews, selfChecks, planTab, timings } = (raw && typeof raw === 'object' ? raw : {}) as Record<
-    string,
-    unknown
-  >;
+  const { buildPreviews, selfChecks, planTab, typescriptLsp, timings } = (
+    raw && typeof raw === 'object' ? raw : {}
+  ) as Record<string, unknown>;
   const given = {
     ...(buildPreviews !== undefined && { buildPreviews }),
     ...(selfChecks !== undefined && { selfChecks }),
     ...(planTab !== undefined && { planTab }),
+    ...(typescriptLsp !== undefined && { typescriptLsp }),
     ...(timings !== undefined && { timings }),
   };
-  if (Object.keys(given).length === 0) return { error: 'name buildPreviews, selfChecks, planTab or timings' };
+  if (Object.keys(given).length === 0)
+    return { error: 'name buildPreviews, selfChecks, planTab, typescriptLsp or timings' };
   if (Object.values(given).some((on) => typeof on !== 'boolean')) return { error: 'a switch must be true or false' };
   return given as SettingsRequest;
 }

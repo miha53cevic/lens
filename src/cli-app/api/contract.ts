@@ -9,6 +9,7 @@ import type { ClearKindInfo, ClearPlan, ClearScope } from '../clear.ts';
 import type { MarkChange } from '../marks/store.ts';
 import type { ReaderNote } from '../notes/store.ts';
 import type { ThemeTokens, ViewerPayload } from '../render/web/server.ts';
+import type { ViewerToken } from '../render/highlight.ts';
 import type { BuildProgress } from '../summary/progress.ts';
 import type { Concern } from '../summary/store.ts';
 import type { SummaryView } from '../summary/view.ts';
@@ -62,6 +63,10 @@ export interface ApiRoutes {
   'POST /api/plans/open': Endpoint<PlanOpenRequest, PlanOpenResponse>;
   /** A plan's Lavish session, ended as an agent ends one: it opens again without asking */
   'POST /api/plans/end': Endpoint<PlanEndRequest, Ok>;
+  /** What TypeScript says of the name at a place: its declaration and doc (behind `typescriptLsp`) */
+  'POST /api/lsp/hover': Endpoint<CodePlace, LspHoverResponse>;
+  /** Where TypeScript says the name at a place is declared */
+  'POST /api/lsp/definition': Endpoint<CodePlace, LspDefinitionResponse>;
 }
 
 export type ApiRoute = keyof ApiRoutes;
@@ -91,6 +96,8 @@ export const API_ROUTES: { readonly [R in ApiRoute]: true } = {
   'GET /api/plans': true,
   'POST /api/plans/open': true,
   'POST /api/plans/end': true,
+  'POST /api/lsp/hover': true,
+  'POST /api/lsp/definition': true,
 };
 
 export interface Ok {
@@ -112,12 +119,15 @@ export interface StampResponse {
   change: string | null;
   building: BuildProgress | null;
   plans: string | null;
+  /** The TypeScript server, while `typescriptLsp` is on; null while it's off */
+  lsp: LspStatus | null;
 }
 
 export interface SettingsRequest {
   buildPreviews?: boolean;
   selfChecks?: boolean;
   planTab?: boolean;
+  typescriptLsp?: boolean;
   timings?: boolean;
 }
 
@@ -244,4 +254,41 @@ export interface PlanEndRequest {
 /** Where the frame loads the session from: the plan proxy (plan/proxy.ts) */
 export interface PlanOpenResponse {
   url: string;
+}
+
+/** A place in the new side's code: `file` as the payload names it (or absolute, outside the cwd); `line` 1-based, `character` 0-based in UTF-16 units */
+export interface CodePlace {
+  file: string;
+  line: number;
+  character: number;
+}
+
+/** What TypeScript says of a name: the declaration as it prints it, and its doc comment as markdown ('' for none) */
+export interface HoverInfo {
+  code: string;
+  doc: string;
+}
+
+/** `unavailable` says why TypeScript wasn't asked (off, no TypeScript 7, the file on disk isn't the code shown); null when it was */
+export interface LspHoverResponse {
+  hover: HoverInfo | null;
+  /** The hover's code, highlighted in the theme asked for (`?theme=`), a line per line of `hover.code` */
+  tokens: ViewerToken[][] | null;
+  unavailable: string | null;
+}
+
+export interface LspDefinitionResponse {
+  places: CodePlace[];
+  unavailable: string | null;
+}
+
+/**
+ * The TypeScript server as the status bar shows it. `missing`: no TypeScript 7 for the repository;
+ * `stopped`: it exited (the next question starts it again).
+ */
+export interface LspStatus {
+  state: 'starting' | 'running' | 'stopped' | 'missing';
+  /** The TypeScript found, and whose install it is; null when none is */
+  version: string | null;
+  source: 'repository' | 'lens' | null;
 }

@@ -98,6 +98,8 @@ export interface LensConfig {
   selfChecks: boolean;
   /** The viewer shows the Plan tab (Lavish plans): off until it's turned on */
   planTab: boolean;
+  /** The viewer asks TypeScript's language server about the code under the pointer (lsp/): off until it's turned on */
+  typescriptLsp: boolean;
   /** lens records how long its steps take, for `lens timings` (timings.ts): off until it's turned on */
   timings: boolean;
 }

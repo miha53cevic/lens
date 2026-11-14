@@ -15,6 +15,7 @@ export interface LocalSettings {
   buildPreviews?: boolean;
   selfChecks?: boolean;
   planTab?: boolean;
+  typescriptLsp?: boolean;
   timings?: boolean;
   view?: ViewSettings;
 }
@@ -106,6 +107,7 @@ export function readSettings(): LocalSettings {
       ...(typeof raw?.buildPreviews === 'boolean' ? { buildPreviews: raw.buildPreviews } : {}),
       ...(typeof raw?.selfChecks === 'boolean' ? { selfChecks: raw.selfChecks } : {}),
       ...(typeof raw?.planTab === 'boolean' ? { planTab: raw.planTab } : {}),
+      ...(typeof raw?.typescriptLsp === 'boolean' ? { typescriptLsp: raw.typescriptLsp } : {}),
       ...(typeof raw?.timings === 'boolean' ? { timings: raw.timings } : {}),
       // a hand-edited value that doesn't check is skipped, as the config's are
       ...(raw?.view ? { view: checkView(raw.view).view } : {}),
@@ -142,6 +144,11 @@ export function selfChecksOn(config: LensConfig): boolean {
 /** Whether the viewer shows the Plan tab: the reader's switch, else the config's (off). */
 export function planTabOn(config: LensConfig): boolean {
   return readSettings().planTab ?? config.planTab;
+}
+
+/** Whether the viewer asks TypeScript about the code under the pointer: the reader's switch, else the config's (off). */
+export function typescriptLspOn(config: LensConfig): boolean {
+  return readSettings().typescriptLsp ?? config.typescriptLsp;
 }
 
 /** Whether lens records how long its steps take (timings.ts): the reader's switch, else the config's (off). */
