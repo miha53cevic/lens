@@ -388,7 +388,7 @@ pageTest("a unit's ruler ticks its open concerns too; a dismissed one drops off"
     ),
     ['N10'],
   );
-  await click($('[data-part="concern"] [data-part="vbtn"][data-mark="dismissed"]'));
+  await click($('[data-part="sum-inner"] [data-part="vbtn"][data-mark="dismissed"]'));
   assert.deepEqual(ticks('[data-card="unit-card"]'), ['del O9', 'add N9']);
 });
 

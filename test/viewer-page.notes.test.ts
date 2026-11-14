@@ -155,7 +155,7 @@ test('the overview copies the notes for the agent with the confirmed findings', 
     assert.notEqual(status().label, 'Copied 1 note', 'the button says it, not the status bar');
     // with a confirmed concern too
     await key('j');
-    await click($('[data-part="concern"] [data-part="vbtn"][data-mark="real"]'));
+    await click($('[data-part="sum-inner"] [data-part="vbtn"][data-mark="real"]'));
     await key('g');
     assert.equal($('[data-part="ov-real-count"]').textContent, '1 note and 1 confirmed concern');
     await click($('[data-part="ov-real-copy"]'));
