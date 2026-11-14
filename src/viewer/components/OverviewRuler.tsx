@@ -56,10 +56,7 @@ export function OverviewRuler({ path, items, changedLines, flagged, thumb }: Ove
   return (
     <div
       data-part='ruler'
-      className={clsx(
-        'flex-none border-l border-line bg-[color-mix(in_oklab,var(--surface-2)_60%,transparent)] pt-1 pb-3',
-        thumb ? 'w-[14px]' : 'w-[10px]',
-      )}
+      className='w-[14px] flex-none border-l border-line bg-[color-mix(in_oklab,var(--surface-2)_60%,transparent)] pt-1 pb-3'
       aria-hidden='true'
       onWheel={thumb ? scrollCode : undefined}
     >

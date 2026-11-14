@@ -11,13 +11,14 @@ interface TabProps {
   active: boolean;
   /** What the tab shows: an icon or a status, the name, a detail */
   children: ReactNode;
-  onSelect: () => void;
+  onSelect?: () => void;
   onDoubleClick?: () => void;
-  onClose: () => void;
+  /** Without it the tab can't be closed and has no close button: the only one there is */
+  onClose?: () => void;
   /** A right-click on it: the page's own menu for the tab */
   onContextMenu?: (event: MouseEvent) => void;
   /** The close button's name: "Close orders.ts" */
-  closeLabel: string;
+  closeLabel?: string;
   /** More buttons before the close one (ui/IconButton, size sm): shown with it */
   actions?: ReactNode;
   /** The code's font, for a tab named by a file */
@@ -71,7 +72,7 @@ export function Tab({
         className,
       )}
       onAuxClick={(event: MouseEvent) => {
-        if (event.button === 1) onClose();
+        if (event.button === 1) onClose?.();
       }}
       onContextMenu={onContextMenu}
     >
@@ -87,18 +88,20 @@ export function Tab({
         {children}
       </button>
       {actions}
-      <IconButton
-        size='sm'
-        className={TAB_BUTTON}
-        data-part='tab-close'
-        label={closeLabel}
-        onClick={(event) => {
-          event.stopPropagation();
-          onClose();
-        }}
-      >
-        <X size={12} />
-      </IconButton>
+      {onClose && (
+        <IconButton
+          size='sm'
+          className={TAB_BUTTON}
+          data-part='tab-close'
+          label={closeLabel ?? 'Close'}
+          onClick={(event) => {
+            event.stopPropagation();
+            onClose();
+          }}
+        >
+          <X size={12} />
+        </IconButton>
+      )}
     </div>
   );
 }

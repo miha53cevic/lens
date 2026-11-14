@@ -342,7 +342,12 @@ pageTest("a unit's code has the Code view's folds and toolbar keys, but shows wh
   assert.equal($$('[data-part="sum-inner"] [data-part="kicker"]').length, 0);
   assert.equal($('[data-card="unit-card"] [data-part="code-path"]').textContent, 'srcorders.tsfindOrders');
   assert.equal($('[data-card="unit-card"] [data-part="crumb-scope"]').textContent, 'findOrders');
-  assert.equal($('[data-card="unit-card"] [data-part="status-badge"]').textContent, 'MModified', 'no tab to say it');
+  assert.equal(
+    $('[data-card="unit-card"] [data-part="code-tabs"] [data-part="tab"][data-active]').textContent,
+    'Morders.ts',
+    'its own tab: the status letter and the file',
+  );
+  assert.equal($$('[data-card="unit-card"] [data-part="tab-close"]').length, 0, 'the one tab: nothing to close');
   const code = '[data-part="unit-code"] .code';
   // hunks only is on, but the unit shows whole: line 5 is far from the changes and the cited line, and still there
   assert.deepEqual(rows(code), ['5', 'R6', '−9', 'R9', '10', '11', '12']);

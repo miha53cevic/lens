@@ -1,6 +1,8 @@
 import { useCallback, type ReactNode, type Ref, type UIEvent } from 'react';
 import { cn } from '../../../ui/cn.ts';
-import { StatusBadge, type FileStatus } from '../../../ui/FileStatus.tsx';
+import { StatusLetter, type FileStatus } from '../../../ui/FileStatus.tsx';
+import { Tab } from '../../../ui/Tab.tsx';
+import { baseName } from '../../shared.ts';
 import { Tag } from '../../../ui/Tag.tsx';
 import { FoldChips } from '../FoldChips.tsx';
 import { Crumbs } from './Crumbs.tsx';
@@ -16,15 +18,16 @@ interface CodeCardProps {
   removed: number;
   /** A word on the change, after the counts, e.g. "formatting only" */
   tag?: string;
-  /** At the end of the header, e.g. the Summary tab's "Open in Code" */
+  /** At the end of its tab's row, e.g. the Summary tab's "Open in Code" */
   action?: ReactNode;
   /** A note about the whole file, under the header */
   notice?: ReactNode;
   /** Beside the code: the overview ruler */
   ruler?: ReactNode;
   /**
-   * The Code tab's editor: it fills the pane under the file tabs, as an editor does, with no card
-   * around it, and its tab carries the status. Its body tracks what's in sight, for the ruler's thumb.
+   * The Code tab's editor: it fills the pane under the file tabs, as an editor does, with no frame
+   * and no tab of its own (the file tabs carry the status). Its body tracks what's in sight, for the
+   * ruler's thumb. Otherwise it is a small editor in a frame: one tab for the file, then the header.
    */
   flush?: boolean;
   className?: string;
@@ -37,8 +40,8 @@ interface CodeCardProps {
 }
 
 /**
- * Code on the page, the same in both views: a header with the file's path as a breadcrumb, the
- * lines added and removed and the fold chips, over the code (CodeRows).
+ * Code on the page, an editor in both views: the file's tab with its status, a header with the
+ * file's path as a breadcrumb, the lines added and removed and the fold chips, over the code (CodeRows).
  */
 export function CodeCard(props: CodeCardProps) {
   const { status, path, scope, added, removed, tag, action, notice, flush, bodyRef } = props;
@@ -57,15 +60,28 @@ export function CodeCard(props: CodeCardProps) {
       className={cn(
         // the corners clip the code: the header and the rows stay inside the card
         'flex min-h-0 flex-col overflow-hidden bg-surface',
-        flush ? 'flex-1' : 'rounded-lg border border-line shadow-1',
+        flush ? 'flex-1' : 'rounded-md border border-line',
         props.className,
       )}
     >
+      {!flush && (
+        <div
+          data-part='code-tabs'
+          role='tablist'
+          className='flex h-control-lg flex-none items-stretch bg-bg shadow-[inset_0_-1px_0_var(--line)]'
+        >
+          <Tab active mono flat className='pr-4'>
+            {status && <StatusLetter status={status} />}
+            <span data-part='tab-name'>{baseName(path)}</span>
+          </Tab>
+          <span className='flex-1' />
+          {action && <span className='flex items-center pr-2'>{action}</span>}
+        </div>
+      )}
       <div
         data-part='code-head'
         className='flex h-control flex-none items-center gap-2 border-b border-line bg-surface pr-3 pl-4 text-sm whitespace-nowrap text-muted'
       >
-        {status && !flush && <StatusBadge status={status} />}
         <Crumbs path={path} scope={scope} />
         {(added > 0 || removed > 0) && (
           <span data-part='counts' className='inline-flex flex-none gap-1 font-mono text-xs leading-none'>
@@ -76,7 +92,6 @@ export function CodeCard(props: CodeCardProps) {
         {tag && <Tag>{tag}</Tag>}
         <span className='flex-1' />
         <FoldChips />
-        {action}
       </div>
       {notice && (
         <div className='flex flex-none items-center gap-2 border-b border-line bg-[color-mix(in_oklab,var(--risk)_var(--tint),var(--surface))] px-4 py-2 text-sm text-risk'>
