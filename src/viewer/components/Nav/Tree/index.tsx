@@ -41,7 +41,6 @@ function addRows(node: TreeDir, path: string, depth: number, context: TreeContex
       <ListRow
         key={'dir:' + dirPath}
         data-part='dir'
-        data-dir={dirPath}
         data-through={through || undefined}
         aria-expanded={!closed}
         className='flex h-control-xs w-full items-center gap-1 rounded-none pr-3 font-semibold whitespace-nowrap select-none'

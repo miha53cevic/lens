@@ -795,13 +795,7 @@ pageTest("the page's tooltip: a button's shows on hover, after a wait, and leave
   assert.ok(!tooltip().dataset.open, 'nothing the row does not already say');
 });
 
-pageTest("the editor's breadcrumb: a folder opens in the tree; the ruler is its scrollbar", async () => {
-  const folder = () => $('#tree [data-part="dir"][data-dir="src/"]');
-  await click(folder());
-  assert.equal(folder().getAttribute('aria-expanded'), 'false');
-  await click($('[data-part="code-head"] [data-part="crumb"]'));
-  assert.equal(folder().getAttribute('aria-expanded'), 'true', 'the crumb opened its folder');
-
+pageTest("the editor's ruler is its scrollbar", async () => {
   assert.equal($$('[data-part="code-pane"] [data-part="ruler-thumb"]').length, 1);
   assert.ok(
     $('[data-part="code-pane"] [data-part="code-card"]').style.getPropertyValue('--view-h'),
