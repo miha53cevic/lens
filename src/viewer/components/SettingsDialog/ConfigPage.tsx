@@ -126,7 +126,15 @@ export function ConfigFoot() {
     <>
       {configSource ? (
         <>
-          Built-in defaults + <code>{configSource}</code>.
+          Built-in defaults +{' '}
+          <code
+            data-part='config-source'
+            className='inline-block max-w-[360px] overflow-hidden align-bottom text-ellipsis whitespace-nowrap'
+            title={configSource}
+          >
+            {configSource}
+          </code>
+          .
         </>
       ) : (
         'Built-in defaults (no .lens.json found).'
