@@ -52,7 +52,7 @@ export function SettingsDialog() {
   return (
     <dialog
       id='settings-modal'
-      className={cn(DIALOG, 'h-[min(30rem,calc(var(--screen-h)*0.8))] w-[min(720px,calc(var(--screen-w)*0.9))]')}
+      className={cn(DIALOG, 'h-[min(36rem,calc(var(--screen-h)*0.85))] w-[min(800px,calc(var(--screen-w)*0.9))]')}
     >
       <ModalHead title='Settings' />
       <div className='flex min-h-0 flex-1'>
