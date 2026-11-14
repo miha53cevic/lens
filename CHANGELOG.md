@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.8.0](https://github.com/miha53cevic/lens/compare/v0.7.0...v0.8.0) (2026-11-14)
+
+
+### Features
+
+* ts lsp ([#65](https://github.com/miha53cevic/lens/issues/65)) ([2a46f97](https://github.com/miha53cevic/lens/commit/2a46f97641deeaa6bf482053bdcf6434d113be91))
+
+
+### Bug Fixes
+
+* UI improvements ([#67](https://github.com/miha53cevic/lens/issues/67)) ([a2365d3](https://github.com/miha53cevic/lens/commit/a2365d3570208ae698e96b89d92c7de68ddd6007))
+
 ## [0.7.0](https://github.com/miha53cevic/lens/compare/v0.6.3...v0.7.0) (2026-11-13)
 
 
