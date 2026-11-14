@@ -28,7 +28,7 @@ function citeMarker(cite: AskCite, env: AskEnv): string {
   return (
     '<button data-part="ask-mark" class="inline-flex h-[16px] min-w-[16px] items-center justify-center rounded-full border border-line-strong mr-1 px-1 align-[2px] font-mono text-2xs leading-none font-semibold text-muted hover:border-accent hover:text-text" ' +
     citeData(cite) +
-    ' title="' +
+    ' data-tip="' +
     ref +
     '" aria-label="' +
     ref +

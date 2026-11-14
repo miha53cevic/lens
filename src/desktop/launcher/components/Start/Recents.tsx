@@ -5,6 +5,7 @@ import { IconButton } from '../../../../ui/IconButton.tsx';
 import { listRow } from '../../../../ui/ListRow.tsx';
 import { useApp } from '../../store.ts';
 import { ago, groupRecents } from './util.ts';
+import { tipAttrs } from '../../../../ui/Tip.tsx';
 
 /** The folders opened before, a repository's linked worktrees under it. */
 export function Recents() {
@@ -63,10 +64,10 @@ function RecentRow({ recent, worktree = false }: { recent: Recent; worktree?: bo
         {worktree ? <GitBranch size={13} className='flex-none text-faint' /> : <Folder size={15} />}
         <span className='grid min-w-0'>
           <span className={clsx('text-text', worktree ? 'font-medium' : 'font-semibold')}>{name}</span>
-          {/* a long path is cut: the whole of it is in the title */}
+          {/* a long path is cut: the whole of it is in its tooltip */}
           <span
             className='overflow-hidden font-mono text-sm/[1.4] text-ellipsis whitespace-nowrap text-muted'
-            title={recent.path}
+            {...tipAttrs(recent.path, { cut: true })}
           >
             {recent.path}
           </span>

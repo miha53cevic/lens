@@ -1,32 +1,33 @@
-import clsx from 'clsx';
 import { Kbd } from './Kbd.tsx';
 
-interface TipProps {
-  /** What the control does */
-  label?: string;
-  /** Its key: a tooltip is there to teach it */
-  shortcut: string;
-  /** Which edge of the control it lines up with: end (the default) for controls on the right, start for ones on the left */
-  side?: 'start' | 'end';
+/**
+ * What a tooltip says: the text, then the key that does it. The page's one tooltip (tooltip.tsx)
+ * shows it for any element with a `data-tip`; spread `tipAttrs` on one to give it one.
+ */
+export function Tip({ label, shortcut }: { label?: string; shortcut?: string }) {
+  return (
+    <>
+      {label && <span className='min-w-0'>{label}</span>}
+      {shortcut && <Kbd combo={shortcut} />}
+    </>
+  );
 }
 
-/**
- * A tooltip under the control it is in, on hover and on keyboard focus. Button and IconButton show
- * one for a key. Not on a disabled control: its key does nothing then.
- */
-export function Tip({ label, shortcut, side = 'end' }: TipProps) {
-  return (
-    <span
-      data-part='tip'
-      data-side={side}
-      className={clsx(
-        // it settles in from its control
-        'pointer-events-none absolute top-[calc(100%+var(--space-2))] z-(--z-tip) inline-flex items-center gap-2 rounded-md border border-line-strong bg-raised py-1 pr-2 pl-3 font-sans text-sm/[1.3] font-normal whitespace-nowrap text-text opacity-0 shadow-1 [transition:opacity_var(--motion),translate_var(--motion)] [translate:0_-3px] [:focus-visible>&]:opacity-100 [:focus-visible>&]:delay-(--tip-delay) [:focus-visible>&]:[translate:0_0] [:hover:not(:disabled)>&]:opacity-100 [:hover:not(:disabled)>&]:delay-(--tip-delay) [:hover:not(:disabled)>&]:[translate:0_0]',
-        side === 'start' ? 'left-0' : 'right-0',
-      )}
-      aria-hidden
-    >
-      {label} <Kbd combo={shortcut} />
-    </span>
-  );
+export interface TipOptions {
+  /** Its key: a tooltip on a control is there to teach it */
+  shortcut?: string;
+  /** Which edge of the element the tooltip lines up with: start (the default), or end for controls on the right */
+  side?: 'start' | 'end';
+  /** Text that is cut off (a long path): the tooltip shows only while it is, with the whole of it */
+  cut?: boolean;
+}
+
+/** The attributes that give an element a tooltip; none when there's nothing to say. */
+export function tipAttrs(label: string | undefined | false, options: TipOptions = {}): Record<string, string> {
+  if (!label && !options.shortcut) return {};
+  const attrs: Record<string, string> = { 'data-tip': label || '' };
+  if (options.shortcut) attrs['data-tip-key'] = options.shortcut;
+  if (options.side === 'end') attrs['data-tip-side'] = 'end';
+  if (options.cut) attrs['data-tip-cut'] = '';
+  return attrs;
 }

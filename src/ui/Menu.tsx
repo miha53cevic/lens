@@ -7,6 +7,7 @@ import { IconButton } from './IconButton.tsx';
 import { Kbd } from './Kbd.tsx';
 import { SwitchTrack } from './Switch.tsx';
 import { cssPx } from './zoom.ts';
+import { tipAttrs } from './Tip.tsx';
 
 // it grows from its button's corner, and goes quicker than it came
 const MENU =
@@ -159,7 +160,7 @@ export function MenuItem({ id, icon, shortcut, danger, disabled, onSelect, child
 interface MenuSwitchProps {
   id?: string;
   shortcut?: string;
-  title?: string;
+  tip?: string;
   /** Can't be changed now: another setting decides it */
   disabled?: boolean;
   checked: boolean;
@@ -168,14 +169,14 @@ interface MenuSwitchProps {
 }
 
 /** A setting turned on or off: the menu stays open, so several can change in a row. */
-export function MenuSwitch({ id, shortcut, title, disabled, checked, onChange, children }: MenuSwitchProps) {
+export function MenuSwitch({ id, shortcut, tip, disabled, checked, onChange, children }: MenuSwitchProps) {
   return (
     <button
       id={id}
       role='menuitemcheckbox'
       aria-checked={checked}
       className={ITEM}
-      title={title}
+      {...tipAttrs(tip)}
       disabled={disabled}
       onClick={() => onChange(!checked)}
     >

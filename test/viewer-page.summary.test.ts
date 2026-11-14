@@ -340,7 +340,9 @@ pageTest("a unit's code has the Code view's folds and toolbar keys, but shows wh
   assert.equal($('[data-part="sum-headline"]').textContent, 'findOrders skips deleted orders');
   // the card's header says where the unit is: no path line over the headline
   assert.equal($$('[data-part="sum-inner"] [data-part="kicker"]').length, 0);
-  assert.equal($('[data-card="unit-card"] [data-part="code-path"]').textContent, 'src/orders.tsfindOrders');
+  assert.equal($('[data-card="unit-card"] [data-part="code-path"]').textContent, 'srcorders.tsfindOrders');
+  assert.equal($('[data-card="unit-card"] [data-part="crumb-scope"]').textContent, 'findOrders');
+  assert.equal($('[data-card="unit-card"] [data-part="status-badge"]').textContent, 'MModified', 'no tab to say it');
   const code = '[data-part="unit-code"] .code';
   // hunks only is on, but the unit shows whole: line 5 is far from the changes and the cited line, and still there
   assert.deepEqual(rows(code), ['5', 'R6', '−9', 'R9', '10', '11', '12']);
@@ -588,7 +590,7 @@ pageTest('a deleted unit is its removed lines; o opens a unit in the code view',
   assert.equal($('[data-part="inbox-card"][data-selected] [data-part="caption-unit"]').textContent, 'legacyTotal');
   assert.deepEqual(rows('[data-part="unit-code"] .code'), ['−17', '−18', '−19', '−20']);
   await key('k');
-  assert.equal($('#open-in-code [data-part="tip"] kbd').textContent, 'o', 'its button teaches the key');
+  assert.equal($('#open-in-code').getAttribute('data-tip-key'), 'o', 'its button teaches the key');
   await key('o');
   assert.equal($('main').style.display, '', 'back on the code view');
   assert.ok($('#code .row[data-line="9"]').classList.contains('flash'), "at the unit's first changed line");

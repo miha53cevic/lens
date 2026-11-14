@@ -36,6 +36,28 @@ export function revealInTree(state: LensState, fileIndex: number): Partial<LensS
   return { closedDirs };
 }
 
+/**
+ * A folder of the open file's path (the code card's breadcrumb), open and in sight in the tree. Its
+ * row may be a compact chain that runs past it (`src/viewer/` drawn in `src/viewer/components/`):
+ * the shortest row that starts with it is the one.
+ */
+export function revealFolder(dir: string): void {
+  commit((state) => {
+    const closedDirs = new Set([...state.closedDirs].filter((closed) => !dir.startsWith(closed)));
+    return closedDirs.size === state.closedDirs.size ? {} : { closedDirs };
+  });
+  const row = [...document.querySelectorAll<HTMLElement>('#tree [data-part="dir"][data-dir]')]
+    .filter((candidate) => candidate.dataset.dir!.startsWith(dir))
+    .reduce<HTMLElement | undefined>(
+      (shortest, candidate) =>
+        shortest && shortest.dataset.dir!.length <= candidate.dataset.dir!.length ? shortest : candidate,
+      undefined,
+    );
+  if (!row) return;
+  if (getState().closedDirs.has(row.dataset.dir!)) toggleDir(row.dataset.dir!);
+  row.scrollIntoView?.({ block: 'nearest' });
+}
+
 /** The open file's row, brought into sight in the sidebar. */
 export function scrollToActiveRow(): void {
   document.querySelector('#tree [data-part="file"][data-active]')?.scrollIntoView({ block: 'nearest' });

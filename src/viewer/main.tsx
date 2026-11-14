@@ -23,6 +23,7 @@ import { onContextMenu } from './actions/codeMenu.ts';
 import { hideLspHover, onCodeClick, onCodePointerMove, onScrollHide } from './actions/lsp.ts';
 import { check, watch } from '../ui/poll.ts';
 import { motionReady } from '../ui/motion.ts';
+import { installTooltips } from '../ui/tooltip.tsx';
 import { measureLoad } from './actions/timings.ts';
 
 /**
@@ -82,6 +83,7 @@ createRoot(document.getElementById('root')!).render(
 );
 // what the page arrives with is drawn still; what appears after may move
 motionReady();
+installTooltips();
 measureLoad();
 const nothingChanged = [data.files, data.deleted, data.excluded, data.renamed, data.binary].every(
   (list) => list.length === 0,

@@ -2,6 +2,7 @@ import type { MouseEvent, ReactNode, Ref } from 'react';
 import { cn } from './cn.ts';
 import { X } from 'lucide-react';
 import { IconButton } from './IconButton.tsx';
+import { tipAttrs } from './Tip.tsx';
 
 /** A button on a tab, shown on the tab in front and on the one under the pointer. */
 export const TAB_BUTTON =
@@ -22,8 +23,13 @@ interface TabProps {
   actions?: ReactNode;
   /** The code's font, for a tab named by a file */
   mono?: boolean;
-  /** The whole path when the name is cut */
-  title?: string;
+  /** The whole path: the tab shows only the name */
+  tip?: string;
+  /**
+   * Joined to the editor under it, as an editor's tabs are (the viewer's file tabs): square, ruled
+   * off from the next, the one in front in the editor's own surface with the accent along its top.
+   */
+  flat?: boolean;
   className?: string;
   /** On the tab (the strip widens it in) */
   tabRef?: Ref<HTMLDivElement>;
@@ -47,7 +53,8 @@ export function Tab({
   closeLabel,
   actions,
   mono,
-  title,
+  tip,
+  flat,
   className,
   tabRef,
   mainRef,
@@ -63,9 +70,11 @@ export function Tab({
         // the focus ring goes around the whole tab, its buttons included
         'group/tab flex max-w-[280px] flex-none items-center rounded-full border border-transparent pr-1 text-sm whitespace-nowrap text-muted select-none hover:text-text has-[[role=tab]:focus-visible]:outline-2 has-[[role=tab]:focus-visible]:outline-offset-2 has-[[role=tab]:focus-visible]:outline-focus data-active:border-selected-ring data-active:bg-selected-bg data-active:text-text',
         mono && 'font-mono',
+        flat &&
+          'h-full rounded-none border-0 border-r border-line pr-2 data-active:border-line data-active:bg-surface data-active:shadow-[inset_0_1px_0_var(--accent)] [&>[role=tab]]:rounded-none [&>[role=tab]]:pl-4',
         className,
       )}
-      title={title}
+      {...tipAttrs(tip)}
       onAuxClick={(event: MouseEvent) => {
         if (event.button === 1) onClose();
       }}

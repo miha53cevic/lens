@@ -5,7 +5,8 @@
  */
 
   .code {
-    --row-h: 1.75;
+    /* an editor's density: VS Code's is about 1.5 */
+    --row-h: 1.55;
     min-width: max-content;
     padding: var(--space-1) 0 var(--space-3);
     color: var(--code-fg);
@@ -23,24 +24,24 @@
   }
   .num {
     flex: none;
-    min-width: 3.2ch;
+    min-width: 4ch;
     color: var(--faint);
     text-align: right;
     user-select: none;
   }
-  /* the changed-lines bar between the number and the code */
+  /* the changed-lines bar between the number and the code, square and the row's full height, as
+     VS Code's gutter draws a change: it carries the signal, so a changed row's tint stays light */
   .mark {
     flex: none;
     width: 3px;
     margin: 0 -0.8rem 0 -0.35rem;
-    border-radius: var(--radius-xs);
   }
   .mark.changed {
     background: var(--add);
   }
 
   .row.changed {
-    background: var(--add-bg);
+    background: color-mix(in oklab, var(--add) 7%, transparent);
   }
   .row.removed {
     background: var(--del-bg);
@@ -371,5 +372,11 @@
   }
   .unit-gap .num {
     opacity: 0.6;
+  }
+
+  /* the Code tab's ruler is its scrollbar (its thumb shows what's in sight): the code's own
+     vertical one goes, so there's one track, not two. The horizontal one stays */
+  [data-part='code-card']:has([data-part='ruler-thumb']) [data-part='code-body']::-webkit-scrollbar:vertical {
+    width: 0;
   }
 }

@@ -1,7 +1,7 @@
 import type { SettingsPage } from '../../store.ts';
 
 export const LEVELS = [
-  { value: -1, label: 'off', title: 'nothing folds' },
+  { value: -1, label: 'off', tip: 'nothing folds' },
   { value: 0, label: '0' },
   { value: 1, label: '1' },
   { value: 2, label: '2' },

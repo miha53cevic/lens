@@ -339,7 +339,7 @@ pageTest("an answer's markdown is drawn, its cites link, and nothing in it runs 
     [...answer.querySelectorAll<HTMLElement>('[data-part="ask-mark"]')].map((mark) => [
       mark.textContent,
       mark.dataset.line,
-      mark.title,
+      mark.dataset.tip,
     ]),
     [
       ['1', '10', 'src/orders.ts:10'],

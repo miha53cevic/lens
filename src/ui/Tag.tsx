@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { cn } from './cn.ts';
+import { tipAttrs } from './Tip.tsx';
 
 const TAG =
   'inline-flex h-control-xs max-w-full flex-none items-center gap-1 overflow-hidden rounded-full border border-line-strong px-2 text-xs text-ellipsis whitespace-nowrap text-muted motion-colors';
@@ -26,7 +27,8 @@ interface TagProps {
   /** A button tag that's on (a filter, the picked unit): the selected look, or its tone's */
   pressed?: boolean;
   id?: string;
-  title?: string;
+  /** Its tooltip */
+  tip?: string;
   className?: string;
   /** Data attributes, for the page's own use (`data-sig`) */
   [data: `data-${string}`]: string | undefined;
@@ -36,7 +38,7 @@ interface TagProps {
  * A short label in a pill: a branch, a file's kind, what a question is about. With `onClick` it's
  * a button (a filter, a unit to open). A toggle in a form or a fold category is ui/Chip.
  */
-export function Tag({ children, color, dot, icon, mono, onClick, pressed, id, title, className, ...data }: TagProps) {
+export function Tag({ children, color, dot, icon, mono, onClick, pressed, id, tip, className, ...data }: TagProps) {
   const classes = cn(
     TAG,
     color && TONED,
@@ -60,7 +62,7 @@ export function Tag({ children, color, dot, icon, mono, onClick, pressed, id, ti
   );
   if (!onClick) {
     return (
-      <span {...hook} {...data} id={id} className={classes} style={style} title={title}>
+      <span {...hook} {...data} id={id} className={classes} style={style} {...tipAttrs(tip)}>
         {inner}
       </span>
     );
@@ -73,7 +75,7 @@ export function Tag({ children, color, dot, icon, mono, onClick, pressed, id, ti
       type='button'
       className={classes}
       style={style}
-      title={title}
+      {...tipAttrs(tip)}
       aria-pressed={pressed}
       onClick={onClick}
     >

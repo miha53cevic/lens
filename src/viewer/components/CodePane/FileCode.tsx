@@ -8,7 +8,7 @@ import { askSelection } from '../../model/askContext.ts';
 import { fileNotes } from '../../model/notes.ts';
 import { codeLines, isTestFile, listedOnlyCount } from '../../shared.ts';
 import { CodeRows, holdSelectionSide, SplitRows } from '../CodeRows/index.tsx';
-import { CodeCard, removedCount } from '../CodeCard.tsx';
+import { CodeCard, removedCount } from '../CodeCard/index.tsx';
 import { OverviewRuler } from '../OverviewRuler.tsx';
 import { addNoteMarks, OutdatedNotes } from '../Notes/marks.tsx';
 import { fileStatus } from '../../../ui/FileStatus.tsx';
@@ -92,6 +92,7 @@ export function FileCode() {
     // keyed by the file: another file mounts afresh, back where the reader left it (scrollStore), even after a refresh
     <CodeCard
       key={file.file}
+      flush
       status={file.status ? fileStatus(file.status) : undefined}
       path={file.file}
       added={file.changedLines?.length ?? 0}
@@ -103,7 +104,9 @@ export function FileCode() {
           </>
         )
       }
-      ruler={<OverviewRuler path={file.file} items={plan.items} changedLines={changedLines} flagged={notes!.flagged} />}
+      ruler={
+        <OverviewRuler path={file.file} items={plan.items} changedLines={changedLines} flagged={notes!.flagged} thumb />
+      }
       bodyRef={restoreScroll}
       onBodyScroll={(event) => saveFileScroll(event.currentTarget, file.file)}
     >

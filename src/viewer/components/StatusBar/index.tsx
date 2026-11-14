@@ -27,7 +27,7 @@ export function StatusBar() {
         tone: notice.tone,
         run: notice.action ? NOTICE_ACTIONS[notice.action] : undefined,
         icon: notice.icon && NOTICE_ICONS[notice.icon],
-        title: notice.title,
+        tip: notice.tip,
       }))}
     />
   );

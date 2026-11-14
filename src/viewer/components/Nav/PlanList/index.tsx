@@ -7,6 +7,7 @@ import { ListRow } from '../../../../ui/ListRow.tsx';
 import { Kbd } from '../../../../ui/Kbd.tsx';
 import { Skeleton } from '../../../../ui/Skeleton.tsx';
 import { PlanFilter } from './PlanFilter.tsx';
+import { tipAttrs } from '../../../../ui/Tip.tsx';
 
 /** What a plan's session is, in a word, and its dot: live (an agent polls it), open, ended, or none yet. */
 function sessionWord(plan: PlanEntry): { text: string; dot: string } {
@@ -55,7 +56,7 @@ export function PlanList() {
             data-file={plan.file}
             data-active={selected || undefined}
             className='flex w-full items-center gap-2 px-2 py-1'
-            title={plan.file}
+            {...tipAttrs(plan.file, { cut: true })}
             onClick={() => pickPlan(plan.file)}
           >
             <span className={'flex-none ' + word.dot} />

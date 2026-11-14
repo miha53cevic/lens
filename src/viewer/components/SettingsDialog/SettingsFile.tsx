@@ -3,6 +3,7 @@ import { useLens } from '../../store.ts';
 import { isBusy } from '../../model/status.ts';
 import { revealSettingsFile } from '../../actions/viewSettings.ts';
 import { Button } from '../../../ui/Button.tsx';
+import { tipAttrs } from '../../../ui/Tip.tsx';
 
 /** Where the view settings are kept, the same for every repository; a click shows the file in Finder or Explorer. */
 export function SettingsFile() {
@@ -17,9 +18,9 @@ export function SettingsFile() {
         id='settings-file'
         variant='ghost'
         size='xs'
-        // a long home folder is cut, never the line: the whole path is in the title
+        // a long home folder is cut, never the line: the whole path is in the tooltip
         className='max-w-[360px] min-w-0 flex-initial font-mono text-text'
-        title={'Show ' + path + ' in Finder or Explorer'}
+        {...tipAttrs('Show ' + path + ' in Finder or Explorer')}
         disabled={revealing}
         onClick={() => void revealSettingsFile()}
       >

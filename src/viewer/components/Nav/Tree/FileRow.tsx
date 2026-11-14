@@ -11,6 +11,7 @@ import { NoteMark } from '../NoteMark.tsx';
 import { KindIcon } from './KindIcon.tsx';
 import type { TreeContext } from './types.ts';
 import { indentAt, TWISTIE } from './util.ts';
+import { tipAttrs } from '../../../../ui/Tip.tsx';
 
 /** The open file stays in sight as the reader steps through the tree (j / k, the review pill, a tab). */
 function keepInSight(row: HTMLElement | null) {
@@ -40,7 +41,7 @@ export function FileRow({ entry, depth, context }: { entry: TreeFile; depth: num
       data-viewed={viewed || undefined}
       className='group/file flex h-control-xs w-full items-center gap-1 rounded-none pr-3 font-mono text-sm text-muted data-selected:shadow-[inset_0_0_0_1px_var(--selected-ring)] data-binary:opacity-60 data-[status=excluded]:opacity-60 disabled:cursor-default disabled:opacity-100 data-binary:disabled:opacity-60 data-[status=excluded]:disabled:opacity-60'
       style={{ paddingLeft: indentAt(depth) + 'px' }}
-      title={title}
+      {...tipAttrs(title)}
       disabled={fileIndex === null}
       onClick={fileIndex !== null ? () => openFile(fileIndex) : undefined}
       onDoubleClick={fileIndex !== null ? () => openFile(fileIndex, true) : undefined}

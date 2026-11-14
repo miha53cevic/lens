@@ -3,6 +3,7 @@ import { stepHeadings, type InboxFlow } from '../../../../model/inbox.ts';
 import { toggleInboxFlow, toggleInboxRead } from '../../../../actions/inbox.ts';
 import { Disclosure } from '../../../../../ui/Disclosure.tsx';
 import { UnitCard } from './UnitCard.tsx';
+import { tipAttrs } from '../../../../../ui/Tip.tsx';
 
 interface FlowSectionProps {
   flow: InboxFlow;
@@ -28,9 +29,9 @@ export function FlowSection({ flow, isActive }: FlowSectionProps) {
       <Disclosure
         open={open}
         data-part='inbox-flow-head'
-        // no hover tint: on an open flow it would cover the head, not the section. The title answers instead
+        // no hover tint: on an open flow it would cover the head, not the section. The tooltip answers instead
         className='group/head grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-0 rounded-lg px-3 py-2 text-text not-disabled:hover:bg-transparent hover:[&>.pk]:text-accent group-[:not([data-open]):hover]/flow:[&>.pk]:text-accent'
-        title={flow.flow?.why}
+        {...tipAttrs(flow.flow?.why)}
         onClick={(event) => {
           event.stopPropagation();
           toggleInboxFlow(key);

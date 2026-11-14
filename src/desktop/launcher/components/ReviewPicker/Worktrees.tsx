@@ -7,6 +7,7 @@ import type { RepoInfo, Worktree } from '../../../shared/api.ts';
 import { MenuItem, MenuPanel, MenuSection, placeAt } from '../../../../ui/Menu.tsx';
 import { Tag } from '../../../../ui/Tag.tsx';
 import { useApp } from '../../store.ts';
+import { tipAttrs } from '../../../../ui/Tip.tsx';
 
 const where = (worktree: Pick<Worktree, 'branch' | 'head'>) =>
   worktree.branch ?? 'detached at ' + (worktree.head ?? 'no commit');
@@ -28,7 +29,7 @@ export function Worktrees({ repo }: { repo: RepoInfo }) {
   };
   return (
     <>
-      <Tag id='worktrees' icon={<GitBranch size={11} />} onClick={open} title='Worktrees of this repository'>
+      <Tag id='worktrees' icon={<GitBranch size={11} />} onClick={open} tip='Worktrees of this repository'>
         {where(repo)}
         <ChevronDown size={11} />
       </Tag>
@@ -49,10 +50,10 @@ export function Worktrees({ repo }: { repo: RepoInfo }) {
                     <span className='overflow-hidden font-semibold text-ellipsis whitespace-nowrap'>
                       {where(worktree)}
                     </span>
-                    {/* a long path is cut: the whole of it is in the title */}
+                    {/* a long path is cut: the whole of it is in its tooltip */}
                     <span
                       className='overflow-hidden font-mono text-xs text-ellipsis whitespace-nowrap text-faint'
-                      title={worktree.root}
+                      {...tipAttrs(worktree.root, { cut: true })}
                     >
                       {paths[worktree.root] ?? worktree.root}
                       {worktree.missing && ' · folder gone'}

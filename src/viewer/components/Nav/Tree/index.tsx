@@ -9,6 +9,7 @@ import { ListRow } from '../../../../ui/ListRow.tsx';
 import { FileRow } from './FileRow.tsx';
 import type { TreeContext } from './types.ts';
 import { dirState, indentAt, TWISTIE } from './util.ts';
+import { tipAttrs } from '../../../../ui/Tip.tsx';
 
 /** The changed files as a folder tree, as VS Code's explorer draws one: dirs first, single-child chains merged. */
 export function Tree() {
@@ -40,11 +41,12 @@ function addRows(node: TreeDir, path: string, depth: number, context: TreeContex
       <ListRow
         key={'dir:' + dirPath}
         data-part='dir'
+        data-dir={dirPath}
         data-through={through || undefined}
         aria-expanded={!closed}
         className='flex h-control-xs w-full items-center gap-1 rounded-none pr-3 font-semibold whitespace-nowrap select-none'
         style={{ paddingLeft: indentAt(depth) + 'px' }}
-        title={dirPath + (through ? ' — ' + DIR_TITLE[through] : '')}
+        {...tipAttrs(dirPath + (through ? ' — ' + DIR_TITLE[through] : ''), { cut: !through })}
         onClick={() => toggleDir(dirPath)}
       >
         <span className='inline-grid flex-none place-items-center' style={{ width: TWISTIE + 'px' }}>

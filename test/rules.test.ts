@@ -71,6 +71,24 @@ test('an effect says why it is one, in a comment right above it', () => {
   assert.deepEqual(unexplained, [], 'put the work in an action, a handler, a key or a ref callback, or say why not');
 });
 
+// "A tooltip is the page's own (ui/tooltip.tsx): give an element one with tipAttrs, never a native
+// title." A frame's title is its accessible name, and the tab strip's page keeps the native one.
+test('no element of the pages has a native title, but a frame', () => {
+  const titled = PAGES.filter((file) => !file.startsWith('src/desktop/shell/')).flatMap((file) => {
+    const source = read(file).split('\n');
+    return source.flatMap((line, at) => {
+      if (!/\stitle=[{'"]/.test(line)) return [];
+      // the element the attribute is on: the nearest tag opened on this line or above it
+      const tag = source
+        .slice(0, at + 1)
+        .join('\n')
+        .match(/<([A-Za-z][\w.]*)[^<]*$/)?.[1];
+      return tag && /^[a-z]/.test(tag) && tag !== 'iframe' ? [`${file}:${at + 1}`] : [];
+    });
+  });
+  assert.deepEqual(titled, [], "spread tipAttrs(text) (src/ui/Tip.tsx) for the page's tooltip instead");
+});
+
 // "Paths that lens shows, matches config patterns against, or uses in unit ids are always
 // `/`-separated ... Build them with `relPath` / `toPosix`, never with `path.relative`."
 test('only paths.ts takes relative paths from node:path; the rest use relPath', () => {

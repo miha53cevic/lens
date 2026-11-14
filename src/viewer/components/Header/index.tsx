@@ -17,6 +17,7 @@ import { ViewSwitch } from './ViewSwitch.tsx';
 import { ThemeMenu } from './ThemeMenu.tsx';
 import { MoreMenu } from './MoreMenu.tsx';
 import { TopBar, TopBarDivider } from '../../../ui/TopBar.tsx';
+import { tipAttrs } from '../../../ui/Tip.tsx';
 
 export function Header() {
   const header = useLens((state) => ({
@@ -44,7 +45,7 @@ export function Header() {
         <span
           className='max-w-[calc(var(--screen-w)*0.34)] min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-muted'
           id='pr-label'
-          title={header.label}
+          {...tipAttrs(header.label, { cut: true })}
         >
           {header.label}
         </span>

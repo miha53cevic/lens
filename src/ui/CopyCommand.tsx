@@ -1,6 +1,7 @@
 import { useState, type MouseEvent } from 'react';
 import clsx from 'clsx';
 import { Check, Copy } from 'lucide-react';
+import { tipAttrs } from './Tip.tsx';
 
 // the hover tint over its own surface, as ui/Button's: the selected look is for what's picked
 const COPY_COMMAND =
@@ -44,7 +45,7 @@ export function CopyCommand({ command, block = false, wrap = false, shown }: Cop
       data-part='copy-cmd'
       data-copied={copied || undefined}
       data-wrap={lines || undefined}
-      title={shown && command}
+      {...tipAttrs(shown && command)}
       className={clsx(
         COPY_COMMAND,
         block ? BLOCK : INLINE,

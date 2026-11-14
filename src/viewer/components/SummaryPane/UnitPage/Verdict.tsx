@@ -4,6 +4,7 @@ import type { ConcernMark } from '../../../store.ts';
 import type { Finding } from '../../../model/signals.ts';
 import { setMark } from '../../../actions/summary.ts';
 import { Button } from '../../../../ui/Button.tsx';
+import { tipAttrs } from '../../../../ui/Tip.tsx';
 
 interface VerdictProps {
   finding: Finding;
@@ -23,7 +24,7 @@ export function Verdict({ finding, mark, size = 'sm' }: VerdictProps) {
       data-part='vbtn'
       data-mark={value}
       aria-pressed={mark === value}
-      title={tip}
+      {...tipAttrs(tip)}
       onClick={() => setMark(finding.key, value)}
     >
       {icon} {label}

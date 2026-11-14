@@ -2,6 +2,7 @@ import type { LavishSetup } from '../../../cli-app/api/contract.ts';
 import { LAVISH_INSTALL, LAVISH_REPO } from '../../../cli-app/plan/links.ts';
 import { CopyCommand } from '../../../ui/CopyCommand.tsx';
 import { Tag } from '../../../ui/Tag.tsx';
+import { tipAttrs } from '../../../ui/Tip.tsx';
 
 /** What lens checks (cli-app/plan/lavish.ts), each found or not, and how to put it right. */
 export function LavishMissing({ setup }: { setup: LavishSetup }) {
@@ -46,7 +47,10 @@ export function LavishMissing({ setup }: { setup: LavishSetup }) {
             {/* missing is what needs the reader: the warning's color, as the status bar's; found stays neutral */}
             <Tag color={check.ok ? undefined : 'var(--risk)'}>{check.ok ? 'found' : 'missing'}</Tag>
             <span>{check.what}</span>
-            <span className='min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-muted' title={check.detail}>
+            <span
+              className='min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-muted'
+              {...tipAttrs(check.detail, { cut: true })}
+            >
               {check.detail}
             </span>
           </li>
