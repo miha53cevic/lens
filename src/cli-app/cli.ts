@@ -90,8 +90,7 @@ function parseCli(argv: string[]): { command: Command; rest: string[]; opts: Cli
     else if (arg === '--port') {
       opts.port = Number(args.shift());
       opts.portSet = true;
-      // --threshold: the flag's old name
-    } else if (arg === '--fold-level' || arg === '--threshold') opts.foldLevel = Number(args.shift());
+    } else if (arg === '--fold-level') opts.foldLevel = Number(args.shift());
     else if (arg === '--theme') opts.theme = args.shift() ?? null;
     else if (arg === '--help' || arg === '-h') {
       console.log(HELP);

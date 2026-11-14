@@ -1,7 +1,7 @@
-import { existsSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, readdirSync, rmSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { buildProgressReader } from './summary/progress.ts';
-import { NOTES_DIR, OLD_NOTES_PATH, readStoredNotes } from './notes/store.ts';
+import { NOTES_DIR, readStoredNotes } from './notes/store.ts';
 import { countMarks, MARKS_DIR, readStoredMarks } from './marks/store.ts';
 import { countText } from './text.ts';
 import { readTimings, timingsPath } from './timings.ts';
@@ -109,24 +109,18 @@ function reviewFiles(at: ClearContext, scope: ClearScope, dir: string): string[]
   return scope === 'all' ? reviews : reviews.filter((review) => review === at.review);
 }
 
-/** A kind kept in one file per review: "this" is the open review's, "all" every review's (and `old`, where it was kept before). */
+/** A kind kept in one file per review: "this" is the open review's, "all" every review's. */
 function perReview(
   base: Pick<ClearKind, 'id' | 'label' | 'unit'>,
   dir: string,
   count: (root: string, review: string) => number,
-  old?: { path: string; count: (root: string) => number },
 ): ClearKind {
   function plan(at: ClearContext, scope: ClearScope): ClearPlan {
     const reviews = reviewFiles(at, scope, dir);
-    const plan: ClearPlan = {
+    return {
       count: reviews.reduce((sum, review) => sum + count(at.root, review), 0),
       paths: reviews.map((review) => dir + '/' + review + '.json'),
     };
-    if (scope === 'all' && old && existsSync(join(at.root, old.path))) {
-      plan.count += old.count(at.root);
-      plan.paths.push(old.path);
-    }
-    return plan;
   }
   return {
     ...base,
@@ -140,22 +134,11 @@ function perReview(
   };
 }
 
-/** How many notes the file every review's notes were once kept in holds */
-function oldNotesCount(root: string): number {
-  try {
-    const raw = JSON.parse(readFileSync(join(root, OLD_NOTES_PATH), 'utf8'));
-    return Array.isArray(raw?.notes) ? raw.notes.length : 0;
-  } catch {
-    return 0;
-  }
-}
-
 /** The reader's notes on the code, one file per review. */
 const notes = perReview(
   { id: 'notes', label: 'Notes', unit: ['note', 'notes'] },
   NOTES_DIR,
   (root, review) => readStoredNotes(root, review).length,
-  { path: OLD_NOTES_PATH, count: oldNotesCount },
 );
 
 /** The reader's viewed marks and verdicts on the agent's findings, one file per review. */

@@ -173,21 +173,12 @@ test("a fold for a callPatterns category of the project's own is no problem", ()
   assert.equal(loadConfig(dir).folds.audit, 2);
 });
 
-test('the old threshold, categories and scores are still read, each with a problem saying to rename it', () => {
-  const dir = configDir({
-    threshold: 0,
-    categories: { logging: false, guard: true },
-    scores: { logging: 3, comment: 2 },
-  });
-  const config = loadConfig(dir);
-  assert.equal(config.foldLevel, 0);
-  assert.equal(config.folds.logging, false, 'off wins over its old score');
-  assert.equal(config.folds.comment, 2);
-  assert.equal(config.folds.guard, 1, "categories' true says nothing");
+test('the old names threshold, categories and scores are no config fields', () => {
+  const dir = configDir({ threshold: 0, categories: { logging: false }, scores: { comment: 2 } });
   assert.deepEqual(problemsOf(dir), [
-    'threshold: is now "foldLevel": still read, but rename it',
-    'categories: is now "folds": still read, but rename it',
-    'scores: is now "folds": still read, but rename it',
+    'threshold: is not a config field',
+    'categories: is not a config field',
+    'scores: is not a config field',
   ]);
 });
 

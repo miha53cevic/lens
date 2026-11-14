@@ -207,8 +207,7 @@ Settings' switches override the last five for you, in `~/.lens/settings.json` (y
 folder, on macOS and Windows alike), which also keeps how you left the viewer (view settings,
 fold level, panels), and the timings: the same in every repository. What belongs to a repository stays in its
 `.lens/` (summaries, marks, notes) and `.lavish/`. Patterns:
-`*` matches within a path segment, `**` across them, anywhere in the path. The old names
-(`threshold`, `categories`, `scores`) still work, with a problem saying what to rename.
+`*` matches within a path segment, `**` across them, anywhere in the path.
 
 ## Development
 

@@ -38,7 +38,6 @@ interface StoredNotes {
 /** Each review's notes are a file in here, named by its key */
 export const NOTES_DIR = '.lens/notes';
 /** Where every review's notes were kept before they were kept per review: Clear lists it, nothing reads it */
-export const OLD_NOTES_PATH = '.lens/notes.json';
 
 function notesFile(root: string, review: string): string {
   return join(root, NOTES_DIR, review + '.json');
