@@ -261,7 +261,7 @@ And at the root: `forge.config.ts` is the whole build, as Electron Forge hooks: 
 
 ## Non-goals
 
-lens never calls an AI, does no semantic analysis or type checking of its own (the `typescriptLsp` flag only asks the repository's own TypeScript, read-only, about the new side's code on disk), never edits code, and has no terminal UI (`--json` is for debugging only). The desktop app adds none of these: it is another way to start the same review. Don't add features that cross these lines.
+lens never calls an AI, never edits code, and has no terminal UI (`--json` is for debugging only). The desktop app adds none of these: it is another way to start the same review. Don't add features that cross these lines.
 
 ## Git
 

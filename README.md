@@ -226,7 +226,5 @@ release-please: merging its release PR publishes the macOS app.
 ## Non-goals
 
 - **No AI calls.** Summary, ask and plan mode hand the writing to your own agent.
-- **No semantic analysis or type checking of its own.** The `typescriptLsp` flag only asks your
-  repository's TypeScript, read-only, about the code you're reading.
 - **No editing.** lens is read-only.
 - **No terminal UI.** The viewer is the interface (`--json` is for debugging).
