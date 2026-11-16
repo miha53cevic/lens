@@ -72,9 +72,13 @@ export const COMMITS_SHOWN = 20;
 /** `git log`'s fields, NUL-separated, one record per RS: subjects may hold anything else */
 const LOG_FORMAT = '%H%x00%P%x00%s%x00%an%x00%ct%x1e';
 
-/** Commits out of a LOG_FORMAT listing, each marked on the branch when `onBranch` has its SHA */
-export function parseCommits(listing: string, onBranch: Set<string>): CommitInfo[] {
-  return listing
+/**
+ * Commits out of a LOG_FORMAT listing, each marked on the branch when `onBranch` has its SHA. In a
+ * shallow clone the oldest commit fetched shows no parent though it has one: it's left out, since
+ * picking it would diff against the empty tree (the whole repository added).
+ */
+export function parseCommits(listing: string, onBranch: Set<string>, shallow = false): CommitInfo[] {
+  const commits = listing
     .split('\x1e')
     .map((record) => record.replace(/^\n/, ''))
     .filter(Boolean)
@@ -89,6 +93,7 @@ export function parseCommits(listing: string, onBranch: Set<string>): CommitInfo
         onBranch: onBranch.has(sha),
       };
     });
+  return shallow ? commits.filter((commit) => commit.parent !== null) : commits;
 }
 
 export interface LensInfo {
@@ -168,7 +173,7 @@ async function repoInfo(cwd: string, wantedBase: string | undefined): Promise<Re
   if (!top) return null;
   const root = toPosix(top);
   const untracked = untrackedCommand(top, cwd, []);
-  const [refs, head, wanted, remoteHead, remotes, branch, changed, untrackedList, staged, listed, log] =
+  const [refs, head, wanted, remoteHead, remotes, branch, changed, untrackedList, staged, listed, log, shallow] =
     await Promise.all([
       git(['for-each-ref', '--format=%(refname:short)', 'refs/heads'], cwd),
       tryGit(['rev-parse', '--short', 'HEAD'], cwd),
@@ -185,6 +190,7 @@ async function repoInfo(cwd: string, wantedBase: string | undefined): Promise<Re
         cwd,
         false,
       ),
+      tryGit(['rev-parse', '--is-shallow-repository'], cwd),
     ]);
   const branches = refs.split('\n').filter(Boolean);
   if (wantedBase !== undefined && wanted === null) {
@@ -215,7 +221,7 @@ async function repoInfo(cwd: string, wantedBase: string | undefined): Promise<Re
     staged: countPaths(staged),
     github: github ? { remote: github.remote, owner: github.ref.owner, repo: github.ref.repo } : null,
     planTab: planTabOn(loadConfig(cwd)),
-    commits: parseCommits(log ?? '', new Set((branchCommits ?? '').split('\n').filter(Boolean))),
+    commits: parseCommits(log ?? '', new Set((branchCommits ?? '').split('\n').filter(Boolean)), shallow === 'true'),
   };
 }
 

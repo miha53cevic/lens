@@ -121,6 +121,35 @@ test("lens info: HEAD's commits along first parents, the branch's own marked", a
   });
 });
 
+test("lens info: a shallow clone leaves out its oldest commit, whose parent git doesn't have", async () => {
+  await withRepo(async (dir, git) => {
+    for (const name of ['one', 'two']) {
+      writeFileSync(join(dir, name + '.ts'), 'export const x = 1;\n');
+      git('add', '-A');
+      git('commit', '-qm', name);
+    }
+    const clone = dir + '-shallow';
+    execFileSync('git', [
+      'clone',
+      '-q',
+      '--depth',
+      '2',
+      'file://' + (toPosix(dir).startsWith('/') ? '' : '/') + toPosix(dir),
+      clone,
+    ]);
+    try {
+      const { repo } = await lensInfo(clone);
+      assert.deepEqual(
+        repo!.commits.map((commit) => commit.subject),
+        ['two'],
+        '"one" shows no parent here but has one: picking it would show the whole repository added',
+      );
+    } finally {
+      rmSync(clone, { recursive: true, force: true });
+    }
+  });
+});
+
 test('lens info: a detached HEAD, a repository without commits, and no repository at all', async () => {
   await withRepo(async (dir, git) => {
     git('checkout', '-q', '--detach');
