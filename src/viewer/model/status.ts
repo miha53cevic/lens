@@ -211,7 +211,6 @@ const typescriptServer: NoticeSource = (state) => {
   // known only from the stamp poll, which runs while the switch is on
   const lsp = state.lspStatus;
   if (!state.data.typescriptLsp || !lsp || state.serverGone) return null;
-  const whose = lsp.source === 'repository' ? "the repository's" : "lens's own";
   const base = { id: 'typescript', action: 'openFlags' as const };
   switch (lsp.state) {
     case 'running':
@@ -220,7 +219,7 @@ const typescriptServer: NoticeSource = (state) => {
         text: 'TypeScript ' + lsp.version,
         tone: 'plain',
         icon: 'typescript',
-        tip: 'Running ' + whose + ' TypeScript ' + lsp.version + ' (tsc --lsp): hover a name, ⌘-click it',
+        tip: 'Running TypeScript ' + lsp.version + ' (tsc --lsp): hover a name, ⌘-click it',
       };
     case 'starting':
       return { ...base, text: 'TypeScript starting', tone: 'plain', icon: 'typescript-busy' };
@@ -236,7 +235,7 @@ const typescriptServer: NoticeSource = (state) => {
         ...base,
         text: 'No TypeScript 7',
         tone: 'warn',
-        tip: 'Add typescript@7 to the repository: lens runs its tsc --lsp',
+        tip: "lens's TypeScript 7 isn't installed: run bun install in lens's checkout",
       };
   }
 };

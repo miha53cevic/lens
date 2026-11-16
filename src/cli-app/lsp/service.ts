@@ -27,9 +27,9 @@ export interface TsService {
   stop(): void;
 }
 
-/** null when no TypeScript 7 is found for `root` (find.ts) */
+/** null when lens's own TypeScript 7 isn't installed (find.ts) */
 export function createTsService(root: string, cwd: string): TsService | null {
-  const tsc = findTsc(root);
+  const tsc = findTsc();
   if (!tsc) return null;
   let client: Promise<LspClient> | null = null;
   let started: LspClient | null = null;

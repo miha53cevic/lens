@@ -85,7 +85,7 @@ Add a `.lens.json` to your repository; it merges over [lens's defaults](lens.def
 | `buildPreviews` | the summary includes UI previews and run-time diagrams (default `true`) |
 | `selfChecks` | the summary includes questions to check yourself (default `false`) |
 | `planTab` | show the Plan tab (default `true`) |
-| `typescriptLsp` | TypeScript hover and go-to-definition (default `false`) |
+| `typescriptLsp` | TypeScript hover and go-to-definition, by the TypeScript 7 lens ships with (default `false`) |
 | `timings` | record how long lens's steps take (default `true`) |
 
 The last five are also switches in Settings, which win over the file. Folding works on

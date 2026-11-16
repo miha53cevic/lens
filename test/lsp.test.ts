@@ -58,8 +58,8 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 
 const GREET: CodePlace = { file: 'main.ts', line: 3, character: MAIN.split('\n')[2].indexOf('greet') };
 
-test('lens finds its own TypeScript 7 when the repository has none', () => {
-  assert.ok(findTsc(dir), 'the checkout has typescript@7 installed');
+test('lens finds its own TypeScript 7', () => {
+  assert.ok(findTsc(), 'the checkout has typescript@7 installed');
 });
 
 test("a name's hover is its declaration and its doc", async () => {
@@ -78,8 +78,8 @@ test("a name's hover is its declaration and its doc", async () => {
   );
 });
 
-test("the status bar's state: running once asked, with whose TypeScript it is", async () => {
-  assert.deepEqual(routes.status(), { state: 'running', version: findTsc(dir)!.version, source: 'lens' });
+test("the status bar's state: running once asked, with its version", async () => {
+  assert.deepEqual(routes.status(), { state: 'running', version: findTsc()!.version });
 });
 
 test('its definition is the line it is declared on, relative to the cwd', async () => {
