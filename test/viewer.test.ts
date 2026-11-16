@@ -16,6 +16,7 @@ import {
   type SplitItem,
 } from '../src/viewer/rows.ts';
 import { lineHtml, pairWordDiffs, splitAt, wordDiff } from '../src/viewer/wordDiff.ts';
+import { railEntries } from '../src/viewer/model/steps.ts';
 import type { FileFoldModel, RemovedBlock } from '../src/cli-app/model.ts';
 import type { ViewUnit } from '../src/cli-app/summary/view.ts';
 
@@ -318,4 +319,30 @@ test('lineHtml: marks cut across highlighted tokens, and the text stays escaped'
     [[2, 3]],
   );
   assert.equal(html, '<span style="color:#f00">a <span class="w-add">&lt;</span></span>b');
+});
+
+test("railEntries: a flow's cards to read on its steps, a done step's node where it falls in the flow", () => {
+  const unit = (id: string) => ({ id });
+  const flow = {
+    title: 'Checkout',
+    path: 'repo → service → route',
+    units: { a: 'repo', b: 'service', c: 'service', d: 'route' },
+  };
+  const entries = (toRead: string[], read: string[]) =>
+    railEntries({ flow, toRead: toRead.map(unit), read: read.map(unit) }).map((entry) =>
+      entry.kind === 'unit' ? entry.unit.id : `[${entry.name}${entry.done ? ' ✓' : ''}]`,
+    );
+  assert.deepEqual(entries(['a', 'b', 'c', 'd'], []), ['[repo]', 'a', '[service]', 'b', 'c', '[route]', 'd']);
+  assert.deepEqual(
+    entries(['a', 'd'], ['b', 'c']),
+    ['[repo]', 'a', '[service ✓]', '[route]', 'd'],
+    'between the steps around it',
+  );
+  assert.deepEqual(entries(['d'], ['a', 'b', 'c']), ['[repo ✓]', '[service ✓]', '[route]', 'd']);
+  assert.deepEqual(
+    entries(['a'], ['b', 'c', 'd']),
+    ['[repo]', 'a', '[service ✓]', '[route ✓]'],
+    'and after the last card',
+  );
+  assert.deepEqual(entries(['b', 'c'], []), ['b', 'c'], 'one step present: no rail');
 });

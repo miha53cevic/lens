@@ -451,10 +451,14 @@ test('Check yourself: on the overview while on, the answer behind a click; off, 
   }
 });
 
-test("a flow's steps head its cards to read; one step over every change has none", async () => {
+test("a flow's steps are a rail its cards to read hang on; one step over every change has none", async () => {
   const summary = payload.summary!;
   const id = (name: string) => summary.units.find((unit) => unit.name === name)!.id;
-  const steps = () => $$('[data-part="inbox-step"]').map((heading) => heading.textContent);
+  /** The rail's nodes: each step's name, with a ✓ when every change in it is read */
+  const steps = () =>
+    $$('[data-part="inbox-step"]').map(
+      (node) => node.firstChild!.textContent + (node.hasAttribute('data-done') ? ' ✓' : ''),
+    );
   const flow = { path: 'a', priority: 1 as const, why: 'x' };
   const units = { [id('findOrders')]: 'repo', [id('legacyTotal')]: 'cleanup' };
   await open({}, '', '', { ...payload, summary: { ...summary, flows: [{ ...flow, title: 'Orders', units }] } });
@@ -462,10 +466,16 @@ test("a flow's steps head its cards to read; one step over every change has none
     await key('v');
     await settle();
     assert.deepEqual(steps(), ['repo', 'cleanup']);
+    assert.ok($('[data-part="inbox-steps"]'), 'on a rail');
+    assert.equal(
+      $$('[data-part="inbox-flow-head"] [data-part="path"]').length,
+      0,
+      'the rail draws the path: the head leaves it out',
+    );
     const firstCard = $(`[data-inbox-unit="${id('findOrders')}"]`);
-    await click(firstCard.querySelector('[data-part="inbox-read-btn"]')!);
+    await click(firstCard.querySelector('[data-part="viewed-box"]')!);
     await settle();
-    assert.deepEqual(steps(), ['cleanup'], 'a read card takes its heading along, and the flow still has two steps');
+    assert.deepEqual(steps(), ['repo ✓', 'cleanup'], 'a step whose changes are all read stays on the rail, done');
   } finally {
     await close();
   }
@@ -475,6 +485,7 @@ test("a flow's steps head its cards to read; one step over every change has none
     await key('v');
     await settle();
     assert.deepEqual(steps(), []);
+    assert.equal($$('[data-part="inbox-steps"]').length, 0, 'no rail');
   } finally {
     await close();
   }
@@ -837,7 +848,7 @@ pageTest(
     assert.equal($('#summary-pane').dataset.unit, 'src/orders.ts#findOrders');
     assert.ok($$('[data-part="inbox-card"]')[0].hasAttribute('data-selected'));
 
-    await click($$('[data-part="inbox-card"] [data-part="inbox-read-btn"]')[0]);
+    await click($$('[data-part="inbox-card"] [data-part="viewed-box"]')[0]);
     assert.equal($('#summary-pane').dataset.unit, 'src/orders.ts#legacyTotal', 'the next change to read opens');
     assert.deepEqual(
       cardNames('[data-part="inbox-body"]'),
@@ -861,8 +872,9 @@ pageTest(
     await click($('[data-part="inbox-read-toggle"]'));
     assert.deepEqual(cardNames('[data-part="inbox-read"]'), ['findOrders', 'legacyTotal']);
     assert.deepEqual(
-      $$('[data-part="inbox-read"] [data-part="inbox-read-btn"]').map((button) => button.textContent),
-      ['Unread', 'Unread'],
+      $$('[data-part="inbox-read"] [data-part="viewed-box"]').map((box) => box.getAttribute('aria-checked')),
+      ['true', 'true'],
+      "the tree's tick box, ticked",
     );
   },
   {},

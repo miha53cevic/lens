@@ -53,22 +53,6 @@ export function inboxOrder(flows: InboxFlow[]): string[] {
     .map((unit) => unit.id);
 }
 
-/**
- * The step headings over a flow's cards to read: unit id → the step that starts at it. Only for a
- * flow that walks through two steps or more (read cards count): one step over every change says nothing.
- */
-export function stepHeadings({ flow, toRead, read }: InboxFlow): Map<string, string> {
-  const headings = new Map<string, string>();
-  if (!flow) return headings;
-  const steps = new Set([...toRead, ...read].map((unit) => flow.units[unit.id]).filter(Boolean));
-  if (steps.size < 2) return headings;
-  toRead.forEach((unit, index) => {
-    const step = flow.units[unit.id];
-    if (step && step !== flow.units[toRead[index - 1]?.id]) headings.set(unit.id, step);
-  });
-  return headings;
-}
-
 /** The key of the flow a unit is in. */
 export function inboxKeyOf(flows: InboxFlow[], unitId: string): string | null {
   const flow = flows.find((candidate) => [...candidate.toRead, ...candidate.read].some((unit) => unit.id === unitId));

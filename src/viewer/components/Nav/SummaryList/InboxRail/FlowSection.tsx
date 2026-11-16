@@ -1,6 +1,6 @@
-import { Fragment } from 'react';
 import clsx from 'clsx';
-import { stepHeadings, type InboxFlow } from '../../../../model/inbox.ts';
+import type { InboxFlow } from '../../../../model/inbox.ts';
+import { railEntries } from '../../../../model/steps.ts';
 import { toggleInboxFlow, toggleInboxRead } from '../../../../actions/inbox.ts';
 import { Disclosure } from '../../../../../ui/Disclosure.tsx';
 import { UnitCard } from './UnitCard.tsx';
@@ -18,7 +18,8 @@ export function FlowSection({ flow, isActive, bare }: FlowSectionProps) {
   const { key, toRead, read, readOpen } = flow;
   const open = bare || flow.open;
   const total = toRead.length + read.length;
-  const headings = stepHeadings(flow);
+  const entries = railEntries(flow);
+  const railed = entries.some((entry) => entry.kind === 'step');
   return (
     <section
       data-part='inbox-flow'
@@ -56,8 +57,12 @@ export function FlowSection({ flow, isActive, bare }: FlowSectionProps) {
           <span data-part='n' className='text-xs text-muted group-data-done/flow:text-add'>
             {toRead.length > 0 ? toRead.length + ' to read' : 'all read'}
           </span>
-          {flow.flow?.path && (
-            <span className='col-[2/-1] overflow-hidden font-mono text-xs text-ellipsis whitespace-nowrap text-faint'>
+          {/* open, its rail draws the path */}
+          {flow.flow?.path && !(open && railed) && (
+            <span
+              data-part='path'
+              className='col-[2/-1] overflow-hidden font-mono text-xs text-ellipsis whitespace-nowrap text-faint'
+            >
               {flow.flow.path}
             </span>
           )}
@@ -71,16 +76,31 @@ export function FlowSection({ flow, isActive, bare }: FlowSectionProps) {
       )}
       {open && (
         <div data-part='inbox-body' className={clsx('flex flex-col gap-2', !bare && 'px-2 pb-2')}>
-          {toRead.map((unit) => (
-            <Fragment key={unit.id}>
-              {headings.has(unit.id) && (
-                <div data-part='inbox-step' className='px-1 pt-1 eyebrow sm'>
-                  {headings.get(unit.id)}
+          <div
+            data-part={railed ? 'inbox-steps' : undefined}
+            className={clsx(
+              'flex flex-col gap-2',
+              // the flow's path as a line its steps sit on, the cards hanging off it
+              railed &&
+                'relative pl-4 before:absolute before:top-3 before:bottom-3 before:left-[5px] before:w-[2px] before:rounded-full before:bg-line',
+            )}
+          >
+            {entries.map((entry, index) =>
+              entry.kind === 'unit' ? (
+                <UnitCard key={entry.unit.id} unit={entry.unit} active={isActive(entry.unit.id)} />
+              ) : (
+                <div
+                  key={'step:' + index}
+                  data-part='inbox-step'
+                  data-done={entry.done || undefined}
+                  className="relative pt-1 eyebrow sm before:absolute before:top-[calc(50%+2px)] before:-left-[15px] before:size-[10px] before:-translate-y-1/2 before:rounded-full before:border-2 before:border-line-strong before:bg-surface before:content-[''] data-done:text-faint data-done:before:border-add data-done:before:bg-add"
+                >
+                  {entry.name}
+                  {entry.done && <span className='ml-2 font-normal text-add'>read</span>}
                 </div>
-              )}
-              <UnitCard unit={unit} active={isActive(unit.id)} />
-            </Fragment>
-          ))}
+              ),
+            )}
+          </div>
           {read.length > 0 && (
             <Disclosure
               open={readOpen}
