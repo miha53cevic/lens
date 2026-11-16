@@ -7,8 +7,28 @@ export type ReviewChoice =
   | { kind: 'diff'; range: 'branch'; base: string }
   /** `args`: any `git diff` arguments, as typed */
   | { kind: 'diff'; range: 'custom'; args: string }
+  /**
+   * A run of `count` consecutive commits: `from` is the oldest one's first parent (EMPTY_TREE for a
+   * root commit), `to` the newest; both full SHAs. Empty strings while none is picked.
+   */
+  | { kind: 'diff'; range: 'commits'; from: string; to: string; count: number }
   /** `ref`: a PR number or a GitHub PR URL, as typed */
   | { kind: 'pr'; ref: string };
+
+/** A full SHA-1 or SHA-256 object name */
+const FULL_SHA = /^([0-9a-f]{40}|[0-9a-f]{64})$/;
+
+/** git's empty tree: what a run from a root commit is diffed against, in the repository's hash */
+export function emptyTree(sha: string): string {
+  return sha.length === 64
+    ? '6ef19b41225c5369f1c104d45d8d85efa9b057b53b14b4b9b939dd74decc5321'
+    : '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
+}
+
+/** A SHA as the picker shows it */
+export function shortSha(sha: string): string {
+  return sha.slice(0, 7);
+}
 
 /** lens's own flags: in a custom diff they would change how lens runs, not what git diffs. */
 const LENS_FLAGS = [
@@ -60,13 +80,18 @@ const MAX_TEXT = 2000;
  */
 export function parseChoice(value: unknown): ReviewChoice | null {
   if (typeof value !== 'object' || value === null) return null;
-  const { kind, range, base, args, ref } = value as Record<string, unknown>;
+  const { kind, range, base, args, ref, from, to, count } = value as Record<string, unknown>;
   const text = (field: unknown): field is string => typeof field === 'string' && field.length <= MAX_TEXT;
   if (kind === 'pr') return text(ref) ? { kind, ref } : null;
   if (kind !== 'diff') return null;
   if (range === 'worktree' || range === 'staged') return { kind, range };
   if (range === 'branch') return text(base) ? { kind, range, base } : null;
   if (range === 'custom') return text(args) ? { kind, range, args } : null;
+  if (range === 'commits') {
+    const sha = (field: unknown): field is string => typeof field === 'string' && FULL_SHA.test(field);
+    const counted = typeof count === 'number' && Number.isInteger(count) && count > 0;
+    return sha(from) && sha(to) && counted ? { kind, range, from, to, count } : null;
+  }
   return null;
 }
 
@@ -83,6 +108,8 @@ export function choiceProblem(choice: ReviewChoice): string | null {
     // a name git would read as an option, or as more than one argument
     return base.startsWith('-') || /\s/.test(base) ? `"${base}" is not a branch name` : null;
   }
+  if (choice.range === 'commits')
+    return FULL_SHA.test(choice.from) && FULL_SHA.test(choice.to) ? null : 'Pick a commit';
   if (choice.range !== 'custom') return null;
   const args = splitArgs(choice.args);
   if (args.length === 0) return 'Type the git diff arguments';
@@ -102,6 +129,8 @@ export function choiceArgs(choice: ReviewChoice): string[] {
       return ['diff', choice.base.trim() + '...HEAD'];
     case 'custom':
       return ['diff', ...splitArgs(choice.args)];
+    case 'commits':
+      return ['diff', choice.from, choice.to];
   }
 }
 
@@ -109,6 +138,12 @@ export function choiceArgs(choice: ReviewChoice): string[] {
 export function choiceCommand(choice: ReviewChoice): string {
   const quoted = choiceArgs(choice).map((arg) => (/[\s"']/.test(arg) ? JSON.stringify(arg) : arg));
   return ['lens', ...quoted].join(' ').trimEnd();
+}
+
+/** choiceCommand as the picker's footer shows it, when that's shorter: a run's SHAs as the list shows them */
+export function choiceCommandShown(choice: ReviewChoice): string | null {
+  if (choice.kind !== 'diff' || choice.range !== 'commits' || choiceProblem(choice)) return null;
+  return `lens diff ${shortSha(choice.from)} ${shortSha(choice.to)}`;
 }
 
 /** What a tab says it shows, after the repository's name. */
@@ -126,5 +161,7 @@ export function choiceLabel(choice: ReviewChoice): string {
       return 'vs ' + choice.base.trim();
     case 'custom':
       return 'diff ' + choice.args.trim();
+    case 'commits':
+      return shortSha(choice.to) + (choice.count > 1 ? ' +' + (choice.count - 1) : '');
   }
 }

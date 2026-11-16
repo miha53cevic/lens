@@ -3,7 +3,7 @@
 
 import { useState } from 'react';
 import { ArrowLeft, FileDiff, Folder, GitPullRequest } from 'lucide-react';
-import { choiceCommand, choiceProblem, type ReviewChoice } from '../../../shared/choice.ts';
+import { choiceCommand, choiceCommandShown, choiceProblem, type ReviewChoice } from '../../../shared/choice.ts';
 import { Button } from '../../../../ui/Button.tsx';
 import { CopyCommand } from '../../../../ui/CopyCommand.tsx';
 import { IconButton } from '../../../../ui/IconButton.tsx';
@@ -15,7 +15,7 @@ import { useApp } from '../../store.ts';
 import { Changes } from './Changes.tsx';
 import { PullRequest } from './PullRequest.tsx';
 import { Worktrees } from './Worktrees.tsx';
-import { emptyRange, startingRange, type Mode, type Range } from './util.ts';
+import { emptyRange, runChoice, startingRange, startingRun, type Mode, type Range, type Run } from './util.ts';
 import { tipAttrs } from '../../../../ui/Tip.tsx';
 
 const MODES = [
@@ -37,6 +37,7 @@ export function ReviewPicker() {
     current?.kind === 'diff' && current.range === 'branch' ? current.base : (repo.base ?? ''),
   );
   const [custom, setCustom] = useState(current?.kind === 'diff' && current.range === 'custom' ? current.args : '');
+  const [run, setRun] = useState<Run | null>(() => startingRun(repo, current));
   const [pullRequest, setPullRequest] = useState(current?.kind === 'pr' ? current.ref : '');
 
   const choice: ReviewChoice =
@@ -46,7 +47,9 @@ export function ReviewPicker() {
         ? { kind: 'diff', range, base }
         : range === 'custom'
           ? { kind: 'diff', range, args: custom }
-          : { kind: 'diff', range };
+          : range === 'commits'
+            ? runChoice(repo, run)
+            : { kind: 'diff', range };
   const problem = choiceProblem(choice) ?? (mode === 'changes' ? emptyRange(repo, range, base) : null);
 
   return (
@@ -110,6 +113,8 @@ export function ReviewPicker() {
                 }}
                 custom={custom}
                 onCustom={setCustom}
+                run={run}
+                onRun={setRun}
               />
             ) : (
               <PullRequest repo={repo} value={pullRequest} onChange={setPullRequest} />
@@ -118,7 +123,7 @@ export function ReviewPicker() {
         </div>
       </main>
       <footer className='flex flex-none items-center gap-3 border-t border-line bg-bg px-4 py-3'>
-        <CopyCommand command={choiceCommand(choice)} />
+        <CopyCommand command={choiceCommand(choice)} shown={choiceCommandShown(choice) ?? undefined} />
         <span className='flex-1' />
         {problem && (
           <span

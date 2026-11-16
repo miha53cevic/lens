@@ -93,6 +93,34 @@ test("lens info: the remote's default branch is the base, by its local name when
   });
 });
 
+test("lens info: HEAD's commits along first parents, the branch's own marked", async () => {
+  await withRepo(async (dir, git) => {
+    git('checkout', '-qb', 'side');
+    writeFileSync(join(dir, 'side.ts'), 'export const side = 1;\n');
+    git('add', '-A');
+    git('commit', '-qm', 'on the side');
+    git('checkout', '-q', 'main');
+    git('checkout', '-qb', 'feature');
+    writeFileSync(join(dir, 'c.ts'), 'export const c = 1;\n');
+    git('add', '-A');
+    git('commit', '-qm', 'one\n\nthe body is left out');
+    git('merge', '-q', '--no-ff', '-m', 'merge side', 'side');
+
+    const { repo } = await lensInfo(dir);
+    const sha = (rev: string) => git('rev-parse', rev).trim();
+    assert.deepEqual(
+      repo!.commits.map(({ sha, parent, subject, author, onBranch }) => ({ sha, parent, subject, author, onBranch })),
+      [
+        { sha: sha('HEAD'), parent: sha('HEAD^1'), subject: 'merge side', author: 't', onBranch: true },
+        { sha: sha('HEAD~1'), parent: sha('main'), subject: 'one', author: 't', onBranch: true },
+        { sha: sha('main'), parent: null, subject: 'base', author: 't', onBranch: false },
+      ],
+      'the merged commit is not in the line, the root has no parent',
+    );
+    assert.ok(Math.abs(repo!.commits[0].date - Date.now() / 1000) < 600, 'in seconds');
+  });
+});
+
 test('lens info: a detached HEAD, a repository without commits, and no repository at all', async () => {
   await withRepo(async (dir, git) => {
     git('checkout', '-q', '--detach');
@@ -111,6 +139,7 @@ test('lens info: a detached HEAD, a repository without commits, and no repositor
     assert.equal(repo.branch, 'main');
     assert.equal(repo.ahead, null);
     assert.deepEqual(repo.branches, []);
+    assert.deepEqual(repo.commits, []);
   } finally {
     rmSync(empty, { recursive: true, force: true });
   }

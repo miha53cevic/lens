@@ -4,7 +4,8 @@ import { plural } from '../../../../cli-app/text.ts';
 import { Field } from '../../../../ui/Field.tsx';
 import { Choice, ChoiceList } from '../../../../ui/Choice.tsx';
 import { Select } from '../../../../ui/Select.tsx';
-import { baseOptions, type Range } from './util.ts';
+import { Commits } from './Commits.tsx';
+import { baseOptions, runRows, type Range, type Run } from './util.ts';
 
 interface ChangesProps {
   repo: RepoInfo;
@@ -14,6 +15,8 @@ interface ChangesProps {
   onBase: (base: string) => void;
   custom: string;
   onCustom: (args: string) => void;
+  run: Run | null;
+  onRun: (run: Run | null) => void;
 }
 
 interface RangeChoiceProps {
@@ -44,9 +47,10 @@ function RangeChoice({ value, picked, onPick, name, sub, meta, disabled }: Range
   );
 }
 
-/** `lens diff`, four ways. */
-export function Changes({ repo, range, onRange, base, onBase, custom, onCustom }: ChangesProps) {
+/** `lens diff`, five ways. */
+export function Changes({ repo, range, onRange, base, onBase, custom, onCustom, run, onRun }: ChangesProps) {
   const bases = baseOptions(repo);
+  const rows = runRows(repo, run);
   const shared = { picked: range, onPick: onRange };
   return (
     <ChoiceList type='radio' label='Changes'>
@@ -99,6 +103,28 @@ export function Changes({ repo, range, onRange, base, onBase, custom, onCustom }
         // the count is against the base it was asked for: shown once it is this one's
         meta={bases.length > 0 && repo.base === base && repo.ahead !== null ? plural(repo.ahead, 'commit') : ''}
       />
+      <RangeChoice
+        {...shared}
+        value='commits'
+        disabled={repo.commits.length === 0}
+        name='Commits'
+        sub={
+          repo.commits.length > 0
+            ? "One commit, or a run of them, from this branch's history"
+            : 'There are no commits yet'
+        }
+        meta={rows ? plural(rows.oldest - rows.newest + 1, 'commit') : ''}
+      />
+      {range === 'commits' && (
+        <Commits
+          repo={repo}
+          run={run}
+          onRun={(next) => {
+            onRange('commits');
+            onRun(next);
+          }}
+        />
+      )}
       <RangeChoice
         {...shared}
         value='custom'

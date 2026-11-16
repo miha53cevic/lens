@@ -37,7 +37,7 @@ Then in the app, **Settings → Agent** installs the `lens` command and the agen
 
 ## Use it
 
-Open the app, pick a repository and what to review (your changes, a branch, or a PR). Then ask
+Open the app, pick a repository and what to review (your changes, a branch, some commits, or a PR). Then ask
 your agent for the summary:
 
 ```bash
