@@ -334,6 +334,84 @@ test("the agent's previews and sequences: all on the overview, a unit's own on i
   }
 });
 
+test("a drawing expands into a big dialog that shares its card's moment and outline, and closes to open a unit", async () => {
+  const summary = payload.summary!;
+  const id = (name: string) => summary.units.find((unit) => unit.name === name)!.id;
+  const find = id('findOrders'),
+    legacy = id('legacyTotal');
+  const now = '/api/preview/0123456789abcdef.html',
+    before = '/api/preview/fedcba9876543210.html';
+  summary.previews = [{ title: 'Orders page', units: [find, legacy], now, before, stale: false }];
+  summary.sequences = [
+    {
+      title: 'List orders',
+      lanes: ['route', 'repo'],
+      units: [find],
+      stale: false,
+      steps: [{ from: 'route', to: 'repo', label: 'findOrders(user)', change: 'added', unit: find, line: 'N10' }],
+    },
+  ];
+  const dialog = () => document.querySelector<HTMLDialogElement>('[data-part="drawing-dialog"]');
+  const cardFrame = () => $('[data-part="preview-card"] > div > iframe') as HTMLIFrameElement;
+  const dialogFrame = () => dialog()!.querySelector('iframe')!;
+  try {
+    await open();
+    await key('v');
+    assert.equal(dialog(), null, 'nothing loads twice until it is expanded');
+    await click($('[data-part="preview-card"] [data-part="drawing-expand"]'));
+    assert.ok(dialog()?.open, 'open, as a modal');
+    assert.equal(dialog()!.querySelector('[data-part="modal-body"] iframe') !== null, true);
+    assert.equal(dialogFrame().getAttribute('src'), now);
+    assert.equal(dialogFrame().getAttribute('sandbox'), 'allow-scripts', 'the same sandbox');
+    assert.ok(dialogFrame().hasAttribute('data-fill'));
+
+    // one moment and one outline for the card and its dialog
+    await click(dialog()!.querySelector('[data-value="before"]')!);
+    assert.equal(dialogFrame().getAttribute('src'), before);
+    assert.equal(cardFrame().getAttribute('src'), before);
+    const dialogChip = (name: string) =>
+      [...dialog()!.querySelectorAll<HTMLElement>('[data-part="drawing-unit"]')].find((chip) =>
+        chip.textContent!.includes(name),
+      )!;
+    await click(dialogChip('legacyTotal'));
+    assert.equal($('#summary-pane').dataset.unit, undefined, 'the overview stays');
+    assert.equal(cardFrame().getAttribute('src'), before + '#' + encodeURIComponent(legacy));
+
+    // its screen's height doesn't shrink it: it keeps the dialog's
+    const frameWindow = new EventTarget() as unknown as Window;
+    Object.defineProperty(dialogFrame(), 'contentWindow', { value: frameWindow, configurable: true });
+    window.dispatchEvent(
+      new MessageEvent('message', { data: { lens: true, type: 'size', height: 200 }, source: frameWindow }),
+    );
+    await settle();
+    assert.equal(dialogFrame().style.height, '');
+
+    // a click on the dim around it closes it
+    fireEvent.click(dialog()!);
+    await settle();
+    assert.equal(dialog(), null);
+
+    // a sequence expands too, scaled to fill; its step closes it and opens the unit
+    await click($('[data-part="sequence-card"] [data-part="drawing-expand"]'));
+    const svg = dialog()!.querySelector('[data-part="modal-body"] svg')!;
+    assert.equal(svg.getAttribute('width'), null, 'sized by the dialog, not its own width');
+    fireEvent.click(dialog()!.querySelector('[data-part="seq-step"][data-opens]')!);
+    await settle();
+    assert.equal(dialog(), null);
+    assert.equal($('#summary-pane').dataset.unit, find);
+
+    // on a unit's page, another unit's chip closes it and opens that unit
+    await click($('[data-part="preview-card"] [data-part="drawing-expand"]'));
+    await click(dialogChip('legacyTotal'));
+    assert.equal(dialog(), null);
+    assert.equal($('#summary-pane').dataset.unit, legacy);
+  } finally {
+    summary.previews = [];
+    summary.sequences = [];
+    await close();
+  }
+});
+
 pageTest("a unit's code has the Code view's folds and toolbar keys, but shows whole", async () => {
   await key('v');
   await key('j');
