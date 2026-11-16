@@ -49,7 +49,20 @@ const REPO: RepoInfo = {
   staged: 2,
   github: { remote: 'origin', owner: 'acme', repo: 'storefront' },
   planTab: false,
+  commits: [
+    commit('d', 'c', 'Show the total', true),
+    commit('c', 'b', 'Count the orders', true),
+    commit('b', 'a', 'Release 1.2', false),
+    commit('a', null, 'First commit', false),
+  ],
 };
+
+/** A commit whose SHA is its letter, forty times */
+function commit(letter: string, parent: string | null, subject: string, onBranch: boolean) {
+  const sha = (char: string) => char.repeat(40);
+  const date = Math.floor(Date.now() / 1000) - 2 * 3600;
+  return { sha: sha(letter), parent: parent && sha(parent), subject, author: 'Ana', date, onBranch };
+}
 
 const HOUR = 3_600_000;
 
@@ -303,10 +316,10 @@ pageTest(
   async (page) => {
     assert.equal(text('[data-part="repo-id"]'), 'storefrontfeature~/repos/storefront');
     // nothing changed in the working tree, two files staged: Staged is where it starts
-    assert.deepEqual(choices(), ['worktree', '*staged', 'branch', 'custom']);
+    assert.deepEqual(choices(), ['worktree', '*staged', 'commits', 'branch', 'custom']);
     assert.deepEqual(
       $$('[data-part="choice-meta"]').map((meta) => meta.textContent),
-      ['0 files', '2 files', '5 commits', ''],
+      ['0 files', '2 files', '', '5 commits', ''],
     );
     assert.equal(text('[data-part="copy-cmd-text"]'), 'lens diff --staged');
 
@@ -396,7 +409,7 @@ pageTest(
   'launcher',
   { ...PICKER, repo: { ...REPO, changed: 0, staged: 0, ahead: 0, planTab: true } },
   async (page) => {
-    assert.deepEqual(choices(), ['*worktree', 'staged', 'branch', 'custom']);
+    assert.deepEqual(choices(), ['*worktree', 'staged', 'commits', 'branch', 'custom']);
     assert.ok(!$('[data-part="choice"][data-range="worktree"]').hasAttribute('data-disabled'));
     assert.equal(
       text('[data-part="choice"][data-range="worktree"] [data-part="choice-sub"]'),
@@ -419,20 +432,28 @@ pageTest(
       ['main', 'release'],
     );
     await type($('#picker-base'), 'release');
-    assert.deepEqual(choices(), ['worktree', 'staged', '*branch', 'custom'], 'picking a base picks its choice');
+    assert.deepEqual(
+      choices(),
+      ['worktree', 'staged', 'commits', '*branch', 'custom'],
+      'picking a base picks its choice',
+    );
     assert.equal(text('[data-part="copy-cmd-text"]'), 'lens diff release...HEAD');
     assert.deepEqual(page.calls, [['setBase', 'release']], 'the commits are recounted against it');
     assert.equal(
-      $$('[data-part="choice-meta"]')[2].textContent,
+      $('[data-range="branch"] [data-part="choice-meta"]').textContent,
       '',
       'the count shown was against main: gone until the new one arrives',
     );
     await page.push({ ...PICKER, repo: { ...REPO, base: 'release', ahead: 2 } });
-    assert.equal($$('[data-part="choice-meta"]')[2].textContent, '2 commits');
-    assert.deepEqual(choices(), ['worktree', 'staged', '*branch', 'custom'], 'the picker keeps what was picked');
+    assert.equal($('[data-range="branch"] [data-part="choice-meta"]').textContent, '2 commits');
+    assert.deepEqual(
+      choices(),
+      ['worktree', 'staged', 'commits', '*branch', 'custom'],
+      'the picker keeps what was picked',
+    );
 
     await type($('#picker-custom'), 'HEAD~3 -- "my dir"');
-    assert.deepEqual(choices(), ['worktree', 'staged', 'branch', '*custom']);
+    assert.deepEqual(choices(), ['worktree', 'staged', 'commits', 'branch', '*custom']);
     assert.equal(text('[data-part="copy-cmd-text"]'), 'lens diff HEAD~3 -- "my dir"');
     await click($('#open-review'));
     assert.deepEqual(page.calls.at(-1), ['open', { kind: 'diff', range: 'custom', args: 'HEAD~3 -- "my dir"' }]);
@@ -523,12 +544,78 @@ pageTest(
   },
 );
 
+pageTest('the picker: one commit, or a run of them, from the list', 'launcher', PICKER, async (page) => {
+  assert.deepEqual($$('[data-part="commits"]'), [], 'the list shows only while Commits is picked');
+  await click($('[data-part="choice"][data-range="commits"] input'));
+  assert.deepEqual(
+    $$('[role="option"]').map((row) => [...row.children].map((part) => part.textContent).join('|')),
+    [
+      '|ddddddd|Show the totalthis branch|2h ago',
+      '|ccccccc|Count the ordersthis branch|2h ago',
+      '|bbbbbbb|Release 1.2|2h ago',
+      '|aaaaaaa|First commit|2h ago',
+    ],
+  );
+  assert.equal(text('[data-part="commits-bar"]'), 'Pick a commit⇧click for a run');
+  assert.equal(text('[data-part="picker-problem"]'), 'Pick a commit');
+  assert.equal($$('[data-part="commits-older"]').length, 0, 'the list reaches the first commit: nothing older');
+
+  await click($('[data-sha="' + 'c'.repeat(40) + '"]'));
+  assert.equal(text('[data-part="commits-picked"]'), 'ccccccc');
+  assert.equal(text('[data-part="copy-cmd-text"]'), 'lens diff bbbbbbb ccccccc');
+  assert.equal(text('[data-part="choice"][data-range="commits"] [data-part="choice-meta"]'), '1 commit');
+
+  // ⇧ click reaches the first commit: the run is diffed from git's empty tree
+  fireEvent.click($('[data-sha="' + 'a'.repeat(40) + '"]'), { shiftKey: true });
+  await settle();
+  assert.deepEqual(
+    $$('[role="option"][aria-selected="true"]').map((row) => row.dataset.sha![0]),
+    ['c', 'b', 'a'],
+  );
+  assert.equal(text('[data-part="commits-picked"]'), 'aaaaaaa → ccccccc');
+  assert.equal(text('[data-part="copy-cmd-text"]'), 'lens diff 4b825dc ccccccc');
+  await click($('#open-review'));
+  assert.deepEqual(page.calls.at(-1), [
+    'open',
+    { kind: 'diff', range: 'commits', from: '4b825dc642cb6eb9a060e54bf8d69288fbee4904', to: 'c'.repeat(40), count: 3 },
+  ]);
+
+  // ↑ moves the pick, ⇧↓ extends it
+  fireEvent.keyDown($('[role="listbox"]'), { key: 'ArrowUp' });
+  await settle();
+  assert.equal(text('[data-part="commits-picked"]'), 'bbbbbbb');
+  fireEvent.keyDown($('[role="listbox"]'), { key: 'ArrowUp', shiftKey: true });
+  await settle();
+  assert.equal(text('[data-part="commits-picked"]'), 'bbbbbbb → ccccccc');
+
+  // a new commit on top (the list is polled) keeps the pick on its commits
+  await page.push({ ...PICKER, repo: { ...REPO, commits: [commit('e', 'd', 'Later', true), ...REPO.commits] } });
+  assert.equal(text('[data-part="commits-picked"]'), 'bbbbbbb → ccccccc');
+
+  await click($('#commits-clear'));
+  assert.equal(text('[data-part="picker-problem"]'), 'Pick a commit');
+});
+
+pageTest(
+  'the picker over a commits review: it starts on that run',
+  'launcher',
+  {
+    ...PICKER,
+    current: { kind: 'diff', range: 'commits', from: 'b'.repeat(40), to: 'd'.repeat(40), count: 2 },
+  } satisfies LauncherState,
+  async () => {
+    assert.deepEqual(choices(), ['worktree', 'staged', '*commits', 'branch', 'custom']);
+    assert.equal(text('[data-part="commits-picked"]'), 'ccccccc → ddddddd');
+    assert.equal(text('[data-part="copy-cmd-text"]'), 'lens diff bbbbbbb ddddddd');
+  },
+);
+
 pageTest(
   'the picker over a review: it starts on what the review shows',
   'launcher',
   { ...PICKER, current: { kind: 'diff', range: 'branch', base: 'release' } } satisfies LauncherState,
   async () => {
-    assert.deepEqual(choices(), ['worktree', 'staged', '*branch', 'custom']);
+    assert.deepEqual(choices(), ['worktree', 'staged', 'commits', '*branch', 'custom']);
     assert.equal(($('#picker-base') as HTMLSelectElement).value, 'release');
     assert.equal(text('[data-part="copy-cmd-text"]'), 'lens diff release...HEAD');
     assert.equal($('#picker-back').getAttribute('aria-label'), 'Back to the review');

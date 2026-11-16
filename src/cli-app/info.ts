@@ -46,6 +46,54 @@ export interface RepoInfo {
   github: { remote: string; owner: string; repo: string } | null;
   /** The Plan tab is on here: then a working tree with nothing in it still opens, on that tab (cli.ts) */
   planTab: boolean;
+  /**
+   * HEAD's last COMMITS_SHOWN commits along first parents, newest first: a straight line, so the
+   * picker's run between two of them is one `git diff`. Empty before the first commit.
+   */
+  commits: CommitInfo[];
+}
+
+export interface CommitInfo {
+  /** The full SHA */
+  sha: string;
+  /** Its first parent's full SHA, or null for a root commit */
+  parent: string | null;
+  subject: string;
+  author: string;
+  /** Committed at, in seconds since the epoch */
+  date: number;
+  /** `base` doesn't have it; false without a base */
+  onBranch: boolean;
+}
+
+/** How many of HEAD's commits the picker lists; older ones are Custom's */
+export const COMMITS_SHOWN = 20;
+
+/** `git log`'s fields, NUL-separated, one record per RS: subjects may hold anything else */
+const LOG_FORMAT = '%H%x00%P%x00%s%x00%an%x00%ct%x1e';
+
+/**
+ * Commits out of a LOG_FORMAT listing, each marked on the branch when `onBranch` has its SHA. In a
+ * shallow clone the oldest commit fetched shows no parent though it has one: it's left out, since
+ * picking it would diff against the empty tree (the whole repository added).
+ */
+export function parseCommits(listing: string, onBranch: Set<string>, shallow = false): CommitInfo[] {
+  const commits = listing
+    .split('\x1e')
+    .map((record) => record.replace(/^\n/, ''))
+    .filter(Boolean)
+    .map((record) => {
+      const [sha, parents, subject, author, date] = record.split('\0');
+      return {
+        sha,
+        parent: parents.split(' ')[0] || null,
+        subject,
+        author,
+        date: Number(date),
+        onBranch: onBranch.has(sha),
+      };
+    });
+  return shallow ? commits.filter((commit) => commit.parent !== null) : commits;
 }
 
 export interface LensInfo {
@@ -125,24 +173,37 @@ async function repoInfo(cwd: string, wantedBase: string | undefined): Promise<Re
   if (!top) return null;
   const root = toPosix(top);
   const untracked = untrackedCommand(top, cwd, []);
-  const [refs, head, wanted, remoteHead, remotes, branch, changed, untrackedList, staged, listed] = await Promise.all([
-    git(['for-each-ref', '--format=%(refname:short)', 'refs/heads'], cwd),
-    tryGit(['rev-parse', '--short', 'HEAD'], cwd),
-    wantedBase === undefined ? null : tryGit(['rev-parse', '--verify', '--quiet', `${wantedBase}^{commit}`], cwd),
-    tryGit(['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD'], cwd),
-    tryGit(['config', '--get-regexp', '^remote\\..*\\.url$'], cwd),
-    tryGit(['symbolic-ref', '--quiet', '--short', 'HEAD'], cwd),
-    git(['diff', '--name-only', '-z', '--no-relative'], cwd),
-    git(untracked.args, untracked.dir),
-    git(['diff', '--staged', '--name-only', '-z', '--no-relative'], cwd),
-    listWorktrees(cwd),
-  ]);
+  const [refs, head, wanted, remoteHead, remotes, branch, changed, untrackedList, staged, listed, log, shallow] =
+    await Promise.all([
+      git(['for-each-ref', '--format=%(refname:short)', 'refs/heads'], cwd),
+      tryGit(['rev-parse', '--short', 'HEAD'], cwd),
+      wantedBase === undefined ? null : tryGit(['rev-parse', '--verify', '--quiet', `${wantedBase}^{commit}`], cwd),
+      tryGit(['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD'], cwd),
+      tryGit(['config', '--get-regexp', '^remote\\..*\\.url$'], cwd),
+      tryGit(['symbolic-ref', '--quiet', '--short', 'HEAD'], cwd),
+      git(['diff', '--name-only', '-z', '--no-relative'], cwd),
+      git(untracked.args, untracked.dir),
+      git(['diff', '--staged', '--name-only', '-z', '--no-relative'], cwd),
+      listWorktrees(cwd),
+      tryGit(
+        ['log', '--first-parent', '-n', String(COMMITS_SHOWN), '--format=' + LOG_FORMAT, 'HEAD', '--'],
+        cwd,
+        false,
+      ),
+      tryGit(['rev-parse', '--is-shallow-repository'], cwd),
+    ]);
   const branches = refs.split('\n').filter(Boolean);
   if (wantedBase !== undefined && wanted === null) {
     throw new Error(`"${wantedBase}" is not a branch or commit here`);
   }
   const base = wantedBase ?? defaultBase(remoteHead, branches);
-  const ahead = base && head ? await tryGit(['rev-list', '--count', `${base}..HEAD`], cwd) : null;
+  const [ahead, branchCommits] =
+    base && head
+      ? await Promise.all([
+          tryGit(['rev-list', '--count', `${base}..HEAD`], cwd),
+          tryGit(['rev-list', '--first-parent', '-n', String(COMMITS_SHOWN), `${base}..HEAD`, '--'], cwd),
+        ])
+      : [null, null];
   const github = matchRemote(remotes ?? '', { owner: '', repo: '', number: 0 });
 
   return {
@@ -160,6 +221,7 @@ async function repoInfo(cwd: string, wantedBase: string | undefined): Promise<Re
     staged: countPaths(staged),
     github: github ? { remote: github.remote, owner: github.ref.owner, repo: github.ref.repo } : null,
     planTab: planTabOn(loadConfig(cwd)),
+    commits: parseCommits(log ?? '', new Set((branchCommits ?? '').split('\n').filter(Boolean)), shallow === 'true'),
   };
 }
 

@@ -142,11 +142,11 @@ pageTest(
   async (page) => {
     const notice = () => $$('[data-part="status-notices"] > *').find((item) => /TypeScript/.test(item.textContent!));
     assert.equal(notice(), undefined, 'nothing is claimed before the server is asked');
-    page.lsp.status = { state: 'running', version: '7.0.2', source: 'repository' };
+    page.lsp.status = { state: 'running', version: '7.0.2' };
     await pollNow();
     assert.equal(notice()!.textContent, 'TypeScript 7.0.2');
-    assert.match(notice()!.getAttribute('data-tip')!, /the repository's TypeScript 7\.0\.2/);
-    page.lsp.status = { state: 'missing', version: null, source: null };
+    assert.match(notice()!.getAttribute('data-tip')!, /Running TypeScript 7\.0\.2/);
+    page.lsp.status = { state: 'missing', version: null };
     await pollNow();
     assert.equal(notice()!.textContent, 'No TypeScript 7');
     assert.equal(notice()!.dataset.tone, 'warn');

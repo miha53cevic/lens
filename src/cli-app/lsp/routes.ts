@@ -13,7 +13,7 @@ import { createTsService, type TsService } from './service.ts';
 // is the code the viewer shows: anything else is answered `unavailable`, never with another
 // file's types.
 
-const NO_TSC = 'no TypeScript 7 found: add typescript@7 to the repository (lens runs its `tsc --lsp`)';
+const NO_TSC = "lens's TypeScript 7 isn't installed (run `bun install` in lens's checkout)";
 
 function parsePlace(body: unknown): CodePlace | { error: string } {
   const { file, line, character } = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>;
@@ -89,10 +89,10 @@ export function createLspRoutes(current: () => ViewerInput, themeOf: (url: URL) 
   const status = (): LspStatus | null => {
     if (!current().typescriptLsp) return null;
     const ts = ensure();
-    if (!ts) return { state: 'missing', version: null, source: null };
+    if (!ts) return { state: 'missing', version: null };
     if (ts.state() === 'stopped' && !started) ts.start();
     started = true;
-    return { state: ts.state(), version: ts.tsc.version, source: ts.tsc.source };
+    return { state: ts.state(), version: ts.tsc.version };
   };
   // the bar's first ask starts it; one that stops after is left stopped until the next question
   let started = false;

@@ -8,9 +8,19 @@ export function dialog(id: string): HTMLDialogElement | null {
   return document.getElementById(id) as HTMLDialogElement | null;
 }
 
+/**
+ * Opens a modal holding its own focus, not its first control's: showModal() would focus the ✕, and
+ * opened by a key (?, ,) Chromium draws the keyboard's ring on it. Tab still walks in from there.
+ * The dialog takes focus only with tabIndex={-1}.
+ */
+export function showDialog(element: HTMLDialogElement | null): void {
+  if (!element || element.open) return;
+  element.showModal();
+  element.focus({ focusVisible: false });
+}
+
 export function openDialog(id: 'settings-modal' | 'keys-modal' | 'clear-modal'): void {
-  const element = dialog(id);
-  if (element && !element.open) element.showModal();
+  showDialog(dialog(id));
 }
 
 /** Settings, on the page it was left on, or on `page` (the config notice opens it on Config). */

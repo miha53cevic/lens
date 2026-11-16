@@ -41,10 +41,16 @@ export function SequenceDiagram({
   sequence,
   moment,
   unitId,
+  fill = false,
+  onOpen,
 }: {
   sequence: SequenceView;
   moment: Moment;
   unitId: string | null;
+  /** Scaled to fill its box (the dialog), its text with it; else at its own size */
+  fill?: boolean;
+  /** A step is about to open its unit (the dialog closes first) */
+  onOpen?: () => void;
 }) {
   const steps = stepsAt(sequence.steps, moment);
   const width = sequence.lanes.length * LANE_W;
@@ -53,10 +59,10 @@ export function SequenceDiagram({
   const known = new Set(sequence.units);
 
   return (
-    <div className='overflow-x-auto px-4 py-3'>
+    <div className={fill ? 'min-h-0 flex-1' : 'overflow-x-auto px-4 py-3'}>
       <svg
-        className='mx-auto block h-auto max-w-full font-sans'
-        width={width}
+        className={fill ? 'block size-full font-sans' : 'mx-auto block h-auto max-w-full font-sans'}
+        width={fill ? undefined : width}
         viewBox={`0 0 ${width} ${height}`}
         role='img'
         aria-label={sequence.title + ' — ' + moment}
@@ -109,7 +115,14 @@ export function SequenceDiagram({
                 step.unit === unitId && unitId !== null && '[&_text]:font-bold',
               )}
               data-step={stepIndex}
-              onClick={opens ? () => openSummaryUnit(step.unit!) : undefined}
+              onClick={
+                opens
+                  ? () => {
+                      onOpen?.();
+                      openSummaryUnit(step.unit!);
+                    }
+                  : undefined
+              }
             >
               {opens && <title>{step.unit + (step.line ? ' · ' + step.line : '')}</title>}
               {self ? (

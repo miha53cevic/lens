@@ -210,7 +210,7 @@ export function ViewPages({ page }: { page: SettingsPage }) {
             <SettingRow
               label='TypeScript'
               htmlFor='typescript-lsp'
-              hint="a name's type on hover, ⌘- or Ctrl-click to its definition (the repository's TypeScript 7)"
+              hint="a name's type on hover, ⌘- or Ctrl-click to its definition (TypeScript 7, shipped with lens)"
             >
               <Switch id='typescript-lsp' checked={view.typescriptLsp} onChange={setTypescriptLsp} />
             </SettingRow>

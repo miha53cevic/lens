@@ -76,7 +76,8 @@ export function onPreviewMessage(event: MessageEvent): void {
   const frame = [...document.querySelectorAll<HTMLIFrameElement>('iframe')].find(
     (candidate) => candidate.contentWindow === event.source,
   );
-  if (!frame) return;
+  // a frame that fills (an expanded preview's) keeps its dialog's height
+  if (!frame || frame.dataset.fill !== undefined) return;
   if (message.type === 'size' && typeof message.height === 'number') {
     frame.style.height = Math.round(Math.min(FRAME_MAX, Math.max(FRAME_MIN, message.height))) + 'px';
   }

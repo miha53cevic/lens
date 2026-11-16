@@ -1,8 +1,51 @@
 import type { RepoInfo } from '../../../shared/api.ts';
-import type { ReviewChoice } from '../../../shared/choice.ts';
+import { emptyTree, type ReviewChoice } from '../../../shared/choice.ts';
 
 export type Mode = 'changes' | 'pr';
-export type Range = 'worktree' | 'staged' | 'branch' | 'custom';
+export type Range = 'worktree' | 'staged' | 'branch' | 'commits' | 'custom';
+
+/**
+ * The picked run of commits, by SHA so a new commit (the list is polled) doesn't move it: where it
+ * was started, and where it reaches. The same SHA for one commit.
+ */
+export interface Run {
+  anchor: string;
+  end: string;
+}
+
+/** The run's rows in `repo.commits`, newest first; null when either end has left the list. */
+export function runRows(repo: RepoInfo, run: Run | null): { newest: number; oldest: number } | null {
+  if (!run) return null;
+  const anchor = repo.commits.findIndex((commit) => commit.sha === run.anchor);
+  const end = repo.commits.findIndex((commit) => commit.sha === run.end);
+  if (anchor === -1 || end === -1) return null;
+  return { newest: Math.min(anchor, end), oldest: Math.max(anchor, end) };
+}
+
+/** The commits choice for a run: empty SHAs (choiceProblem's "Pick a commit") while there is none. */
+export function runChoice(repo: RepoInfo, run: Run | null): ReviewChoice {
+  const rows = runRows(repo, run);
+  if (!rows) return { kind: 'diff', range: 'commits', from: '', to: '', count: 0 };
+  const oldest = repo.commits[rows.oldest];
+  return {
+    kind: 'diff',
+    range: 'commits',
+    from: oldest.parent ?? emptyTree(oldest.sha),
+    to: repo.commits[rows.newest].sha,
+    count: rows.oldest - rows.newest + 1,
+  };
+}
+
+/** The run behind a commits review, when its commits are still in the list. */
+export function startingRun(repo: RepoInfo, current: ReviewChoice | null): Run | null {
+  if (current?.kind !== 'diff' || current.range !== 'commits') return null;
+  const newest = repo.commits.findIndex((commit) => commit.sha === current.to);
+  if (newest === -1) return null;
+  const oldest = repo.commits.findIndex(
+    (commit, index) => index >= newest && (commit.parent ?? emptyTree(commit.sha)) === current.from,
+  );
+  return oldest === -1 ? null : { anchor: repo.commits[oldest].sha, end: current.to };
+}
 
 /** The branches "this branch vs" can compare against: every other one, and the default base. */
 export function baseOptions(repo: RepoInfo): string[] {

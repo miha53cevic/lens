@@ -283,12 +283,11 @@ export interface LspDefinitionResponse {
 }
 
 /**
- * The TypeScript server as the status bar shows it. `missing`: no TypeScript 7 for the repository;
+ * The TypeScript server as the status bar shows it. `missing`: lens's own TypeScript 7 isn't installed;
  * `stopped`: it exited (the next question starts it again).
  */
 export interface LspStatus {
   state: 'starting' | 'running' | 'stopped' | 'missing';
-  /** The TypeScript found, and whose install it is; null when none is */
+  /** lens's TypeScript's version; null when it's missing */
   version: string | null;
-  source: 'repository' | 'lens' | null;
 }

@@ -334,6 +334,84 @@ test("the agent's previews and sequences: all on the overview, a unit's own on i
   }
 });
 
+test("a drawing expands into a big dialog that shares its card's moment and outline, and closes to open a unit", async () => {
+  const summary = payload.summary!;
+  const id = (name: string) => summary.units.find((unit) => unit.name === name)!.id;
+  const find = id('findOrders'),
+    legacy = id('legacyTotal');
+  const now = '/api/preview/0123456789abcdef.html',
+    before = '/api/preview/fedcba9876543210.html';
+  summary.previews = [{ title: 'Orders page', units: [find, legacy], now, before, stale: false }];
+  summary.sequences = [
+    {
+      title: 'List orders',
+      lanes: ['route', 'repo'],
+      units: [find],
+      stale: false,
+      steps: [{ from: 'route', to: 'repo', label: 'findOrders(user)', change: 'added', unit: find, line: 'N10' }],
+    },
+  ];
+  const dialog = () => document.querySelector<HTMLDialogElement>('[data-part="drawing-dialog"]');
+  const cardFrame = () => $('[data-part="preview-card"] > div > iframe') as HTMLIFrameElement;
+  const dialogFrame = () => dialog()!.querySelector('iframe')!;
+  try {
+    await open();
+    await key('v');
+    assert.equal(dialog(), null, 'nothing loads twice until it is expanded');
+    await click($('[data-part="preview-card"] [data-part="drawing-expand"]'));
+    assert.ok(dialog()?.open, 'open, as a modal');
+    assert.equal(dialog()!.querySelector('[data-part="modal-body"] iframe') !== null, true);
+    assert.equal(dialogFrame().getAttribute('src'), now);
+    assert.equal(dialogFrame().getAttribute('sandbox'), 'allow-scripts', 'the same sandbox');
+    assert.ok(dialogFrame().hasAttribute('data-fill'));
+
+    // one moment and one outline for the card and its dialog
+    await click(dialog()!.querySelector('[data-value="before"]')!);
+    assert.equal(dialogFrame().getAttribute('src'), before);
+    assert.equal(cardFrame().getAttribute('src'), before);
+    const dialogChip = (name: string) =>
+      [...dialog()!.querySelectorAll<HTMLElement>('[data-part="drawing-unit"]')].find((chip) =>
+        chip.textContent!.includes(name),
+      )!;
+    await click(dialogChip('legacyTotal'));
+    assert.equal($('#summary-pane').dataset.unit, undefined, 'the overview stays');
+    assert.equal(cardFrame().getAttribute('src'), before + '#' + encodeURIComponent(legacy));
+
+    // its screen's height doesn't shrink it: it keeps the dialog's
+    const frameWindow = new EventTarget() as unknown as Window;
+    Object.defineProperty(dialogFrame(), 'contentWindow', { value: frameWindow, configurable: true });
+    window.dispatchEvent(
+      new MessageEvent('message', { data: { lens: true, type: 'size', height: 200 }, source: frameWindow }),
+    );
+    await settle();
+    assert.equal(dialogFrame().style.height, '');
+
+    // a click on the dim around it closes it
+    fireEvent.click(dialog()!);
+    await settle();
+    assert.equal(dialog(), null);
+
+    // a sequence expands too, scaled to fill; its step closes it and opens the unit
+    await click($('[data-part="sequence-card"] [data-part="drawing-expand"]'));
+    const svg = dialog()!.querySelector('[data-part="modal-body"] svg')!;
+    assert.equal(svg.getAttribute('width'), null, 'sized by the dialog, not its own width');
+    fireEvent.click(dialog()!.querySelector('[data-part="seq-step"][data-opens]')!);
+    await settle();
+    assert.equal(dialog(), null);
+    assert.equal($('#summary-pane').dataset.unit, find);
+
+    // on a unit's page, another unit's chip closes it and opens that unit
+    await click($('[data-part="preview-card"] [data-part="drawing-expand"]'));
+    await click(dialogChip('legacyTotal'));
+    assert.equal(dialog(), null);
+    assert.equal($('#summary-pane').dataset.unit, legacy);
+  } finally {
+    summary.previews = [];
+    summary.sequences = [];
+    await close();
+  }
+});
+
 pageTest("a unit's code has the Code view's folds and toolbar keys, but shows whole", async () => {
   await key('v');
   await key('j');
@@ -451,10 +529,14 @@ test('Check yourself: on the overview while on, the answer behind a click; off, 
   }
 });
 
-test("a flow's steps head its cards to read; one step over every change has none", async () => {
+test("a flow's steps are a rail its cards to read hang on; one step over every change has none", async () => {
   const summary = payload.summary!;
   const id = (name: string) => summary.units.find((unit) => unit.name === name)!.id;
-  const steps = () => $$('[data-part="inbox-step"]').map((heading) => heading.textContent);
+  /** The rail's nodes: each step's name, with a ✓ when every change in it is read */
+  const steps = () =>
+    $$('[data-part="inbox-step"]').map(
+      (node) => node.firstChild!.textContent + (node.hasAttribute('data-done') ? ' ✓' : ''),
+    );
   const flow = { path: 'a', priority: 1 as const, why: 'x' };
   const units = { [id('findOrders')]: 'repo', [id('legacyTotal')]: 'cleanup' };
   await open({}, '', '', { ...payload, summary: { ...summary, flows: [{ ...flow, title: 'Orders', units }] } });
@@ -462,10 +544,16 @@ test("a flow's steps head its cards to read; one step over every change has none
     await key('v');
     await settle();
     assert.deepEqual(steps(), ['repo', 'cleanup']);
+    assert.ok($('[data-part="inbox-steps"]'), 'on a rail');
+    assert.equal(
+      $$('[data-part="inbox-flow-head"] [data-part="path"]').length,
+      0,
+      'the rail draws the path: the head leaves it out',
+    );
     const firstCard = $(`[data-inbox-unit="${id('findOrders')}"]`);
-    await click(firstCard.querySelector('[data-part="inbox-read-btn"]')!);
+    await click(firstCard.querySelector('[data-part="viewed-box"]')!);
     await settle();
-    assert.deepEqual(steps(), ['cleanup'], 'a read card takes its heading along, and the flow still has two steps');
+    assert.deepEqual(steps(), ['repo ✓', 'cleanup'], 'a step whose changes are all read stays on the rail, done');
   } finally {
     await close();
   }
@@ -475,6 +563,7 @@ test("a flow's steps head its cards to read; one step over every change has none
     await key('v');
     await settle();
     assert.deepEqual(steps(), []);
+    assert.equal($$('[data-part="inbox-steps"]').length, 0, 'no rail');
   } finally {
     await close();
   }
@@ -837,7 +926,7 @@ pageTest(
     assert.equal($('#summary-pane').dataset.unit, 'src/orders.ts#findOrders');
     assert.ok($$('[data-part="inbox-card"]')[0].hasAttribute('data-selected'));
 
-    await click($$('[data-part="inbox-card"] [data-part="inbox-read-btn"]')[0]);
+    await click($$('[data-part="inbox-card"] [data-part="viewed-box"]')[0]);
     assert.equal($('#summary-pane').dataset.unit, 'src/orders.ts#legacyTotal', 'the next change to read opens');
     assert.deepEqual(
       cardNames('[data-part="inbox-body"]'),
@@ -861,8 +950,9 @@ pageTest(
     await click($('[data-part="inbox-read-toggle"]'));
     assert.deepEqual(cardNames('[data-part="inbox-read"]'), ['findOrders', 'legacyTotal']);
     assert.deepEqual(
-      $$('[data-part="inbox-read"] [data-part="inbox-read-btn"]').map((button) => button.textContent),
-      ['Unread', 'Unread'],
+      $$('[data-part="inbox-read"] [data-part="viewed-box"]').map((box) => box.getAttribute('aria-checked')),
+      ['true', 'true'],
+      "the tree's tick box, ticked",
     );
   },
   {},

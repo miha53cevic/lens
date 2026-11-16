@@ -6,8 +6,10 @@ import { join } from 'node:path';
 import {
   choiceArgs,
   choiceCommand,
+  choiceCommandShown,
   choiceLabel,
   choiceProblem,
+  emptyTree,
   parseChoice,
   splitArgs,
   type ReviewChoice,
@@ -29,7 +31,11 @@ test('choiceArgs: each choice is the words you would type after `lens`', () => {
     'my dir/a.ts',
   ]);
   assert.deepEqual(choiceArgs({ kind: 'pr', ref: ' 482 ' }), ['pr', '482']);
+  assert.deepEqual(choiceArgs({ kind: 'diff', range: 'commits', from: A, to: B, count: 2 }), ['diff', A, B]);
 });
+
+const A = 'a'.repeat(40);
+const B = 'b'.repeat(40);
 
 test('choiceCommand and choiceLabel: what the picker and the tab show', () => {
   assert.equal(choiceCommand({ kind: 'diff', range: 'worktree' }), 'lens diff');
@@ -41,6 +47,12 @@ test('choiceCommand and choiceLabel: what the picker and the tab show', () => {
   assert.equal(choiceLabel({ kind: 'diff', range: 'staged' }), 'staged changes');
   assert.equal(choiceLabel({ kind: 'diff', range: 'branch', base: 'main' }), 'vs main');
   assert.equal(choiceLabel({ kind: 'pr', ref: '482' }), 'PR #482');
+  const run = { kind: 'diff', range: 'commits', from: A, to: B, count: 3 } as const;
+  assert.equal(choiceCommand(run), `lens diff ${A} ${B}`, 'the full SHAs are what runs, and what is copied');
+  assert.equal(choiceCommandShown(run), 'lens diff aaaaaaa bbbbbbb');
+  assert.equal(choiceCommandShown({ kind: 'diff', range: 'staged' }), null);
+  assert.equal(choiceLabel(run), 'bbbbbbb +2');
+  assert.equal(choiceLabel({ ...run, count: 1 }), 'bbbbbbb');
   assert.equal(choiceLabel({ kind: 'pr', ref: 'https://github.com/acme/storefront/pull/482/files' }), 'PR #482');
 });
 
@@ -59,6 +71,7 @@ test('choiceProblem: an empty choice, or a lens flag typed as a git diff argumen
     '"--output=x" is not a branch name',
   );
   assert.equal(choiceProblem({ kind: 'pr', ref: '--json' }), '"--json" is not a PR number or URL');
+  assert.equal(choiceProblem({ kind: 'diff', range: 'commits', from: '', to: '', count: 0 }), 'Pick a commit');
 });
 
 test('parseChoice: what a page sends is a choice or nothing, never a command line', () => {
@@ -72,6 +85,13 @@ test('parseChoice: what a page sends is a choice or nothing, never a command lin
     base: 'main',
   });
   assert.deepEqual(parseChoice({ kind: 'pr', ref: '482', extra: true }), { kind: 'pr', ref: '482' });
+  assert.deepEqual(parseChoice({ kind: 'diff', range: 'commits', from: emptyTree(B), to: B, count: 4 }), {
+    kind: 'diff',
+    range: 'commits',
+    from: '4b825dc642cb6eb9a060e54bf8d69288fbee4904',
+    to: B,
+    count: 4,
+  });
   for (const bad of [
     null,
     'diff',
@@ -81,6 +101,11 @@ test('parseChoice: what a page sends is a choice or nothing, never a command lin
     { kind: 'pr', ref: 482 },
     { kind: 'diff', range: 'custom', args: ['--json'] },
     { kind: 'diff', range: 'custom', args: 'x'.repeat(2001) },
+    { kind: 'diff', range: 'commits', from: 'HEAD~2', to: B, count: 2 },
+    { kind: 'diff', range: 'commits', from: '--output=x', to: B, count: 2 },
+    { kind: 'diff', range: 'commits', from: A, to: B.slice(0, 7), count: 2 },
+    { kind: 'diff', range: 'commits', from: A, to: B, count: 0 },
+    { kind: 'diff', range: 'commits', from: A, to: B, count: 1.5 },
   ]) {
     assert.equal(parseChoice(bad), null, JSON.stringify(bad)?.slice(0, 40));
   }
@@ -110,6 +135,14 @@ test('every kind of choice is something the real lens CLI opens', async () => {
     writeFileSync(join(dir, 'src/orders.ts'), 'export const later = 1;\n'); // not part of the branch's own changes
     const base = git('branch', '--list', 'main', 'master').replace('*', '').trim();
     assert.deepEqual(await files({ kind: 'diff', range: 'branch', base }), ['src/orders.ts']);
+
+    // a run of commits: the one above, from its parent; and from the very first commit, the empty tree
+    const head = git('rev-parse', 'HEAD').trim();
+    const commits = { kind: 'diff', range: 'commits', to: head } as const;
+    assert.deepEqual(await files({ ...commits, from: git('rev-parse', 'HEAD^').trim(), count: 1 }), ['src/orders.ts']);
+    const root = git('rev-list', '--max-parents=0', 'HEAD').trim();
+    const everything = await files({ ...commits, from: emptyTree(root), count: 2 });
+    assert.ok(everything.includes('src/orders.ts') && everything.length > 1, 'every file the history added');
 
     // a PR needs a GitHub remote: the CLI's answer shows it took the words as a PR reference
     git('remote', 'add', 'origin', join(dir, 'elsewhere.git'));

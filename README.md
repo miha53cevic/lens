@@ -37,7 +37,7 @@ Then in the app, **Settings → Agent** installs the `lens` command and the agen
 
 ## Use it
 
-Open the app, pick a repository and what to review (your changes, a branch, or a PR). Then ask
+Open the app, pick a repository and what to review (your changes, a branch, some commits, or a PR). Then ask
 your agent for the summary:
 
 ```bash
@@ -85,7 +85,7 @@ Add a `.lens.json` to your repository; it merges over [lens's defaults](lens.def
 | `buildPreviews` | the summary includes UI previews and run-time diagrams (default `true`) |
 | `selfChecks` | the summary includes questions to check yourself (default `false`) |
 | `planTab` | show the Plan tab (default `true`) |
-| `typescriptLsp` | TypeScript hover and go-to-definition (default `false`) |
+| `typescriptLsp` | TypeScript hover and go-to-definition, by the TypeScript 7 lens ships with (default `false`) |
 | `timings` | record how long lens's steps take (default `true`) |
 
 The last five are also switches in Settings, which win over the file. Folding works on

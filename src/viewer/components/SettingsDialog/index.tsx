@@ -52,6 +52,7 @@ export function SettingsDialog() {
   return (
     <dialog
       id='settings-modal'
+      tabIndex={-1}
       className={cn(DIALOG, 'h-[min(36rem,calc(var(--screen-h)*0.85))] w-[min(800px,calc(var(--screen-w)*0.9))]')}
     >
       <ModalHead title='Settings' />
