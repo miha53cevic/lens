@@ -6,7 +6,7 @@ import type { ClearRequest } from '../../cli-app/api/contract.ts';
 import type { ClearScope } from '../../cli-app/clear.ts';
 import { commit, getState, type LensState, update } from '../store.ts';
 import { countText } from '../../cli-app/text.ts';
-import { dialog } from './dialogs.ts';
+import { dialog, showDialog } from './dialogs.ts';
 import { api, noteDone, tracked } from './status.ts';
 
 /** Something this browser keeps that the reader can clear */
@@ -36,8 +36,7 @@ export async function openClearData(): Promise<void> {
     async () => {
       const info = await api('GET /api/clear');
       commit({ clearInfo: { ...info, opened: Date.now() } });
-      const element = dialog('clear-modal');
-      if (element && !element.open) element.showModal();
+      showDialog(dialog('clear-modal'));
     },
   );
 }

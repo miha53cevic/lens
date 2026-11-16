@@ -19,7 +19,7 @@ export function KeysDialog() {
   const shown = tabs.find((keyTab) => keyTab.id === tab) ?? tabs[0];
 
   return (
-    <dialog id='keys-modal' className={cn(DIALOG, 'h-[min(34rem,calc(var(--screen-h)*0.8))]')}>
+    <dialog id='keys-modal' tabIndex={-1} className={cn(DIALOG, 'h-[min(34rem,calc(var(--screen-h)*0.8))]')}>
       <ModalHead title='Keyboard shortcuts' />
       {/* outside the body: the keys scroll under the tabs, not with them */}
       <div data-part='key-tabs' className='flex-none px-4 pt-4 pb-3'>

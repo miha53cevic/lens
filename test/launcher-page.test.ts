@@ -316,10 +316,10 @@ pageTest(
   async (page) => {
     assert.equal(text('[data-part="repo-id"]'), 'storefrontfeature~/repos/storefront');
     // nothing changed in the working tree, two files staged: Staged is where it starts
-    assert.deepEqual(choices(), ['worktree', '*staged', 'branch', 'commits', 'custom']);
+    assert.deepEqual(choices(), ['worktree', '*staged', 'commits', 'branch', 'custom']);
     assert.deepEqual(
       $$('[data-part="choice-meta"]').map((meta) => meta.textContent),
-      ['0 files', '2 files', '5 commits', '', ''],
+      ['0 files', '2 files', '', '5 commits', ''],
     );
     assert.equal(text('[data-part="copy-cmd-text"]'), 'lens diff --staged');
 
@@ -409,7 +409,7 @@ pageTest(
   'launcher',
   { ...PICKER, repo: { ...REPO, changed: 0, staged: 0, ahead: 0, planTab: true } },
   async (page) => {
-    assert.deepEqual(choices(), ['*worktree', 'staged', 'branch', 'commits', 'custom']);
+    assert.deepEqual(choices(), ['*worktree', 'staged', 'commits', 'branch', 'custom']);
     assert.ok(!$('[data-part="choice"][data-range="worktree"]').hasAttribute('data-disabled'));
     assert.equal(
       text('[data-part="choice"][data-range="worktree"] [data-part="choice-sub"]'),
@@ -434,26 +434,26 @@ pageTest(
     await type($('#picker-base'), 'release');
     assert.deepEqual(
       choices(),
-      ['worktree', 'staged', '*branch', 'commits', 'custom'],
+      ['worktree', 'staged', 'commits', '*branch', 'custom'],
       'picking a base picks its choice',
     );
     assert.equal(text('[data-part="copy-cmd-text"]'), 'lens diff release...HEAD');
     assert.deepEqual(page.calls, [['setBase', 'release']], 'the commits are recounted against it');
     assert.equal(
-      $$('[data-part="choice-meta"]')[2].textContent,
+      $('[data-range="branch"] [data-part="choice-meta"]').textContent,
       '',
       'the count shown was against main: gone until the new one arrives',
     );
     await page.push({ ...PICKER, repo: { ...REPO, base: 'release', ahead: 2 } });
-    assert.equal($$('[data-part="choice-meta"]')[2].textContent, '2 commits');
+    assert.equal($('[data-range="branch"] [data-part="choice-meta"]').textContent, '2 commits');
     assert.deepEqual(
       choices(),
-      ['worktree', 'staged', '*branch', 'commits', 'custom'],
+      ['worktree', 'staged', 'commits', '*branch', 'custom'],
       'the picker keeps what was picked',
     );
 
     await type($('#picker-custom'), 'HEAD~3 -- "my dir"');
-    assert.deepEqual(choices(), ['worktree', 'staged', 'branch', 'commits', '*custom']);
+    assert.deepEqual(choices(), ['worktree', 'staged', 'commits', 'branch', '*custom']);
     assert.equal(text('[data-part="copy-cmd-text"]'), 'lens diff HEAD~3 -- "my dir"');
     await click($('#open-review'));
     assert.deepEqual(page.calls.at(-1), ['open', { kind: 'diff', range: 'custom', args: 'HEAD~3 -- "my dir"' }]);
@@ -604,7 +604,7 @@ pageTest(
     current: { kind: 'diff', range: 'commits', from: 'b'.repeat(40), to: 'd'.repeat(40), count: 2 },
   } satisfies LauncherState,
   async () => {
-    assert.deepEqual(choices(), ['worktree', 'staged', 'branch', '*commits', 'custom']);
+    assert.deepEqual(choices(), ['worktree', 'staged', '*commits', 'branch', 'custom']);
     assert.equal(text('[data-part="commits-picked"]'), 'ccccccc → ddddddd');
     assert.equal(text('[data-part="copy-cmd-text"]'), 'lens diff bbbbbbb ddddddd');
   },
@@ -615,7 +615,7 @@ pageTest(
   'launcher',
   { ...PICKER, current: { kind: 'diff', range: 'branch', base: 'release' } } satisfies LauncherState,
   async () => {
-    assert.deepEqual(choices(), ['worktree', 'staged', '*branch', 'commits', 'custom']);
+    assert.deepEqual(choices(), ['worktree', 'staged', 'commits', '*branch', 'custom']);
     assert.equal(($('#picker-base') as HTMLSelectElement).value, 'release');
     assert.equal(text('[data-part="copy-cmd-text"]'), 'lens diff release...HEAD');
     assert.equal($('#picker-back').getAttribute('aria-label'), 'Back to the review');

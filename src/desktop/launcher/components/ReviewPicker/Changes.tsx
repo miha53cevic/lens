@@ -79,6 +79,28 @@ export function Changes({ repo, range, onRange, base, onBase, custom, onCustom, 
       />
       <RangeChoice
         {...shared}
+        value='commits'
+        disabled={repo.commits.length === 0}
+        name='Commits'
+        sub={
+          repo.commits.length > 0
+            ? "One commit, or a run of them, from this branch's history"
+            : 'There are no commits yet'
+        }
+        meta={rows ? plural(rows.oldest - rows.newest + 1, 'commit') : ''}
+      />
+      {range === 'commits' && (
+        <Commits
+          repo={repo}
+          run={run}
+          onRun={(next) => {
+            onRange('commits');
+            onRun(next);
+          }}
+        />
+      )}
+      <RangeChoice
+        {...shared}
         value='branch'
         disabled={bases.length === 0}
         name={
@@ -103,28 +125,6 @@ export function Changes({ repo, range, onRange, base, onBase, custom, onCustom, 
         // the count is against the base it was asked for: shown once it is this one's
         meta={bases.length > 0 && repo.base === base && repo.ahead !== null ? plural(repo.ahead, 'commit') : ''}
       />
-      <RangeChoice
-        {...shared}
-        value='commits'
-        disabled={repo.commits.length === 0}
-        name='Commits'
-        sub={
-          repo.commits.length > 0
-            ? "One commit, or a run of them, from this branch's history"
-            : 'There are no commits yet'
-        }
-        meta={rows ? plural(rows.oldest - rows.newest + 1, 'commit') : ''}
-      />
-      {range === 'commits' && (
-        <Commits
-          repo={repo}
-          run={run}
-          onRun={(next) => {
-            onRange('commits');
-            onRun(next);
-          }}
-        />
-      )}
       <RangeChoice
         {...shared}
         value='custom'

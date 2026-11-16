@@ -70,13 +70,18 @@ export function Commits({ repo, run, onRun }: CommitsProps) {
         aria-multiselectable
         tabIndex={0}
         onKeyDown={onKeyDown}
-        className='grid py-1 outline-offset-[-2px] focus-visible:outline-2 focus-visible:outline-focus'
+        // a click focuses it without the keyboard's ring: Chromium shows that ring after a key, and ⇧
+        // is held for a run. Taking the click's default also keeps it from selecting text
+        onMouseDown={(event) => {
+          event.preventDefault();
+          event.currentTarget.focus({ focusVisible: false });
+        }}
+        // ⇧ click picks a run, not the text between two clicks
+        className='grid py-1 outline-offset-[-2px] select-none focus-visible:outline-2 focus-visible:outline-focus'
       >
         {commits.map((commit, index) => {
           const picked = rows !== null && index >= rows.newest && index <= rows.oldest;
           const end = picked && (index === rows.newest || index === rows.oldest);
-          // where the branch left its base: the first commit the base has, under the branch's own
-          const leftBase = index > 0 && commits[index - 1].onBranch && !commit.onBranch;
           return (
             <div
               key={commit.sha}
@@ -87,13 +92,12 @@ export function Commits({ repo, run, onRun }: CommitsProps) {
               onClick={(event) => pick(index, event.shiftKey)}
               {...listRow(
                 picked,
-                'group/commit grid cursor-pointer grid-cols-[16px_56px_minmax(0,1fr)_auto] items-center gap-2 rounded-none px-3 py-1 text-md data-selected:shadow-none' +
-                  (leftBase ? ' border-t border-dashed border-line' : ''),
+                'group/commit grid cursor-pointer grid-cols-[16px_56px_minmax(0,1fr)_auto] items-center gap-2 rounded-none px-3 py-1 text-md data-selected:shadow-none',
               )}
             >
               <span
                 className={
-                  'relative h-full before:absolute before:inset-y-[-4px] before:left-[7px] before:w-[2px] before:bg-line after:absolute after:top-1/2 after:left-1 after:size-2 after:-translate-y-1/2 after:rounded-full after:border-2 after:border-faint after:bg-surface group-data-selected/commit:before:bg-accent group-data-selected/commit:after:border-accent group-data-selected/commit:after:bg-accent'
+                  'relative h-full before:absolute before:inset-y-[-4px] before:left-1/2 before:w-[2px] before:-translate-x-1/2 before:bg-line after:absolute after:top-1/2 after:left-1/2 after:size-2 after:-translate-1/2 after:rounded-full after:border-2 after:border-faint after:bg-surface group-data-selected/commit:before:bg-accent group-data-selected/commit:after:border-accent group-data-selected/commit:after:bg-accent'
                 }
               />
               <span className={'font-mono text-sm ' + (end ? 'font-semibold text-accent' : 'text-faint')}>

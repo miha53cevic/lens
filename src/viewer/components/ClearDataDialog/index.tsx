@@ -16,7 +16,7 @@ import { KindRow } from './KindRow.tsx';
 export function ClearDataDialog() {
   const info = useLens((state) => state.clearInfo);
   return (
-    <dialog id='clear-modal' className={cn(DIALOG, 'w-[min(480px,calc(var(--screen-w)*0.9))]')}>
+    <dialog id='clear-modal' tabIndex={-1} className={cn(DIALOG, 'w-[min(480px,calc(var(--screen-w)*0.9))]')}>
       <ModalHead title='Clear saved data' />
       {/* a fresh pick on every opening: nothing stays ticked from the last one */}
       {info && <Picker key={info.opened} kinds={info.kinds} />}

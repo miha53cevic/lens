@@ -572,6 +572,11 @@ pageTest('Settings (,) holds the view settings, a page per section of its rail',
   ($('#settings-modal') as HTMLDialogElement).close();
   await click($('#keys-btn'));
   assert.ok(($('#keys-modal') as HTMLDialogElement).open);
+  assert.equal(
+    document.activeElement,
+    $('#keys-modal'),
+    'the dialog holds focus, not its ✕: opened by a key, the ✕ would wear the keyboard ring',
+  );
 });
 
 pageTest("a light theme from the theme menu turns the page light, with the theme's accent", async (page) => {

@@ -3,6 +3,7 @@ import { Maximize2 } from 'lucide-react';
 import { DIALOG, ModalHead } from '../../ModalHead.tsx';
 import { cn } from '../../../../ui/cn.ts';
 import { IconButton } from '../../../../ui/IconButton.tsx';
+import { showDialog } from '../../../actions/dialogs.ts';
 
 /** The button in a drawing card's head that opens it big. */
 export function ExpandButton({ onExpand }: { onExpand: () => void }) {
@@ -30,12 +31,11 @@ interface DrawingDialogProps {
  * open, so a card loads its preview once; it opens itself as it mounts.
  */
 export function DrawingDialog({ title, stale, controls, footer, onClose, children }: DrawingDialogProps) {
-  const open = useCallback((dialog: HTMLDialogElement | null) => {
-    if (dialog && !dialog.open) dialog.showModal();
-  }, []);
+  const open = useCallback((dialog: HTMLDialogElement | null) => showDialog(dialog), []);
   return (
     <dialog
       ref={open}
+      tabIndex={-1}
       data-part='drawing-dialog'
       className={cn(
         DIALOG,
