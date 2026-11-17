@@ -1,4 +1,4 @@
-// lens viewer: keyboard shortcuts (listed in the ? help, KEY_TABS in components/KeysDialog/const.ts).
+// lens viewer: keyboard shortcuts (listed in the ? help, KEY_GROUPS in components/KeysDialog/const.ts).
 
 import { getState } from './store.ts';
 import { activeFile } from './model/plans.ts';
@@ -7,7 +7,7 @@ import { treeModel } from './model/tree.ts';
 import { isBusy } from './model/status.ts';
 import { closeTab, pinTab, stepFile } from './actions/tabs.ts';
 import { collapseAll, expandAll } from './actions/folds.ts';
-import { openDialog, openSearch, openSettings } from './actions/dialogs.ts';
+import { openKeys, openSearch, openSettings } from './actions/dialogs.ts';
 import { openUnitInCode, showOverview, stepSummary } from './actions/summary.ts';
 import { refresh } from './actions/session.ts';
 import {
@@ -103,7 +103,7 @@ export function onKeyDown(event: KeyboardEvent): void {
   const diffMode = isDiffMode(state.data);
   switch (event.key) {
     case '?':
-      openDialog('keys-modal');
+      openKeys();
       event.preventDefault();
       break;
     case ',':

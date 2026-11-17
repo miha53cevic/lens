@@ -385,30 +385,46 @@ pageTest(
   { navCollapsed: true },
 );
 
-pageTest('? opens the shortcuts in tabs: Global, Code and Summary', async () => {
+pageTest('? opens every shortcut on one page, in groups, the view the reader is in first', async () => {
   await key('?');
   assert.ok(($('#keys-modal') as HTMLDialogElement).open);
-  const tabs = () =>
-    $$('#key-tabs [role="tab"]').map(
-      (tab) => tab.textContent + (tab.getAttribute('aria-selected') === 'true' ? '*' : ''),
+  assert.equal(document.activeElement, $('#keys-filter'), 'what is typed next filters');
+  const groups = () =>
+    $$('#keys-modal [data-part="key-group"]').map(
+      (group) => group.dataset.group + (group.hasAttribute('data-here') ? '*' : ''),
     );
-  const keys = () => $$('#keys-modal tr td:first-child').map((cell) => cell.textContent);
-  assert.deepEqual(tabs(), ['Global*', 'Code', 'Summary']);
+  const rows = () =>
+    $$('#keys-modal [data-part="key-row"]').map(
+      (row) => row.querySelector('[data-part="key-combos"]')!.textContent + ' ' + row.firstElementChild!.textContent,
+    );
+  assert.deepEqual(groups(), ['code*', 'find', 'views', 'code-display', 'diff-display', 'actions', 'summary']);
   // each key its own keycap: ⌘P is ⌘ and P
-  const search = $$('#keys-modal tr td:first-child').find((cell) => cell.textContent!.includes('Ctrl'))!;
+  const search = $$('#keys-modal [data-part="key-row"]').find((row) => row.textContent!.includes('Search in files'))!;
   assert.deepEqual(
     [...search.querySelectorAll('kbd')].map((cap) => cap.textContent),
     ['⌘', 'P', 'Ctrl', 'P'],
   );
   // a capital letter is drawn with its shift
-  const nextNote = $$('#keys-modal tr').find((row) => row.textContent!.includes('next note'))!;
+  const nextNote = $$('#keys-modal [data-part="key-row"]').find((row) => row.textContent!.includes('Next note'))!;
   assert.deepEqual(
     [...nextNote.querySelectorAll('kbd')].map((cap) => cap.textContent),
     ['⇧', 'N'],
   );
-  await click($('#key-tabs [data-value="summary"]'));
-  assert.deepEqual(tabs(), ['Global', 'Code', 'Summary*']);
-  assert.deepEqual(keys(), ['g', 'j / k', 'o', 'm', '/']);
+  const jk = $$('#keys-modal [data-part="key-row"]').find((row) => row.textContent!.includes('Next / previous file'))!;
+  assert.equal(jk.querySelectorAll('[data-part="key-combos"]').length, 1, 'j and k share one cell');
+
+  // a key finds itself, not every action with that letter in it
+  await type($('#keys-filter'), 'j');
+  assert.deepEqual(rows(), ['j/k Next / previous file', 'j/k Next / previous changeinto a folded flow too']);
+  await type($('#keys-filter'), 'word');
+  assert.deepEqual(rows(), ['d Word diff']);
+  assert.deepEqual(groups(), ['diff-display']);
+  await type($('#keys-filter'), 'nothing like it');
+  assert.equal($('#keys-modal .no-match')?.textContent, 'no shortcut matches');
+
+  ($('#keys-modal') as HTMLDialogElement).close();
+  await settle();
+  assert.equal(($('#keys-filter') as HTMLInputElement).value, '', 'closing clears the filter');
 });
 
 pageTest('search lists where a name is defined, then its usages; Enter jumps, even into a hidden stretch', async () => {

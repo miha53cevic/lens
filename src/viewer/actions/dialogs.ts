@@ -23,6 +23,12 @@ export function openDialog(id: 'settings-modal' | 'keys-modal' | 'clear-modal'):
   showDialog(dialog(id));
 }
 
+/** The ? help, with its filter taking the keys: what's typed next finds a shortcut. */
+export function openKeys(): void {
+  openDialog('keys-modal');
+  document.getElementById('keys-filter')?.focus();
+}
+
 /** Settings, on the page it was left on, or on `page` (the config notice opens it on Config). */
 export function openSettings(page?: SettingsPage): void {
   if (page) update({ settingsPage: page });
