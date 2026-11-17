@@ -1,4 +1,4 @@
-// One tab: the start screen, a repository's picker, a running review, the settings, or the sandbox. This is
+// One tab: the start screen, a repository's picker, a running review, Setup, or the sandbox. This is
 // the tab's logic, without Electron: what it shows is reported to a TabHost, which the window
 // implements with real views and the tests with a fake.
 
@@ -42,7 +42,7 @@ interface Review {
 }
 
 /** A screen with a tab to itself, one per window: opening it again goes to that tab. */
-export type OwnScreen = 'settings' | 'sandbox';
+export type OwnScreen = 'setup' | 'sandbox';
 
 const IDLE: LauncherStatus = { kind: 'idle' };
 
@@ -120,7 +120,7 @@ export class Tab {
 
   strip(): StripTab {
     const { id } = this;
-    if (this.screen === 'settings') return { id, icon: 'settings', title: 'Settings', detail: '', canChange: false };
+    if (this.screen === 'setup') return { id, icon: 'setup', title: 'Setup', detail: '', canChange: false };
     if (this.screen === 'sandbox') return { id, icon: 'sandbox', title: 'Sandbox', detail: '', canChange: false };
     if (!this.repo) {
       // a reopened tab says whose it is before its repository has been read

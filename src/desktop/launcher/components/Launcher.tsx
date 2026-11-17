@@ -2,7 +2,7 @@ import { Sandbox } from '../../../ui/sandbox/Sandbox.tsx';
 import { useLauncher } from '../store.ts';
 import { Reopening } from './Reopening.tsx';
 import { ReviewPicker } from './ReviewPicker/index.tsx';
-import { Settings } from './Settings.tsx';
+import { Setup } from './Setup.tsx';
 import { Start } from './Start/index.tsx';
 import { StatusLine } from './StatusLine.tsx';
 
@@ -23,7 +23,7 @@ export function Launcher() {
       <div className='relative flex min-h-0 flex-1 flex-col'>
         {!reopening && screen === 'start' && <Start />}
         {!reopening && screen === 'picker' && hasRepo && <ReviewPicker key={pickerKey} />}
-        {screen === 'settings' && <Settings />}
+        {screen === 'setup' && <Setup />}
         {screen === 'sandbox' && <Sandbox />}
         {(reopening || opening) && <Reopening />}
       </div>

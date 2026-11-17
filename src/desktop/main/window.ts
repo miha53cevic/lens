@@ -184,7 +184,7 @@ export class AppWindow implements TabHost {
     this.restoring = true;
     const tabs = stored.map(() => this.addTab('start'));
     const front = stored.findIndex((tab) => tab.root === session.tabs[session.active]?.root);
-    // a tab that isn't kept was in front (Start, Settings, the sandbox): a new one is, again
+    // a tab that isn't kept was in front (Start, Setup, the sandbox): a new one is, again
     if (front === -1) this.addTab('start');
     else this.selectTab(tabs[front].id);
     void Promise.all(tabs.map((tab, index) => tab.restore(stored[index].root, stored[index].choice))).then(
@@ -231,11 +231,11 @@ export class AppWindow implements TabHost {
     await tab.close();
   }
 
-  openSettings(): void {
-    this.openOwn('settings');
+  openSetup(): void {
+    this.openOwn('setup');
   }
 
-  /** The design system's sandbox: Settings leads to it. */
+  /** The design system's sandbox: Setup leads to it. */
   openSandbox(): void {
     this.openOwn('sandbox');
   }
@@ -368,6 +368,7 @@ export class AppWindow implements TabHost {
       platform: process.platform,
       fullscreen: this.win.isFullScreen(),
       hints: this.hints,
+      setupMissing: Object.values(setupState(this.deps.setup)).some((item) => item.state === 'missing'),
     };
   }
 
@@ -530,7 +531,7 @@ export class AppWindow implements TabHost {
         this.selectTab(id);
         this.tabs.get(id)?.change();
       },
-      settings: () => this.openSettings(),
+      setup: () => this.openSetup(),
       themeMenu: (right, bottom) => this.toggleMenu(right, bottom),
       chrome: (color, symbolColor) => {
         this.pageBackground = color;
@@ -596,7 +597,7 @@ export class AppWindow implements TabHost {
         await this.deps.themes.load().catch(() => {});
         this.show();
       },
-      settings: () => this.openSettings(),
+      setup: () => this.openSetup(),
       sandbox: () => this.openSandbox(),
       install: (part) => this.setup(tab, 'install', part),
       uninstall: (part) => this.setup(tab, 'uninstall', part),
@@ -612,6 +613,7 @@ export class AppWindow implements TabHost {
       const label = action === 'install' ? `Couldn't install ${what}` : `Couldn't remove ${what}`;
       tab.set({ kind: 'failed', label, detail: (error as Error).message });
     }
+    this.sendStrip();
   }
 
   /** For the menu and the smoke run: the views of the tab in front. */

@@ -33,7 +33,7 @@ xattr -dr com.apple.quarantine /Applications/Lens.app
 
 **From source** (needs [Bun](https://bun.com) 1.4+ and git): `bun install`, then `bun run app`.
 
-Then in the app, **Settings → Agent** installs the `lens` command and the agent skills.
+Then in the app, **Setup** (the plug in the tab strip) installs the `lens` command and the agent skills.
 
 ## Use it
 

@@ -13,7 +13,7 @@ export function setAppMenu(window: AppWindow): void {
       label: 'File',
       submenu: [
         { label: 'New Tab', click: () => void window.addTab('start') },
-        { label: 'Settings…', click: () => window.openSettings() },
+        { label: 'Setup…', click: () => window.openSetup() },
         { type: 'separator' },
         {
           label: 'Close Tab',

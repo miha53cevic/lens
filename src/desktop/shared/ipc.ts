@@ -36,7 +36,7 @@ export const STRIP_ARGS: Parsers<StripApi> = {
   add: none,
   change: id,
   themeMenu: ([right, bottom]) => (isNumber(right) && isNumber(bottom) ? [right, bottom] : null),
-  settings: none,
+  setup: none,
   chrome: ([color, symbolColor]) => (isHexColor(color) && isHexColor(symbolColor) ? [color, symbolColor] : null),
 };
 
@@ -56,7 +56,7 @@ export const LAUNCHER_ARGS: Parsers<LauncherApi> = {
   back: none,
   showRunning: none,
   recheck: none,
-  settings: none,
+  setup: none,
   sandbox: none,
   install: part,
   uninstall: part,

@@ -52,7 +52,7 @@ export class TabList {
     return this.tabs.find((tab) => tab !== except && tab.repo?.root === root) ?? null;
   }
 
-  /** The tab Settings or the sandbox has, if it is open: each gets one. */
+  /** The tab Setup or the sandbox has, if it is open: each gets one. */
   onScreen(screen: OwnScreen): Tab | null {
     return this.tabs.find((tab) => tab.screen === screen) ?? null;
   }

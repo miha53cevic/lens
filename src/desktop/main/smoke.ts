@@ -1,5 +1,5 @@
 // A scripted run of the real app, for `bun run app:smoke` (scripts/smoke.ts): it opens a repository, starts
-// a review, opens Settings and switches the theme, saving a picture of each page and what it
+// a review, opens Setup and switches the theme, saving a picture of each page and what it
 // found. The script then starts the app a second time on the same data, and that run checks that
 // the window and its tab came back as the first run left them.
 // It is how a build is checked without a person clicking through it.
@@ -116,12 +116,12 @@ export async function runSmoke(window: AppWindow, themes: Themes, repo: string):
       })()`,
     );
 
-    window.openSettings();
-    await shot('4-settings', window.frontViews()!.launcher.webContents);
-    // the design system's sandbox, which Settings leads to: a tab of its own
+    window.openSetup();
+    await shot('4-setup', window.frontViews()!.launcher.webContents);
+    // the design system's sandbox, which Setup leads to: a tab of its own
     window.openSandbox();
     await shot('4-sandbox', window.frontViews()!.launcher.webContents);
-    window.openSettings();
+    window.openSetup();
 
     // the strip's theme menu: the viewer's, in a view of its own over the window
     await read(strip, "document.getElementById('theme-btn').click()");
@@ -142,7 +142,7 @@ export async function runSmoke(window: AppWindow, themes: Themes, repo: string):
     await until('the app to take the theme', () => themes.current.name === 'github-light');
     report.themeMenuClosed = !window.menuOpen;
     await pause(900); // the viewer fetches the theme's tokens
-    await shot('5-settings-light', window.frontViews()!.launcher.webContents);
+    await shot('5-setup-light', window.frontViews()!.launcher.webContents);
     await shot('5-strip-light', strip);
     window.selectTab(tab.id);
     report.viewerTheme = await read<string>(viewer, 'document.documentElement.dataset.appearance');

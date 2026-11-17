@@ -52,6 +52,8 @@ async function start(): Promise<void> {
     () => zoom.current,
   );
   await Promise.all([themes.load(), zoom.load()]);
+  // lens's version: Electron's own is what About shows from a checkout
+  if (themes.version) app.setAboutPanelOptions({ applicationName: 'lens', applicationVersion: themes.version });
   themes.watch();
   zoom.watch();
 

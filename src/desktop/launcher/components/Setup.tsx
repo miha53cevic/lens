@@ -54,22 +54,22 @@ function SetupRow({ part, icon, name, what, item, busy }: SetupRowProps) {
   );
 }
 
-/** Settings, in a tab of its own: what your agent needs to work with lens, and the way to the sandbox. */
-export function Settings() {
+/** Setup, in a tab of its own: what your agent needs to work with lens, and the way to the sandbox. */
+export function Setup() {
   const setup = useApp((state) => state.setup);
   const git = useApp((state) => state.git);
   const version = useApp((state) => state.version);
   const busy = useApp((state) => state.status.kind === 'working');
   return (
     <main
-      data-part='settings'
+      data-part='setup'
       className='min-h-0 flex-1 overflow-y-auto motion:[transition:opacity_var(--motion-move)] motion:starting:opacity-0'
     >
       <div className='mx-auto w-full max-w-[660px] px-5 pb-7'>
         <div className='mt-6 mb-4 flex flex-wrap items-center gap-4 [&_h1]:m-0 [&_h1]:font-serif [&_h1]:text-xl/[1.2] [&_h1]:font-bold'>
-          <h1>Settings</h1>
+          <h1>Setup</h1>
           <span className='flex-1' />
-          <span data-part='settings-version' className='text-faint'>
+          <span data-part='setup-version' className='text-faint'>
             lens {version}
           </span>
         </div>

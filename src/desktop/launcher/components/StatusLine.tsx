@@ -41,14 +41,14 @@ function shown(state: LauncherState): BarStatus {
 export function StatusLine() {
   const state = useApp((whole) => whole);
   const notices: BarNotice[] = [];
-  // true when it shows: only where it helps (not on Settings, which is where it leads)
-  if (state.screen !== 'settings' && state.setup.cli.state === 'missing') {
+  // true when it shows: only where it helps (not on Setup, which is where it leads)
+  if (state.screen !== 'setup' && state.setup.cli.state === 'missing') {
     notices.push({
       id: 'setup',
       buttonId: 'setup-notice',
       text: "The lens command isn't installed · Set up",
       tone: 'warn',
-      run: () => window.lensApp.launcher.settings(),
+      run: () => window.lensApp.launcher.setup(),
     });
   }
   if (state.git) notices.push({ id: 'git', text: 'git ' + state.git, tone: 'plain' });

@@ -242,7 +242,7 @@ pageTest(
     await page.push({ ...START, recents: [], setup: missing });
     assert.equal($$('[data-part="recents"]').length, 0, 'no Recent section without recents');
     await click($('#setup-notice'));
-    assert.deepEqual(page.calls.at(-1), ['settings']);
+    assert.deepEqual(page.calls.at(-1), ['setup']);
 
     await page.push({
       ...START,
@@ -480,10 +480,10 @@ pageTest('the picker asks for its repository again when it comes back into sight
   assert.ok($('[data-part="choice"][data-range="worktree"]').hasAttribute('data-checked'));
 });
 
-pageTest('Start and Settings have nothing to ask again', 'launcher', START, async (page) => {
+pageTest('Start and Setup have nothing to ask again', 'launcher', START, async (page) => {
   window.dispatchEvent(new Event('focus'));
   await settle();
-  await page.push({ ...START, screen: 'settings' });
+  await page.push({ ...START, screen: 'setup' });
   window.dispatchEvent(new Event('focus'));
   await settle();
   assert.deepEqual(
@@ -704,11 +704,11 @@ pageTest(
   },
 );
 
-// ---- Settings ----
+// ---- Setup ----
 
-const SETTINGS: LauncherState = {
+const SETUP: LauncherState = {
   ...START,
-  screen: 'settings',
+  screen: 'setup',
   setup: {
     cli: { state: 'missing', where: '~/.local/bin/lens', note: null },
     skills: { state: 'installed', where: '~/.claude/skills', note: null },
@@ -716,11 +716,11 @@ const SETTINGS: LauncherState = {
 };
 
 pageTest(
-  "Settings: each part installs and uninstalls on its own; one that is not the app's has no button",
+  "Setup: each part installs and uninstalls on its own; one that is not the app's has no button",
   'launcher',
-  SETTINGS,
+  SETUP,
   async (page) => {
-    assert.equal(text('[data-part="settings-version"]'), 'lens 0.1.0');
+    assert.equal(text('[data-part="setup-version"]'), 'lens 0.1.0');
     assert.equal($$('#setup-notice').length, 0, 'the notice leads here: it is not shown here');
     await click($('#setup-cli button'));
     await click($('#setup-skills button'));
@@ -731,7 +731,7 @@ pageTest(
     assert.match(text('#setup-skills'), /Installed\s*Uninstall$/);
     assert.match(text('#setup-git'), /2\.47\.1$/);
 
-    await page.push({ ...SETTINGS, status: { kind: 'done', label: 'Installed the lens command' } });
+    await page.push({ ...SETUP, status: { kind: 'done', label: 'Installed the lens command' } });
     assert.equal(text('#status'), 'Installed the lens command');
     assert.ok($('#status').dataset.kind === 'done');
 
@@ -740,14 +740,14 @@ pageTest(
       where: '~/.nvm/bin/lens',
       note: 'Not installed by the app, so the app leaves it alone.',
     };
-    await page.push({ ...SETTINGS, setup: { ...SETTINGS.setup, cli: external } });
+    await page.push({ ...SETUP, setup: { ...SETUP.setup, cli: external } });
     assert.equal($$('#setup-cli button').length, 0);
     assert.match(
       text('#setup-cli'),
       /~\/\.nvm\/bin\/lens · Not installed by the app, so the app leaves it alone\.\s*Not the app's$/,
     );
 
-    await page.push({ ...SETTINGS, git: null });
+    await page.push({ ...SETUP, git: null });
     await click($('#setup-git button'));
     assert.deepEqual(page.calls.at(-1), ['recheck']);
 
@@ -758,7 +758,7 @@ pageTest(
 
 // ---- the sandbox ----
 
-// The design system's sandbox (ui/sandbox), on the screen Settings opens. It must show every
+// The design system's sandbox (ui/sandbox), on the screen Setup opens. It must show every
 // primitive of src/ui, so a primitive added without a place there fails.
 
 test('the sandbox imports every primitive of ui/', () => {
@@ -778,7 +778,7 @@ pageTest(
   async (page) => {
     const count = (selector: string) => $$(selector).length;
     assert.equal(text('main h1'), 'Sandbox');
-    assert.equal(count('[data-part="settings"], [data-part="start"]'), 0, 'the screen is its own');
+    assert.equal(count('[data-part="setup"], [data-part="start"]'), 0, 'the screen is its own');
     assert.equal(count('#g-button [data-part="btn"]'), 9);
     assert.equal(count('#g-button [data-variant="primary"]'), 1);
     assert.equal(count('#g-button [data-part="btn"][data-size="xs"]'), 1, 'the size a card row uses');
@@ -921,6 +921,7 @@ const STRIP: StripState = {
   platform: 'darwin',
   fullscreen: false,
   hints: false,
+  setupMissing: false,
 };
 
 pageTest(
@@ -943,9 +944,9 @@ pageTest(
     await click($('[aria-label="Change what\'s reviewed"]'));
     await click($('[aria-label="Close storefront"]'));
     await click($('#new-tab'));
-    await click($('#settings-btn'));
+    await click($('#setup-btn'));
     await click($('#theme-btn'));
-    assert.deepEqual(page.calls.slice(0, 5), [['select', 2], ['change', 1], ['close', 2], ['add'], ['settings']]);
+    assert.deepEqual(page.calls.slice(0, 5), [['select', 2], ['change', 1], ['close', 2], ['add'], ['setup']]);
     assert.equal(page.calls[5][0], 'themeMenu', 'the themes open in a menu the main process shows, under the button');
     assert.equal($('#theme-btn').dataset.part, 'icon-btn', "the viewer's own theme button");
     assert.equal($$('#theme-btn [data-part="swatch"]').length, 1);
@@ -963,6 +964,19 @@ pageTest(
     assert.ok(document.documentElement.hasAttribute('data-fullscreen'));
   },
 );
+
+pageTest("the strip: Setup's button carries a dot while something isn't installed", 'strip', STRIP, async (page) => {
+  assert.equal($('#setup-btn').getAttribute('aria-label'), 'Setup');
+  assert.equal($$('#setup-btn .dot').length, 0);
+
+  await page.push({ ...STRIP, setupMissing: true });
+  assert.ok($('#setup-btn').hasAttribute('data-missing'));
+  assert.equal($$('#setup-btn .dot').length, 1);
+  assert.equal($('#setup-btn').getAttribute('aria-label'), 'Setup: not everything is installed');
+
+  await page.push({ ...STRIP, setupMissing: false });
+  assert.ok(!$('#setup-btn').hasAttribute('data-missing'));
+});
 
 pageTest('the strip: ⌘ held alone numbers the tabs, the ninth key the last one', 'strip', STRIP, async (page) => {
   const hints = () => $$('[data-tab]').map((tab) => tab.querySelector('[data-part="kbd-combo"]')?.textContent ?? '');

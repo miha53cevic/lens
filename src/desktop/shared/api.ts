@@ -8,7 +8,7 @@ import type { ReviewChoice } from './choice.ts';
 
 export type { RepoInfo, ThemeSwatch, Worktree };
 
-export type TabIcon = 'new' | 'folder' | 'settings' | 'sandbox';
+export type TabIcon = 'new' | 'folder' | 'setup' | 'sandbox';
 
 export interface StripTab {
   id: number;
@@ -30,6 +30,8 @@ export interface StripState {
   fullscreen: boolean;
   /** ⌘ (Ctrl elsewhere) is held on its own: the tabs show the numbers that pick them (main/tabKeys.ts) */
   hints: boolean;
+  /** The lens command or the agent skills aren't installed: Setup's button carries a dot */
+  setupMissing: boolean;
 }
 
 /** One status, as the viewer's status bar has one: what the tab is doing, or what went wrong. */
@@ -64,8 +66,8 @@ export interface SetupItem {
 }
 
 export interface LauncherState {
-  /** sandbox: the design system's primitives (ui/sandbox), in a tab of its own that Settings opens */
-  screen: 'start' | 'picker' | 'settings' | 'sandbox';
+  /** sandbox: the design system's primitives (ui/sandbox), in a tab of its own that Setup opens */
+  screen: 'start' | 'picker' | 'setup' | 'sandbox';
   /** The picker over a running review: its back arrow returns to the review */
   canGoBack: boolean;
   recents: Recent[];
@@ -109,7 +111,7 @@ export interface StripApi {
   change(id: number): void;
   /** The code themes, as a menu under the button whose right and bottom edges are these; again closes it */
   themeMenu(right: number, bottom: number): void;
-  settings(): void;
+  setup(): void;
   /** The strip's own colors: what a new tab shows before its page paints, and the window buttons Windows draws */
   chrome(color: string, symbolColor: string): void;
 }
@@ -135,7 +137,7 @@ export interface LauncherApi {
   showRunning(): void;
   /** Look for git again */
   recheck(): void;
-  settings(): void;
+  setup(): void;
   /** The design system's sandbox, in a tab of its own */
   sandbox(): void;
   install(part: SetupPart): void;
