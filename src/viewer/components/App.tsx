@@ -17,6 +17,7 @@ import { SettingsDialog } from './SettingsDialog/index.tsx';
 import { KeysDialog } from './KeysDialog/index.tsx';
 import { SearchDialog } from './SearchDialog/index.tsx';
 import { ClearDataDialog } from './ClearDataDialog/index.tsx';
+import { RunningDialog } from './RunningDialog.tsx';
 import { ReviewPill } from './ReviewPill.tsx';
 import { StatusBar } from './StatusBar/index.tsx';
 import { CodeMenu } from './CodeMenu.tsx';
@@ -38,6 +39,7 @@ export function App() {
       <KeysDialog />
       <SearchDialog />
       <ClearDataDialog />
+      <RunningDialog />
       <CodeMenu />
       <LspHover />
       <div className='flex min-h-0 flex-1 overflow-clip'>

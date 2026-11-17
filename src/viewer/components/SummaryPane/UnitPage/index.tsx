@@ -8,7 +8,7 @@ import { type Unit, unitLabel } from '../../../model/signals.ts';
 import { openUnitInCode } from '../../../actions/summary.ts';
 import { fileStatus } from '../../../../ui/FileStatus.tsx';
 import { Button } from '../../../../ui/Button.tsx';
-import { CopyCommand } from '../../../../ui/CopyCommand.tsx';
+import { SummaryRun } from '../SummaryRun.tsx';
 import { CodeCard, removedCount } from '../../CodeCard/index.tsx';
 import { Concerns } from './Concerns.tsx';
 import { Changes } from './Changes.tsx';
@@ -62,9 +62,7 @@ export function UnitPage({ unit }: { unit: Unit }) {
           ) : checkout ? (
             <CheckoutFirst checkout={checkout} />
           ) : (
-            <>
-              Run <CopyCommand command={command} /> again to update it.
-            </>
+            <SummaryRun command={command}>{(copy) => <>Run {copy} again to update it.</>}</SummaryRun>
           )}
         </div>
       ) : (
@@ -77,9 +75,7 @@ export function UnitPage({ unit }: { unit: Unit }) {
             {running ? null : checkout ? (
               <CheckoutFirst checkout={checkout} />
             ) : (
-              <>
-                Run <CopyCommand command={command} /> in your agent.
-              </>
+              <SummaryRun command={command}>{(copy) => <>Run {copy} in your agent.</>}</SummaryRun>
             )}
           </div>
         )

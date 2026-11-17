@@ -19,7 +19,7 @@ export function showDialog(element: HTMLDialogElement | null): void {
   element.focus({ focusVisible: false });
 }
 
-export function openDialog(id: 'settings-modal' | 'keys-modal' | 'clear-modal'): void {
+export function openDialog(id: 'settings-modal' | 'keys-modal' | 'clear-modal' | 'runs-modal'): void {
   showDialog(dialog(id));
 }
 

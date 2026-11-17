@@ -7,7 +7,15 @@ import { flushSync } from 'react-dom';
 import { create } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
 import { createStore } from 'zustand/vanilla';
-import type { ClearInfoResponse, HoverInfo, LspStatus, PlansResponse, ViewSettings } from '../cli-app/api/contract.ts';
+import type {
+  AgentRunInfo,
+  AgentSummaryRun,
+  ClearInfoResponse,
+  HoverInfo,
+  LspStatus,
+  PlansResponse,
+  ViewSettings,
+} from '../cli-app/api/contract.ts';
 import type { ViewerToken } from '../cli-app/render/highlight.ts';
 import type { HoverAnchor } from '../ui/HoverCard.tsx';
 import type { ViewerPayload } from '../cli-app/render/web/server.ts';
@@ -126,6 +134,10 @@ export interface LensState {
   changedOnDisk: boolean;
   /** The agent's summary run, as the last stamp poll found it; null: none is going */
   summaryBuild: BuildProgress | null;
+  /** lens's own agent run of the summary (`agent`), as the last stamp poll found it; null: no agent is picked */
+  agentRun: AgentSummaryRun | null;
+  /** Every run of the agent going, as the last stamp poll found them: the Running dialog's list */
+  agentRuns: AgentRunInfo[];
   /** Asking the server for a newer summary: the overview holds off on "not written yet" until it knows */
   summaryChecking: boolean;
   /** The list filter's text (transient) */
@@ -281,6 +293,8 @@ const defaultState: LensState = {
   summaryDot: false,
   changedOnDisk: false,
   summaryBuild: null,
+  agentRun: null,
+  agentRuns: [],
   summaryChecking: false,
   sumQuery: '',
   sumSignal: null,

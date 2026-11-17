@@ -11,6 +11,8 @@ import { fireEvent } from '@testing-library/dom';
 import { bundleViewer } from '../../src/cli-app/render/web/bundle.ts';
 import { highlightFiles, viewerPayload, type ViewerPayload } from '../../src/cli-app/render/web/server.ts';
 import type {
+  AgentRunInfo,
+  AgentSummaryRun,
   ClearInfoResponse,
   ClearResponse,
   LspDefinitionResponse,
@@ -44,6 +46,10 @@ export interface Page {
   plans: PlansResponse;
   /** What TypeScript's routes answer */
   lsp: { hover: LspHoverResponse; definition: LspDefinitionResponse; status: LspStatus | null };
+  /** lens's own agent run of the summary, as /api/stamp says it (null: no agent picked); POST /api/agent/summary starts it */
+  agentRun: AgentSummaryRun | null;
+  /** The agent's runs going, as /api/stamp lists them; a stop takes one off */
+  agentRuns: AgentRunInfo[];
 }
 
 /** Lavish set up, and the plans the Plan tab lists: one an agent polls, one nobody does, one the reader ended */
@@ -118,6 +124,8 @@ export async function open(view: ViewSettings = {}, hash = '', cookie = '', data
       definition: { places: [], unavailable: null },
       status: null,
     },
+    agentRun: null,
+    agentRuns: [],
   };
   globalThis.fetch = (async (input: string | URL, init?: RequestInit) => {
     const url = new URL(String(input), 'http://127.0.0.1:5326');
@@ -126,6 +134,11 @@ export async function open(view: ViewSettings = {}, hash = '', cookie = '', data
     page.requests.push({ method, path: url.pathname, body });
     const reply = (value: unknown) =>
       new Response(JSON.stringify(value), { headers: { 'content-type': 'application/json' } });
+    const stop = /^\/api\/agent\/runs\/([^/]+)\/stop$/.exec(url.pathname);
+    if (method === 'POST' && stop) {
+      page.agentRuns = page.agentRuns.filter((run) => run.id !== decodeURIComponent(stop[1]));
+      return reply({ ok: true });
+    }
     if (url.pathname.startsWith('/api/notes')) {
       const id = url.pathname.slice('/api/notes/'.length);
       if (method === 'POST' && !id)
@@ -151,7 +164,12 @@ export async function open(view: ViewSettings = {}, hash = '', cookie = '', data
           change: payload.changeStamp,
           plans: url.searchParams.has('plans') ? page.plans.stamp : null,
           lsp: page.lsp.status,
+          agentRun: page.agentRun,
+          agentRuns: page.agentRuns,
         });
+      case 'POST /api/agent/summary':
+        page.agentRun = { running: true, error: null };
+        return reply({ ok: true });
       case 'POST /api/lsp/hover':
         return reply(page.lsp.hover);
       case 'POST /api/lsp/definition':

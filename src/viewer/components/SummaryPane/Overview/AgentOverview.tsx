@@ -1,6 +1,7 @@
 import type { SummaryView } from '../../../../cli-app/summary/view.ts';
 import { CopyCommand } from '../../../../ui/CopyCommand.tsx';
 import { CheckoutFirst } from '../CheckoutFirst.tsx';
+import { SummaryRun } from '../SummaryRun.tsx';
 import { RunProgress } from './RunProgress.tsx';
 import { useLens } from '../../../store.ts';
 import { runGoing } from '../../../model/status.ts';
@@ -18,6 +19,7 @@ interface AgentOverviewProps {
 export function AgentOverview({ summary, anySummarized, checking }: AgentOverviewProps) {
   const overview = summary.overview;
   const build = useLens((state) => runGoing(state));
+  const ownRun = useLens((state) => state.data.agent !== null);
   if (!overview && summary.checkout) {
     return (
       <div
@@ -41,7 +43,9 @@ export function AgentOverview({ summary, anySummarized, checking }: AgentOvervie
       <>
         <Headlines />
         <div data-part='sum-note' className='text-md/[1.5] text-muted'>
-          No overview yet — run <CopyCommand command={summary.command} /> again to add one.
+          <SummaryRun command={summary.command}>
+            {(command) => <>No overview yet — run {command} again to add one.</>}
+          </SummaryRun>
         </div>
       </>
     );
@@ -59,13 +63,21 @@ export function AgentOverview({ summary, anySummarized, checking }: AgentOvervie
           Agent summary
         </div>
         <p className='[&&]:m-0 [&&]:text-md/[1.6] [&&]:text-muted'>
-          Not written yet. Your coding agent writes it: run this in it.
+          {ownRun
+            ? 'Not written yet. The agent writes it, and it appears here when done.'
+            : 'Not written yet. Your coding agent writes it: run this in it.'}
         </p>
-        <CopyCommand command={summary.command} block />
-        <p className='[&&]:m-0 [&&]:text-md/[1.6] [&&]:text-muted'>
-          Without the skill, any agent with a shell can follow <CopyCommand command={summary.cli} />. It appears here
-          when it's done.
-        </p>
+        <SummaryRun command={summary.command} block>
+          {(command) => (
+            <>
+              {command}
+              <p className='[&&]:m-0 [&&]:text-md/[1.6] [&&]:text-muted'>
+                Without the skill, any agent with a shell can follow <CopyCommand command={summary.cli} />. It appears
+                here when it's done.
+              </p>
+            </>
+          )}
+        </SummaryRun>
       </div>
     );
   }
@@ -92,9 +104,7 @@ export function AgentOverview({ summary, anySummarized, checking }: AgentOvervie
           {summary.checkout ? (
             <CheckoutFirst checkout={summary.checkout} />
           ) : (
-            <>
-              Run <CopyCommand command={summary.command} /> again to update it.
-            </>
+            <SummaryRun command={summary.command}>{(command) => <>Run {command} again to update it.</>}</SummaryRun>
           )}
         </div>
       )}
