@@ -5,7 +5,7 @@
 
 Agents write code faster than anyone can read it. lens makes reading it fast: it folds away the
 noise, has your own coding agent brief you on each changed function, and lets you ask it
-questions as you read. lens itself never calls an AI and needs no API key.
+questions as you read. lens itself calls no AI (unless you pick an `agent` for it to run) and needs no API key.
 
 ![The Summary tab: an overview of the change, a sequence diagram, then each change with its concerns](docs/media/summary.gif)
 
@@ -33,7 +33,8 @@ xattr -dr com.apple.quarantine /Applications/Lens.app
 
 **From source** (needs [Bun](https://bun.com) 1.4+ and git): `bun install`, then `bun run app`.
 
-Then in the app, **App** (the plug in the tab strip) installs the `lens` command and the agent skills.
+Then in the app, **App** (the plug in the tab strip) installs the `lens` command and the agent skills (into
+`~/.claude/skills` and the shared `~/.agents/skills`).
 
 ## Use it
 
@@ -43,6 +44,10 @@ your agent for the summary:
 ```bash
 /lens-review
 ```
+
+Or pick an **Agent** (Settings → Feature flags): lens runs it itself (today Claude Code, `claude -p`) to write
+the summary and answer your questions. The App page shows whether it's installed and logged in; **Agent running**
+in the status bar lists its runs, each with a Stop.
 
 Press `?` in lens for every key.
 
@@ -57,7 +62,8 @@ Press `?` in lens for every key.
 | `lens clear` | what lens has saved, and clearing it |
 | `lens timings` | how long lens's steps took (send `~/.lens/timings.jsonl` when it's slow) |
 
-Flags: `--port <n>`, `--no-open`, `--summary`, `--fold-level <n>`, `--theme <name>`, `--version`.
+Flags: `--port <n>`, `--no-open`, `--summary`, `--fold-level <n>`, `--theme <name>`, `--version`, and `--stop-with-stdin`
+(what the app passes: lens stops when its stdin closes).
 
 ## Configuration
 
@@ -87,8 +93,9 @@ Add a `.lens.json` to your repository; it merges over [lens's defaults](lens.def
 | `planTab` | show the Plan tab (default `true`) |
 | `typescriptLsp` | TypeScript hover and go-to-definition, by the TypeScript 7 lens ships with (default `false`) |
 | `timings` | record how long lens's steps take (default `true`) |
+| `agent` | the agent lens runs itself for the summary and Ask: `"claude"` (Claude Code, installed and logged in), or `null` for your own through the skills (default `null`) |
 
-The last five are also switches in Settings, which win over the file. Folding works on
+The last six are also switches in Settings, which win over the file. Folding works on
 TypeScript and JavaScript; other files get diff markers and syntax colors.
 
 ## Development
@@ -100,5 +107,5 @@ bun run app         # the desktop app from this checkout
 
 ## Non-goals
 
-lens never calls an AI (your own agent does the writing), never edits your code, and has no
+lens never calls an AI unless you pick an `agent` (your own agent does the writing), never edits your code, and has no
 terminal UI.

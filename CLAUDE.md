@@ -101,8 +101,20 @@ lens never calls an AI: the user's agent writes `result.json`, lens checks it.
 
 - The viewer posts a question → `session.ts` holds the chat in memory → `lens ask listen` long-polls and prints it → `lens ask reply` posts the answer → `cites.ts` keeps the cites that resolve.
 - The agent text and read-only rules are generated in `context.ts`; `skills/lens-ask` points at it.
-- Context: the open unit or file, the selection, and the unit's open (undismissed) concerns and breaks. Nothing else from the summary.
+- Context: the open unit or file, the selection, the unit's open (undismissed) concerns and breaks, and the earlier answered questions on the same unit or file (`EARLIER`). Nothing else from the summary.
 - A question stores its unit's (or file's) hash; refresh marks it stale when that changes. `.lens/server.json` (port, pid) lets `lens ask` find the server.
+
+## Agent runners (`src/cli-app/agents/`)
+
+With `agent` picked (`null` by default: the user's own agent, through the skills), lens runs that agent CLI itself instead of waiting. It reuses the agent paths, not a second pipeline:
+
+- **Only `agents/` knows any runner.** A runner is a plain `AgentRunner` (`types.ts`): `status()`, `command(task)`, `result(...)`; `index.ts` maps the config's ids to them. Everything else goes through it and sees a runner's `id` and `name` as data; viewer labels say "agent", the name only where it's picked or checked. `test/layers.test.ts` fails an import of a runner's file, or its name, outside `agents/`. A second runner is a file there and an entry in `AGENT_IDS` and `RUNNERS`.
+- **Access is lens's** (`AgentAccess`): `read` for Ask (never writes), `summary` (also `lens summary`, writes only under `.lens/summary/`). The runner turns it into its CLI's flags (Claude: `dontAsk`, `--allowedTools`); one that can't hold a run to it throws instead of allowing more. Keep both that narrow.
+- Summary (`summary/agentRun.ts`): the agent gets lens-build-review's task and runs `lens summary prepare` / `submit` itself, so progress, validation and storage are unchanged. A `lens` shim first on its PATH (`lensShim`) makes that this lens. 15 min at most.
+- Ask (`ask/routes.ts`): each question's text (`questionText`, `headless: true`) goes on stdin, its final message is the answer. A failure, or a Stop ("Stopped."), is the answer, so the rail says it.
+- **Processes are `run.ts`'s, once**: each run is its own process group (Windows: its tree), killed whole by a Stop (`POST /api/agent/runs/:id/stop`, the Running dialog), its timeout, or `stopAll()`, which runs on SIGINT/SIGTERM/SIGHUP and `exit`. The app starts lens with `--stop-with-stdin` (it stops when the app is gone) and SIGKILLs one that doesn't exit. Only a SIGKILL of lens leaves a run going, until it finishes.
+- `lens info` carries the picked agent's status (`agent`, null when none: then nothing is checked); the app's card shows it, and the strip's dot lights when it's missing or logged out.
+- Tests run a fake (`LENS_CLAUDE`, `test/fixtures/fakeClaude.ts`), never the real one.
 
 ## Plan mode (`src/cli-app/plan/`)
 
@@ -130,7 +142,7 @@ An Electron shell around the CLI. **It holds no lens logic**: it picks arguments
 
 ## Non-goals
 
-lens never calls an AI, never edits code, and has no terminal UI (`--json` is for debugging). The desktop app adds none of these.
+lens never calls an AI except the agent runner picked in `agent`, never edits code, and has no terminal UI (`--json` is for debugging). The desktop app adds none of these.
 
 ## Git
 
