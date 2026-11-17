@@ -2,11 +2,11 @@
 // and what it tells them. The preload script exposes exactly this as `window.lensApp`; the viewer
 // gets no preload, so none of it exists there.
 
-import type { RepoInfo, Worktree } from '../../cli-app/info.ts';
+import type { AgentInfo, RepoInfo, Worktree } from '../../cli-app/info.ts';
 import type { ThemeSwatch } from '../../cli-app/render/highlight.ts';
 import type { ReviewChoice } from './choice.ts';
 
-export type { RepoInfo, ThemeSwatch, Worktree };
+export type { AgentInfo, RepoInfo, ThemeSwatch, Worktree };
 
 export type TabIcon = 'new' | 'folder' | 'setup' | 'sandbox';
 
@@ -30,7 +30,7 @@ export interface StripState {
   fullscreen: boolean;
   /** ⌘ (Ctrl elsewhere) is held on its own: the tabs show the numbers that pick them (main/tabKeys.ts) */
   hints: boolean;
-  /** The lens command or the agent skills need installing again (shared/setup.ts): Setup's button carries a dot */
+  /** The lens command or the agent skills need installing, or the picked agent can't run (shared/setup.ts): Setup's button carries a dot */
   setupMissing: boolean;
 }
 
@@ -103,6 +103,8 @@ export interface LauncherState {
   /** git's version, or null when it wasn't found */
   git: string | null;
   version: string;
+  /** The agent lens runs itself (the machine's `agent` pick) and whether it can; null when none is picked */
+  agent: AgentInfo | null;
   setup: Record<SetupPart, SetupItem>;
   theme: ThemeSwatch;
   /** The UI's size in percent: the viewer's (cli-app/zoom.ts), which the launcher's pages take too */

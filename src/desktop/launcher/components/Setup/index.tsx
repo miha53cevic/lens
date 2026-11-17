@@ -1,88 +1,17 @@
-import type { ReactNode } from 'react';
 import clsx from 'clsx';
 import { Check, GitBranch, MessageSquare, Shapes, Terminal } from 'lucide-react';
-import type { SetupItem, SetupPart } from '../../shared/api.ts';
-import { needsYou } from '../../shared/setup.ts';
-import { Button } from '../../../ui/Button.tsx';
-import { useApp } from '../store.ts';
-
-interface SetupRowProps {
-  part: SetupPart;
-  icon: ReactNode;
-  name: string;
-  what: ReactNode;
-  item: SetupItem;
-  busy: boolean;
-}
-
-/**
- * One thing the app can install for your agent, and take away again. One that needs you takes the
- * strip's dot and its color on its edge, so the dot there leads to it here.
- */
-function SetupRow({ part, icon, name, what, item, busy }: SetupRowProps) {
-  const { launcher } = window.lensApp;
-  const needed = needsYou(item);
-  return (
-    <li
-      className={clsx(
-        'grid grid-cols-[16px_minmax(0,1fr)_auto] items-start gap-3 rounded-lg border p-4 [&>svg]:mt-0 [&>svg]:text-muted',
-        'bg-surface',
-        needed ? 'border-tone-line [--tone:var(--risk)]' : 'border-line',
-      )}
-      id={'setup-' + part}
-      data-state={item.state}
-      data-needed={needed || undefined}
-    >
-      {icon}
-      <span className='grid min-w-0 gap-1'>
-        <span className='flex items-center gap-2 leading-[1.4] font-semibold'>
-          {needed && <span className='dot [--dot:var(--risk)]' />}
-          {name}
-        </span>
-        <span className='text-sm leading-[1.55] [overflow-wrap:anywhere] text-muted [&_code]:text-text'>{what}</span>
-        <span className='mt-1 text-xs/[1.5] [overflow-wrap:anywhere] text-faint'>
-          <code>{item.where}</code>
-          {item.note && (
-            <>
-              {' · '}
-              <span className={clsx(needed && 'text-risk')}>{item.note}</span>
-            </>
-          )}
-        </span>
-      </span>
-      <span className='flex items-center gap-3 self-center'>
-        {needed && (
-          <>
-            <span data-part='setup-state' className='text-sm whitespace-nowrap text-risk'>
-              {item.state === 'stale' ? 'Out of date' : 'Not installed'}
-            </span>
-            <Button variant='primary' disabled={busy} onClick={() => launcher.install(part)}>
-              {item.state === 'stale' ? 'Reinstall' : 'Install'}
-            </Button>
-          </>
-        )}
-        {item.state === 'installed' && (
-          <>
-            <span className='inline-flex items-center gap-1 text-sm whitespace-nowrap text-add'>
-              <Check size={13} />
-              Installed
-            </span>
-            <Button size='sm' disabled={busy} onClick={() => launcher.uninstall(part)}>
-              Uninstall
-            </Button>
-          </>
-        )}
-        {item.state === 'external' && <span className='text-sm whitespace-nowrap text-muted'>Not the app's</span>}
-      </span>
-    </li>
-  );
-}
+import { Button } from '../../../../ui/Button.tsx';
+import { useApp } from '../../store.ts';
+import { AgentCard } from './AgentCard.tsx';
+import { ROW } from './const.ts';
+import { SetupRow } from './SetupRow.tsx';
 
 /** Setup, in a tab of its own: what your agent needs to work with lens, and the way to the sandbox. */
 export function Setup() {
   const setup = useApp((state) => state.setup);
   const git = useApp((state) => state.git);
   const version = useApp((state) => state.version);
+  const agent = useApp((state) => state.agent);
   const busy = useApp((state) => state.status.kind === 'working');
   return (
     <main
@@ -118,16 +47,14 @@ export function Setup() {
             what={
               <>
                 <code>/lens-review</code>, <code>/lens-build-review</code> and <code>/lens-ask</code>, copied into your
-                agent's skills folder.
+                agent's skills folder and the shared one other agents read.
               </>
             }
             item={setup.skills}
             busy={busy}
           />
-          <li
-            className='grid grid-cols-[16px_minmax(0,1fr)_auto] items-start gap-3 rounded-lg border border-line bg-surface p-4 [&>svg]:mt-0 [&>svg]:text-muted'
-            id='setup-git'
-          >
+          {agent && <AgentCard agent={agent} />}
+          <li className={clsx(ROW, 'border-line')} id='setup-git'>
             <GitBranch size={16} />
             <span className='grid min-w-0 gap-1'>
               <span className='leading-[1.4] font-semibold'>git</span>
@@ -155,10 +82,7 @@ export function Setup() {
         </p>
         <h2 className='mt-6 mb-2 px-2 eyebrow'>Design system</h2>
         <ul className='m-0 grid list-none gap-3 p-0'>
-          <li
-            className='grid grid-cols-[16px_minmax(0,1fr)_auto] items-start gap-3 rounded-lg border border-line bg-surface p-4 [&>svg]:mt-0 [&>svg]:text-muted'
-            id='setup-sandbox'
-          >
+          <li className={clsx(ROW, 'border-line')} id='setup-sandbox'>
             <Shapes size={16} />
             <span className='grid min-w-0 gap-1'>
               <span className='leading-[1.4] font-semibold'>Sandbox</span>

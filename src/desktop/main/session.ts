@@ -99,12 +99,12 @@ function waitFor(done: Promise<void>, ms: number): Promise<boolean> {
  * The CLI's own flags go last, so nothing in `args` can override them.
  */
 export function startReview(cli: LensCli, root: string, args: string[], port: number): StartingReview {
-  const child: ChildProcess = spawn(cli.command, [...cli.args, ...args, '--no-open', '--port', String(port)], {
-    cwd: root,
-    env: cli.env,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    windowsHide: true,
-  });
+  // stdin stays open while the app is: lens stops when it closes, however the app went (a crash too)
+  const child: ChildProcess = spawn(
+    cli.command,
+    [...cli.args, ...args, '--no-open', '--stop-with-stdin', '--port', String(port)],
+    { cwd: root, env: cli.env, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true },
+  );
   let stdout = '';
   let stderr = '';
   let cancelled = false;
@@ -117,7 +117,11 @@ export function startReview(cli: LensCli, root: string, args: string[], port: nu
     }
     if (!(await waitFor(exited, url ? 2000 : 0))) {
       child.kill();
-      await exited;
+      // its stop kills its agent runs and exits at once: one that doesn't must not hold the app open
+      if (!(await waitFor(exited, 2000))) {
+        child.kill('SIGKILL');
+        await exited;
+      }
     }
     removeStaleServerInfo(root, child.pid);
   };

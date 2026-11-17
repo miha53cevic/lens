@@ -1,6 +1,6 @@
 import { test } from 'bun:test';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -76,6 +76,51 @@ test('a review ended from the viewer is noticed, and cancelling one that is star
     rmSync(dir, { recursive: true, force: true });
   }
 }, 60_000);
+
+test('lens ends with the app however the app went: its stdin closes, and it stops clean', async () => {
+  const dir = makeViewerRepo();
+  try {
+    const port = await freePort();
+    const lens = spawn(cli.command, [...cli.args, 'diff', '--no-open', '--stop-with-stdin', '--port', String(port)], {
+      cwd: dir,
+      env: cli.env,
+      stdio: ['pipe', 'pipe', 'ignore'],
+    });
+    const exited = new Promise<number | null>((resolve) => lens.on('close', resolve));
+    await new Promise<void>((resolve) =>
+      lens.stdout.on('data', (chunk) => String(chunk).includes('lens viewer on') && resolve()),
+    );
+    assert.ok(existsSync(join(dir, '.lens', 'server.json')));
+    // what a crashed app leaves: the pipe's other end closed, and nothing else
+    lens.stdin.end();
+    assert.equal(await exited, 0);
+    assert.ok(!existsSync(join(dir, '.lens', 'server.json')), 'it stopped as it does on its own');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}, 60_000);
+
+test("a lens that doesn't exit when told is killed, so closing a tab never hangs", async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'lens-stubborn-'));
+  try {
+    const script = join(dir, 'stubborn.ts');
+    writeFileSync(
+      script,
+      `process.on('SIGTERM', () => {});
+console.log('lens viewer on http://127.0.0.1:' + process.argv.at(-1) + '/');
+setInterval(() => {}, 1000);
+`,
+    );
+    const stubborn = { command: process.execPath, args: [script], env: process.env, root: dir };
+    const session = await startReview(stubborn, dir, [], await freePort()).ready;
+    const start = Date.now();
+    await session.stop();
+    await session.exited;
+    assert.ok(Date.now() - start < 8000, 'the viewer, then SIGTERM, then SIGKILL: a few seconds at most');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}, 30_000);
 
 test('lens info through the CLI, as the picker reads it', async () => {
   const dir = makeViewerRepo();

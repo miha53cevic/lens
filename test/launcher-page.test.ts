@@ -100,9 +100,10 @@ const START: LauncherState = {
   status: { kind: 'idle' },
   git: '2.47.1',
   version: '0.1.0',
+  agent: null,
   setup: {
     cli: { state: 'installed', where: '~/.local/bin/lens', note: null },
-    skills: { state: 'installed', where: '~/.claude/skills', note: null },
+    skills: { state: 'installed', where: '~/.claude/skills · ~/.agents/skills', note: null },
   },
   theme: VESPER,
   zoom: 100,
@@ -239,27 +240,21 @@ pageTest(
     await click($('[aria-label="Forget storefront"]'));
     assert.deepEqual(page.calls, [['forgetRecent', '/Users/ana/repos/storefront']]);
 
+    // what Setup needs is the strip's dot alone: the status line never says it
     const missing = { ...START.setup, cli: { state: 'missing' as const, where: '~/.local/bin/lens', note: null } };
-    await page.push({ ...START, recents: [], setup: missing });
-    assert.equal($$('[data-part="recents"]').length, 0, 'no Recent section without recents');
-    assert.equal(text('#setup-notice'), "The lens command isn't installed · Set up");
-    await click($('#setup-notice'));
-    assert.deepEqual(page.calls.at(-1), ['setup']);
-
-    const stale = {
-      state: 'stale' as const,
-      where: '~/.local/bin/lens',
-      note: 'It points at another copy of the app.',
+    const noSkills = { state: 'missing' as const, where: '~/.claude/skills · ~/.agents/skills', note: null };
+    const agentOut = {
+      id: 'claude' as const,
+      name: 'Claude Code',
+      loginCommand: 'claude auth login',
+      path: '/opt/homebrew/bin/claude',
+      version: '2.1.311',
+      problem: 'logged-out' as const,
     };
-    await page.push({ ...START, recents: [], setup: { ...START.setup, cli: stale } });
-    assert.equal(text('#setup-notice'), 'The lens command is out of date · Set up');
-    const noSkills = { state: 'missing' as const, where: '~/.claude/skills', note: null };
-    await page.push({ ...START, recents: [], setup: { ...START.setup, skills: noSkills } });
-    assert.equal(text('#setup-notice'), "The agent skills aren't installed · Set up");
-    await page.push({ ...START, recents: [], setup: { cli: stale, skills: noSkills } });
-    assert.equal(text('#setup-notice'), '2 things need setting up · Set up');
-    await page.push({ ...START, recents: [] });
-    assert.equal($$('#setup-notice').length, 0, 'nothing needs you: no notice');
+    await page.push({ ...START, recents: [], setup: { ...missing, skills: noSkills }, agent: agentOut });
+    assert.equal($$('[data-part="recents"]').length, 0, 'no Recent section without recents');
+    assert.equal($$('#setup-notice').length, 0);
+    assert.doesNotMatch(text('[data-part="status-bar"]'), /install|set up|log/i);
 
     await page.push({
       ...START,
@@ -829,6 +824,43 @@ pageTest(
     assert.deepEqual(page.calls.at(-1), ['sandbox'], 'the way to the sandbox');
   },
 );
+
+const CLAUDE = {
+  id: 'claude' as const,
+  name: 'Claude Code',
+  loginCommand: 'claude auth login',
+  path: '/opt/homebrew/bin/claude',
+  version: '2.1.311',
+  problem: null,
+};
+
+pageTest("Setup: the picked agent's card, in each of its states", 'launcher', SETUP, async (page) => {
+  assert.equal($$('#setup-agent').length, 0, 'no agent picked: no card, nothing checked');
+
+  await page.push({ ...SETUP, agent: CLAUDE });
+  const card = () => $('#setup-agent');
+  assert.equal(card().dataset.state, 'ready');
+  assert.equal($$('#setup-agent [data-part="agent-dot"]').length, 1, 'the green dot: it can run');
+  assert.ok(!card().hasAttribute('data-needed'));
+  assert.equal(
+    text('#setup-agent'),
+    'Claude Codelens runs Claude Code as its agent./opt/homebrew/bin/claude · 2.1.311Ready',
+  );
+  assert.equal($$('#setup-agent button').length, 0, 'nothing to click on the card');
+
+  await page.push({ ...SETUP, agent: { ...CLAUDE, path: null, version: null, problem: 'missing' } });
+  assert.ok(card().hasAttribute('data-needed'));
+  assert.equal(text('#setup-agent'), "Claude CodeInstall Claude Code to use it as lens's agent.Not installed");
+
+  await page.push({ ...SETUP, agent: { ...CLAUDE, problem: 'logged-out' } });
+  assert.ok(card().hasAttribute('data-needed'));
+  assert.equal(text('#setup-agent [data-part="copy-cmd-text"]'), 'claude auth login');
+  assert.equal(text('#setup-agent [data-part="setup-state"]'), 'Not logged in');
+
+  await page.push({ ...SETUP, agent: { ...CLAUDE, problem: 'unknown' } });
+  assert.ok(!card().hasAttribute('data-needed'), "what lens can't read is no alarm");
+  assert.equal($$('#setup-agent .dot').length, 0);
+});
 
 // ---- the sandbox ----
 
