@@ -47,7 +47,7 @@ export interface RepoInfo {
   /** The Plan tab is on here: then a working tree with nothing in it still opens, on that tab (cli.ts) */
   planTab: boolean;
   /**
-   * HEAD's last COMMITS_SHOWN commits along first parents, newest first: a straight line, so the
+   * HEAD's last commits along first parents (COMMITS_SHOWN, or --commits), newest first: a straight line, so the
    * picker's run between two of them is one `git diff`. Empty before the first commit.
    */
   commits: CommitInfo[];
@@ -62,12 +62,15 @@ export interface CommitInfo {
   author: string;
   /** Committed at, in seconds since the epoch */
   date: number;
-  /** `base` doesn't have it; false without a base */
+  /** No other branch, local or remote, has it; false on a detached HEAD */
   onBranch: boolean;
 }
 
-/** How many of HEAD's commits the picker lists; older ones are Custom's */
+/** How many of HEAD's commits `lens info` lists unless asked for more (--commits); older ones are Custom's */
 export const COMMITS_SHOWN = 20;
+
+/** The most --commits takes: the list is one `git log`, read every few seconds while the picker is in sight */
+export const COMMITS_MAX = 200;
 
 /** `git log`'s fields, NUL-separated, one record per RS: subjects may hold anything else */
 const LOG_FORMAT = '%H%x00%P%x00%s%x00%an%x00%ct%x1e';
@@ -112,6 +115,8 @@ export interface LensInfo {
 export interface InfoOptions {
   /** The branch or ref "this branch vs" compares against, instead of the default */
   base?: string;
+  /** How many of HEAD's commits to list: COMMITS_SHOWN without it */
+  commits?: number;
   themes?: boolean;
   /** --theme: this theme instead of the config's, so --themes gives its colors too */
   theme?: string;
@@ -167,8 +172,47 @@ function defaultBase(remoteHead: string | null, branches: string[]): string | nu
   return ['main', 'master'].find((name) => branches.includes(name)) ?? null;
 }
 
+/**
+ * `base`, or its remote copy when the local branch is only behind it: a main not pulled since the
+ * branch started would claim everything merged since as the branch's own. The remote copy is its
+ * upstream, else the remote's default branch.
+ */
+async function freshBase(base: string, remoteHead: string | null, branches: string[], cwd: string): Promise<string> {
+  if (!branches.includes(base)) return base;
+  const remote =
+    (await tryGit(['rev-parse', '--abbrev-ref', '--symbolic-full-name', `${base}@{upstream}`], cwd)) ??
+    (remoteHead?.replace(/^origin\//, '') === base ? remoteHead : null);
+  if (!remote) return base;
+  // "<only in base>\t<only in remote>"
+  const counts = await tryGit(['rev-list', '--left-right', '--count', `${base}...${remote}`], cwd);
+  const [localOnly, remoteOnly] = (counts ?? '').split(/\s+/).map(Number);
+  return localOnly === 0 && remoteOnly > 0 ? remote : base;
+}
+
+/**
+ * `rev-list` of the branch's own commits: those no other branch reaches, its remote copies aside.
+ * Not `base..HEAD`: a branch started off another one, or a base not pulled lately, would claim
+ * their commits too. A branch started off this one hides the commits they share.
+ */
+function ownCommitsArgs(branch: string, count: number): string[] {
+  // an --exclude holds for the next --branches / --remotes only, matched without refs/heads/ or refs/remotes/
+  return [
+    'rev-list',
+    '--first-parent',
+    '-n',
+    String(count),
+    'HEAD',
+    '--not',
+    `--exclude=${branch}`,
+    '--branches',
+    `--exclude=*/${branch}`,
+    '--remotes',
+    '--',
+  ];
+}
+
 // The reads run side by side, each a git process: the desktop app's picker asks every few seconds.
-async function repoInfo(cwd: string, wantedBase: string | undefined): Promise<RepoInfo | null> {
+async function repoInfo(cwd: string, wantedBase: string | undefined, count: number): Promise<RepoInfo | null> {
   const top = await tryGit(['rev-parse', '--show-toplevel'], cwd);
   if (!top) return null;
   const root = toPosix(top);
@@ -185,25 +229,19 @@ async function repoInfo(cwd: string, wantedBase: string | undefined): Promise<Re
       git(untracked.args, untracked.dir),
       git(['diff', '--staged', '--name-only', '-z', '--no-relative'], cwd),
       listWorktrees(cwd),
-      tryGit(
-        ['log', '--first-parent', '-n', String(COMMITS_SHOWN), '--format=' + LOG_FORMAT, 'HEAD', '--'],
-        cwd,
-        false,
-      ),
+      tryGit(['log', '--first-parent', '-n', String(count), '--format=' + LOG_FORMAT, 'HEAD', '--'], cwd, false),
       tryGit(['rev-parse', '--is-shallow-repository'], cwd),
     ]);
   const branches = refs.split('\n').filter(Boolean);
   if (wantedBase !== undefined && wanted === null) {
     throw new Error(`"${wantedBase}" is not a branch or commit here`);
   }
-  const base = wantedBase ?? defaultBase(remoteHead, branches);
-  const [ahead, branchCommits] =
-    base && head
-      ? await Promise.all([
-          tryGit(['rev-list', '--count', `${base}..HEAD`], cwd),
-          tryGit(['rev-list', '--first-parent', '-n', String(COMMITS_SHOWN), `${base}..HEAD`, '--'], cwd),
-        ])
-      : [null, null];
+  const fallback = defaultBase(remoteHead, branches);
+  const base = wantedBase ?? (fallback && (await freshBase(fallback, remoteHead, branches, cwd)));
+  const [ahead, branchCommits] = await Promise.all([
+    base && head ? tryGit(['rev-list', '--count', `${base}..HEAD`], cwd) : null,
+    branch && head ? tryGit(ownCommitsArgs(branch, count), cwd) : null,
+  ]);
   const github = matchRemote(remotes ?? '', { owner: '', repo: '', number: 0 });
 
   return {
@@ -234,7 +272,7 @@ export async function lensInfo(cwd: string, options: InfoOptions = {}): Promise<
   const info: LensInfo = {
     version: manifest.version,
     git,
-    repo: git === null ? null : await repoInfo(cwd, options.base),
+    repo: git === null ? null : await repoInfo(cwd, options.base, options.commits ?? COMMITS_SHOWN),
     theme,
   };
   if (options.themes) {
@@ -265,7 +303,7 @@ function describe(info: LensInfo): string {
   return lines.join('\n');
 }
 
-/** `lens info [--json] [--themes] [--base <ref>] [--theme <name>]` */
+/** `lens info [--json] [--themes] [--base <ref>] [--commits <n>] [--theme <name>]` */
 export async function runInfo(args: string[], cwd: string, json: boolean, theme: string | null): Promise<void> {
   const options: InfoOptions = theme === null ? {} : { theme };
   const rest = [...args];
@@ -276,6 +314,12 @@ export async function runInfo(args: string[], cwd: string, json: boolean, theme:
       const base = rest.shift();
       if (!base) throw new Error('--base needs a branch or commit');
       options.base = base;
+    } else if (arg === '--commits') {
+      const count = Number(rest.shift());
+      if (!Number.isInteger(count) || count < 1 || count > COMMITS_MAX) {
+        throw new Error(`--commits needs a whole number from 1 to ${COMMITS_MAX}`);
+      }
+      options.commits = count;
     } else throw new Error(`lens info doesn't take "${arg}" — it reads the repository you run it in`);
   }
   const info = await lensInfo(cwd, options);

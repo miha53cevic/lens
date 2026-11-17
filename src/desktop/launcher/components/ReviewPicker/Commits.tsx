@@ -1,12 +1,14 @@
 import type { KeyboardEvent } from 'react';
-import type { RepoInfo } from '../../../shared/api.ts';
+import { COMMIT_COUNTS, type CommitCount, type RepoInfo } from '../../../shared/api.ts';
 import { shortSha } from '../../../shared/choice.ts';
 import { plural } from '../../../../cli-app/text.ts';
 import { Button } from '../../../../ui/Button.tsx';
 import { Kbd } from '../../../../ui/Kbd.tsx';
+import { Select } from '../../../../ui/Select.tsx';
 import { listRow } from '../../../../ui/ListRow.tsx';
 import { Tag } from '../../../../ui/Tag.tsx';
 import { tipAttrs } from '../../../../ui/Tip.tsx';
+import { useApp } from '../../store.ts';
 import { ago } from '../Start/util.ts';
 import { runRows, type Run } from './util.ts';
 
@@ -19,6 +21,7 @@ interface CommitsProps {
 /** HEAD's last commits, to pick one or a run: click, ⇧ click to reach another; ↑↓ move, ⇧↑↓ extend. */
 export function Commits({ repo, run, onRun }: CommitsProps) {
   const { commits } = repo;
+  const commitCount = useApp((state) => state.commitCount);
   const rows = runRows(repo, run);
   const now = Date.now();
 
@@ -71,10 +74,11 @@ export function Commits({ repo, run, onRun }: CommitsProps) {
         tabIndex={0}
         onKeyDown={onKeyDown}
         // a click focuses it without the keyboard's ring: Chromium shows that ring after a key, and ⇧
-        // is held for a run. Taking the click's default also keeps it from selecting text
+        // is held for a run. Taking the click's default also keeps it from selecting text. Without
+        // preventScroll a list taller than the window jumps to its top, and the click lands on another row
         onMouseDown={(event) => {
           event.preventDefault();
-          event.currentTarget.focus({ focusVisible: false });
+          event.currentTarget.focus({ focusVisible: false, preventScroll: true });
         }}
         // ⇧ click picks a run, not the text between two clicks
         className='grid py-1 outline-offset-[-2px] select-none focus-visible:outline-2 focus-visible:outline-focus'
@@ -123,10 +127,20 @@ export function Commits({ repo, run, onRun }: CommitsProps) {
           );
         })}
       </div>
-      {/* the list reaches the first commit when that has no parent: nothing older to point to */}
-      {commits.at(-1)?.parent !== null && (
-        <div data-part='commits-older' className='border-t border-line px-3 py-2 text-xs text-faint'>
-          Older commits: use Custom
+      {/* the list reaches the first commit when that has no parent: nothing more to list, unless it was asked for */}
+      {(commits.at(-1)?.parent !== null || commitCount !== COMMIT_COUNTS[0]) && (
+        <div
+          data-part='commits-count'
+          className='flex items-center justify-end gap-2 border-t border-line px-3 py-1 text-xs text-faint'
+        >
+          Show
+          <Select
+            id='commit-count'
+            label='Commits listed'
+            value={String(commitCount)}
+            options={COMMIT_COUNTS.map((count) => ({ value: String(count), label: count + ' commits' }))}
+            onChange={(value) => window.lensApp.launcher.setCommitCount(Number(value) as CommitCount)}
+          />
         </div>
       )}
     </div>

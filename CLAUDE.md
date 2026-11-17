@@ -78,7 +78,7 @@ The Summary tab shows the same code as the Code view, under the agent's summary.
 
 - Both views get rows from `src/viewer/rows.ts` (`fileSpans` / `unitSpans` → `planCode`) and render with `CodeRows`, each with its own row marks. `rows.ts` and `wordDiff.ts` have no DOM; `test/viewer.test.ts` tests them.
 - A new control changes state both views read (`openCats`) or gets a Summary branch (`listModel`). Share constants (`HUNK_CONTEXT`).
-- New keys go in `keys.ts` (`SUMMARY_KEYS` for a unit) and in `KEY_TABS` (`KeysDialog/const.ts`); `test/rules.test.ts` fails an unlisted one.
+- New keys go in `keys.ts` (`SUMMARY_KEYS` for a unit) and in `KEY_GROUPS` (`KeysDialog/const.ts`); `test/rules.test.ts` fails an unlisted one.
 
 ## Summary mode (`src/cli-app/summary/`)
 

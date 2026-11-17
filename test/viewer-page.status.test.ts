@@ -309,6 +309,39 @@ test('problems in .lens.json show as a notice, and a click opens Settings on the
 });
 
 pageTest(
+  'the Config page says what folds and why, each category with its own patterns, in a one-line foot',
+  async (page) => {
+    await key(',');
+    await click($('#settings-tab-config'));
+    const config = $('[data-part="settings-page"][data-page="config"]');
+    assert.match(
+      $('[data-part="config-lead"]').textContent!,
+      /^Fold level 1\d+ of \d+ categories fold: those scored 1 or lower\.$/,
+    );
+    const state = (category: string) =>
+      config.querySelector(`[data-category="${category}"] [data-part="config-state"]`)!.textContent;
+    assert.equal(state('import'), 'Folds');
+    const logging = config.querySelector('[data-category="logging"]')!;
+    assert.match(logging.textContent!, /calls on/, "logging's call patterns sit with it");
+    // a long list shows its first few, and the rest on a click
+    const methods = logging.querySelectorAll('[data-part="config-chips"]')[1];
+    const more = methods.querySelector<HTMLButtonElement>('[data-part="config-more"]')!;
+    assert.match(more.textContent!, /^\+\d+ more$/);
+    await click(more);
+    assert.equal(methods.querySelectorAll('[data-part="config-more"]').length, 0);
+
+    const foot = $('[data-part="config-foot"]');
+    if (payload.configSource) {
+      assert.match(foot.textContent!, /^Defaults \+.*\.lens\.json·edit it, then r to reload$/);
+      await click($('#config-source'));
+      assert.ok(page.requests.some((request) => request.method === 'POST' && request.path === '/api/config/reveal'));
+    } else {
+      assert.equal(foot.textContent, 'Built-in defaults · no .lens.json here');
+    }
+  },
+);
+
+pageTest(
   'code that changed on disk shows as a notice: undoing the change takes it back, a click refreshes',
   async () => {
     const notices = () => $$('#status-bar [data-part="status-notices"] > *').map((notice) => notice.textContent);
@@ -385,30 +418,46 @@ pageTest(
   { navCollapsed: true },
 );
 
-pageTest('? opens the shortcuts in tabs: Global, Code and Summary', async () => {
+pageTest('? opens every shortcut on one page, in groups, the view the reader is in first', async () => {
   await key('?');
   assert.ok(($('#keys-modal') as HTMLDialogElement).open);
-  const tabs = () =>
-    $$('#key-tabs [role="tab"]').map(
-      (tab) => tab.textContent + (tab.getAttribute('aria-selected') === 'true' ? '*' : ''),
+  assert.equal(document.activeElement, $('#keys-filter'), 'what is typed next filters');
+  const groups = () =>
+    $$('#keys-modal [data-part="key-group"]').map(
+      (group) => group.dataset.group + (group.hasAttribute('data-here') ? '*' : ''),
     );
-  const keys = () => $$('#keys-modal tr td:first-child').map((cell) => cell.textContent);
-  assert.deepEqual(tabs(), ['Global*', 'Code', 'Summary']);
+  const rows = () =>
+    $$('#keys-modal [data-part="key-row"]').map(
+      (row) => row.querySelector('[data-part="key-combos"]')!.textContent + ' ' + row.firstElementChild!.textContent,
+    );
+  assert.deepEqual(groups(), ['code*', 'find', 'views', 'code-display', 'diff-display', 'actions', 'summary']);
   // each key its own keycap: ⌘P is ⌘ and P
-  const search = $$('#keys-modal tr td:first-child').find((cell) => cell.textContent!.includes('Ctrl'))!;
+  const search = $$('#keys-modal [data-part="key-row"]').find((row) => row.textContent!.includes('Search in files'))!;
   assert.deepEqual(
     [...search.querySelectorAll('kbd')].map((cap) => cap.textContent),
     ['⌘', 'P', 'Ctrl', 'P'],
   );
   // a capital letter is drawn with its shift
-  const nextNote = $$('#keys-modal tr').find((row) => row.textContent!.includes('next note'))!;
+  const nextNote = $$('#keys-modal [data-part="key-row"]').find((row) => row.textContent!.includes('Next note'))!;
   assert.deepEqual(
     [...nextNote.querySelectorAll('kbd')].map((cap) => cap.textContent),
     ['⇧', 'N'],
   );
-  await click($('#key-tabs [data-value="summary"]'));
-  assert.deepEqual(tabs(), ['Global', 'Code', 'Summary*']);
-  assert.deepEqual(keys(), ['g', 'j / k', 'o', 'm', '/']);
+  const jk = $$('#keys-modal [data-part="key-row"]').find((row) => row.textContent!.includes('Next / previous file'))!;
+  assert.equal(jk.querySelectorAll('[data-part="key-combos"]').length, 1, 'j and k share one cell');
+
+  // a key finds itself, not every action with that letter in it
+  await type($('#keys-filter'), 'j');
+  assert.deepEqual(rows(), ['j/k Next / previous file', 'j/k Next / previous changeinto a folded flow too']);
+  await type($('#keys-filter'), 'word');
+  assert.deepEqual(rows(), ['d Word diff']);
+  assert.deepEqual(groups(), ['diff-display']);
+  await type($('#keys-filter'), 'nothing like it');
+  assert.equal($('#keys-modal .no-match')?.textContent, 'no shortcut matches');
+
+  ($('#keys-modal') as HTMLDialogElement).close();
+  await settle();
+  assert.equal(($('#keys-filter') as HTMLInputElement).value, '', 'closing clears the filter');
 });
 
 pageTest('search lists where a name is defined, then its usages; Enter jumps, even into a hidden stretch', async () => {

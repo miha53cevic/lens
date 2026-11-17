@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Folder, Plus, Settings, Shapes } from 'lucide-react';
+import { ArrowLeftRight, Folder, Plug, Plus, Shapes } from 'lucide-react';
 import type { StripTab } from '../shared/api.ts';
 import { IconButton } from '../../ui/IconButton.tsx';
 import { Kbd } from '../../ui/Kbd.tsx';
@@ -9,7 +9,7 @@ import { useStrip } from './store.ts';
 
 function TabIcon({ icon }: { icon: StripTab['icon'] }) {
   if (icon === 'folder') return <Folder size={13} />;
-  if (icon === 'settings') return <Settings size={13} />;
+  if (icon === 'setup') return <Plug size={13} />;
   if (icon === 'sandbox') return <Shapes size={13} />;
   return <Plus size={13} />;
 }
@@ -36,12 +36,13 @@ function RepoTab({ tab, active, hint }: { tab: StripTab; active: boolean; hint: 
       mainRef={active ? keepInSight : undefined}
       data-tab={tab.id}
       active={active}
+      floatButtons
       onSelect={() => strip.select(tab.id)}
       // it narrows out, and stays narrowed until the main process's answer takes it out
       onClose={() => narrowOut(document.querySelector(`[data-tab="${tab.id}"]`), () => strip.close(tab.id), true)}
       closeLabel={'Close ' + tab.title}
       actions={
-        // on every tab with a review, shown or not, so a tab keeps its width when another comes to the front
+        // on every tab with a review: it shows over the tab's end, so it takes no room
         tab.canChange && (
           // an icon alone: the title says what it swaps
           <IconButton
@@ -120,8 +121,14 @@ export function Strip() {
       >
         <ThemeTrigger />
       </IconButton>
-      <IconButton id='settings-btn' label='Settings' onClick={() => strip.settings()}>
-        <Settings size={15} />
+      <IconButton
+        id='setup-btn'
+        label={state.setupMissing ? 'App: not everything is installed' : 'App'}
+        data-missing={state.setupMissing || undefined}
+        onClick={() => strip.setup()}
+      >
+        <Plug size={15} />
+        {state.setupMissing && <span className='dot absolute top-1 right-1 [--dot:var(--risk)]' />}
       </IconButton>
     </header>
   );

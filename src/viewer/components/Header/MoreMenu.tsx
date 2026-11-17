@@ -1,6 +1,6 @@
 import { Keyboard, MoreHorizontal, Power, Settings, Trash2 } from 'lucide-react';
 import { collapseAll, expandAll } from '../../actions/folds.ts';
-import { openDialog, openSettings } from '../../actions/dialogs.ts';
+import { openKeys, openSettings } from '../../actions/dialogs.ts';
 import { endSession } from '../../actions/session.ts';
 import { Menu, MenuItem, MenuSeparator } from '../../../ui/Menu.tsx';
 import { openClearData } from '../../actions/clear.ts';
@@ -15,7 +15,7 @@ export function MoreMenu() {
       <MenuItem id='settings-btn' icon={<Settings size={14} />} shortcut=',' onSelect={() => openSettings()}>
         Settings
       </MenuItem>
-      <MenuItem id='keys-btn' icon={<Keyboard size={14} />} shortcut='?' onSelect={() => openDialog('keys-modal')}>
+      <MenuItem id='keys-btn' icon={<Keyboard size={14} />} shortcut='?' onSelect={() => openKeys()}>
         Keyboard shortcuts
       </MenuItem>
       <MenuSeparator />

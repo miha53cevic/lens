@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { relPath } from '../src/cli-app/paths.ts';
-import { KEY_TABS } from '../src/viewer/components/KeysDialog/const.ts';
+import { KEY_GROUPS } from '../src/viewer/components/KeysDialog/const.ts';
 
 const ROOT = join(import.meta.dirname, '..');
 const SRC = join(ROOT, 'src');
@@ -130,7 +130,7 @@ test('components past the soft ceiling are named (not failed)', () => {
 });
 
 // "New keys go in src/viewer/keys.ts (and its SUMMARY_KEYS when they act on a unit), and in the ? help."
-test('every shortcut key is in the ? help, and a Summary key is on its Global or Summary tab', () => {
+test('every shortcut key is in the ? help, and a Summary key is in a group that works on the Summary tab', () => {
   const source = read('src/viewer/keys.ts');
   const list = (name: string) => {
     const found = new RegExp(`^const ${name} = (\\[.*\\]);$`, 'm').exec(source);
@@ -139,18 +139,22 @@ test('every shortcut key is in the ? help, and a Summary key is on its Global or
   };
   const summaryKeys: string[] = new Function(`return ${list('SUMMARY_KEYS')}`)();
   const shortcutKeys: string[] = new Function('SUMMARY_KEYS', `return ${list('SHORTCUT_KEYS')}`)(summaryKeys);
-  const helped = (tabs: string[]) =>
-    new Set(KEY_TABS.filter((tab) => tabs.includes(tab.id)).flatMap((tab) => tab.keys.flatMap((row) => row.keys)));
+  const helped = (scopes: string[]) =>
+    new Set(
+      KEY_GROUPS.filter((group) => scopes.includes(group.scope)).flatMap((group) =>
+        group.keys.flatMap((row) => row.keys),
+      ),
+    );
   const anywhere = helped(['global', 'code', 'summary', 'plan']);
   assert.deepEqual(
     shortcutKeys.filter((key) => !anywhere.has(key)),
     [],
-    'a key with no row in KEY_TABS (components/KeysDialog/const.ts)',
+    'a key with no row in KEY_GROUPS (components/KeysDialog/const.ts)',
   );
   const onSummary = helped(['global', 'summary']);
   assert.deepEqual(
     summaryKeys.filter((key) => !onSummary.has(key)),
     [],
-    "a key that works on the Summary tab isn't on its tabs of the help",
+    "a key that works on the Summary tab isn't in its groups of the help",
   );
 });

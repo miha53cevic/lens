@@ -1,68 +1,97 @@
 import { Fragment, useState } from 'react';
+import { Search } from 'lucide-react';
 import { useLens } from '../../store.ts';
-import { DIALOG, ModalHead } from '../ModalHead.tsx';
+import { DIALOG, LARGE_DIALOG, ModalHead } from '../ModalHead.tsx';
 import { cn } from '../../../ui/cn.ts';
+import { Field } from '../../../ui/Field.tsx';
 import { Kbd } from '../../../ui/Kbd.tsx';
-import { Segmented } from '../../../ui/Segmented.tsx';
-import { KEY_TABS, type KeyTab } from './const.ts';
+import { Tag } from '../../../ui/Tag.tsx';
+import { KEY_GROUPS, type KeyGroup } from './const.ts';
+import { keysShown } from './util.ts';
 
-/** The ? help: every keyboard shortcut, in tabs: Global, Code, Summary (with a summary only), Plan (with its tab on). */
+/** A capital letter is that letter with shift: "N" reads as ⇧ N, not as n again. */
+function keycap(key: string): string {
+  return /^[A-Z]$/.test(key) ? '⇧' + key : key;
+}
+
+function Group({ group, here }: { group: KeyGroup; here: boolean }) {
+  return (
+    <section
+      data-part='key-group'
+      data-group={group.id}
+      data-here={here || undefined}
+      className='mb-5 break-inside-avoid'
+    >
+      <h3 className='m-0 mb-1 flex items-center gap-2'>
+        <span className={cn('eyebrow', here && 'text-accent')}>{group.label}</span>
+        {here && <Tag color='var(--accent)'>you are here</Tag>}
+        {group.diff && <Tag>diff only</Tag>}
+      </h3>
+      {group.keys.map((row) => (
+        <div
+          key={row.keys.join()}
+          data-part='key-row'
+          className='grid min-h-control grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-line last:border-b-0'
+        >
+          <span className='min-w-0 text-text'>
+            {row.action}
+            {row.hint && <span className='ml-2 text-xs text-faint'>{row.hint}</span>}
+            {row.diff && <Tag className='ml-2'>diff</Tag>}
+          </span>
+          {/* one cell for all of a row's keys: j and k side by side, never stacked */}
+          <span data-part='key-combos' className='inline-flex items-center gap-2 whitespace-nowrap'>
+            {row.keys.map((key, keyIndex) => (
+              <Fragment key={key}>
+                {keyIndex > 0 && <span className='text-faint'>/</span>}
+                <Kbd combo={keycap(key)} />
+              </Fragment>
+            ))}
+          </span>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+/**
+ * The ? help: every shortcut on one page, in groups, the reader's view first. Typing filters, by its
+ * words or by a key itself.
+ */
 export function KeysDialog() {
-  const { hasSummary, planTab } = useLens((state) => ({
+  const { view, hasSummary, planTab } = useLens((state) => ({
+    view: state.view,
     hasSummary: !!state.data.summary,
     planTab: state.data.planTab,
   }));
-  const [tab, setTab] = useState<KeyTab>('global');
-  const tabs = KEY_TABS.filter(
-    (keyTab) => (hasSummary || keyTab.id !== 'summary') && (planTab || keyTab.id !== 'plan'),
-  );
-  const shown = tabs.find((keyTab) => keyTab.id === tab) ?? tabs[0];
+  const [query, setQuery] = useState('');
+  const { groups, here } = keysShown(KEY_GROUPS, { view, hasSummary, planTab, query });
 
   return (
-    <dialog id='keys-modal' tabIndex={-1} className={cn(DIALOG, 'h-[min(34rem,calc(var(--screen-h)*0.8))]')}>
+    <dialog id='keys-modal' tabIndex={-1} className={cn(DIALOG, LARGE_DIALOG)} onClose={() => setQuery('')}>
       <ModalHead title='Keyboard shortcuts' />
-      {/* outside the body: the keys scroll under the tabs, not with them */}
-      <div data-part='key-tabs' className='flex-none px-4 pt-4 pb-3'>
-        <Segmented
-          id='key-tabs'
-          label='shortcuts for'
-          size='lg'
-          tabs
-          options={tabs.map((keyTab) => ({ value: keyTab.id, label: keyTab.label }))}
-          value={shown.id}
-          onChange={setTab}
+      {/* outside the body: the keys scroll under the filter, not with it */}
+      <div data-part='keys-filter-bar' className='flex-none px-4 pt-4 pb-3'>
+        <Field
+          id='keys-filter'
+          icon={<Search size={14} />}
+          placeholder='Filter by a word or a key'
+          aria-label='Filter shortcuts'
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          onClear={query ? () => setQuery('') : undefined}
+          clearLabel='Clear the filter'
         />
       </div>
       <div data-part='modal-body' className='min-h-0 flex-1 overflow-y-auto px-4 pt-0 pb-5 text-md'>
-        <table
-          data-part='set-table'
-          className='w-full border-collapse [&_td]:border-b [&_td]:border-line [&_td]:py-1 [&_td]:pr-3 [&_td]:pl-0 [&_td]:align-middle [&_td]:text-muted [&_td:first-child]:w-[9rem] [&_td:first-child]:whitespace-nowrap [&_td:first-child]:text-text'
-        >
-          <tbody>
-            {shown.keys.map((help) => (
-              <tr key={help.keys.join()}>
-                <td>
-                  {help.keys.map((key, keyIndex) => (
-                    <Fragment key={key}>
-                      {keyIndex > 0 && ' / '}
-                      {/* a capital letter is that letter with shift: "N" reads as ⇧ N, not as n again */}
-                      <Kbd combo={/^[A-Z]$/.test(key) ? '⇧' + key : key} />
-                    </Fragment>
-                  ))}
-                </td>
-                <td>
-                  {help.action}
-                  {help.note && (
-                    <>
-                      {' '}
-                      <span className='break-all text-muted [&_code]:text-text'>{help.note}</span>
-                    </>
-                  )}
-                </td>
-              </tr>
+        {groups.length === 0 ? (
+          <div className='no-match'>no shortcut matches</div>
+        ) : (
+          <div data-part='key-groups' className='columns-[2_320px] gap-x-8'>
+            {groups.map((group) => (
+              <Group key={group.id} group={group} here={group.id === here} />
             ))}
-          </tbody>
-        </table>
+          </div>
+        )}
       </div>
     </dialog>
   );

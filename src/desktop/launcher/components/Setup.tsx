@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
+import clsx from 'clsx';
 import { Check, GitBranch, MessageSquare, Shapes, Terminal } from 'lucide-react';
 import type { SetupItem, SetupPart } from '../../shared/api.ts';
+import { needsYou } from '../../shared/setup.ts';
 import { Button } from '../../../ui/Button.tsx';
 import { useApp } from '../store.ts';
 
@@ -13,29 +15,51 @@ interface SetupRowProps {
   busy: boolean;
 }
 
-/** One thing the app can install for your agent, and take away again. */
+/**
+ * One thing the app can install for your agent, and take away again. One that needs you takes the
+ * strip's dot and its color on its edge, so the dot there leads to it here.
+ */
 function SetupRow({ part, icon, name, what, item, busy }: SetupRowProps) {
   const { launcher } = window.lensApp;
+  const needed = needsYou(item);
   return (
     <li
-      className='grid grid-cols-[16px_minmax(0,1fr)_auto] items-start gap-3 rounded-lg border border-line bg-surface p-4 [&>svg]:mt-0 [&>svg]:text-muted'
+      className={clsx(
+        'grid grid-cols-[16px_minmax(0,1fr)_auto] items-start gap-3 rounded-lg border p-4 [&>svg]:mt-0 [&>svg]:text-muted',
+        'bg-surface',
+        needed ? 'border-tone-line [--tone:var(--risk)]' : 'border-line',
+      )}
       id={'setup-' + part}
       data-state={item.state}
+      data-needed={needed || undefined}
     >
       {icon}
       <span className='grid min-w-0 gap-1'>
-        <span className='leading-[1.4] font-semibold'>{name}</span>
+        <span className='flex items-center gap-2 leading-[1.4] font-semibold'>
+          {needed && <span className='dot [--dot:var(--risk)]' />}
+          {name}
+        </span>
         <span className='text-sm leading-[1.55] [overflow-wrap:anywhere] text-muted [&_code]:text-text'>{what}</span>
         <span className='mt-1 text-xs/[1.5] [overflow-wrap:anywhere] text-faint'>
           <code>{item.where}</code>
-          {item.note && ' · ' + item.note}
+          {item.note && (
+            <>
+              {' · '}
+              <span className={clsx(needed && 'text-risk')}>{item.note}</span>
+            </>
+          )}
         </span>
       </span>
       <span className='flex items-center gap-3 self-center'>
-        {item.state === 'missing' && (
-          <Button variant='primary' disabled={busy} onClick={() => launcher.install(part)}>
-            Install
-          </Button>
+        {needed && (
+          <>
+            <span data-part='setup-state' className='text-sm whitespace-nowrap text-risk'>
+              {item.state === 'stale' ? 'Out of date' : 'Not installed'}
+            </span>
+            <Button variant='primary' disabled={busy} onClick={() => launcher.install(part)}>
+              {item.state === 'stale' ? 'Reinstall' : 'Install'}
+            </Button>
+          </>
         )}
         {item.state === 'installed' && (
           <>
@@ -54,22 +78,22 @@ function SetupRow({ part, icon, name, what, item, busy }: SetupRowProps) {
   );
 }
 
-/** Settings, in a tab of its own: what your agent needs to work with lens, and the way to the sandbox. */
-export function Settings() {
+/** Setup, in a tab of its own: what your agent needs to work with lens, and the way to the sandbox. */
+export function Setup() {
   const setup = useApp((state) => state.setup);
   const git = useApp((state) => state.git);
   const version = useApp((state) => state.version);
   const busy = useApp((state) => state.status.kind === 'working');
   return (
     <main
-      data-part='settings'
+      data-part='setup'
       className='min-h-0 flex-1 overflow-y-auto motion:[transition:opacity_var(--motion-move)] motion:starting:opacity-0'
     >
       <div className='mx-auto w-full max-w-[660px] px-5 pb-7'>
         <div className='mt-6 mb-4 flex flex-wrap items-center gap-4 [&_h1]:m-0 [&_h1]:font-serif [&_h1]:text-xl/[1.2] [&_h1]:font-bold'>
-          <h1>Settings</h1>
+          <h1>App</h1>
           <span className='flex-1' />
-          <span data-part='settings-version' className='text-faint'>
+          <span data-part='setup-version' className='text-faint'>
             lens {version}
           </span>
         </div>

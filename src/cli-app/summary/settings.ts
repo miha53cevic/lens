@@ -83,7 +83,6 @@ export function revealCommand(path: string, platform: NodeJS.Platform): [string,
 /**
  * Settings' footer: the settings file shown in Finder or Explorer, made first when nothing was set
  * yet (an empty one, as reading finds no file). The page never names the path: it's always this one.
- * LENS_NO_REVEAL (the tests') leaves the file manager closed.
  */
 export function revealSettings(): void {
   const path = settingsPath();
@@ -91,6 +90,11 @@ export function revealSettings(): void {
     mkdirSync(lensHome(), { recursive: true });
     writeFileSync(path, '{}\n');
   }
+  revealFile(path);
+}
+
+/** A file lens picked, shown in Finder or Explorer. LENS_NO_REVEAL (the tests') leaves the file manager closed. */
+export function revealFile(path: string): void {
   if (process.env.LENS_NO_REVEAL) return;
   const [command, args] = revealCommand(path, process.platform);
   const child = spawn(command, args, { stdio: 'ignore', detached: true, windowsHide: true });

@@ -1,5 +1,5 @@
 // A scripted run of the real app, for `bun run app:smoke` (scripts/smoke.ts): it opens a repository, starts
-// a review, opens Settings and switches the theme, saving a picture of each page and what it
+// a review, opens Setup and switches the theme, saving a picture of each page and what it
 // found. The script then starts the app a second time on the same data, and that run checks that
 // the window and its tab came back as the first run left them.
 // It is how a build is checked without a person clicking through it.
@@ -50,6 +50,25 @@ export async function runSmoke(window: AppWindow, themes: Themes, repo: string):
   };
   const strip = window.win.webContents;
   const read = <T>(contents: WebContents, code: string) => contents.executeJavaScript(code, true) as Promise<T>;
+  // how far the page itself scrolls at each UI zoom, which should be nowhere: only its panes scroll
+  const pageOverflow = (contents: WebContents) =>
+    read<Record<string, number>>(
+      contents,
+      `(async () => {
+        const root = document.documentElement;
+        const before = root.getAttribute('style');
+        const found = {};
+        for (const zoom of [0.8, 0.9, 1, 1.1, 1.25, 1.5]) {
+          root.style.setProperty('zoom', String(zoom));
+          root.style.setProperty('--ui-zoom', String(zoom));
+          await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+          found[Math.round(zoom * 100)] = root.scrollHeight - root.clientHeight;
+        }
+        if (before === null) root.removeAttribute('style');
+        else root.setAttribute('style', before);
+        return found;
+      })()`,
+    );
 
   // the second run: the app as the first one left it
   if (process.env.LENS_APP_SMOKE_PHASE === 'reopen') {
@@ -82,6 +101,10 @@ export async function runSmoke(window: AppWindow, themes: Themes, repo: string):
     await tab.openFolder(repo);
     if (tab.screen !== 'picker') throw new Error('the picker did not open: ' + JSON.stringify(tab.status));
     await shot('2-picker', window.frontViews()!.launcher.webContents);
+    // the commits listed make the picker its longest
+    await read(window.frontViews()!.launcher.webContents, `document.querySelector('[data-range="commits"]').click()`);
+    await pause(300);
+    report.pickerOverflow = await pageOverflow(window.frontViews()!.launcher.webContents);
 
     await tab.open({ kind: 'diff', range: 'worktree' });
     if (!tab.reviewUrl) throw new Error('the review did not open: ' + JSON.stringify(tab.status));
@@ -116,12 +139,13 @@ export async function runSmoke(window: AppWindow, themes: Themes, repo: string):
       })()`,
     );
 
-    window.openSettings();
-    await shot('4-settings', window.frontViews()!.launcher.webContents);
-    // the design system's sandbox, which Settings leads to: a tab of its own
+    window.openSetup();
+    await shot('4-setup', window.frontViews()!.launcher.webContents);
+    // the design system's sandbox, which Setup leads to: a tab of its own
     window.openSandbox();
     await shot('4-sandbox', window.frontViews()!.launcher.webContents);
-    window.openSettings();
+    report.sandboxOverflow = await pageOverflow(window.frontViews()!.launcher.webContents);
+    window.openSetup();
 
     // the strip's theme menu: the viewer's, in a view of its own over the window
     await read(strip, "document.getElementById('theme-btn').click()");
@@ -142,7 +166,7 @@ export async function runSmoke(window: AppWindow, themes: Themes, repo: string):
     await until('the app to take the theme', () => themes.current.name === 'github-light');
     report.themeMenuClosed = !window.menuOpen;
     await pause(900); // the viewer fetches the theme's tokens
-    await shot('5-settings-light', window.frontViews()!.launcher.webContents);
+    await shot('5-setup-light', window.frontViews()!.launcher.webContents);
     await shot('5-strip-light', strip);
     window.selectTab(tab.id);
     report.viewerTheme = await read<string>(viewer, 'document.documentElement.dataset.appearance');
@@ -167,7 +191,10 @@ export async function runSmoke(window: AppWindow, themes: Themes, repo: string):
     report.ok =
       report.viewerSeesApp === false &&
       String(report.viewerThemeButton).startsWith('none / ') &&
-      report.themeMenuClosed === true;
+      report.themeMenuClosed === true &&
+      [report.pickerOverflow, report.sandboxOverflow].every((found) =>
+        Object.values(found as Record<string, number>).every((overflow) => overflow === 0),
+      );
   } catch (error) {
     report.error = (error as Error).stack ?? String(error);
   }

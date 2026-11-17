@@ -22,6 +22,7 @@ import { tildePath } from './display.ts';
 import { dispatch, type Handlers } from './ipc.ts';
 import { APP_ORIGIN, allowFrames, allowOrigin, appPagePreferences, isAppPage, viewerPreferences } from './security.ts';
 import { planProxyOrigin } from './session.ts';
+import { needsYou, SETUP_NAMES } from '../shared/setup.ts';
 import { install, setupState, uninstall, type SetupEnv } from './setup.ts';
 import type { Session, Store } from './store.ts';
 import { Tab, type OwnScreen, type TabHost } from './tab.ts';
@@ -184,7 +185,7 @@ export class AppWindow implements TabHost {
     this.restoring = true;
     const tabs = stored.map(() => this.addTab('start'));
     const front = stored.findIndex((tab) => tab.root === session.tabs[session.active]?.root);
-    // a tab that isn't kept was in front (Start, Settings, the sandbox): a new one is, again
+    // a tab that isn't kept was in front (Start, Setup, the sandbox): a new one is, again
     if (front === -1) this.addTab('start');
     else this.selectTab(tabs[front].id);
     void Promise.all(tabs.map((tab, index) => tab.restore(stored[index].root, stored[index].choice))).then(
@@ -231,11 +232,11 @@ export class AppWindow implements TabHost {
     await tab.close();
   }
 
-  openSettings(): void {
-    this.openOwn('settings');
+  openSetup(): void {
+    this.openOwn('setup');
   }
 
-  /** The design system's sandbox: Settings leads to it. */
+  /** The design system's sandbox: Setup leads to it. */
   openSandbox(): void {
     this.openOwn('sandbox');
   }
@@ -368,6 +369,7 @@ export class AppWindow implements TabHost {
       platform: process.platform,
       fullscreen: this.win.isFullScreen(),
       hints: this.hints,
+      setupMissing: Object.values(setupState(this.deps.setup)).some(needsYou),
     };
   }
 
@@ -530,7 +532,7 @@ export class AppWindow implements TabHost {
         this.selectTab(id);
         this.tabs.get(id)?.change();
       },
-      settings: () => this.openSettings(),
+      setup: () => this.openSetup(),
       themeMenu: (right, bottom) => this.toggleMenu(right, bottom),
       chrome: (color, symbolColor) => {
         this.pageBackground = color;
@@ -583,6 +585,7 @@ export class AppWindow implements TabHost {
         const known = tab.repo ? [...tab.repo.branches, tab.repo.base] : [];
         if (known.includes(base)) await tab.refresh(base);
       },
+      setCommitCount: (count) => tab.setCommitCount(count),
       refresh: async () => {
         // only the page in sight: a tab behind another, or one showing its review, has no picker to keep current
         if (tab === this.tabs.active && tab.showing === 'launcher') await tab.poll();
@@ -596,7 +599,7 @@ export class AppWindow implements TabHost {
         await this.deps.themes.load().catch(() => {});
         this.show();
       },
-      settings: () => this.openSettings(),
+      setup: () => this.openSetup(),
       sandbox: () => this.openSandbox(),
       install: (part) => this.setup(tab, 'install', part),
       uninstall: (part) => this.setup(tab, 'uninstall', part),
@@ -604,7 +607,7 @@ export class AppWindow implements TabHost {
   }
 
   private async setup(tab: Tab, action: 'install' | 'uninstall', part: SetupPart): Promise<void> {
-    const what = part === 'cli' ? 'the lens command' : 'the agent skills';
+    const what = SETUP_NAMES[part];
     try {
       const done = await (action === 'install' ? install : uninstall)(this.deps.setup, part);
       tab.set({ kind: 'done', label: done });
@@ -612,6 +615,7 @@ export class AppWindow implements TabHost {
       const label = action === 'install' ? `Couldn't install ${what}` : `Couldn't remove ${what}`;
       tab.set({ kind: 'failed', label, detail: (error as Error).message });
     }
+    this.sendStrip();
   }
 
   /** For the menu and the smoke run: the views of the tab in front. */

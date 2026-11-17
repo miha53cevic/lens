@@ -1,5 +1,5 @@
 // The application menu. It adds no shortcut the viewer uses: the viewer's plain keys and ⌘P reach
-// the page. What it has is the system's own: copy and paste, close (the tab in front), quit, About.
+// the page. What it has is the system's own: copy and paste, a new tab and closing the one in front, quit, About.
 // ⌘1–⌘9 aren't here either: they pick a tab from the keys themselves (tabKeys.ts), which number the tabs too.
 
 import { Menu, app, type MenuItemConstructorOptions } from 'electron';
@@ -12,8 +12,8 @@ export function setAppMenu(window: AppWindow): void {
     {
       label: 'File',
       submenu: [
-        { label: 'New Tab', click: () => void window.addTab('start') },
-        { label: 'Settings…', click: () => window.openSettings() },
+        { label: 'New Tab', accelerator: 'CmdOrCtrl+T', click: () => void window.addTab('start') },
+        { label: 'App…', click: () => window.openSetup() },
         { type: 'separator' },
         {
           label: 'Close Tab',

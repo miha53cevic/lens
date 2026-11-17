@@ -8,7 +8,7 @@ import type { ReviewChoice } from './choice.ts';
 
 export type { RepoInfo, ThemeSwatch, Worktree };
 
-export type TabIcon = 'new' | 'folder' | 'settings' | 'sandbox';
+export type TabIcon = 'new' | 'folder' | 'setup' | 'sandbox';
 
 export interface StripTab {
   id: number;
@@ -30,6 +30,8 @@ export interface StripState {
   fullscreen: boolean;
   /** ⌘ (Ctrl elsewhere) is held on its own: the tabs show the numbers that pick them (main/tabKeys.ts) */
   hints: boolean;
+  /** The lens command or the agent skills need installing again (shared/setup.ts): Setup's button carries a dot */
+  setupMissing: boolean;
 }
 
 /** One status, as the viewer's status bar has one: what the tab is doing, or what went wrong. */
@@ -55,22 +57,31 @@ export interface Recent {
 export type SetupPart = 'cli' | 'skills';
 
 export interface SetupItem {
-  /** missing: not installed · installed: the app installed it · external: there, but not the app's (left alone) */
-  state: 'missing' | 'installed' | 'external';
+  /**
+   * missing: not installed · stale: the app's, pointing at another copy of the app · installed: the
+   * app installed it · external: there, but not the app's (left alone)
+   */
+  state: 'missing' | 'stale' | 'installed' | 'external';
   /** Where it is, or where it would go */
   where: string;
   /** Something to know about it: not on the PATH, which one runs first */
   note: string | null;
 }
 
+/** How many commits the picker can list; the first is what `lens info` lists unless asked (COMMITS_SHOWN) */
+export const COMMIT_COUNTS = [20, 40, 60] as const;
+export type CommitCount = (typeof COMMIT_COUNTS)[number];
+
 export interface LauncherState {
-  /** sandbox: the design system's primitives (ui/sandbox), in a tab of its own that Settings opens */
-  screen: 'start' | 'picker' | 'settings' | 'sandbox';
+  /** sandbox: the design system's primitives (ui/sandbox), in a tab of its own that Setup opens */
+  screen: 'start' | 'picker' | 'setup' | 'sandbox';
   /** The picker over a running review: its back arrow returns to the review */
   canGoBack: boolean;
   recents: Recent[];
   /** The repository the picker is for */
   repo: RepoInfo | null;
+  /** How many of its commits the picker lists (`repo.commits` holds at most that many) */
+  commitCount: CommitCount;
   /** Its root as shown: the home folder as ~ */
   repoPath: string | null;
   /** Its worktrees' roots as shown, by root */
@@ -109,7 +120,7 @@ export interface StripApi {
   change(id: number): void;
   /** The code themes, as a menu under the button whose right and bottom edges are these; again closes it */
   themeMenu(right: number, bottom: number): void;
-  settings(): void;
+  setup(): void;
   /** The strip's own colors: what a new tab shows before its page paints, and the window buttons Windows draws */
   chrome(color: string, symbolColor: string): void;
 }
@@ -125,6 +136,8 @@ export interface LauncherApi {
   forgetRecent(root: string): void;
   /** Recount "this branch vs" against another base */
   setBase(base: string): void;
+  /** List this many commits */
+  setCommitCount(count: CommitCount): void;
   /** Read the repository again: the picker asks while it is in sight, so its counts follow a `git add` done elsewhere */
   refresh(): void;
   open(choice: ReviewChoice): void;
@@ -135,7 +148,7 @@ export interface LauncherApi {
   showRunning(): void;
   /** Look for git again */
   recheck(): void;
-  settings(): void;
+  setup(): void;
   /** The design system's sandbox, in a tab of its own */
   sandbox(): void;
   install(part: SetupPart): void;

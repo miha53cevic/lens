@@ -89,6 +89,7 @@ const START: LauncherState = {
     },
   ],
   repo: null,
+  commitCount: 20,
   repoPath: null,
   worktreePaths: {},
   current: null,
@@ -241,8 +242,24 @@ pageTest(
     const missing = { ...START.setup, cli: { state: 'missing' as const, where: '~/.local/bin/lens', note: null } };
     await page.push({ ...START, recents: [], setup: missing });
     assert.equal($$('[data-part="recents"]').length, 0, 'no Recent section without recents');
+    assert.equal(text('#setup-notice'), "The lens command isn't installed · Set up");
     await click($('#setup-notice'));
-    assert.deepEqual(page.calls.at(-1), ['settings']);
+    assert.deepEqual(page.calls.at(-1), ['setup']);
+
+    const stale = {
+      state: 'stale' as const,
+      where: '~/.local/bin/lens',
+      note: 'It points at another copy of the app.',
+    };
+    await page.push({ ...START, recents: [], setup: { ...START.setup, cli: stale } });
+    assert.equal(text('#setup-notice'), 'The lens command is out of date · Set up');
+    const noSkills = { state: 'missing' as const, where: '~/.claude/skills', note: null };
+    await page.push({ ...START, recents: [], setup: { ...START.setup, skills: noSkills } });
+    assert.equal(text('#setup-notice'), "The agent skills aren't installed · Set up");
+    await page.push({ ...START, recents: [], setup: { cli: stale, skills: noSkills } });
+    assert.equal(text('#setup-notice'), '2 things need setting up · Set up');
+    await page.push({ ...START, recents: [] });
+    assert.equal($$('#setup-notice').length, 0, 'nothing needs you: no notice');
 
     await page.push({
       ...START,
@@ -480,10 +497,10 @@ pageTest('the picker asks for its repository again when it comes back into sight
   assert.ok($('[data-part="choice"][data-range="worktree"]').hasAttribute('data-checked'));
 });
 
-pageTest('Start and Settings have nothing to ask again', 'launcher', START, async (page) => {
+pageTest('Start and Setup have nothing to ask again', 'launcher', START, async (page) => {
   window.dispatchEvent(new Event('focus'));
   await settle();
-  await page.push({ ...START, screen: 'settings' });
+  await page.push({ ...START, screen: 'setup' });
   window.dispatchEvent(new Event('focus'));
   await settle();
   assert.deepEqual(
@@ -544,6 +561,33 @@ pageTest(
   },
 );
 
+pageTest(
+  "the picker: the commits' count picks 20, 40 or 60, in the list's corner",
+  'launcher',
+  PICKER,
+  async (page) => {
+    const parentOf = (repo: RepoInfo) => ({
+      ...repo,
+      commits: repo.commits.map((commit) => ({ ...commit, parent: 'f'.repeat(40) })),
+    });
+    await page.push({ ...PICKER, repo: parentOf(PICKER.repo!) });
+    await click($('[data-part="choice"][data-range="commits"] input'));
+    assert.deepEqual(
+      $$('#commit-count option').map((option) => option.textContent),
+      ['20 commits', '40 commits', '60 commits'],
+    );
+    assert.equal(($('#commit-count') as HTMLSelectElement).value, '20');
+    ($('#commit-count') as HTMLSelectElement).value = '40';
+    fireEvent.change($('#commit-count'));
+    await settle();
+    assert.deepEqual(page.calls.at(-1), ['setCommitCount', 40]);
+
+    // asked for more than there are, the list ends at the first commit and the count stays to go back
+    await page.push({ ...PICKER, commitCount: 40 });
+    assert.equal(($('#commit-count') as HTMLSelectElement).value, '40');
+  },
+);
+
 pageTest('the picker: one commit, or a run of them, from the list', 'launcher', PICKER, async (page) => {
   assert.deepEqual($$('[data-part="commits"]'), [], 'the list shows only while Commits is picked');
   await click($('[data-part="choice"][data-range="commits"] input'));
@@ -558,8 +602,21 @@ pageTest('the picker: one commit, or a run of them, from the list', 'launcher', 
   );
   assert.equal(text('[data-part="commits-bar"]'), 'Pick a commit⇧click for a run');
   assert.equal(text('[data-part="picker-problem"]'), 'Pick a commit');
-  assert.equal($$('[data-part="commits-older"]').length, 0, 'the list reaches the first commit: nothing older');
+  assert.equal($$('[data-part="commits-count"]').length, 0, 'the list reaches the first commit: nothing more to list');
 
+  // a click focuses the list without scrolling it: a long list scrolled to its top would move the row from under the pointer
+  const focused: (FocusOptions | undefined)[] = [];
+  const focus = HTMLElement.prototype.focus;
+  HTMLElement.prototype.focus = function (this: HTMLElement, options?: FocusOptions) {
+    focused.push(options);
+    return focus.call(this, options);
+  };
+  try {
+    fireEvent.mouseDown($('[data-sha="' + 'c'.repeat(40) + '"]'));
+  } finally {
+    HTMLElement.prototype.focus = focus;
+  }
+  assert.deepEqual(focused, [{ focusVisible: false, preventScroll: true }]);
   await click($('[data-sha="' + 'c'.repeat(40) + '"]'));
   assert.equal(text('[data-part="commits-picked"]'), 'ccccccc');
   assert.equal(text('[data-part="copy-cmd-text"]'), 'lens diff bbbbbbb ccccccc');
@@ -704,11 +761,11 @@ pageTest(
   },
 );
 
-// ---- Settings ----
+// ---- Setup ----
 
-const SETTINGS: LauncherState = {
+const SETUP: LauncherState = {
   ...START,
-  screen: 'settings',
+  screen: 'setup',
   setup: {
     cli: { state: 'missing', where: '~/.local/bin/lens', note: null },
     skills: { state: 'installed', where: '~/.claude/skills', note: null },
@@ -716,12 +773,13 @@ const SETTINGS: LauncherState = {
 };
 
 pageTest(
-  "Settings: each part installs and uninstalls on its own; one that is not the app's has no button",
+  "Setup: each part installs and uninstalls on its own; one that is not the app's has no button",
   'launcher',
-  SETTINGS,
+  SETUP,
   async (page) => {
-    assert.equal(text('[data-part="settings-version"]'), 'lens 0.1.0');
+    assert.equal(text('[data-part="setup-version"]'), 'lens 0.1.0');
     assert.equal($$('#setup-notice').length, 0, 'the notice leads here: it is not shown here');
+    assert.doesNotMatch(text('[data-part="status-bar"]'), /git/, "git's version is in its row, not the bar too");
     await click($('#setup-cli button'));
     await click($('#setup-skills button'));
     assert.deepEqual(page.calls, [
@@ -729,9 +787,13 @@ pageTest(
       ['uninstall', 'skills'],
     ]);
     assert.match(text('#setup-skills'), /Installed\s*Uninstall$/);
+    assert.ok($('#setup-cli').hasAttribute('data-needed'), 'the row the dot is about is marked');
+    assert.ok(!$('#setup-skills').hasAttribute('data-needed'));
+    assert.equal(text('#setup-cli [data-part="setup-state"]'), 'Not installed');
+    assert.equal($$('#setup-cli .dot').length, 1);
     assert.match(text('#setup-git'), /2\.47\.1$/);
 
-    await page.push({ ...SETTINGS, status: { kind: 'done', label: 'Installed the lens command' } });
+    await page.push({ ...SETUP, status: { kind: 'done', label: 'Installed the lens command' } });
     assert.equal(text('#status'), 'Installed the lens command');
     assert.ok($('#status').dataset.kind === 'done');
 
@@ -740,14 +802,26 @@ pageTest(
       where: '~/.nvm/bin/lens',
       note: 'Not installed by the app, so the app leaves it alone.',
     };
-    await page.push({ ...SETTINGS, setup: { ...SETTINGS.setup, cli: external } });
+    await page.push({ ...SETUP, setup: { ...SETUP.setup, cli: external } });
     assert.equal($$('#setup-cli button').length, 0);
     assert.match(
       text('#setup-cli'),
       /~\/\.nvm\/bin\/lens · Not installed by the app, so the app leaves it alone\.\s*Not the app's$/,
     );
 
-    await page.push({ ...SETTINGS, git: null });
+    const stale = {
+      state: 'stale' as const,
+      where: '~/.local/bin/lens',
+      note: 'It points at another copy of the app.',
+    };
+    await page.push({ ...SETUP, setup: { ...SETUP.setup, cli: stale } });
+    assert.ok($('#setup-cli').hasAttribute('data-needed'));
+    assert.equal(text('#setup-cli [data-part="setup-state"]'), 'Out of date');
+    assert.equal(text('#setup-cli button'), 'Reinstall');
+    await click($('#setup-cli button'));
+    assert.deepEqual(page.calls.at(-1), ['install', 'cli'], 'reinstalling is installing again');
+
+    await page.push({ ...SETUP, git: null });
     await click($('#setup-git button'));
     assert.deepEqual(page.calls.at(-1), ['recheck']);
 
@@ -758,7 +832,7 @@ pageTest(
 
 // ---- the sandbox ----
 
-// The design system's sandbox (ui/sandbox), on the screen Settings opens. It must show every
+// The design system's sandbox (ui/sandbox), on the screen Setup opens. It must show every
 // primitive of src/ui, so a primitive added without a place there fails.
 
 test('the sandbox imports every primitive of ui/', () => {
@@ -778,7 +852,7 @@ pageTest(
   async (page) => {
     const count = (selector: string) => $$(selector).length;
     assert.equal(text('main h1'), 'Sandbox');
-    assert.equal(count('[data-part="settings"], [data-part="start"]'), 0, 'the screen is its own');
+    assert.equal(count('[data-part="setup"], [data-part="start"]'), 0, 'the screen is its own');
     assert.equal(count('#g-button [data-part="btn"]'), 9);
     assert.equal(count('#g-button [data-variant="primary"]'), 1);
     assert.equal(count('#g-button [data-part="btn"][data-size="xs"]'), 1, 'the size a card row uses');
@@ -921,6 +995,7 @@ const STRIP: StripState = {
   platform: 'darwin',
   fullscreen: false,
   hints: false,
+  setupMissing: false,
 };
 
 pageTest(
@@ -936,16 +1011,21 @@ pageTest(
     assert.deepEqual(
       $$('[data-tab]').map((tab) => tab.querySelectorAll('[aria-label="Change what\'s reviewed"]').length),
       [1, 1, 0],
-      'every tab with a review can change it, in front or not: a tab keeps its width when another comes forward',
+      'every tab with a review can change it, in front or not',
+    );
+    assert.deepEqual(
+      $$('[data-tab]').map((tab) => tab.querySelectorAll('[data-part="tab-buttons"] button').length),
+      [2, 2, 1],
+      "a tab's buttons float over its end, keeping no room of their own",
     );
 
     await click($$('[data-tab] [data-part="tab-main"]')[1]);
     await click($('[aria-label="Change what\'s reviewed"]'));
     await click($('[aria-label="Close storefront"]'));
     await click($('#new-tab'));
-    await click($('#settings-btn'));
+    await click($('#setup-btn'));
     await click($('#theme-btn'));
-    assert.deepEqual(page.calls.slice(0, 5), [['select', 2], ['change', 1], ['close', 2], ['add'], ['settings']]);
+    assert.deepEqual(page.calls.slice(0, 5), [['select', 2], ['change', 1], ['close', 2], ['add'], ['setup']]);
     assert.equal(page.calls[5][0], 'themeMenu', 'the themes open in a menu the main process shows, under the button');
     assert.equal($('#theme-btn').dataset.part, 'icon-btn', "the viewer's own theme button");
     assert.equal($$('#theme-btn [data-part="swatch"]').length, 1);
@@ -963,6 +1043,19 @@ pageTest(
     assert.ok(document.documentElement.hasAttribute('data-fullscreen'));
   },
 );
+
+pageTest("the strip: Setup's button carries a dot while something isn't installed", 'strip', STRIP, async (page) => {
+  assert.equal($('#setup-btn').getAttribute('aria-label'), 'App');
+  assert.equal($$('#setup-btn .dot').length, 0);
+
+  await page.push({ ...STRIP, setupMissing: true });
+  assert.ok($('#setup-btn').hasAttribute('data-missing'));
+  assert.equal($$('#setup-btn .dot').length, 1);
+  assert.equal($('#setup-btn').getAttribute('aria-label'), 'App: not everything is installed');
+
+  await page.push({ ...STRIP, setupMissing: false });
+  assert.ok(!$('#setup-btn').hasAttribute('data-missing'));
+});
 
 pageTest('the strip: ⌘ held alone numbers the tabs, the ninth key the last one', 'strip', STRIP, async (page) => {
   const hints = () => $$('[data-tab]').map((tab) => tab.querySelector('[data-part="kbd-combo"]')?.textContent ?? '');

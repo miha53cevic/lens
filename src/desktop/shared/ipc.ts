@@ -4,7 +4,14 @@
 // parser took it. What a call may name beyond its type (a folder the app listed, a known branch or
 // theme) needs the main process's state, so window.ts checks that in the call's handler.
 
-import type { LauncherApi, MenuApi, SetupPart, StripApi } from './api.ts';
+import {
+  COMMIT_COUNTS,
+  type CommitCount,
+  type LauncherApi,
+  type MenuApi,
+  type SetupPart,
+  type StripApi,
+} from './api.ts';
 import { parseChoice } from './choice.ts';
 
 /** The calls of an area: its api without the state it reads */
@@ -36,7 +43,7 @@ export const STRIP_ARGS: Parsers<StripApi> = {
   add: none,
   change: id,
   themeMenu: ([right, bottom]) => (isNumber(right) && isNumber(bottom) ? [right, bottom] : null),
-  settings: none,
+  setup: none,
   chrome: ([color, symbolColor]) => (isHexColor(color) && isHexColor(symbolColor) ? [color, symbolColor] : null),
 };
 
@@ -46,6 +53,7 @@ export const LAUNCHER_ARGS: Parsers<LauncherApi> = {
   openWorktree: text,
   forgetRecent: text,
   setBase: text,
+  setCommitCount: ([value]) => (COMMIT_COUNTS.includes(value as CommitCount) ? [value as CommitCount] : null),
   refresh: none,
   open: ([value]) => {
     const choice = parseChoice(value);
@@ -56,7 +64,7 @@ export const LAUNCHER_ARGS: Parsers<LauncherApi> = {
   back: none,
   showRunning: none,
   recheck: none,
-  settings: none,
+  setup: none,
   sandbox: none,
   install: part,
   uninstall: part,

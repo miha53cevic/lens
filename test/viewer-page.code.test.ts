@@ -574,8 +574,8 @@ pageTest('Settings (,) holds the view settings, a page per section of its rail',
   assert.ok(($('#keys-modal') as HTMLDialogElement).open);
   assert.equal(
     document.activeElement,
-    $('#keys-modal'),
-    'the dialog holds focus, not its ✕: opened by a key, the ✕ would wear the keyboard ring',
+    $('#keys-filter'),
+    'the filter holds focus, not the ✕: opened by a key, the ✕ would wear the keyboard ring',
   );
 });
 
@@ -694,10 +694,10 @@ pageTest('the tabs close as in VS Code: others, to the right, viewed, all', asyn
   assert.deepEqual(tabNames(), []);
 });
 
-pageTest("the shortcuts' tabs sit above the scrolling keys, not in them", async () => {
+pageTest("the shortcuts' filter sits above the scrolling keys, not in them", async () => {
   await key('?');
-  assert.equal($('[data-part="key-tabs"]').closest('[data-part="modal-body"]'), null);
-  assert.ok($('#keys-modal [data-part="modal-body"] [data-part="set-table"]'));
+  assert.equal($('[data-part="keys-filter-bar"]').closest('[data-part="modal-body"]'), null);
+  assert.ok($('#keys-modal [data-part="modal-body"] [data-part="key-groups"]'));
 });
 
 test('a changed binary file is a row of the tree: its status, dimmed, and nothing to open', async () => {

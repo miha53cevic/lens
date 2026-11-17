@@ -60,7 +60,7 @@ test.skipIf(process.platform === 'win32')(
 
     // the app moved: the file points somewhere else, and installing again fixes it
     const moved = { ...env, command: ["/Applications/It's Lens.app/Contents/Resources/lens/lens"] };
-    assert.equal(setupState(moved).cli.state, 'missing');
+    assert.equal(setupState(moved).cli.state, 'stale');
     assert.match(setupState(moved).cli.note ?? '', /points at another copy/);
     await install(moved, 'cli');
     assert.match(

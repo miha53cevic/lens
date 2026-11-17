@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { lensInfo } from '../src/cli-app/info.ts';
+import { lensInfo, runInfo } from '../src/cli-app/info.ts';
 import { parseWorktrees } from '../src/cli-app/git.ts';
 import { toPosix } from '../src/cli-app/paths.ts';
 import manifest from '../package.json' with { type: 'json' };
@@ -93,6 +93,73 @@ test("lens info: the remote's default branch is the base, by its local name when
   });
 });
 
+test("lens info: a branch started off another marks only its own commits, whatever main's state", async () => {
+  await withRepo(async (dir, git) => {
+    git('update-ref', 'refs/remotes/origin/main', 'HEAD');
+    git('checkout', '-qb', 'parent');
+    git('commit', '-q', '--allow-empty', '-m', 'the parent');
+    git('push', '-q', '.', 'parent:refs/remotes/origin/parent');
+    git('checkout', '-qb', 'feature');
+    git('commit', '-q', '--allow-empty', '-m', 'pushed');
+    git('push', '-q', '.', 'feature:refs/remotes/origin/feature');
+    git('commit', '-q', '--allow-empty', '-m', 'not pushed');
+    git('branch', '-D', 'parent');
+
+    const { repo } = await lensInfo(dir);
+    assert.deepEqual(
+      repo!.commits.map(({ subject, onBranch }) => ({ subject, onBranch })),
+      [
+        { subject: 'not pushed', onBranch: true },
+        { subject: 'pushed', onBranch: true },
+        { subject: 'the parent', onBranch: false },
+        { subject: 'base', onBranch: false },
+      ],
+      'the remote parent has its commit; the branch’s own remote copy takes none',
+    );
+
+    git('checkout', '-q', '--detach');
+    assert.ok(
+      (await lensInfo(dir)).repo!.commits.every((commit) => !commit.onBranch),
+      'detached: no branch',
+    );
+  });
+});
+
+test("lens info: a local base that's only behind its remote copy gives way to it", async () => {
+  await withRepo(async (dir, git) => {
+    git('update-ref', 'refs/remotes/origin/main', 'HEAD');
+    git('symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main');
+    git('checkout', '-qb', 'merged');
+    writeFileSync(join(dir, 'c.ts'), 'export const c = 1;\n');
+    git('add', '-A');
+    git('commit', '-qm', 'merged since');
+    git('update-ref', 'refs/remotes/origin/main', 'HEAD');
+    git('checkout', '-qb', 'feature');
+    writeFileSync(join(dir, 'd.ts'), 'export const d = 1;\n');
+    git('add', '-A');
+    git('commit', '-qm', 'mine');
+
+    const stale = (await lensInfo(dir)).repo!;
+    assert.equal(stale.base, 'origin/main', 'main was never pulled');
+    assert.equal(stale.ahead, 1);
+    assert.deepEqual(
+      stale.commits.map(({ subject, onBranch }) => ({ subject, onBranch })),
+      [
+        { subject: 'mine', onBranch: true },
+        { subject: 'merged since', onBranch: false },
+        { subject: 'base', onBranch: false },
+      ],
+    );
+
+    git('checkout', '-q', 'main');
+    git('commit', '-q', '--allow-empty', '-m', 'local only');
+    git('checkout', '-q', 'feature');
+    assert.equal((await lensInfo(dir)).repo?.base, 'main', 'a main with its own commits stays the base');
+
+    assert.equal((await lensInfo(dir, { base: 'main' })).repo?.base, 'main', 'a chosen base is kept');
+  });
+});
+
 test("lens info: HEAD's commits along first parents, the branch's own marked", async () => {
   await withRepo(async (dir, git) => {
     git('checkout', '-qb', 'side');
@@ -118,6 +185,19 @@ test("lens info: HEAD's commits along first parents, the branch's own marked", a
       'the merged commit is not in the line, the root has no parent',
     );
     assert.ok(Math.abs(repo!.commits[0].date - Date.now() / 1000) < 600, 'in seconds');
+  });
+});
+
+test("lens info: --commits lists that many of HEAD's commits, and takes only a sensible count", async () => {
+  await withRepo(async (dir, git) => {
+    for (const name of ['one', 'two', 'three']) git('commit', '-q', '--allow-empty', '-m', name);
+    assert.equal((await lensInfo(dir)).repo!.commits.length, 4, 'fewer than the default: all of them');
+    assert.deepEqual(
+      (await lensInfo(dir, { commits: 2 })).repo!.commits.map((commit) => commit.subject),
+      ['three', 'two'],
+    );
+    await assert.rejects(runInfo(['--commits', '0'], dir, true, null), /--commits needs a whole number from 1 to 200/);
+    await assert.rejects(runInfo(['--commits'], dir, true, null), /--commits needs a whole number/);
   });
 });
 

@@ -298,11 +298,11 @@ test('a reopened tab: its picker on the review it showed, which starts when the 
 
     // the list keeps the tabs that have a repository, and says which was in front
     const list = new TabList();
-    const settings = new Tab(tab.id + 1, 'settings', cli, store, host);
-    list.add(settings);
+    const setup = new Tab(tab.id + 1, 'setup', cli, store, host);
+    list.add(setup);
     list.add(tab);
     assert.deepEqual(list.session(), { tabs: [{ root: toPosix(dir), choice: worktree }], active: 0 });
-    list.select(settings.id);
+    list.select(setup.id);
     assert.deepEqual(list.session().active, -1, "a tab that isn't kept is in front");
 
     // End session: the tab is on its picker again, and that is what is kept
@@ -355,7 +355,7 @@ test('the tab list: a new tab goes after the one in front, and closing brings a 
   const host = fakeHost();
   const store = openStore(join(tmpdir(), 'lens-never-written.json'));
   const tabs = new TabList();
-  const make = (screen: 'start' | 'settings' | 'sandbox' = 'start') => new Tab(tabs.newId(), screen, cli, store, host);
+  const make = (screen: 'start' | 'setup' | 'sandbox' = 'start') => new Tab(tabs.newId(), screen, cli, store, host);
   const [a, b, c] = [make(), make(), make()];
   tabs.add(a);
   tabs.add(b);
@@ -373,18 +373,18 @@ test('the tab list: a new tab goes after the one in front, and closing brings a 
   assert.equal(tabs.active, a, 'or the left one, at the end');
   assert.equal(tabs.select(a.id), false, 'already in front');
 
-  const settings = make('settings');
-  tabs.add(settings);
-  assert.equal(tabs.onScreen('settings'), settings);
+  const setup = make('setup');
+  tabs.add(setup);
+  assert.equal(tabs.onScreen('setup'), setup);
   assert.equal(tabs.onScreen('sandbox'), null);
   assert.deepEqual(tabs.strip(), {
     tabs: [
       { id: a.id, icon: 'new', title: 'New tab', detail: '', canChange: false },
-      { id: settings.id, icon: 'settings', title: 'Settings', detail: '', canChange: false },
+      { id: setup.id, icon: 'setup', title: 'App', detail: '', canChange: false },
     ],
-    activeId: settings.id,
+    activeId: setup.id,
   });
-  tabs.remove(settings.id);
+  tabs.remove(setup.id);
   tabs.remove(a.id);
   assert.equal(tabs.active, null);
 });
