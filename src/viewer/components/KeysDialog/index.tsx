@@ -1,6 +1,6 @@
 import { Fragment, useState } from 'react';
 import { useLens } from '../../store.ts';
-import { DIALOG, ModalHead } from '../ModalHead.tsx';
+import { DIALOG, LARGE_DIALOG, ModalHead } from '../ModalHead.tsx';
 import { cn } from '../../../ui/cn.ts';
 import { Kbd } from '../../../ui/Kbd.tsx';
 import { Segmented } from '../../../ui/Segmented.tsx';
@@ -19,7 +19,7 @@ export function KeysDialog() {
   const shown = tabs.find((keyTab) => keyTab.id === tab) ?? tabs[0];
 
   return (
-    <dialog id='keys-modal' tabIndex={-1} className={cn(DIALOG, 'h-[min(34rem,calc(var(--screen-h)*0.8))]')}>
+    <dialog id='keys-modal' tabIndex={-1} className={cn(DIALOG, LARGE_DIALOG)}>
       <ModalHead title='Keyboard shortcuts' />
       {/* outside the body: the keys scroll under the tabs, not with them */}
       <div data-part='key-tabs' className='flex-none px-4 pt-4 pb-3'>

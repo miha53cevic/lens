@@ -3,7 +3,7 @@ import { useLens, type SettingsPage } from '../../store.ts';
 import { showSettingsPage } from '../../actions/dialogs.ts';
 import { cn } from '../../../ui/cn.ts';
 import { ListRow } from '../../../ui/ListRow.tsx';
-import { DIALOG, ModalHead } from '../ModalHead.tsx';
+import { DIALOG, LARGE_DIALOG, ModalHead } from '../ModalHead.tsx';
 import { VIEW_PAGES } from './const.ts';
 import { ConfigFoot, ConfigPage } from './ConfigPage.tsx';
 import { ViewPages } from './ViewPages.tsx';
@@ -50,11 +50,7 @@ export function SettingsDialog() {
   );
 
   return (
-    <dialog
-      id='settings-modal'
-      tabIndex={-1}
-      className={cn(DIALOG, 'h-[min(36rem,calc(var(--screen-h)*0.85))] w-[min(800px,calc(var(--screen-w)*0.9))]')}
-    >
+    <dialog id='settings-modal' tabIndex={-1} className={cn(DIALOG, LARGE_DIALOG)}>
       <ModalHead title='Settings' />
       <div className='flex min-h-0 flex-1'>
         <div

@@ -10,6 +10,9 @@ import { IconButton } from '../../ui/IconButton.tsx';
 export const DIALOG =
   'focus-visible:outline-none max-h-[calc(var(--screen-h)*0.8)] w-[min(620px,calc(var(--screen-w)*0.9))] overflow-hidden rounded-lg border border-line-strong bg-raised p-0 text-text opacity-0 shadow-3 [scale:0.98] [transition:opacity_var(--motion-exit),translate_var(--motion-exit),scale_var(--motion-exit),display_var(--motion-exit)_allow-discrete,overlay_var(--motion-exit)_allow-discrete] [translate:0_8px] flex-col [&[open]]:flex [&[open]]:opacity-100 [&[open]]:[scale:1] [&[open]]:[transition:opacity_var(--motion-enter),translate_var(--motion-enter),scale_var(--motion-enter),display_var(--motion-enter)_allow-discrete,overlay_var(--motion-enter)_allow-discrete] [&[open]]:[translate:0_0] starting:[&[open]]:opacity-0 starting:[&[open]]:[scale:0.98] starting:[&[open]]:[translate:0_8px] backdrop:bg-scrim backdrop:opacity-0 backdrop:[transition:opacity_var(--motion-exit),display_var(--motion-exit)_allow-discrete,overlay_var(--motion-exit)_allow-discrete] [&[open]]:backdrop:opacity-100 [&[open]]:backdrop:[transition:opacity_var(--motion-enter),display_var(--motion-enter)_allow-discrete,overlay_var(--motion-enter)_allow-discrete] starting:[&[open]]:backdrop:opacity-0';
 
+/** The size of a dialog read at length (Settings, the shortcuts): the same for each, so neither jumps. */
+export const LARGE_DIALOG = 'h-[min(36rem,calc(var(--screen-h)*0.85))] w-[min(800px,calc(var(--screen-w)*0.9))]';
+
 /**
  * A modal's title row; its close button closes the <dialog> natively. `children` go between the title
  * and the close button (a drawing's Before / Now), and bring their own spacer.
