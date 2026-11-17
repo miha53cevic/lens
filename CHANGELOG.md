@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/miha53cevic/lens/compare/v0.8.2...v0.9.0) (2026-11-17)
+
+
+### Features
+
+* agent support & fixes ([#72](https://github.com/miha53cevic/lens/issues/72)) ([aab34cb](https://github.com/miha53cevic/lens/commit/aab34cbe7e9affcaac96163a445cba4cddf51a42))
+
 ## [0.8.2](https://github.com/miha53cevic/lens/compare/v0.8.1...v0.8.2) (2026-11-17)
 
 
