@@ -96,6 +96,8 @@ export function cliReason(stderr: string): string | null {
 
 export interface InfoQuery {
   base?: string;
+  /** How many commits to list (--commits): lens's own count without it */
+  commits?: number;
   themes?: boolean;
   /** This theme instead of the config's: with `themes`, its colors come along */
   theme?: string;
@@ -106,6 +108,7 @@ export async function lensInfo(cli: LensCli, cwd: string, query: InfoQuery = {})
   const args = ['info', '--json'];
   if (query.themes) args.push('--themes');
   if (query.base) args.push('--base', query.base);
+  if (query.commits) args.push('--commits', String(query.commits));
   if (query.theme) args.push('--theme', query.theme);
   return JSON.parse(await runLens(cli, args, cwd)) as LensInfo;
 }

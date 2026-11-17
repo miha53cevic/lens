@@ -68,6 +68,10 @@ export interface SetupItem {
   note: string | null;
 }
 
+/** How many commits the picker can list; the first is what `lens info` lists unless asked (COMMITS_SHOWN) */
+export const COMMIT_COUNTS = [20, 40, 60] as const;
+export type CommitCount = (typeof COMMIT_COUNTS)[number];
+
 export interface LauncherState {
   /** sandbox: the design system's primitives (ui/sandbox), in a tab of its own that Setup opens */
   screen: 'start' | 'picker' | 'setup' | 'sandbox';
@@ -76,6 +80,8 @@ export interface LauncherState {
   recents: Recent[];
   /** The repository the picker is for */
   repo: RepoInfo | null;
+  /** How many of its commits the picker lists (`repo.commits` holds at most that many) */
+  commitCount: CommitCount;
   /** Its root as shown: the home folder as ~ */
   repoPath: string | null;
   /** Its worktrees' roots as shown, by root */
@@ -130,6 +136,8 @@ export interface LauncherApi {
   forgetRecent(root: string): void;
   /** Recount "this branch vs" against another base */
   setBase(base: string): void;
+  /** List this many commits */
+  setCommitCount(count: CommitCount): void;
   /** Read the repository again: the picker asks while it is in sight, so its counts follow a `git add` done elsewhere */
   refresh(): void;
   open(choice: ReviewChoice): void;

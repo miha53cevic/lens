@@ -4,7 +4,14 @@
 
 import { existsSync } from 'node:fs';
 import { basename } from 'node:path';
-import type { LauncherState, LauncherStatus, RepoInfo, StripTab } from '../shared/api.ts';
+import {
+  COMMIT_COUNTS,
+  type CommitCount,
+  type LauncherState,
+  type LauncherStatus,
+  type RepoInfo,
+  type StripTab,
+} from '../shared/api.ts';
 import { choiceArgs, choiceLabel, choiceProblem, type ReviewChoice } from '../shared/choice.ts';
 import { lensInfo, type LensCli } from './cli.ts';
 import { tildePath } from './display.ts';
@@ -30,7 +37,7 @@ export interface TabHost {
 /** What a tab's launcher page shows of the tab itself; the window adds what all tabs share. */
 export type TabState = Pick<
   LauncherState,
-  'screen' | 'canGoBack' | 'repo' | 'current' | 'running' | 'reopening' | 'opening' | 'status'
+  'screen' | 'canGoBack' | 'repo' | 'commitCount' | 'current' | 'running' | 'reopening' | 'opening' | 'status'
 >;
 
 interface Review {
@@ -53,6 +60,8 @@ export class Tab {
   readonly id: number;
   screen: LauncherState['screen'];
   repo: RepoInfo | null = null;
+  /** How many commits the picker lists: every read of the repository asks for that many */
+  commitCount: CommitCount = COMMIT_COUNTS[0];
   status: LauncherStatus = IDLE;
   running: { port: number } | null = null;
   /** Which of its two pages the tab shows: the launcher, or the review's viewer */
@@ -98,6 +107,7 @@ export class Tab {
       screen: this.screen,
       canGoBack: this.screen === 'picker', // to the review when there is one, else to Start
       repo: this.repo,
+      commitCount: this.commitCount,
       current: this.review_?.choice ?? this.restored,
       running: this.review_ ? null : this.running,
       reopening: this.comingBack(),
@@ -242,6 +252,12 @@ export class Tab {
     return !!repo && root !== repo.root && repo.worktrees.some((listed) => listed.root === root && !listed.missing);
   }
 
+  /** Lists this many commits from now on: the repository is read again for them. */
+  setCommitCount(count: CommitCount): Promise<void> {
+    this.commitCount = count;
+    return this.refresh();
+  }
+
   /** Reads the repository again: the counts, the branch, and "this branch vs" against `base`. */
   refresh(base?: string): Promise<void> {
     return this.read(base, false);
@@ -271,7 +287,11 @@ export class Tab {
     const outdated = () => read !== this.reads || this.repo?.root !== root;
     this.reading++;
     try {
-      const info = await lensInfo(this.cli, root, { base: base ?? this.repo?.base ?? undefined });
+      const info = await lensInfo(this.cli, root, {
+        base: base ?? this.repo?.base ?? undefined,
+        // lens's own count needs no flag
+        commits: this.commitCount === COMMIT_COUNTS[0] ? undefined : this.commitCount,
+      });
       if (outdated()) return;
       if (!info.repo) return this.repositoryGone(root, 'not inside a git repository anymore');
       this.pollFailure = null;

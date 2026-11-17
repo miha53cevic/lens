@@ -89,6 +89,7 @@ const START: LauncherState = {
     },
   ],
   repo: null,
+  commitCount: 20,
   repoPath: null,
   worktreePaths: {},
   current: null,
@@ -560,6 +561,33 @@ pageTest(
   },
 );
 
+pageTest(
+  "the picker: the commits' count picks 20, 40 or 60, in the list's corner",
+  'launcher',
+  PICKER,
+  async (page) => {
+    const parentOf = (repo: RepoInfo) => ({
+      ...repo,
+      commits: repo.commits.map((commit) => ({ ...commit, parent: 'f'.repeat(40) })),
+    });
+    await page.push({ ...PICKER, repo: parentOf(PICKER.repo!) });
+    await click($('[data-part="choice"][data-range="commits"] input'));
+    assert.deepEqual(
+      $$('#commit-count option').map((option) => option.textContent),
+      ['20 commits', '40 commits', '60 commits'],
+    );
+    assert.equal(($('#commit-count') as HTMLSelectElement).value, '20');
+    ($('#commit-count') as HTMLSelectElement).value = '40';
+    fireEvent.change($('#commit-count'));
+    await settle();
+    assert.deepEqual(page.calls.at(-1), ['setCommitCount', 40]);
+
+    // asked for more than there are, the list ends at the first commit and the count stays to go back
+    await page.push({ ...PICKER, commitCount: 40 });
+    assert.equal(($('#commit-count') as HTMLSelectElement).value, '40');
+  },
+);
+
 pageTest('the picker: one commit, or a run of them, from the list', 'launcher', PICKER, async (page) => {
   assert.deepEqual($$('[data-part="commits"]'), [], 'the list shows only while Commits is picked');
   await click($('[data-part="choice"][data-range="commits"] input'));
@@ -574,7 +602,7 @@ pageTest('the picker: one commit, or a run of them, from the list', 'launcher', 
   );
   assert.equal(text('[data-part="commits-bar"]'), 'Pick a commit⇧click for a run');
   assert.equal(text('[data-part="picker-problem"]'), 'Pick a commit');
-  assert.equal($$('[data-part="commits-older"]').length, 0, 'the list reaches the first commit: nothing older');
+  assert.equal($$('[data-part="commits-count"]').length, 0, 'the list reaches the first commit: nothing more to list');
 
   await click($('[data-sha="' + 'c'.repeat(40) + '"]'));
   assert.equal(text('[data-part="commits-picked"]'), 'ccccccc');

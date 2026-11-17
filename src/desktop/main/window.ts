@@ -585,6 +585,7 @@ export class AppWindow implements TabHost {
         const known = tab.repo ? [...tab.repo.branches, tab.repo.base] : [];
         if (known.includes(base)) await tab.refresh(base);
       },
+      setCommitCount: (count) => tab.setCommitCount(count),
       refresh: async () => {
         // only the page in sight: a tab behind another, or one showing its review, has no picker to keep current
         if (tab === this.tabs.active && tab.showing === 'launcher') await tab.poll();

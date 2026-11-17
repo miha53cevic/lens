@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { lensInfo } from '../src/cli-app/info.ts';
+import { lensInfo, runInfo } from '../src/cli-app/info.ts';
 import { parseWorktrees } from '../src/cli-app/git.ts';
 import { toPosix } from '../src/cli-app/paths.ts';
 import manifest from '../package.json' with { type: 'json' };
@@ -185,6 +185,19 @@ test("lens info: HEAD's commits along first parents, the branch's own marked", a
       'the merged commit is not in the line, the root has no parent',
     );
     assert.ok(Math.abs(repo!.commits[0].date - Date.now() / 1000) < 600, 'in seconds');
+  });
+});
+
+test("lens info: --commits lists that many of HEAD's commits, and takes only a sensible count", async () => {
+  await withRepo(async (dir, git) => {
+    for (const name of ['one', 'two', 'three']) git('commit', '-q', '--allow-empty', '-m', name);
+    assert.equal((await lensInfo(dir)).repo!.commits.length, 4, 'fewer than the default: all of them');
+    assert.deepEqual(
+      (await lensInfo(dir, { commits: 2 })).repo!.commits.map((commit) => commit.subject),
+      ['three', 'two'],
+    );
+    await assert.rejects(runInfo(['--commits', '0'], dir, true, null), /--commits needs a whole number from 1 to 200/);
+    await assert.rejects(runInfo(['--commits'], dir, true, null), /--commits needs a whole number/);
   });
 });
 
