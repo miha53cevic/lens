@@ -22,10 +22,7 @@ export function AgentOverview({ summary, anySummarized, checking }: AgentOvervie
   const ownRun = useLens((state) => state.data.agent !== null);
   if (!overview && summary.checkout) {
     return (
-      <div
-        className='[&_p]:mt-0 [&_p]:mb-4 [&_p]:max-w-[72ch] [&_p]:text-lg/[1.65] [&_p]:text-pretty [&_p]:text-text'
-        id='no-summary'
-      >
+      <div className='[&_p]:mt-0 [&_p]:mb-4 [&_p]:text-lg/[1.65] [&_p]:text-pretty [&_p]:text-text' id='no-summary'>
         <div data-part='ov-what-label' className='mb-1 text-accent eyebrow'>
           Agent summary
         </div>
@@ -55,10 +52,7 @@ export function AgentOverview({ summary, anySummarized, checking }: AgentOvervie
     if (checking) return null;
     // nothing summarized yet: how to get a summary, where it will be
     return (
-      <div
-        className='[&_p]:mt-0 [&_p]:mb-4 [&_p]:max-w-[72ch] [&_p]:text-lg/[1.65] [&_p]:text-pretty [&_p]:text-text'
-        id='no-summary'
-      >
+      <div className='[&_p]:mt-0 [&_p]:mb-4 [&_p]:text-lg/[1.65] [&_p]:text-pretty [&_p]:text-text' id='no-summary'>
         <div data-part='ov-what-label' className='mb-1 text-accent eyebrow'>
           Agent summary
         </div>
@@ -83,7 +77,7 @@ export function AgentOverview({ summary, anySummarized, checking }: AgentOvervie
   }
   return (
     <>
-      <div className='[&_p]:mt-0 [&_p]:mb-4 [&_p]:max-w-[72ch] [&_p]:text-lg/[1.65] [&_p]:text-pretty [&_p]:text-text'>
+      <div className='[&_p]:mt-0 [&_p]:mb-4 [&_p]:text-lg/[1.65] [&_p]:text-pretty [&_p]:text-text'>
         <div data-part='ov-what-label' className='mb-1 text-accent eyebrow'>
           Agent summary
         </div>

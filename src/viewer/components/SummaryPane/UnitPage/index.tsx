@@ -19,6 +19,7 @@ import { Drawings } from '../Drawings/index.tsx';
 import { CheckoutFirst } from '../CheckoutFirst.tsx';
 import { runGoing } from '../../../model/status.ts';
 import { AgentText } from '../../AgentText.tsx';
+import { SUMMARY_COLUMN } from '../const.ts';
 
 // Mounted per unit (SummaryPane's key): another unit starts afresh.
 export function UnitPage({ unit }: { unit: Unit }) {
@@ -33,7 +34,7 @@ export function UnitPage({ unit }: { unit: Unit }) {
   const summary = unit.summary;
 
   return (
-    <div data-part='sum-inner' className='flex flex-col gap-5 px-6 pt-6 pb-[104px] [&>*]:min-w-0'>
+    <div data-part='sum-inner' className={SUMMARY_COLUMN}>
       {summary ? (
         <h1
           data-part='sum-headline'
