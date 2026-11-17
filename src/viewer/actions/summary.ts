@@ -25,7 +25,10 @@ export function runAgentSummary(): Promise<boolean> {
   );
 }
 
-/** A worktree with the review's end checked out (the summary's `checkout`), made by lens: the summary can be written there. */
+/**
+ * A worktree with the review's end checked out (the summary's `checkout`), made by lens or found: the
+ * summary can be written there. The desktop app opens the review in it, in a tab of its own.
+ */
 export function reviewInWorktree(): Promise<boolean> {
   return tracked({ id: 'worktree', label: 'Making the worktree…', failed: "Couldn't make the worktree" }, async () => {
     const { summary } = await api('POST /api/worktree');

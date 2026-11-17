@@ -84,7 +84,7 @@ test('a diff that ends at a branch another worktree has says to review it there'
     units: fresh.units.map((unit) => ({ ...unit, summary: null })),
   };
   try {
-    await open();
+    const page = await open();
     await key('v');
     await settle();
     const how = $('#no-summary');
@@ -95,6 +95,13 @@ test('a diff that ends at a branch another worktree has says to review it there'
     assert.deepEqual(
       [...how.querySelectorAll('[data-part="copy-cmd-text"]')].map((command) => command.textContent),
       [worktree.command],
+    );
+    // its path opens it in a tab (the app's): the server is asked, as for a worktree it makes
+    await click(how.querySelector('[data-part="checkout-worktree"]')!);
+    await settle();
+    assert.deepEqual(
+      page.requests.filter((request) => request.path === '/api/worktree').map((request) => request.method),
+      ['POST'],
     );
   } finally {
     payload.summary = fresh;

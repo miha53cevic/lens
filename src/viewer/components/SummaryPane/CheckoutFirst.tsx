@@ -1,9 +1,10 @@
-import { FolderGit2, GitBranch } from 'lucide-react';
+import { ExternalLink, FolderGit2, GitBranch } from 'lucide-react';
 import type { SummaryView } from '../../../cli-app/summary/view.ts';
 import { Button } from '../../../ui/Button.tsx';
 import { CopyCommand } from '../../../ui/CopyCommand.tsx';
 import { Spinner } from '../../../ui/Spinner.tsx';
 import { Tag } from '../../../ui/Tag.tsx';
+import { tipAttrs } from '../../../ui/Tip.tsx';
 import { useLens } from '../../store.ts';
 import { isBusy } from '../../model/status.ts';
 import { reviewInWorktree } from '../../actions/summary.ts';
@@ -26,9 +27,19 @@ export function CheckoutFirst({ checkout }: { checkout: NonNullable<SummaryView[
       {worktree ? (
         <>
           , which is checked out in{' '}
-          <span data-part='checkout-worktree' className='font-mono'>
+          {/* the app opens it in a tab (it reads the line the server prints); a browser has only the command */}
+          <Button
+            data-part='checkout-worktree'
+            variant='ghost'
+            size='sm'
+            className='align-middle font-mono'
+            disabled={making}
+            onClick={() => void reviewInWorktree()}
+            {...tipAttrs('Open it in a new tab (in the desktop app)')}
+          >
             {worktree.root}
-          </span>
+            <ExternalLink size={12} />
+          </Button>
           . Review it there: <CopyCommand command={worktree.command} />
         </>
       ) : (
