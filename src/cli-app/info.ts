@@ -62,7 +62,7 @@ export interface CommitInfo {
   author: string;
   /** Committed at, in seconds since the epoch */
   date: number;
-  /** `base` doesn't have it; false without a base */
+  /** No other branch, local or remote, has it; false on a detached HEAD */
   onBranch: boolean;
 }
 
@@ -167,6 +167,45 @@ function defaultBase(remoteHead: string | null, branches: string[]): string | nu
   return ['main', 'master'].find((name) => branches.includes(name)) ?? null;
 }
 
+/**
+ * `base`, or its remote copy when the local branch is only behind it: a main not pulled since the
+ * branch started would claim everything merged since as the branch's own. The remote copy is its
+ * upstream, else the remote's default branch.
+ */
+async function freshBase(base: string, remoteHead: string | null, branches: string[], cwd: string): Promise<string> {
+  if (!branches.includes(base)) return base;
+  const remote =
+    (await tryGit(['rev-parse', '--abbrev-ref', '--symbolic-full-name', `${base}@{upstream}`], cwd)) ??
+    (remoteHead?.replace(/^origin\//, '') === base ? remoteHead : null);
+  if (!remote) return base;
+  // "<only in base>\t<only in remote>"
+  const counts = await tryGit(['rev-list', '--left-right', '--count', `${base}...${remote}`], cwd);
+  const [localOnly, remoteOnly] = (counts ?? '').split(/\s+/).map(Number);
+  return localOnly === 0 && remoteOnly > 0 ? remote : base;
+}
+
+/**
+ * `rev-list` of the branch's own commits: those no other branch reaches, its remote copies aside.
+ * Not `base..HEAD`: a branch started off another one, or a base not pulled lately, would claim
+ * their commits too. A branch started off this one hides the commits they share.
+ */
+function ownCommitsArgs(branch: string): string[] {
+  // an --exclude holds for the next --branches / --remotes only, matched without refs/heads/ or refs/remotes/
+  return [
+    'rev-list',
+    '--first-parent',
+    '-n',
+    String(COMMITS_SHOWN),
+    'HEAD',
+    '--not',
+    `--exclude=${branch}`,
+    '--branches',
+    `--exclude=*/${branch}`,
+    '--remotes',
+    '--',
+  ];
+}
+
 // The reads run side by side, each a git process: the desktop app's picker asks every few seconds.
 async function repoInfo(cwd: string, wantedBase: string | undefined): Promise<RepoInfo | null> {
   const top = await tryGit(['rev-parse', '--show-toplevel'], cwd);
@@ -196,14 +235,12 @@ async function repoInfo(cwd: string, wantedBase: string | undefined): Promise<Re
   if (wantedBase !== undefined && wanted === null) {
     throw new Error(`"${wantedBase}" is not a branch or commit here`);
   }
-  const base = wantedBase ?? defaultBase(remoteHead, branches);
-  const [ahead, branchCommits] =
-    base && head
-      ? await Promise.all([
-          tryGit(['rev-list', '--count', `${base}..HEAD`], cwd),
-          tryGit(['rev-list', '--first-parent', '-n', String(COMMITS_SHOWN), `${base}..HEAD`, '--'], cwd),
-        ])
-      : [null, null];
+  const fallback = defaultBase(remoteHead, branches);
+  const base = wantedBase ?? (fallback && (await freshBase(fallback, remoteHead, branches, cwd)));
+  const [ahead, branchCommits] = await Promise.all([
+    base && head ? tryGit(['rev-list', '--count', `${base}..HEAD`], cwd) : null,
+    branch && head ? tryGit(ownCommitsArgs(branch), cwd) : null,
+  ]);
   const github = matchRemote(remotes ?? '', { owner: '', repo: '', number: 0 });
 
   return {
