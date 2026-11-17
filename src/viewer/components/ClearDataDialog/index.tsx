@@ -101,7 +101,7 @@ function Picker({ kinds }: { kinds: ClearInfoResponse['kinds'] }) {
         )}
       </div>
       <div className='flex flex-none items-center gap-2 border-t border-line px-4 py-3'>
-        <span className='min-w-0 flex-1 text-sm text-faint'>Settings stay. The agent can write a summary again.</span>
+        <span className='min-w-0 flex-1 text-sm text-faint'>Settings stay.</span>
         <form method='dialog'>
           <Button variant='ghost'>Cancel</Button>
         </form>
