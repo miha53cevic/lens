@@ -22,6 +22,7 @@ import { tildePath } from './display.ts';
 import { dispatch, type Handlers } from './ipc.ts';
 import { APP_ORIGIN, allowFrames, allowOrigin, appPagePreferences, isAppPage, viewerPreferences } from './security.ts';
 import { planProxyOrigin } from './session.ts';
+import { needsYou, SETUP_NAMES } from '../shared/setup.ts';
 import { install, setupState, uninstall, type SetupEnv } from './setup.ts';
 import type { Session, Store } from './store.ts';
 import { Tab, type OwnScreen, type TabHost } from './tab.ts';
@@ -368,7 +369,7 @@ export class AppWindow implements TabHost {
       platform: process.platform,
       fullscreen: this.win.isFullScreen(),
       hints: this.hints,
-      setupMissing: Object.values(setupState(this.deps.setup)).some((item) => item.state === 'missing'),
+      setupMissing: Object.values(setupState(this.deps.setup)).some(needsYou),
     };
   }
 
@@ -605,7 +606,7 @@ export class AppWindow implements TabHost {
   }
 
   private async setup(tab: Tab, action: 'install' | 'uninstall', part: SetupPart): Promise<void> {
-    const what = part === 'cli' ? 'the lens command' : 'the agent skills';
+    const what = SETUP_NAMES[part];
     try {
       const done = await (action === 'install' ? install : uninstall)(this.deps.setup, part);
       tab.set({ kind: 'done', label: done });

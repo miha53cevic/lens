@@ -124,7 +124,7 @@ function cliItem(env: SetupEnv): SetupItem {
       : env.platform === 'win32'
         ? 'Open a new terminal to use it.'
         : `${folder} isn't on your PATH: add it in your shell's profile.`;
-  return { state: stale ? 'missing' : 'installed', where: tildePath(ours, env.home), note };
+  return { state: stale ? 'stale' : 'installed', where: tildePath(ours, env.home), note };
 }
 
 async function installCli(env: SetupEnv): Promise<string> {

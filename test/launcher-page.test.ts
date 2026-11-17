@@ -241,8 +241,24 @@ pageTest(
     const missing = { ...START.setup, cli: { state: 'missing' as const, where: '~/.local/bin/lens', note: null } };
     await page.push({ ...START, recents: [], setup: missing });
     assert.equal($$('[data-part="recents"]').length, 0, 'no Recent section without recents');
+    assert.equal(text('#setup-notice'), "The lens command isn't installed · Set up");
     await click($('#setup-notice'));
     assert.deepEqual(page.calls.at(-1), ['setup']);
+
+    const stale = {
+      state: 'stale' as const,
+      where: '~/.local/bin/lens',
+      note: 'It points at another copy of the app.',
+    };
+    await page.push({ ...START, recents: [], setup: { ...START.setup, cli: stale } });
+    assert.equal(text('#setup-notice'), 'The lens command is out of date · Set up');
+    const noSkills = { state: 'missing' as const, where: '~/.claude/skills', note: null };
+    await page.push({ ...START, recents: [], setup: { ...START.setup, skills: noSkills } });
+    assert.equal(text('#setup-notice'), "The agent skills aren't installed · Set up");
+    await page.push({ ...START, recents: [], setup: { cli: stale, skills: noSkills } });
+    assert.equal(text('#setup-notice'), '2 things need setting up · Set up');
+    await page.push({ ...START, recents: [] });
+    assert.equal($$('#setup-notice').length, 0, 'nothing needs you: no notice');
 
     await page.push({
       ...START,
@@ -729,6 +745,10 @@ pageTest(
       ['uninstall', 'skills'],
     ]);
     assert.match(text('#setup-skills'), /Installed\s*Uninstall$/);
+    assert.ok($('#setup-cli').hasAttribute('data-needed'), 'the row the dot is about is marked');
+    assert.ok(!$('#setup-skills').hasAttribute('data-needed'));
+    assert.equal(text('#setup-cli [data-part="setup-state"]'), 'Not installed');
+    assert.equal($$('#setup-cli .dot').length, 1);
     assert.match(text('#setup-git'), /2\.47\.1$/);
 
     await page.push({ ...SETUP, status: { kind: 'done', label: 'Installed the lens command' } });
@@ -746,6 +766,18 @@ pageTest(
       text('#setup-cli'),
       /~\/\.nvm\/bin\/lens · Not installed by the app, so the app leaves it alone\.\s*Not the app's$/,
     );
+
+    const stale = {
+      state: 'stale' as const,
+      where: '~/.local/bin/lens',
+      note: 'It points at another copy of the app.',
+    };
+    await page.push({ ...SETUP, setup: { ...SETUP.setup, cli: stale } });
+    assert.ok($('#setup-cli').hasAttribute('data-needed'));
+    assert.equal(text('#setup-cli [data-part="setup-state"]'), 'Out of date');
+    assert.equal(text('#setup-cli button'), 'Reinstall');
+    await click($('#setup-cli button'));
+    assert.deepEqual(page.calls.at(-1), ['install', 'cli'], 'reinstalling is installing again');
 
     await page.push({ ...SETUP, git: null });
     await click($('#setup-git button'));

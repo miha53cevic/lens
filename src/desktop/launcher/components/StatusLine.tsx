@@ -3,6 +3,7 @@
 
 import type { LauncherState } from '../../shared/api.ts';
 import { StatusBar, type BarNotice, type BarStatus } from '../../../ui/StatusBar.tsx';
+import { setupNotice } from '../../shared/setup.ts';
 import { useApp } from '../store.ts';
 
 /** The one status, strongest first: the tab's own, then what stands in the way of a review. */
@@ -42,11 +43,12 @@ export function StatusLine() {
   const state = useApp((whole) => whole);
   const notices: BarNotice[] = [];
   // true when it shows: only where it helps (not on Setup, which is where it leads)
-  if (state.screen !== 'setup' && state.setup.cli.state === 'missing') {
+  const setup = setupNotice(state.setup);
+  if (state.screen !== 'setup' && setup) {
     notices.push({
       id: 'setup',
       buttonId: 'setup-notice',
-      text: "The lens command isn't installed · Set up",
+      text: setup + ' · Set up',
       tone: 'warn',
       run: () => window.lensApp.launcher.setup(),
     });

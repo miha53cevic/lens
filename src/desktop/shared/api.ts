@@ -30,7 +30,7 @@ export interface StripState {
   fullscreen: boolean;
   /** ⌘ (Ctrl elsewhere) is held on its own: the tabs show the numbers that pick them (main/tabKeys.ts) */
   hints: boolean;
-  /** The lens command or the agent skills aren't installed: Setup's button carries a dot */
+  /** The lens command or the agent skills need installing again (shared/setup.ts): Setup's button carries a dot */
   setupMissing: boolean;
 }
 
@@ -57,8 +57,11 @@ export interface Recent {
 export type SetupPart = 'cli' | 'skills';
 
 export interface SetupItem {
-  /** missing: not installed · installed: the app installed it · external: there, but not the app's (left alone) */
-  state: 'missing' | 'installed' | 'external';
+  /**
+   * missing: not installed · stale: the app's, pointing at another copy of the app · installed: the
+   * app installed it · external: there, but not the app's (left alone)
+   */
+  state: 'missing' | 'stale' | 'installed' | 'external';
   /** Where it is, or where it would go */
   where: string;
   /** Something to know about it: not on the PATH, which one runs first */
