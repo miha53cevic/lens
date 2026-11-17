@@ -3,7 +3,7 @@ import { performance } from 'node:perf_hooks';
 import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import type { FileFoldModel, LensConfig } from '../../model.ts';
-import type { ConfigProblem } from '../../config.ts';
+import { findConfigPath, type ConfigProblem } from '../../config.ts';
 import type { SummaryView } from '../../summary/view.ts';
 import { removeServerInfo, writeServerInfo } from '../../ask/discovery.ts';
 import { createAskRoutes } from '../../ask/routes.ts';
@@ -26,7 +26,14 @@ import type {
 } from '../../api/contract.ts';
 import { createRouter, HttpError, noBody, type RouteContext } from '../../api/router.ts';
 import { previewResponse } from '../../summary/previews.ts';
-import { checkView, revealSettings, settingsPath, viewSettings, writeSettings } from '../../summary/settings.ts';
+import {
+  checkView,
+  revealFile,
+  revealSettings,
+  settingsPath,
+  viewSettings,
+  writeSettings,
+} from '../../summary/settings.ts';
 import { buildProgressReader, type BuildProgress } from '../../summary/progress.ts';
 import { clearKinds, describeKinds, type ClearContext, type ClearPlan } from '../../clear.ts';
 import { escapeHtml } from '../../text.ts';
@@ -526,6 +533,12 @@ export async function serveViewer(
     })
     .json('POST /api/settings/reveal', noBody, () => {
       revealSettings();
+      return { ok: true };
+    })
+    .json('POST /api/config/reveal', noBody, () => {
+      const path = findConfigPath(current.cwd);
+      if (!path) throw new HttpError(404, 'no .lens.json here');
+      revealFile(path);
       return { ok: true };
     })
     .json('POST /api/timings', parseTimings, ({ timings }) => {

@@ -15,6 +15,16 @@ export function revealSettingsFile(): Promise<boolean> {
   );
 }
 
+/** The Config page's footer: the server shows the .lens.json in effect in Finder or Explorer. */
+export function revealConfigFile(): Promise<boolean> {
+  return tracked(
+    { id: 'reveal-config', label: 'Showing .lens.json…', failed: "Couldn't show .lens.json" },
+    async () => {
+      await api('POST /api/config/reveal');
+    },
+  );
+}
+
 export function saveView(change: ViewSettings): Promise<boolean> {
   return tracked({ id: 'view', label: 'Saving the view…', failed: "Couldn't save the view setting" }, async () => {
     await api('POST /api/view', { body: change });

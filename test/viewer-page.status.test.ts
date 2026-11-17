@@ -309,6 +309,39 @@ test('problems in .lens.json show as a notice, and a click opens Settings on the
 });
 
 pageTest(
+  'the Config page says what folds and why, each category with its own patterns, in a one-line foot',
+  async (page) => {
+    await key(',');
+    await click($('#settings-tab-config'));
+    const config = $('[data-part="settings-page"][data-page="config"]');
+    assert.match(
+      $('[data-part="config-lead"]').textContent!,
+      /^Fold level 1\d+ of \d+ categories fold: those scored 1 or lower\.$/,
+    );
+    const state = (category: string) =>
+      config.querySelector(`[data-category="${category}"] [data-part="config-state"]`)!.textContent;
+    assert.equal(state('import'), 'Folds');
+    const logging = config.querySelector('[data-category="logging"]')!;
+    assert.match(logging.textContent!, /calls on/, "logging's call patterns sit with it");
+    // a long list shows its first few, and the rest on a click
+    const methods = logging.querySelectorAll('[data-part="config-chips"]')[1];
+    const more = methods.querySelector<HTMLButtonElement>('[data-part="config-more"]')!;
+    assert.match(more.textContent!, /^\+\d+ more$/);
+    await click(more);
+    assert.equal(methods.querySelectorAll('[data-part="config-more"]').length, 0);
+
+    const foot = $('[data-part="config-foot"]');
+    if (payload.configSource) {
+      assert.match(foot.textContent!, /^Defaults \+.*\.lens\.json·edit it, then r to reload$/);
+      await click($('#config-source'));
+      assert.ok(page.requests.some((request) => request.method === 'POST' && request.path === '/api/config/reveal'));
+    } else {
+      assert.equal(foot.textContent, 'Built-in defaults · no .lens.json here');
+    }
+  },
+);
+
+pageTest(
   'code that changed on disk shows as a notice: undoing the change takes it back, a click refreshes',
   async () => {
     const notices = () => $$('#status-bar [data-part="status-notices"] > *').map((notice) => notice.textContent);
