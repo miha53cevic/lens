@@ -4,6 +4,8 @@
 // other's typecheck instead of the page. `lens ask`'s own endpoints and the preview frames aren't
 // the page's calls, so they aren't here.
 
+import type { AgentId, AgentRunInfo } from '../agents/types.ts';
+export type { AgentRunInfo };
 import type { AskQuestion, AskSelection, AskState } from '../ask/session.ts';
 import type { ClearKindInfo, ClearPlan, ClearScope } from '../clear.ts';
 import type { MarkChange } from '../marks/store.ts';
@@ -69,6 +71,10 @@ export interface ApiRoutes {
   'POST /api/lsp/hover': Endpoint<CodePlace, LspHoverResponse>;
   /** Where TypeScript says the name at a place is declared */
   'POST /api/lsp/definition': Endpoint<CodePlace, LspDefinitionResponse>;
+  /** The picked agent starts writing the summary (behind `agent`; 409 while one runs) */
+  'POST /api/agent/summary': Endpoint<null, Ok>;
+  /** Stops one of the agent's runs, and everything it started; ok when it had ended already */
+  'POST /api/agent/runs/:id/stop': Endpoint<null, Ok>;
 }
 
 export type ApiRoute = keyof ApiRoutes;
@@ -101,6 +107,8 @@ export const API_ROUTES: { readonly [R in ApiRoute]: true } = {
   'POST /api/plans/end': true,
   'POST /api/lsp/hover': true,
   'POST /api/lsp/definition': true,
+  'POST /api/agent/summary': true,
+  'POST /api/agent/runs/:id/stop': true,
 };
 
 export interface Ok {
@@ -124,6 +132,17 @@ export interface StampResponse {
   plans: string | null;
   /** The TypeScript server, while `typescriptLsp` is on; null while it's off */
   lsp: LspStatus | null;
+  /** The agent's summary run, while an agent is picked; null while none is */
+  agentRun: AgentSummaryRun | null;
+  /** Every run of the agent going (the Running dialog), oldest first */
+  agentRuns: AgentRunInfo[];
+}
+
+/** lens's own agent run of the summary: going, or how the last one ended */
+export interface AgentSummaryRun {
+  running: boolean;
+  /** Why the last run failed (`Stopped` when the reader stopped it); null when it didn't, or none ran */
+  error: string | null;
 }
 
 export interface SettingsRequest {
@@ -132,6 +151,7 @@ export interface SettingsRequest {
   planTab?: boolean;
   typescriptLsp?: boolean;
   timings?: boolean;
+  agent?: AgentId | null;
 }
 
 /**

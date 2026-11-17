@@ -44,6 +44,7 @@ function lines(loaded: LoadedConfig): string[] {
   out.push(row(0, 'planTab', String(config.planTab), 'planTab'));
   out.push(row(0, 'typescriptLsp', String(config.typescriptLsp), 'typescriptLsp'));
   out.push(row(0, 'timings', String(config.timings), 'timings'));
+  out.push(row(0, 'agent', config.agent ?? 'none (your own, through the skills)', 'agent'));
   return out;
 }
 

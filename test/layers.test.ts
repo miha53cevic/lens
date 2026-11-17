@@ -54,3 +54,29 @@ for (const folder of Object.keys(MAY_IMPORT)) {
     assert.deepEqual(crossings(folder), []);
   });
 }
+
+// Agent runners (src/cli-app/agents/): only that folder knows any runner. Everything else goes
+// through AgentRunner and sees a runner's id and name as data, so a second runner changes nothing
+// outside it. A runner's file is any there but the shared ones.
+const AGENTS = join(SRC, 'cli-app', 'agents');
+const SHARED_AGENT_FILES = ['index.ts', 'run.ts', 'types.ts'];
+
+test("only src/cli-app/agents/ knows a runner: no import of a runner's file, and no name of one, outside it", () => {
+  const runnerFiles = readdirSync(AGENTS).filter((name) => !SHARED_AGENT_FILES.includes(name));
+  const runnerIds = runnerFiles.map((name) => name.replace(/\.ts$/, ''));
+  const found: string[] = [];
+  for (const file of sources(SRC)) {
+    if (file.startsWith(AGENTS)) continue;
+    const where = relPath(SRC, file);
+    const source = readFileSync(file, 'utf8');
+    for (const [, specifier] of source.matchAll(/(?:from|import)\s*\(?\s*['"](\.{1,2}\/[^'"]+)['"]/g)) {
+      const target = resolve(dirname(file), specifier);
+      if (dirname(target) === AGENTS && runnerFiles.includes(target.slice(AGENTS.length + 1)))
+        found.push(`${where} imports ${specifier}`);
+    }
+    // a folder an agent reads (`.claude/skills`) is a path, not the runner
+    const text = source.replace(/['"`]\.\w+['"`]|\.\w+\//g, '');
+    for (const id of runnerIds) if (new RegExp(id, 'i').test(text)) found.push(`${where} names ${id}`);
+  }
+  assert.deepEqual(found, []);
+});

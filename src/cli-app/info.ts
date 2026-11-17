@@ -2,7 +2,8 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { basename } from 'node:path';
 import { loadConfig } from './config.ts';
-import { planTabOn } from './summary/settings.ts';
+import { agentOn, planTabOn } from './summary/settings.ts';
+import { agentRunner, type AgentId, type AgentStatus } from './agents/index.ts';
 import { parseWorktrees, untrackedCommand, type Worktree } from './git.ts';
 import { toPosix } from './paths.ts';
 import { matchRemote } from './pr.ts';
@@ -110,6 +111,14 @@ export interface LensInfo {
   theme: string;
   /** With --themes: the theme menu's themes and their colors */
   themes?: ThemeSwatch[];
+  /** The agent lens runs itself (the `agent` config) and whether it's ready; null when none is picked, and then nothing is checked */
+  agent: AgentInfo | null;
+}
+
+export interface AgentInfo extends AgentStatus {
+  id: AgentId;
+  name: string;
+  loginCommand: string | null;
 }
 
 export interface InfoOptions {
@@ -269,11 +278,17 @@ export async function lensInfo(cwd: string, options: InfoOptions = {}): Promise<
   if (!isBundledTheme(theme)) {
     throw new Error(`unknown theme "${theme}" — pick a Shiki theme name (https://shiki.style/themes)`);
   }
+  const runner = agentRunner(agentOn(loadConfig(cwd)));
+  const [repo, status] = await Promise.all([
+    git === null ? null : repoInfo(cwd, options.base, options.commits ?? COMMITS_SHOWN),
+    runner?.status() ?? null,
+  ]);
   const info: LensInfo = {
     version: manifest.version,
     git,
-    repo: git === null ? null : await repoInfo(cwd, options.base, options.commits ?? COMMITS_SHOWN),
+    repo,
     theme,
+    agent: runner && status && { id: runner.id, name: runner.name, loginCommand: runner.loginCommand, ...status },
   };
   if (options.themes) {
     // the config's theme may be any Shiki theme, not one of the menu's
@@ -283,8 +298,16 @@ export async function lensInfo(cwd: string, options: InfoOptions = {}): Promise<
   return info;
 }
 
+const AGENT_STATE = {
+  ready: 'ready',
+  missing: 'not installed',
+  'logged-out': 'not logged in',
+  unknown: "couldn't tell whether it's logged in",
+};
+
 function describe(info: LensInfo): string {
   const lines = [`lens ${info.version} · ${info.git ? 'git ' + info.git : 'git not found'}`];
+  if (info.agent) lines.push(`agent       ${info.agent.name} · ${AGENT_STATE[info.agent.problem ?? 'ready']}`);
   const { repo } = info;
   if (!repo) return lines.concat('not inside a git repository').join('\n');
   lines.push(`repository  ${repo.root}`);

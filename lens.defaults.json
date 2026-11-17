@@ -42,6 +42,7 @@
   "planTab": true,
   "typescriptLsp": false,
   "timings": true,
+  "agent": null,
 
   "exclude": ["package-lock.json", "yarn.lock", "pnpm-lock.yaml", "bun.lock", "bun.lockb", "*.min.js", "*.min.css", "*.map"]
 }

@@ -2,12 +2,18 @@
 
 exports[`the page's payload keeps its shape 1`] = `
 "payload.accent: string
+payload.agent: null
+payload.agents: array
+payload.agents[].id: string
+payload.agents[].name: string
+payload.agents[]: object
 payload.analysis: string
 payload.bg: string
 payload.binary: array
 payload.buildPreviews: boolean
 payload.canRefresh: boolean
 payload.changeStamp: string
+payload.config.agent: null
 payload.config.buildPreviews: boolean
 payload.config.callPatterns: array
 payload.config.callPatterns[].category: string

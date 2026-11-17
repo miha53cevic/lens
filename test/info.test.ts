@@ -1,12 +1,13 @@
 import { test } from 'bun:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, mkdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { lensInfo, runInfo } from '../src/cli-app/info.ts';
 import { parseWorktrees } from '../src/cli-app/git.ts';
 import { toPosix } from '../src/cli-app/paths.ts';
+import { writeSettings } from '../src/cli-app/summary/settings.ts';
 import manifest from '../package.json' with { type: 'json' };
 
 /** Runs `fn` in a fresh temp git repo (branch "main", one commit), cleaned up afterwards. */
@@ -336,4 +337,37 @@ test('parseWorktrees: both of git porcelain forms, a bare main worktree left out
   assert.deepEqual(parseWorktrees(plain, false), expected);
   assert.deepEqual(parseWorktrees(plain.replaceAll('\n', '\0'), true), expected);
   assert.equal(parseWorktrees('', true), null);
+});
+
+test('lens info: the picked agent and whether it can run; nothing checked while none is picked', async () => {
+  await withRepo(async (dir) => {
+    const fake = join(dir, '.fake-claude');
+    writeFileSync(
+      fake,
+      `#!/bin/sh\nexec '${process.execPath}' '${join(import.meta.dirname, 'fixtures', 'fakeClaude.ts')}' "$@"\n`,
+    );
+    chmodSync(fake, 0o755);
+    const saved = { ...process.env };
+    process.env.LENS_CLAUDE = fake;
+    try {
+      assert.equal((await lensInfo(dir)).agent, null);
+      writeFileSync(join(dir, '.lens.json'), JSON.stringify({ agent: 'claude' }));
+      assert.deepEqual((await lensInfo(dir)).agent, {
+        id: 'claude',
+        name: 'Claude Code',
+        loginCommand: 'claude auth login',
+        path: fake,
+        version: '2.1.311',
+        problem: null,
+      });
+      process.env.FAKE_CLAUDE_AUTH = 'out';
+      assert.equal((await lensInfo(dir)).agent?.problem, 'logged-out');
+      // the reader's pick wins over the config's, as the other switches do: none picked here
+      writeSettings({ agent: null });
+      assert.equal((await lensInfo(dir)).agent, null);
+    } finally {
+      writeSettings({ agent: undefined });
+      process.env = saved;
+    }
+  });
 });

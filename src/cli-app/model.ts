@@ -3,6 +3,8 @@
  * error-boilerplate, accessor, barrel, data. Custom callPatterns in
  * .lens.json may introduce their own names, so regions carry plain strings.
  */
+import type { AgentId } from './agents/types.ts';
+
 export type FoldCategory = string;
 
 export type LanguageId = 'typescript' | 'tsx' | 'javascript';
@@ -102,4 +104,6 @@ export interface LensConfig {
   typescriptLsp: boolean;
   /** lens records how long its steps take, for `lens timings` (timings.ts): off until it's turned on */
   timings: boolean;
+  /** The agent lens runs itself to write the summary and answer Ask questions (agents/); null: the user's own, through the skills */
+  agent: AgentId | null;
 }

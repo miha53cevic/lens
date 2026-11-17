@@ -12,7 +12,7 @@ import type { FileFoldModel, LensConfig } from './model.ts';
 import { loadDiff, collectUnits, type FileUnits, type LoadedDiff } from './summary/collect.ts';
 import { reviewKey, summaryStamp } from './summary/store.ts';
 import { buildSummaryView, type SummaryView } from './summary/view.ts';
-import { buildPreviewsOn, planTabOn, selfChecksOn, timingsOn, typescriptLspOn } from './summary/settings.ts';
+import { buildPreviewsOn, planTabOn, agentOn, selfChecksOn, timingsOn, typescriptLspOn } from './summary/settings.ts';
 import { record, timed } from './timings.ts';
 
 const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build', 'out', 'coverage']);
@@ -203,6 +203,7 @@ async function analyzeWith(
     planTab: planTabOn(config),
     typescriptLsp: typescriptLspOn(config),
     timings: timingsOn(config),
+    agent: agentOn(config),
     label: diff ? diff.label : null,
     guessedBase: diff ? diff.guessedBase : null,
     summary,
