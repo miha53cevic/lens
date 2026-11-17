@@ -252,6 +252,7 @@ export function Sandbox() {
           ))}
           <Tab
             active={false}
+            floatButtons
             onSelect={() => {}}
             onClose={() => {}}
             closeLabel='Close lens'

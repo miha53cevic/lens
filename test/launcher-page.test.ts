@@ -970,7 +970,12 @@ pageTest(
     assert.deepEqual(
       $$('[data-tab]').map((tab) => tab.querySelectorAll('[aria-label="Change what\'s reviewed"]').length),
       [1, 1, 0],
-      'every tab with a review can change it, in front or not: a tab keeps its width when another comes forward',
+      'every tab with a review can change it, in front or not',
+    );
+    assert.deepEqual(
+      $$('[data-tab]').map((tab) => tab.querySelectorAll('[data-part="tab-buttons"] button').length),
+      [2, 2, 1],
+      "a tab's buttons float over its end, keeping no room of their own",
     );
 
     await click($$('[data-tab] [data-part="tab-main"]')[1]);

@@ -36,12 +36,13 @@ function RepoTab({ tab, active, hint }: { tab: StripTab; active: boolean; hint: 
       mainRef={active ? keepInSight : undefined}
       data-tab={tab.id}
       active={active}
+      floatButtons
       onSelect={() => strip.select(tab.id)}
       // it narrows out, and stays narrowed until the main process's answer takes it out
       onClose={() => narrowOut(document.querySelector(`[data-tab="${tab.id}"]`), () => strip.close(tab.id), true)}
       closeLabel={'Close ' + tab.title}
       actions={
-        // on every tab with a review, shown or not, so a tab keeps its width when another comes to the front
+        // on every tab with a review: it shows over the tab's end, so it takes no room
         tab.canChange && (
           // an icon alone: the title says what it swaps
           <IconButton

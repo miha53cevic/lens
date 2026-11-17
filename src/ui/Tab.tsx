@@ -28,6 +28,11 @@ interface TabProps {
    * off from the next, the one in front in the editor's own surface with the accent along its top.
    */
   flat?: boolean;
+  /**
+   * Its buttons keep no room: they show over the tab's end while it's hovered or focused, the words
+   * fading under them, so a tab is as wide as its words and never changes width (the app's strip).
+   */
+  floatButtons?: boolean;
   className?: string;
   /** On the tab (the strip widens it in) */
   tabRef?: Ref<HTMLDivElement>;
@@ -39,7 +44,8 @@ interface TabProps {
 
 /**
  * One tab of a row of them (`role='tablist'` on the row): a soft pill, the selected look in front.
- * The middle button closes it, as in a browser; its buttons show on the tab in front and under the pointer.
+ * The middle button closes it, as in a browser; its buttons show on the tab in front and under the pointer
+ * (with `floatButtons`, under the pointer only, over its end).
  */
 export function Tab({
   active,
@@ -52,11 +58,26 @@ export function Tab({
   actions,
   mono,
   flat,
+  floatButtons,
   className,
   tabRef,
   mainRef,
   ...data
 }: TabProps) {
+  const close = onClose && (
+    <IconButton
+      size='sm'
+      className={TAB_BUTTON}
+      data-part='tab-close'
+      label={closeLabel ?? 'Close'}
+      onClick={(event) => {
+        event.stopPropagation();
+        onClose();
+      }}
+    >
+      <X size={12} />
+    </IconButton>
+  );
   return (
     <div
       {...data}
@@ -67,6 +88,7 @@ export function Tab({
         // the focus ring goes around the whole tab, its buttons included
         'group/tab flex max-w-[280px] flex-none items-center rounded-full border border-transparent pr-1 text-sm whitespace-nowrap text-muted select-none hover:text-text has-[[role=tab]:focus-visible]:outline-2 has-[[role=tab]:focus-visible]:outline-offset-2 has-[[role=tab]:focus-visible]:outline-focus data-active:border-selected-ring data-active:bg-selected-bg data-active:text-text',
         mono && 'font-mono',
+        floatButtons && 'relative pr-2',
         flat &&
           'h-full rounded-none border-0 border-r border-line pr-2 data-active:border-line data-active:bg-surface data-active:shadow-[inset_0_1px_0_var(--accent)] [&>[role=tab]]:rounded-none [&>[role=tab]]:pl-4',
         className,
@@ -87,20 +109,20 @@ export function Tab({
       >
         {children}
       </button>
-      {actions}
-      {onClose && (
-        <IconButton
-          size='sm'
-          className={TAB_BUTTON}
-          data-part='tab-close'
-          label={closeLabel ?? 'Close'}
-          onClick={(event) => {
-            event.stopPropagation();
-            onClose();
-          }}
+      {floatButtons ? (
+        <span
+          data-part='tab-buttons'
+          // the page's own color under them, then the tab's (the selected tint in front), faded in over the words
+          className='absolute inset-y-0 right-1 hidden items-center rounded-r-full bg-[linear-gradient(to_right,transparent,var(--bg)_var(--space-5))] pl-5 group-focus-within/tab:flex group-hover/tab:flex group-data-active/tab:bg-[linear-gradient(to_right,transparent,var(--selected-bg)_var(--space-5)),linear-gradient(to_right,transparent,var(--bg)_var(--space-5))]'
         >
-          <X size={12} />
-        </IconButton>
+          {actions}
+          {close}
+        </span>
+      ) : (
+        <>
+          {actions}
+          {close}
+        </>
       )}
     </div>
   );
