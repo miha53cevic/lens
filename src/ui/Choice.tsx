@@ -54,7 +54,7 @@ export function Choice({
         checked,
         clsx(
           // its own input's ring only: a field in the row (the picker's custom arguments) is the field's
-          'group/choice grid cursor-pointer grid-cols-[16px_minmax(0,1fr)_auto] items-center gap-3 px-3 py-2 has-[>input:focus-visible]:outline-2 has-[>input:focus-visible]:outline-offset-2 has-[>input:focus-visible]:outline-focus data-disabled:cursor-default data-disabled:opacity-55',
+          'group/choice relative grid cursor-pointer grid-cols-[16px_minmax(0,1fr)_auto] items-center gap-3 px-3 py-2 has-[>input:focus-visible]:outline-2 has-[>input:focus-visible]:outline-offset-2 has-[>input:focus-visible]:outline-focus data-disabled:cursor-default data-disabled:opacity-55',
           className,
         ),
       )}

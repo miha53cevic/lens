@@ -50,6 +50,25 @@ export async function runSmoke(window: AppWindow, themes: Themes, repo: string):
   };
   const strip = window.win.webContents;
   const read = <T>(contents: WebContents, code: string) => contents.executeJavaScript(code, true) as Promise<T>;
+  // how far the page itself scrolls at each UI zoom, which should be nowhere: only its panes scroll
+  const pageOverflow = (contents: WebContents) =>
+    read<Record<string, number>>(
+      contents,
+      `(async () => {
+        const root = document.documentElement;
+        const before = root.getAttribute('style');
+        const found = {};
+        for (const zoom of [0.8, 0.9, 1, 1.1, 1.25, 1.5]) {
+          root.style.setProperty('zoom', String(zoom));
+          root.style.setProperty('--ui-zoom', String(zoom));
+          await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+          found[Math.round(zoom * 100)] = root.scrollHeight - root.clientHeight;
+        }
+        if (before === null) root.removeAttribute('style');
+        else root.setAttribute('style', before);
+        return found;
+      })()`,
+    );
 
   // the second run: the app as the first one left it
   if (process.env.LENS_APP_SMOKE_PHASE === 'reopen') {
@@ -82,6 +101,10 @@ export async function runSmoke(window: AppWindow, themes: Themes, repo: string):
     await tab.openFolder(repo);
     if (tab.screen !== 'picker') throw new Error('the picker did not open: ' + JSON.stringify(tab.status));
     await shot('2-picker', window.frontViews()!.launcher.webContents);
+    // the commits listed make the picker its longest
+    await read(window.frontViews()!.launcher.webContents, `document.querySelector('[data-range="commits"]').click()`);
+    await pause(300);
+    report.pickerOverflow = await pageOverflow(window.frontViews()!.launcher.webContents);
 
     await tab.open({ kind: 'diff', range: 'worktree' });
     if (!tab.reviewUrl) throw new Error('the review did not open: ' + JSON.stringify(tab.status));
@@ -121,6 +144,7 @@ export async function runSmoke(window: AppWindow, themes: Themes, repo: string):
     // the design system's sandbox, which Setup leads to: a tab of its own
     window.openSandbox();
     await shot('4-sandbox', window.frontViews()!.launcher.webContents);
+    report.sandboxOverflow = await pageOverflow(window.frontViews()!.launcher.webContents);
     window.openSetup();
 
     // the strip's theme menu: the viewer's, in a view of its own over the window
@@ -167,7 +191,10 @@ export async function runSmoke(window: AppWindow, themes: Themes, repo: string):
     report.ok =
       report.viewerSeesApp === false &&
       String(report.viewerThemeButton).startsWith('none / ') &&
-      report.themeMenuClosed === true;
+      report.themeMenuClosed === true &&
+      [report.pickerOverflow, report.sandboxOverflow].every((found) =>
+        Object.values(found as Record<string, number>).every((overflow) => overflow === 0),
+      );
   } catch (error) {
     report.error = (error as Error).stack ?? String(error);
   }
