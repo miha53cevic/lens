@@ -39,7 +39,7 @@
 
   "buildPreviews": true,
   "selfChecks": false,
-  "planTab": true,
+  "planTab": false,
   "typescriptLsp": false,
   "timings": true,
   "agent": null,

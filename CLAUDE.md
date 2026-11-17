@@ -120,7 +120,7 @@ With `agent` picked (`null` by default: the user's own agent, through the skills
 
 The Plan tab shows the user's Lavish plans; lens writes none.
 
-- Behind `planTab` (on by default; the reader's switch overrides the config). Off, nothing of the tab shows.
+- Behind `planTab` (off by default; the reader's switch overrides the config). Off, nothing of the tab shows.
 - lens reads only Lavish's state file and `/health`, and runs only `lavish-axi <plan> --no-open` (`--reopen` only on the reader's click). These are Lavish's internals: read little, and fail to "not known", never to a wrong claim.
 - `proxy.ts` frames Lavish from a second loopback port (`planPort` in `.lens/server.json`), forwarding only `admit`ted sessions' own paths, with a `frame-ancestors` naming only this viewer. Keep all of that.
 

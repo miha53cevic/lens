@@ -93,7 +93,7 @@ Add a `.lens.json` to your repository; it merges over [lens's defaults](lens.def
 | `theme` | the starting code theme, any [Shiki theme](https://shiki.style/themes) (default `"vesper"`) |
 | `buildPreviews` | the summary includes UI previews and run-time diagrams (default `true`) |
 | `selfChecks` | the summary includes questions to check yourself (default `false`) |
-| `planTab` | show the Plan tab (default `true`) |
+| `planTab` | show the Plan tab (default `false`) |
 | `typescriptLsp` | TypeScript hover and go-to-definition, by the TypeScript 7 lens ships with (default `false`) |
 | `timings` | record how long lens's steps take (default `true`) |
 | `agent` | the agent lens runs itself for the summary and Ask: `"claude"` (Claude Code, installed and logged in), or `null` for your own through the skills (default `null`) |
