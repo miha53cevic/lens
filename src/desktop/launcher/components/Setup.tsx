@@ -17,7 +17,7 @@ interface SetupRowProps {
 
 /**
  * One thing the app can install for your agent, and take away again. One that needs you takes the
- * strip's dot and its color, so the dot there leads to it here.
+ * strip's dot and its color on its edge, so the dot there leads to it here.
  */
 function SetupRow({ part, icon, name, what, item, busy }: SetupRowProps) {
   const { launcher } = window.lensApp;
@@ -26,7 +26,8 @@ function SetupRow({ part, icon, name, what, item, busy }: SetupRowProps) {
     <li
       className={clsx(
         'grid grid-cols-[16px_minmax(0,1fr)_auto] items-start gap-3 rounded-lg border p-4 [&>svg]:mt-0 [&>svg]:text-muted',
-        needed ? 'border-tone-line bg-tone-tint [--tone:var(--risk)]' : 'border-line bg-surface',
+        'bg-surface',
+        needed ? 'border-tone-line [--tone:var(--risk)]' : 'border-line',
       )}
       id={'setup-' + part}
       data-state={item.state}

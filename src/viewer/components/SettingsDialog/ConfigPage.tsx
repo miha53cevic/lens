@@ -140,8 +140,7 @@ export function ConfigFoot() {
       ) : (
         'Built-in defaults (no .lens.json found).'
       )}{' '}
-      Edit .lens.json and press reload (r) to apply it. <code>lens config</code> shows where each value comes from; the
-      README lists every field.
+      Edit .lens.json and press reload (r) to apply it. <code>lens config</code> shows where each value comes from.
     </>
   );
 }
