@@ -74,10 +74,11 @@ export function Commits({ repo, run, onRun }: CommitsProps) {
         tabIndex={0}
         onKeyDown={onKeyDown}
         // a click focuses it without the keyboard's ring: Chromium shows that ring after a key, and ⇧
-        // is held for a run. Taking the click's default also keeps it from selecting text
+        // is held for a run. Taking the click's default also keeps it from selecting text. Without
+        // preventScroll a list taller than the window jumps to its top, and the click lands on another row
         onMouseDown={(event) => {
           event.preventDefault();
-          event.currentTarget.focus({ focusVisible: false });
+          event.currentTarget.focus({ focusVisible: false, preventScroll: true });
         }}
         // ⇧ click picks a run, not the text between two clicks
         className='grid py-1 outline-offset-[-2px] select-none focus-visible:outline-2 focus-visible:outline-focus'

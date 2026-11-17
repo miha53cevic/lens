@@ -604,6 +604,19 @@ pageTest('the picker: one commit, or a run of them, from the list', 'launcher', 
   assert.equal(text('[data-part="picker-problem"]'), 'Pick a commit');
   assert.equal($$('[data-part="commits-count"]').length, 0, 'the list reaches the first commit: nothing more to list');
 
+  // a click focuses the list without scrolling it: a long list scrolled to its top would move the row from under the pointer
+  const focused: (FocusOptions | undefined)[] = [];
+  const focus = HTMLElement.prototype.focus;
+  HTMLElement.prototype.focus = function (this: HTMLElement, options?: FocusOptions) {
+    focused.push(options);
+    return focus.call(this, options);
+  };
+  try {
+    fireEvent.mouseDown($('[data-sha="' + 'c'.repeat(40) + '"]'));
+  } finally {
+    HTMLElement.prototype.focus = focus;
+  }
+  assert.deepEqual(focused, [{ focusVisible: false, preventScroll: true }]);
   await click($('[data-sha="' + 'c'.repeat(40) + '"]'));
   assert.equal(text('[data-part="commits-picked"]'), 'ccccccc');
   assert.equal(text('[data-part="copy-cmd-text"]'), 'lens diff bbbbbbb ccccccc');
