@@ -324,29 +324,52 @@ export function parseWorktrees(listing: string, nul: boolean): { main: string; w
   return main === null ? null : { main, worktrees };
 }
 
-/**
- * The other worktree `branch` is checked out in, or null when none is (or git can't say). Asked only
- * when a diff ends at a branch that isn't checked out here, so a sync git call is fine.
- */
-export function worktreeWith(branch: string, cwd: string): string | null {
-  const name = branch.replace(/^refs\/heads\//, '');
+/** git's list of the repository's worktrees, the main one first; null when git can't say. */
+export function listWorktrees(cwd: string): { main: string; worktrees: Worktree[] } | null {
   const list = (args: string[]) =>
     execFileSync('git', ['worktree', 'list', '--porcelain', ...args], {
       cwd,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
     });
-  let listed: ReturnType<typeof parseWorktrees> = null;
   try {
-    listed = parseWorktrees(list(['-z']), true);
+    return parseWorktrees(list(['-z']), true);
   } catch {
     try {
-      listed = parseWorktrees(list([]), false);
+      return parseWorktrees(list([]), false);
     } catch {
       return null;
     }
   }
-  return listed?.worktrees.find((worktree) => worktree.branch === name && !worktree.missing)?.root ?? null;
+}
+
+/** The commit `revision` names (a full SHA), or null when it names none here. */
+export function commitOf(revision: string, cwd: string): string | null {
+  return commitsOf([revision], cwd)[0];
+}
+
+/** The worktree whose HEAD is detached at `commit` (a full SHA), or null when none is. */
+export function worktreeAt(commit: string, worktrees: Worktree[]): string | null {
+  for (const worktree of worktrees) {
+    // the list has short SHAs: a match is checked against the worktree's own HEAD
+    if (worktree.branch !== null || worktree.missing || !worktree.head || !commit.startsWith(worktree.head)) continue;
+    if (commitsOf(['HEAD'], worktree.root)[0] === commit) return worktree.root;
+  }
+  return null;
+}
+
+/**
+ * The other worktree that has `revision` checked out (a branch by name, or any revision detached
+ * at its commit), or null when none has (or git can't say). Asked only when a diff ends at a
+ * revision that isn't checked out here, so sync git calls are fine.
+ */
+export function worktreeWith(revision: string, cwd: string): string | null {
+  const name = revision.replace(/^refs\/heads\//, '');
+  const worktrees = listWorktrees(cwd)?.worktrees ?? [];
+  const onBranch = worktrees.find((worktree) => worktree.branch === name && !worktree.missing);
+  if (onBranch) return onBranch.root;
+  const commit = commitsOf([revision], cwd)[0];
+  return commit ? worktreeAt(commit, worktrees) : null;
 }
 
 export function currentBranch(cwd: string): string | null {

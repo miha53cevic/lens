@@ -9,6 +9,7 @@ import { removeServerInfo, writeServerInfo } from '../../ask/discovery.ts';
 import { createAskRoutes } from '../../ask/routes.ts';
 import { agentRunner, agentRuns, allRunners, isAgentId, stopAll, stopRun, type AgentId } from '../../agents/index.ts';
 import { createSummaryRunner } from '../../summary/agentRun.ts';
+import { reviewWorktree } from '../../summary/store.ts';
 import { createNoteRoutes } from '../../notes/routes.ts';
 import { notesFor, type ReaderNote } from '../../notes/store.ts';
 import { createMarkRoutes } from '../../marks/routes.ts';
@@ -101,7 +102,7 @@ export interface ViewerInput {
   /** Diff/PR mode: data for the Summary tab */
   summary: SummaryView | null;
   /** The summary as stored now: the same object until a submit changes summary.json */
-  latestSummary: (() => SummaryView) | null;
+  latestSummary: ((fresh?: boolean) => SummaryView) | null;
   /** Diff mode: the change's fingerprint when this analysis read it (changeFingerprint in git.ts) */
   changeStamp: string | null;
   /** The change's fingerprint as it is on disk now: another one than `changeStamp` means the code moved on */
@@ -597,6 +598,18 @@ export async function serveViewer(
       });
       if (!started) throw new HttpError(409, 'the agent is writing the summary already');
       return { ok: true };
+    })
+    .json('POST /api/worktree', noBody, () => {
+      syncSummary();
+      const checkout = current.summary?.checkout;
+      if (!checkout || !current.latestSummary)
+        throw new HttpError(400, 'this review is of the checked-out code already');
+      const root = checkout.worktree?.root ?? reviewWorktree(checkout.branch, current.cwd);
+      // the desktop app opens it in a tab of its own (WORKTREE_LINE in src/desktop/main/session.ts)
+      console.log(`lens worktree ${root}`);
+      const summary = current.latestSummary(true);
+      current = { ...current, summary };
+      return { root, summary };
     })
     // a run that already ended is no error: the Stop raced its end
     .json('POST /api/agent/runs/:id/stop', noBody, (_, { params }) => {

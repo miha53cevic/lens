@@ -32,6 +32,8 @@ export interface TabHost {
   review(tab: Tab, url: string | null): void;
   /** Another tab already has this repository: go to it. False when none has. */
   goTo(root: string, from: Tab): boolean;
+  /** The tab's viewer made a worktree for its review (lens printed its root): not checked yet */
+  worktree(tab: Tab, root: string): void;
 }
 
 /** What a tab's launcher page shows of the tab itself; the window adds what all tabs share. */
@@ -244,6 +246,16 @@ export class Tab {
   }
 
   /**
+   * Its viewer made a worktree for its review (lens printed `root`): what to open in it, the same
+   * review (null: the tab's has no choice, as one started elsewhere). Only once `lens info`, read
+   * again since the worktree is new, lists `root` as this repository's; null for any other folder.
+   */
+  async worktreeReview(root: string): Promise<{ choice: ReviewChoice | null } | null> {
+    await this.refresh();
+    return this.otherWorktree(root) ? { choice: this.review_?.choice ?? null } : null;
+  }
+
+  /**
    * Whether `root` is another of this repository's worktrees that can be opened: one git listed for
    * it, and still there. A page names it, so nothing else is: never an arbitrary folder.
    */
@@ -371,7 +383,7 @@ export class Tab {
     const kept = this.store.port(root);
     let port = kept ?? (await freePort());
     for (let attempt = 0; ; attempt++) {
-      this.starting = startReview(this.cli, root, args, port);
+      this.starting = startReview(this.cli, root, args, port, (made) => this.host.worktree(this, made));
       try {
         const session = await this.starting.ready;
         if (port !== kept) this.store.setPort(root, port);

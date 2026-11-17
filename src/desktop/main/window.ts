@@ -363,6 +363,15 @@ export class AppWindow implements TabHost {
     this.layout();
   }
 
+  /** A tab's viewer made a worktree for its review: the same review opens in it, in a tab of its own. */
+  async worktree(tab: Tab, root: string): Promise<void> {
+    const opening = await tab.worktreeReview(root);
+    if (!opening || this.goTo(root, tab)) return;
+    const next = this.addTab('start');
+    await next.openFolder(root);
+    if (opening.choice && next.repo?.root === root) await next.open(opening.choice);
+  }
+
   goTo(root: string, from: Tab): boolean {
     const other = this.tabs.withRepo(root, from);
     if (other) this.selectTab(other.id);

@@ -223,3 +223,34 @@ test("the store keeps recent repositories and each one's port, and drops folders
     rmSync(home, { recursive: true, force: true });
   }
 });
+
+test('a worktree the viewer makes for a commit not checked out reaches the app as a path, once lens has made it', async () => {
+  const dir = makeViewerRepo();
+  const git = (...args: string[]) => execFileSync('git', args, { cwd: dir, encoding: 'utf8' }).trim();
+  try {
+    git('commit', '-qam', 'the change', '--allow-empty');
+    git('commit', '-qm', 'later', '--allow-empty');
+    const commit = git('rev-parse', 'HEAD~1');
+    const made: string[] = [];
+    const session = await startReview(
+      cli,
+      dir,
+      ['diff', git('rev-parse', 'HEAD~2'), commit],
+      await freePort(),
+      (root) => made.push(root),
+    ).ready;
+    try {
+      const answer = await fetch(session.url + 'api/worktree', { method: 'POST' });
+      assert.equal(answer.status, 200);
+      const { root, summary } = await answer.json();
+      assert.equal(summary.checkout.worktree.root, root);
+      for (let wait = 0; made.length === 0 && wait < 50; wait++) await new Promise((done) => setTimeout(done, 20));
+      assert.deepEqual(made, [root]);
+      assert.equal(root.split('/').slice(-3).join('/'), '.lens/worktrees/' + commit.slice(0, 12));
+    } finally {
+      await session.stop();
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

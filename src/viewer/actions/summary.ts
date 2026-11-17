@@ -25,6 +25,14 @@ export function runAgentSummary(): Promise<boolean> {
   );
 }
 
+/** A worktree with the review's end checked out (the summary's `checkout`), made by lens: the summary can be written there. */
+export function reviewInWorktree(): Promise<boolean> {
+  return tracked({ id: 'worktree', label: 'Making the worktree…', failed: "Couldn't make the worktree" }, async () => {
+    const { summary } = await api('POST /api/worktree');
+    update((state) => ({ data: { ...state.data, summary } }));
+  });
+}
+
 export function showOverview(): void {
   update({ summaryUnit: null });
 }

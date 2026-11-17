@@ -49,6 +49,9 @@ Or pick an **Agent** (Settings → Feature flags): lens runs it itself (today Cl
 the summary and answer your questions. The App page shows whether it's installed and logged in; **Agent running**
 in the status bar lists its runs, each with a Stop.
 
+A summary is written from the checked-out code. For commits or a branch that aren't checked out, **Review in a
+worktree** makes one under `.lens/worktrees/` and opens the review there; `lens clear` removes them.
+
 Press `?` in lens for every key.
 
 ## Command line

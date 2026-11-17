@@ -1,8 +1,18 @@
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { currentBranch, uncheckedOutRevision, worktreeWith } from '../git.ts';
+import {
+  commitOf,
+  currentBranch,
+  listWorktrees,
+  runGit,
+  uncheckedOutRevision,
+  worktreeAt,
+  worktreeWith,
+} from '../git.ts';
 import { parsePrRef } from '../pr.ts';
+import { toPosix } from '../paths.ts';
 import { HOUSEKEEPING, isHousekeeping } from './housekeeping.ts';
 import { placedHash, type Anchor, type LineRange, type UnitKind, type UnitStatus } from './units.ts';
 
@@ -252,6 +262,36 @@ export function checkoutFirst(cwd: string, command: 'diff' | 'pr', args: string[
     worktree: root ? { root, command: `cd ${shellWord(root)} && lens diff ${summaryArgs(command, args)}` } : null,
   };
 }
+
+/**
+ * A worktree with `revision` checked out, for a review that ends there (CheckoutFirst's button):
+ * the one that has it already, or a new one at `<main worktree>/.lens/worktrees/<sha>`. Detached,
+ * so a branch stays free to be checked out anywhere else; under `.lens/`, which git ignores, so the
+ * repository's status and greps don't see it. Its root as git lists it; throws git's own message.
+ */
+export function reviewWorktree(revision: string, cwd: string): string {
+  const commit = commitOf(revision, cwd);
+  if (!commit) throw new Error(`"${revision}" is not a commit here`);
+  // a folder deleted by hand stays listed until pruned, and git won't add at its path again
+  runGit(['worktree', 'prune'], cwd);
+  const listed = listWorktrees(cwd);
+  if (!listed) throw new Error("git couldn't list this repository's worktrees");
+  const existing = worktreeAt(commit, listed.worktrees);
+  if (existing) return existing;
+  const dir = join(lensDir(listed.main), WORKTREES_DIR, commit.slice(0, 12));
+  try {
+    execFileSync('git', ['worktree', 'add', '--detach', dir, commit], { cwd, stdio: 'pipe' });
+  } catch (error) {
+    const stderr = String((error as { stderr?: unknown }).stderr ?? '').trim();
+    throw new Error(stderr.split('\n').at(-1) || (error as Error).message);
+  }
+  const made = worktreeAt(commit, listWorktrees(cwd)?.worktrees ?? []);
+  if (!made) throw new Error(`git made ${toPosix(dir)} but doesn't list it`);
+  return made;
+}
+
+/** The folder under `.lens/` that reviewWorktree makes worktrees in */
+export const WORKTREES_DIR = 'worktrees';
 
 export interface CheckoutFirst {
   /** What the diff ends at, as typed */

@@ -167,6 +167,15 @@ export async function open(view: ViewSettings = {}, hash = '', cookie = '', data
           agentRun: page.agentRun,
           agentRuns: page.agentRuns,
         });
+      // as the server does: the worktree is made, and the summary's checkout names it
+      case 'POST /api/worktree': {
+        const root = '/repos/shop/.lens/worktrees/6de10a6437ab';
+        const checkout = {
+          branch: payload.summary!.checkout!.branch,
+          worktree: { root, command: `cd ${root} && lens diff` },
+        };
+        return reply({ root, summary: { ...payload.summary!, checkout } });
+      }
       case 'POST /api/agent/summary':
         page.agentRun = { running: true, error: null };
         return reply({ ok: true });

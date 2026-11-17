@@ -75,6 +75,8 @@ export interface ApiRoutes {
   'POST /api/agent/summary': Endpoint<null, Ok>;
   /** Stops one of the agent's runs, and everything it started; ok when it had ended already */
   'POST /api/agent/runs/:id/stop': Endpoint<null, Ok>;
+  /** A worktree with the review's end checked out, made or found (`summary.checkout`); 400 when nothing needs checking out */
+  'POST /api/worktree': Endpoint<null, WorktreeResponse>;
 }
 
 export type ApiRoute = keyof ApiRoutes;
@@ -109,6 +111,7 @@ export const API_ROUTES: { readonly [R in ApiRoute]: true } = {
   'POST /api/lsp/definition': true,
   'POST /api/agent/summary': true,
   'POST /api/agent/runs/:id/stop': true,
+  'POST /api/worktree': true,
 };
 
 export interface Ok {
@@ -136,6 +139,13 @@ export interface StampResponse {
   agentRun: AgentSummaryRun | null;
   /** Every run of the agent going (the Running dialog), oldest first */
   agentRuns: AgentRunInfo[];
+}
+
+export interface WorktreeResponse {
+  /** The worktree's root, `/`-separated */
+  root: string;
+  /** The summary again: its `checkout` now names the worktree */
+  summary: SummaryView;
 }
 
 /** lens's own agent run of the summary: going, or how the last one ended */
