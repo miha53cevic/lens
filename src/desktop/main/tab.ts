@@ -120,7 +120,7 @@ export class Tab {
 
   strip(): StripTab {
     const { id } = this;
-    if (this.screen === 'setup') return { id, icon: 'setup', title: 'Setup', detail: '', canChange: false };
+    if (this.screen === 'setup') return { id, icon: 'setup', title: 'App', detail: '', canChange: false };
     if (this.screen === 'sandbox') return { id, icon: 'sandbox', title: 'Sandbox', detail: '', canChange: false };
     if (!this.repo) {
       // a reopened tab says whose it is before its repository has been read

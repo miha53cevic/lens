@@ -91,7 +91,7 @@ export function Setup() {
     >
       <div className='mx-auto w-full max-w-[660px] px-5 pb-7'>
         <div className='mt-6 mb-4 flex flex-wrap items-center gap-4 [&_h1]:m-0 [&_h1]:font-serif [&_h1]:text-xl/[1.2] [&_h1]:font-bold'>
-          <h1>Setup</h1>
+          <h1>App</h1>
           <span className='flex-1' />
           <span data-part='setup-version' className='text-faint'>
             lens {version}

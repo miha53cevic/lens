@@ -1,4 +1,4 @@
-// Setup: the `lens` command and the agent skills, installed and removed by the app.
+// The App page: the `lens` command and the agent skills, installed and removed by the app.
 // It only ever removes what it installed itself: its command file carries a marker
 // line, a skill folder it copied carries a marker file. No Electron here.
 
@@ -43,7 +43,7 @@ export interface SetupEnv {
 // ---- the lens command ----
 
 function shimText(env: SetupEnv): string {
-  const note = `${SHIM_MARKER}: installed by the lens desktop app; its Setup removes it.`;
+  const note = `${SHIM_MARKER}: installed by the lens desktop app; its App page removes it.`;
   if (env.platform === 'win32') {
     return `@echo off\r\nrem ${note}\r\n${env.command.map((part) => `"${part}"`).join(' ')} %*\r\n`;
   }
@@ -194,7 +194,7 @@ async function installSkills(env: SetupEnv): Promise<string> {
     if (skillState(target) === 'external') continue;
     rmSync(target, { recursive: true, force: true });
     cpSync(join(skillsSource(env), name), target, { recursive: true });
-    writeFileSync(join(target, SKILL_MARKER), 'Copied by the lens desktop app; its Setup removes this folder.\n');
+    writeFileSync(join(target, SKILL_MARKER), 'Copied by the lens desktop app; its App page removes this folder.\n');
     copied++;
   }
   return copied > 0 ? 'Installed the agent skills' : "The skills there are not the app's: left alone";

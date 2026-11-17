@@ -738,6 +738,7 @@ pageTest(
   async (page) => {
     assert.equal(text('[data-part="setup-version"]'), 'lens 0.1.0');
     assert.equal($$('#setup-notice').length, 0, 'the notice leads here: it is not shown here');
+    assert.doesNotMatch(text('[data-part="status-bar"]'), /git/, "git's version is in its row, not the bar too");
     await click($('#setup-cli button'));
     await click($('#setup-skills button'));
     assert.deepEqual(page.calls, [
@@ -998,13 +999,13 @@ pageTest(
 );
 
 pageTest("the strip: Setup's button carries a dot while something isn't installed", 'strip', STRIP, async (page) => {
-  assert.equal($('#setup-btn').getAttribute('aria-label'), 'Setup');
+  assert.equal($('#setup-btn').getAttribute('aria-label'), 'App');
   assert.equal($$('#setup-btn .dot').length, 0);
 
   await page.push({ ...STRIP, setupMissing: true });
   assert.ok($('#setup-btn').hasAttribute('data-missing'));
   assert.equal($$('#setup-btn .dot').length, 1);
-  assert.equal($('#setup-btn').getAttribute('aria-label'), 'Setup: not everything is installed');
+  assert.equal($('#setup-btn').getAttribute('aria-label'), 'App: not everything is installed');
 
   await page.push({ ...STRIP, setupMissing: false });
   assert.ok(!$('#setup-btn').hasAttribute('data-missing'));

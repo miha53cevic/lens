@@ -53,6 +53,7 @@ export function StatusLine() {
       run: () => window.lensApp.launcher.setup(),
     });
   }
-  if (state.git) notices.push({ id: 'git', text: 'git ' + state.git, tone: 'plain' });
+  // Setup has a row for git, its version with it
+  if (state.git && state.screen !== 'setup') notices.push({ id: 'git', text: 'git ' + state.git, tone: 'plain' });
   return <StatusBar status={shown(state)} notices={notices} />;
 }

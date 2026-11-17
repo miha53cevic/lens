@@ -380,7 +380,7 @@ test('the tab list: a new tab goes after the one in front, and closing brings a 
   assert.deepEqual(tabs.strip(), {
     tabs: [
       { id: a.id, icon: 'new', title: 'New tab', detail: '', canChange: false },
-      { id: setup.id, icon: 'setup', title: 'Setup', detail: '', canChange: false },
+      { id: setup.id, icon: 'setup', title: 'App', detail: '', canChange: false },
     ],
     activeId: setup.id,
   });

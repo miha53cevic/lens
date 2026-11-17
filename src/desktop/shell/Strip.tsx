@@ -122,7 +122,7 @@ export function Strip() {
       </IconButton>
       <IconButton
         id='setup-btn'
-        label={state.setupMissing ? 'Setup: not everything is installed' : 'Setup'}
+        label={state.setupMissing ? 'App: not everything is installed' : 'App'}
         data-missing={state.setupMissing || undefined}
         onClick={() => strip.setup()}
       >
