@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import type { LensConfig } from '../model.ts';
+import { isAgentId, type AgentId } from '../agents/types.ts';
 import type { ViewSettings } from '../api/contract.ts';
 import { writeAtomic } from './store.ts';
 
@@ -17,6 +18,8 @@ export interface LocalSettings {
   planTab?: boolean;
   typescriptLsp?: boolean;
   timings?: boolean;
+  /** The reader's pick, over the config's: null picks their own agent even where the config names one */
+  agent?: AgentId | null;
   view?: ViewSettings;
 }
 
@@ -113,6 +116,7 @@ export function readSettings(): LocalSettings {
       ...(typeof raw?.planTab === 'boolean' ? { planTab: raw.planTab } : {}),
       ...(typeof raw?.typescriptLsp === 'boolean' ? { typescriptLsp: raw.typescriptLsp } : {}),
       ...(typeof raw?.timings === 'boolean' ? { timings: raw.timings } : {}),
+      ...(raw?.agent === null || isAgentId(raw?.agent) ? { agent: raw.agent } : {}),
       // a hand-edited value that doesn't check is skipped, as the config's are
       ...(raw?.view ? { view: checkView(raw.view).view } : {}),
     };
@@ -158,6 +162,12 @@ export function typescriptLspOn(config: LensConfig): boolean {
 /** Whether lens records how long its steps take (timings.ts): the reader's switch, else the config's (off). */
 export function timingsOn(config: LensConfig): boolean {
   return readSettings().timings ?? config.timings;
+}
+
+/** The agent lens runs itself for the summary and Ask (agents/): the reader's pick, else the config's (none). */
+export function agentOn(config: LensConfig): AgentId | null {
+  const settings = readSettings();
+  return 'agent' in settings ? (settings.agent ?? null) : config.agent;
 }
 
 /** How the reader left the viewer; nothing for what they never set. */

@@ -1,11 +1,13 @@
-// The reader's switches (Build previews, Check yourself, Plan tab), and what the preview frames tell the page.
+// The reader's switches (Build previews, Check yourself, Plan tab, the agent), and what the preview frames tell the page.
 
 import { commit, getState, update } from '../store.ts';
 import { hideLspHover } from './lsp.ts';
 import { setView, stampWatcher } from './views.ts';
 import { check } from '../../ui/poll.ts';
+import { askWatcher } from '../ask/rail.ts';
 import { api, noteDone, tracked } from './status.ts';
 import { cssPx } from '../../ui/zoom.ts';
+import type { AgentId } from '../../cli-app/agents/types.ts';
 
 /** How tall a preview's frame may grow to fit its screen */
 const FRAME_MIN = 120;
@@ -48,6 +50,18 @@ export function setPlanTab(on: boolean): Promise<boolean> {
     if (!on && getState().view === 'plan') setView('code');
     update((state) => ({ data: { ...state.data, planTab: on } }));
     noteDone(on ? 'Plan tab on' : 'Plan tab off');
+  });
+}
+
+/** The agent lens runs itself to write the summary and answer Ask questions; null: the reader's own, through the skills. */
+export function setAgent(agent: AgentId | null): Promise<boolean> {
+  return tracked({ id: 'agent', label: 'Saving the agent…', failed: "Couldn't save the agent" }, async () => {
+    await api('POST /api/settings', { body: { agent } });
+    update((state) => ({ data: { ...state.data, agent } }));
+    // the summary's run and the rail's agent follow the pick: the bar and the rail say so now
+    void check(stampWatcher.id);
+    void check(askWatcher.id);
+    noteDone('Agent saved');
   });
 }
 

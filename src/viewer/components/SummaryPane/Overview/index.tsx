@@ -12,6 +12,7 @@ import { SelfChecks } from './SelfChecks.tsx';
 import { Drawings } from '../Drawings/index.tsx';
 import { SignalIcon } from '../../SignalIcon.tsx';
 import { Tag } from '../../../../ui/Tag.tsx';
+import { SUMMARY_COLUMN } from '../const.ts';
 
 const SHOWN_SIGNALS: SignalId[] = ['bug', 'risk', 'question', 'breaks'];
 
@@ -28,7 +29,7 @@ export function Overview() {
   const flagged = SHOWN_SIGNALS.filter((signal) => list.counts[signal] > 0);
 
   return (
-    <div data-part='sum-inner' className='flex flex-col gap-5 px-6 pt-6 pb-[104px] [&>*]:min-w-0'>
+    <div data-part='sum-inner' className={SUMMARY_COLUMN}>
       <div data-part='kicker' className='-mb-3 flex items-center gap-2 text-md text-muted'>
         {plural(units.length, 'change') + ' in ' + plural(fileCount, 'file')}
         {stale > 0 && <span className='text-mod'>{' · ' + stale + ' stale'}</span>}

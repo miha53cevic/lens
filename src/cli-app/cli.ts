@@ -50,6 +50,7 @@ output (default: local web viewer):
   --json            print the fold model as JSON (for debugging)
   --port <n>        web viewer port (default: the repository's own, from 5400 up)
   --no-open         don't open the browser
+  --stop-with-stdin stop when stdin closes (what the desktop app passes: lens ends with it)
   --summary         open the browser on the Summary tab (diff/PR mode)
   --fold-level <n>  fold regions with score <= n, -1 for none (default 1; from .lens.json)
   --theme <name>    any Shiki theme for the viewer (default vesper; from .lens.json)
@@ -59,6 +60,7 @@ output (default: local web viewer):
 interface CliOptions {
   json: boolean;
   open: boolean;
+  stopWithStdin: boolean;
   openSummary: boolean;
   port: number;
   portSet: boolean;
@@ -73,6 +75,7 @@ function parseCli(argv: string[]): { command: Command; rest: string[]; opts: Cli
   const opts: CliOptions = {
     json: false,
     open: true,
+    stopWithStdin: false,
     openSummary: false,
     port: 0,
     portSet: false,
@@ -86,6 +89,7 @@ function parseCli(argv: string[]): { command: Command; rest: string[]; opts: Cli
     const arg = args.shift()!;
     if (arg === '--json') opts.json = true;
     else if (arg === '--no-open') opts.open = false;
+    else if (arg === '--stop-with-stdin') opts.stopWithStdin = true;
     else if (arg === '--summary') opts.openSummary = true;
     else if (arg === '--port') {
       opts.port = Number(args.shift());
@@ -196,7 +200,14 @@ async function main(): Promise<void> {
   const port = opts.portSet ? opts.port : await pickPort(initial.root);
   await serveViewer(
     initial,
-    { port, open: opts.open, openSummary: opts.openSummary, theme: config.theme, themePinned: opts.theme !== null },
+    {
+      port,
+      open: opts.open,
+      stopWithStdin: opts.stopWithStdin,
+      openSummary: opts.openSummary,
+      theme: config.theme,
+      themePinned: opts.theme !== null,
+    },
     (previous) => analyze(command, rest, cwd, resolveConfig().config, { previous }),
   );
 }

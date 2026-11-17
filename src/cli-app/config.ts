@@ -1,6 +1,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import type { CallPattern, LensConfig } from './model.ts';
+import { AGENT_IDS, isAgentId } from './agents/types.ts';
 // The base rules are themselves just a config file (lens.defaults.json) in
 // the same shape as a project's .lens.json — the "base game" is a mod too.
 // Imported, so the compiled `lens` carries it.
@@ -44,6 +45,7 @@ const EMPTY_CONFIG: LensConfig = {
   planTab: false,
   typescriptLsp: false,
   timings: false,
+  agent: null,
 };
 
 type Field = keyof LensConfig;
@@ -109,6 +111,15 @@ function parse(raw: unknown, file: string, problems: ConfigProblem[]): Parsed {
     if (!(field in raw)) continue;
     if (typeof raw[field] === 'boolean') out.values[field] = raw[field];
     else problem(field, `must be true or false, not ${describe(raw[field])}`);
+  }
+
+  if ('agent' in raw) {
+    if (raw.agent === null || isAgentId(raw.agent)) out.values.agent = raw.agent;
+    else
+      problem(
+        'agent',
+        `must be null or one of ${AGENT_IDS.map((id) => JSON.stringify(id)).join(', ')}, not ${describe(raw.agent)}`,
+      );
   }
 
   const folds: Record<string, number | false> = {};

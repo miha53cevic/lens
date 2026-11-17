@@ -3,7 +3,6 @@
 
 import type { LauncherState } from '../../shared/api.ts';
 import { StatusBar, type BarNotice, type BarStatus } from '../../../ui/StatusBar.tsx';
-import { setupNotice } from '../../shared/setup.ts';
 import { useApp } from '../store.ts';
 
 /** The one status, strongest first: the tab's own, then what stands in the way of a review. */
@@ -42,17 +41,7 @@ function shown(state: LauncherState): BarStatus {
 export function StatusLine() {
   const state = useApp((whole) => whole);
   const notices: BarNotice[] = [];
-  // true when it shows: only where it helps (not on Setup, which is where it leads)
-  const setup = setupNotice(state.setup);
-  if (state.screen !== 'setup' && setup) {
-    notices.push({
-      id: 'setup',
-      buttonId: 'setup-notice',
-      text: setup + ' · Set up',
-      tone: 'warn',
-      run: () => window.lensApp.launcher.setup(),
-    });
-  }
+  // what Setup needs is the strip's dot alone, never a notice here
   // Setup has a row for git, its version with it
   if (state.git && state.screen !== 'setup') notices.push({ id: 'git', text: 'git ' + state.git, tone: 'plain' });
   return <StatusBar status={shown(state)} notices={notices} />;

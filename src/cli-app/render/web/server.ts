@@ -7,6 +7,9 @@ import { findConfigPath, type ConfigProblem } from '../../config.ts';
 import type { SummaryView } from '../../summary/view.ts';
 import { removeServerInfo, writeServerInfo } from '../../ask/discovery.ts';
 import { createAskRoutes } from '../../ask/routes.ts';
+import { agentRunner, agentRuns, allRunners, isAgentId, stopAll, stopRun, type AgentId } from '../../agents/index.ts';
+import { createSummaryRunner } from '../../summary/agentRun.ts';
+import { reviewWorktree } from '../../summary/store.ts';
 import { createNoteRoutes } from '../../notes/routes.ts';
 import { notesFor, type ReaderNote } from '../../notes/store.ts';
 import { createMarkRoutes } from '../../marks/routes.ts';
@@ -90,6 +93,8 @@ export interface ViewerInput {
   typescriptLsp: boolean;
   /** Timings (src/cli-app/timings.ts), the same way: the viewer measures its steps too while they're on */
   timings: boolean;
+  /** The agent lens runs itself for the summary and Ask (agents/), the same way; null: the user's own, through the skills */
+  agent: AgentId | null;
   /** PR mode: "owner/repo#N — title", shown in the viewer header */
   label: string | null;
   /** PR mode: the default branch it was diffed against, when GitHub no longer says the PR's base */
@@ -97,7 +102,7 @@ export interface ViewerInput {
   /** Diff/PR mode: data for the Summary tab */
   summary: SummaryView | null;
   /** The summary as stored now: the same object until a submit changes summary.json */
-  latestSummary: (() => SummaryView) | null;
+  latestSummary: ((fresh?: boolean) => SummaryView) | null;
   /** Diff mode: the change's fingerprint when this analysis read it (changeFingerprint in git.ts) */
   changeStamp: string | null;
   /** The change's fingerprint as it is on disk now: another one than `changeStamp` means the code moved on */
@@ -107,6 +112,8 @@ export interface ViewerInput {
 export interface ViewerOptions {
   port: number;
   open: boolean;
+  /** --stop-with-stdin: stop when stdin closes, so lens ends with the app that started it, however the app went */
+  stopWithStdin?: boolean;
   /** Open the browser on the Summary tab instead of the code view */
   openSummary?: boolean;
   theme: string;
@@ -127,6 +134,8 @@ export type ViewerPayload = Omit<ViewerInput, 'root' | 'cwd' | 'files' | 'latest
   files: (ViewerFile & { tokens: ViewerToken[][]; removedTokens: ViewerToken[][][] })[];
   themePinned: boolean;
   canRefresh: boolean;
+  /** The runners the Settings menu offers, by the names it shows */
+  agents: { id: AgentId; name: string }[];
   /** Which analysis the files are from: tokens fetched later are applied only when theirs is the same */
   analysis: string;
   /** The reader's notes on the review's files (.lens/notes/<review>.json) */
@@ -278,6 +287,7 @@ export function viewerPayload(
     notes: opts.notes ?? [],
     marks: opts.marks ?? { files: [], units: [], concerns: {} },
     view: opts.view ?? {},
+    agents: allRunners().map(({ id, name }) => ({ id, name })),
     settingsFile: settingsPath(),
   };
 }
@@ -326,9 +336,11 @@ export async function serveViewer(
   const plans = createPlanRoutes(() => current.root, planProxy);
   // the root of the analysis that wrote server.json — a refresh can't move it
   const infoRoot = input.root;
+  const summaryRunner = createSummaryRunner();
   const stop = () => {
     removeServerInfo(infoRoot);
     lsp.stop();
+    stopAll();
     process.exit(0);
   };
 
@@ -409,7 +421,10 @@ export async function serveViewer(
     if (!key) return null;
     const at = current.root + '\n' + key;
     if (progress?.at !== at) progress = { at, read: buildProgressReader(current.root, key) };
-    return progress.read();
+    const build = progress.read();
+    // a run the reader stopped is over, not under way: until something writes again
+    const stopped = summaryRunner.stoppedAt();
+    return build && stopped !== null && Date.now() - build.quietMs <= stopped ? null : build;
   }
 
   /** A submit or another branch since the summary was read: take the new one (the units stay those of the last analysis). */
@@ -510,6 +525,8 @@ export async function serveViewer(
         // only the Plan tab asks: the list reads Lavish's state and asks its server
         plans: url.searchParams.has('plans') ? (await plansNow(current.root, hostEnv())).stamp : null,
         lsp: lsp.status(),
+        agentRun: current.agent ? summaryRunner.state() : null,
+        agentRuns: agentRuns(),
       };
       return stamp;
     })
@@ -523,6 +540,8 @@ export async function serveViewer(
       writeSettings(settings);
       current = { ...current, ...settings };
       if (settings.timings !== undefined) setTimings(current.root, settings.timings);
+      // a question asked before the agent was picked is still waiting
+      if (settings.agent) ask.kick();
       return settings;
     })
     .json('POST /api/view', parseView, (view) => {
@@ -562,6 +581,40 @@ export async function serveViewer(
       syncSummary();
       if (cleared.notes || cleared.marks) savedVersion++;
       return { cleared, summary: current.summary };
+    })
+    .json('POST /api/agent/summary', noBody, () => {
+      const runner = agentRunner(current.agent);
+      if (!runner) throw new HttpError(404, 'no agent is picked: Settings → Feature flags');
+      syncSummary();
+      const summary = current.summary;
+      if (!summary) throw new HttpError(400, 'only a diff or a PR has a summary');
+      if (summary.checkout) throw new HttpError(400, `check out ${summary.checkout.branch} first`);
+      const started = summaryRunner.start({
+        runner,
+        cwd: current.cwd,
+        root: current.root,
+        prepare: summary.cli,
+        label: summary.key,
+      });
+      if (!started) throw new HttpError(409, 'the agent is writing the summary already');
+      return { ok: true };
+    })
+    .json('POST /api/worktree', noBody, () => {
+      syncSummary();
+      const checkout = current.summary?.checkout;
+      if (!checkout || !current.latestSummary)
+        throw new HttpError(400, 'this review is of the checked-out code already');
+      const root = checkout.worktree?.root ?? reviewWorktree(checkout.branch, current.cwd);
+      // the desktop app opens it in a tab of its own (WORKTREE_LINE in src/desktop/main/session.ts)
+      console.log(`lens worktree ${root}`);
+      const summary = current.latestSummary(true);
+      current = { ...current, summary };
+      return { root, summary };
+    })
+    // a run that already ended is no error: the Stop raced its end
+    .json('POST /api/agent/runs/:id/stop', noBody, (_, { params }) => {
+      stopRun(params.id);
+      return { ok: true };
     })
     .raw('POST /api/shutdown', ({ res }) => {
       res.writeHead(200, { 'content-type': 'application/json' });
@@ -611,6 +664,13 @@ export async function serveViewer(
     record('cli', 'ready', sinceStart());
     process.on('SIGINT', stop);
     process.on('SIGTERM', stop);
+    process.on('SIGHUP', stop);
+    if (opts.stopWithStdin) {
+      // the app holds the other end: it closes however the app went, a crash included
+      process.stdin.on('end', stop);
+      process.stdin.on('close', stop);
+      process.stdin.resume();
+    }
     if (opts.open) {
       const target = url + (opts.openSummary ? '#summary' : '');
       // `start` is a cmd builtin, not a program; its first quoted argument is a window title
@@ -629,7 +689,7 @@ export async function serveViewer(
 }
 
 function parseSettings(raw: unknown): SettingsRequest | { error: string } {
-  const { buildPreviews, selfChecks, planTab, typescriptLsp, timings } = (
+  const { buildPreviews, selfChecks, planTab, typescriptLsp, timings, agent } = (
     raw && typeof raw === 'object' ? raw : {}
   ) as Record<string, unknown>;
   const given = {
@@ -639,10 +699,12 @@ function parseSettings(raw: unknown): SettingsRequest | { error: string } {
     ...(typescriptLsp !== undefined && { typescriptLsp }),
     ...(timings !== undefined && { timings }),
   };
-  if (Object.keys(given).length === 0)
-    return { error: 'name buildPreviews, selfChecks, planTab, typescriptLsp or timings' };
+  if (Object.keys(given).length === 0 && agent === undefined)
+    return { error: 'name buildPreviews, selfChecks, planTab, typescriptLsp, timings or agent' };
   if (Object.values(given).some((on) => typeof on !== 'boolean')) return { error: 'a switch must be true or false' };
-  return given as SettingsRequest;
+  if (agent === undefined) return given as SettingsRequest;
+  if (agent !== null && !isAgentId(agent)) return { error: "agent must be null or a runner's id" };
+  return { ...given, agent } as SettingsRequest;
 }
 
 function parseView(raw: unknown): ViewSettings | { error: string } {

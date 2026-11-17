@@ -12,7 +12,7 @@ import type { FileFoldModel, LensConfig } from './model.ts';
 import { loadDiff, collectUnits, type FileUnits, type LoadedDiff } from './summary/collect.ts';
 import { reviewKey, summaryStamp } from './summary/store.ts';
 import { buildSummaryView, type SummaryView } from './summary/view.ts';
-import { buildPreviewsOn, planTabOn, selfChecksOn, timingsOn, typescriptLspOn } from './summary/settings.ts';
+import { buildPreviewsOn, planTabOn, agentOn, selfChecksOn, timingsOn, typescriptLspOn } from './summary/settings.ts';
 import { record, timed } from './timings.ts';
 
 const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build', 'out', 'coverage']);
@@ -163,7 +163,7 @@ async function analyzeWith(
   }
 
   let summary: SummaryView | null = null;
-  let latestSummary: (() => SummaryView) | null = null;
+  let latestSummary: ((fresh?: boolean) => SummaryView) | null = null;
   if (diff && withSummary && command !== 'paths') {
     try {
       const units = await timed('cli', 'units', () =>
@@ -173,10 +173,11 @@ async function analyzeWith(
       const build = () => buildSummaryView({ root, cwd, command, args, units });
       let view = timed('cli', 'summary view', build);
       // rebuilt only after a submit (summary.json's mtime), or on another branch: a diff's key names
-      // the branch, and what must be checked out first is measured from HEAD (checkoutFirst)
-      latestSummary = () => {
+      // the branch, and what must be checked out first is measured from HEAD (checkoutFirst). `fresh`:
+      // something the view is built from changed that neither says (a worktree was made for it)
+      latestSummary = (fresh = false) => {
         const key = reviewKey(root, command, args);
-        return key === view.key && summaryStamp(root, key) === view.stamp ? view : (view = build());
+        return !fresh && key === view.key && summaryStamp(root, key) === view.stamp ? view : (view = build());
       };
       summary = view;
     } catch (err) {
@@ -203,6 +204,7 @@ async function analyzeWith(
     planTab: planTabOn(config),
     typescriptLsp: typescriptLspOn(config),
     timings: timingsOn(config),
+    agent: agentOn(config),
     label: diff ? diff.label : null,
     guessedBase: diff ? diff.guessedBase : null,
     summary,

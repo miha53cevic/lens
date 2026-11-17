@@ -2,7 +2,7 @@ import { Sandbox } from '../../../ui/sandbox/Sandbox.tsx';
 import { useLauncher } from '../store.ts';
 import { Reopening } from './Reopening.tsx';
 import { ReviewPicker } from './ReviewPicker/index.tsx';
-import { Setup } from './Setup.tsx';
+import { Setup } from './Setup/index.tsx';
 import { Start } from './Start/index.tsx';
 import { StatusLine } from './StatusLine.tsx';
 

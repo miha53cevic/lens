@@ -12,7 +12,7 @@ import {
   stepCodeSize,
   stepUiZoom,
 } from '../../actions/prefs.ts';
-import { setBuildPreviews, setPlanTab, setSelfChecks, setTypescriptLsp } from '../../actions/previews.ts';
+import { setAgent, setBuildPreviews, setPlanTab, setSelfChecks, setTypescriptLsp } from '../../actions/previews.ts';
 import { setTimings } from '../../actions/timings.ts';
 import { CODE_SIZE_DEFAULT, CODE_SIZES } from '../../codeSize.ts';
 import { UI_ZOOM_DEFAULT, UI_ZOOMS } from '../../../cli-app/zoom.ts';
@@ -20,6 +20,8 @@ import { isDiffMode } from '../../shared.ts';
 import { isSplit } from '../../model/plans.ts';
 import { Kbd } from '../../../ui/Kbd.tsx';
 import { Segmented } from '../../../ui/Segmented.tsx';
+import { Select } from '../../../ui/Select.tsx';
+import { isAgentId } from '../../../cli-app/agents/types.ts';
 import { Stepper } from '../../../ui/Stepper.tsx';
 import { Switch } from '../../../ui/Switch.tsx';
 import { LEVELS } from './const.ts';
@@ -49,6 +51,8 @@ export function ViewPages({ page }: { page: SettingsPage }) {
     planTab: state.data.planTab,
     typescriptLsp: state.data.typescriptLsp,
     timings: state.data.timings,
+    agent: state.data.agent,
+    agents: state.data.agents,
     fullUnits: state.fullUnits,
   }));
   const shown = (id: SettingsPage, children: ReactNode) => (
@@ -213,6 +217,18 @@ export function ViewPages({ page }: { page: SettingsPage }) {
               hint="a name's type on hover, ⌘- or Ctrl-click to its definition (TypeScript 7, shipped with lens)"
             >
               <Switch id='typescript-lsp' checked={view.typescriptLsp} onChange={setTypescriptLsp} />
+            </SettingRow>
+            <SettingRow label='Agent' htmlFor='agent' hint='lens runs it itself, or yours runs the skills'>
+              <Select
+                id='agent'
+                label='Agent'
+                value={view.agent ?? ''}
+                options={[
+                  { value: '', label: 'Your agent (skills)' },
+                  ...view.agents.map(({ id, name }) => ({ value: id, label: name })),
+                ]}
+                onChange={(value) => void setAgent(isAgentId(value) ? value : null)}
+              />
             </SettingRow>
           </>,
         ),

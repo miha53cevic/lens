@@ -355,11 +355,11 @@ test('the routes list the plans and open one into the proxy; a file that is no p
     assert.equal((await post(file)).status, 404, file);
 });
 
-test("the Plan tab is on unless the config or the reader's switch turns it off, and the switch wins", async () => {
+test("the Plan tab is off unless the config or the reader's switch turns it on, and the switch wins", async () => {
   const { planTabOn, writeSettings } = await import('../src/cli-app/summary/settings.ts');
   const { DEFAULT_CONFIG } = await import('../src/cli-app/config.ts');
   process.env.LENS_HOME = temp('home');
-  assert.equal(planTabOn(DEFAULT_CONFIG), true);
+  assert.equal(planTabOn(DEFAULT_CONFIG), false);
   assert.equal(planTabOn({ ...DEFAULT_CONFIG, planTab: true }), true);
   writeSettings({ planTab: false });
   assert.equal(planTabOn({ ...DEFAULT_CONFIG, planTab: true }), false);

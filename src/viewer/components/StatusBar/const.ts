@@ -7,6 +7,7 @@ import { dismissNotice, retryServer } from '../../actions/status.ts';
 import { showOverview } from '../../actions/summary.ts';
 import { setView } from '../../actions/views.ts';
 import { askSetOpen } from '../../ask/rail.ts';
+import { openRuns } from '../../actions/agentRuns.ts';
 
 interface StatusAction {
   label: string;
@@ -19,6 +20,7 @@ export const STATUS_ACTIONS: Record<StatusActionId, StatusAction> = {
   retry: { label: 'Retry', primary: true, run: retryServer },
   dismiss: { label: 'Dismiss', run: dismissNotice },
   openAsk: { label: 'Open Ask', run: () => askSetOpen(true) },
+  openRuns: { label: 'Show', run: openRuns },
 };
 
 export const NOTICE_ACTIONS: Record<NoticeActionId, () => void> = {

@@ -82,11 +82,11 @@ The Summary tab shows the same code as the Code view, under the agent's summary.
 
 ## Summary mode (`src/cli-app/summary/`)
 
-lens never calls an AI: the user's agent writes `result.json`, lens checks it.
+An agent writes `result.json` (the user's own, or the runner picked in `agent`), lens checks it. lens writes no summary text itself.
 
 - Pipeline: `collect.ts` → `units.ts` → `bundle.ts` (`prepare` writes `.lens/summary/<key>/`) → agent → `validate.ts` (`submit`) → `store.ts` → `view.ts` → the viewer.
 - `prepare` does what lens can: housekeeping units' summaries (import- and formatting-only), and each unit's likely callers (`usages.ts`, one `git grep -w`).
-- Summaries are written from the code on disk, so a branch diff needs that branch checked out (`checkoutFirst`); a PR is exempt. Don't read the code from git instead (tried, not worth it).
+- Summaries are written from the code on disk, so a branch diff needs that branch checked out (`checkoutFirst`); a PR is exempt. Don't read the code from git instead (tried, not worth it). **Review in a worktree** (`reviewWorktree`, `POST /api/worktree`) makes a detached one under the main worktree's `.lens/worktrees/<sha>` (ignored by git); only Clear removes them (`worktrees` kind).
 - **Invariant**: every changed and removed line belongs to exactly one unit (`checkCoverage`).
 - `validate.ts` drops claims that don't point at real code, with a reason the agent can act on.
 - The agent instructions are generated in `bundle.ts` (the source of truth); `skills/` only point at them.
@@ -101,14 +101,26 @@ lens never calls an AI: the user's agent writes `result.json`, lens checks it.
 
 - The viewer posts a question → `session.ts` holds the chat in memory → `lens ask listen` long-polls and prints it → `lens ask reply` posts the answer → `cites.ts` keeps the cites that resolve.
 - The agent text and read-only rules are generated in `context.ts`; `skills/lens-ask` points at it.
-- Context: the open unit or file, the selection, and the unit's open (undismissed) concerns and breaks. Nothing else from the summary.
+- Context: the open unit or file, the selection, the unit's open (undismissed) concerns and breaks, and the earlier answered questions on the same unit or file (`EARLIER`). Nothing else from the summary.
 - A question stores its unit's (or file's) hash; refresh marks it stale when that changes. `.lens/server.json` (port, pid) lets `lens ask` find the server.
+
+## Agent runners (`src/cli-app/agents/`)
+
+With `agent` picked (`null` by default: the user's own agent, through the skills), lens runs that agent CLI itself instead of waiting. It reuses the agent paths, not a second pipeline:
+
+- **Only `agents/` knows any runner.** A runner is a plain `AgentRunner` (`types.ts`): `status()`, `command(task)`, `result(...)`; `index.ts` maps the config's ids to them. Everything else goes through it and sees a runner's `id` and `name` as data; viewer labels say "agent", the name only where it's picked or checked. `test/layers.test.ts` fails an import of a runner's file, or its name, outside `agents/`. A second runner is a file there and an entry in `AGENT_IDS` and `RUNNERS`.
+- **Access is lens's** (`AgentAccess`): `read` for Ask (never writes), `summary` (also `lens summary`, writes only under `.lens/summary/`). The runner turns it into its CLI's flags (Claude: `dontAsk`, `--allowedTools`); one that can't hold a run to it throws instead of allowing more. Keep both that narrow.
+- Summary (`summary/agentRun.ts`): the agent gets lens-build-review's task and runs `lens summary prepare` / `submit` itself, so progress, validation and storage are unchanged. A `lens` shim first on its PATH (`lensShim`) makes that this lens. 15 min at most.
+- Ask (`ask/routes.ts`): each question's text (`questionText`, `headless: true`) goes on stdin, its final message is the answer. A failure, or a Stop ("Stopped."), is the answer, so the rail says it.
+- **Processes are `run.ts`'s, once**: each run is its own process group (Windows: its tree), killed whole by a Stop (`POST /api/agent/runs/:id/stop`, the Running dialog), its timeout, or `stopAll()`, which runs on SIGINT/SIGTERM/SIGHUP and `exit`. The app starts lens with `--stop-with-stdin` (it stops when the app is gone) and SIGKILLs one that doesn't exit. Only a SIGKILL of lens leaves a run going, until it finishes.
+- `lens info` carries the picked agent's status (`agent`, null when none: then nothing is checked); the app's card shows it, and the strip's dot lights when it's missing or logged out.
+- Tests run a fake (`LENS_CLAUDE`, `test/fixtures/fakeClaude.ts`), never the real one.
 
 ## Plan mode (`src/cli-app/plan/`)
 
 The Plan tab shows the user's Lavish plans; lens writes none.
 
-- Behind `planTab` (on by default; the reader's switch overrides the config). Off, nothing of the tab shows.
+- Behind `planTab` (off by default; the reader's switch overrides the config). Off, nothing of the tab shows.
 - lens reads only Lavish's state file and `/health`, and runs only `lavish-axi <plan> --no-open` (`--reopen` only on the reader's click). These are Lavish's internals: read little, and fail to "not known", never to a wrong claim.
 - `proxy.ts` frames Lavish from a second loopback port (`planPort` in `.lens/server.json`), forwarding only `admit`ted sessions' own paths, with a `frame-ancestors` naming only this viewer. Keep all of that.
 
@@ -118,7 +130,7 @@ An Electron shell around the CLI. **It holds no lens logic**: it picks arguments
 
 - **CLI and app stay in sync by construction**: from a checkout it runs `src/cli-app/cli.ts` with bun; packed, the same sources compiled (`compiledCli`). A new runtime dependency comes along by being imported (`bun run app:smoke -- --packed` checks).
 - **`shared/choice.ts` is the only place that writes CLI arguments** (`test/app-choice.test.ts`). A new mode or flag that changes what is reviewed gets a picker control in the same change, unless it's meant to stay CLI-only.
-- **What the app knows of a repository comes from `lens info --json`.** Git logic lives in `src/cli-app/`. The app reads only the ready line, the failure line `lens: <reason>` (`test/app-session.test.ts`) and `.lens/server.json`.
+- **What the app knows of a repository comes from `lens info --json`.** Git logic lives in `src/cli-app/`. The app reads only the ready line, the failure line `lens: <reason>`, the line `lens worktree <root>` (`test/app-session.test.ts`) and `.lens/server.json`. A worktree line opens the tab's own review in that worktree, and only one `lens info` lists for the repository (`Tab.worktreeReview`).
 - **The viewer has no app-specific code.** The app only switches a viewer's theme by clicking `#theme-<name>` and hides `#theme-btn`; keep those ids.
 - **Security (`security.ts`) is not optional**: the viewer is sandboxed, has no preload, stays on its origin, has its own partition. App pages are `lens-app://app` under a strict CSP. Every IPC call checks its sender (`isAppPage`) and arguments (`shared/ipc.ts`; `test/app-ipc.test.ts`); a repository must be one the app listed or the dialog returned; a review goes through `parseChoice`. Stored tabs are untrusted data, and no command line is ever stored or sent. The CLI is spawned with an argument list, never a shell.
 - **Logic is tested without Electron**: `tab.ts`, `tabs.ts`, `tabKeys.ts`, `session.ts`, `store.ts`, `bounds.ts`, `setup.ts`, `ipc.ts` and `shared/` import nothing from `electron` (`test/app-*.test.ts`). `window.ts`, `themes.ts`, `security.ts`, `menu.ts` are glue; keep logic out. `bun run app:smoke` checks what only a real window shows and saves pictures to `dist/smoke`: run it after changing glue or packing, and say so first (it opens a window on the user's screen).
@@ -130,7 +142,7 @@ An Electron shell around the CLI. **It holds no lens logic**: it picks arguments
 
 ## Non-goals
 
-lens never calls an AI, never edits code, and has no terminal UI (`--json` is for debugging). The desktop app adds none of these.
+lens never edits code and has no terminal UI (`--json` is for debugging). The desktop app adds none of these.
 
 ## Git
 

@@ -3,12 +3,37 @@
 import { type ConcernMark, getState, type SignalFilter, update } from '../store.ts';
 import type { Unit } from '../model/signals.ts';
 import { currentUnit, listModel } from '../model/summaryList.ts';
-import { jumpToLine, landOn } from './views.ts';
+import { jumpToLine, landOn, stampWatcher } from './views.ts';
 import { saveMark } from './marks.ts';
 import { openInInbox, revealMatches } from './inbox.ts';
+import { api, tracked } from './status.ts';
+import { check } from '../../ui/poll.ts';
 
 export function openSummaryUnit(unitId: string): void {
   if (!openInInbox(unitId)) update({ summaryUnit: unitId });
+}
+
+/** The picked agent starts writing the summary; the stamp poll follows the run from there. */
+export function runAgentSummary(): Promise<boolean> {
+  return tracked(
+    { id: 'agent-summary', label: 'Starting the agent…', failed: "Couldn't start the agent" },
+    async () => {
+      await api('POST /api/agent/summary');
+      update({ agentRun: { running: true, error: null } });
+      void check(stampWatcher.id);
+    },
+  );
+}
+
+/**
+ * A worktree with the review's end checked out (the summary's `checkout`), made by lens or found: the
+ * summary can be written there. The desktop app opens the review in it, in a tab of its own.
+ */
+export function reviewInWorktree(): Promise<boolean> {
+  return tracked({ id: 'worktree', label: 'Making the worktree…', failed: "Couldn't make the worktree" }, async () => {
+    const { summary } = await api('POST /api/worktree');
+    update((state) => ({ data: { ...state.data, summary } }));
+  });
 }
 
 export function showOverview(): void {

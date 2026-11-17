@@ -5,7 +5,7 @@
 import { homedir } from 'node:os';
 import type { Session } from 'electron';
 import { THEME_COOKIE } from '../../cli-app/theme.ts';
-import type { ThemeSwatch } from '../shared/api.ts';
+import type { AgentInfo, ThemeSwatch } from '../shared/api.ts';
 import { lensInfo, type LensCli } from './cli.ts';
 
 /** Where the viewer's cookie lives: its host, whatever the port (cookies don't keep ports apart). */
@@ -19,6 +19,8 @@ export class Themes {
   /** lens's version and git's, which the same `lens info` answers */
   version = '';
   git: string | null = null;
+  /** The machine's picked agent and whether it can run, which the same `lens info` answers */
+  agent: AgentInfo | null = null;
   private readonly cli: LensCli;
   private readonly cookies: Session['cookies'];
   private readonly onChange: () => void;
@@ -43,13 +45,14 @@ export class Themes {
     }
   }
 
-  /** At startup, and when git is looked for again. */
+  /** At startup, when git is looked for again, and when Setup is opened (to show the agent as it is now). */
   async load(): Promise<void> {
     const saved = await this.saved();
     // a saved theme lens doesn't know anymore must not keep the app from starting
     const info = await this.ask(saved ?? undefined).catch(() => this.ask());
     this.version = info.version;
     this.git = info.git;
+    this.agent = info.agent;
     this.all = info.themes ?? [];
     this.current = this.all.find((theme) => theme.name === (saved ?? info.theme)) ?? this.all[0] ?? this.current;
   }

@@ -4,9 +4,17 @@ import { createRouter, HttpError, noBody, type Router } from '../api/router.ts';
 import { readBody, sendJson as send } from '../render/web/http.ts';
 import type { ViewerInput } from '../render/web/server.ts';
 import { placedHash } from '../summary/units.ts';
+import { agentRunner, runAgent, STOPPED } from '../agents/index.ts';
 import { findCites } from './cites.ts';
-import { changeContext, questionText } from './context.ts';
-import { createAskSession, type AskLine, type AskQuestion, type AskSelection, type NewQuestion } from './session.ts';
+import { changeContext, questionText, type AskExchange } from './context.ts';
+import {
+  createAskSession,
+  REHAND_AFTER_MS,
+  type AskLine,
+  type AskQuestion,
+  type AskSelection,
+  type NewQuestion,
+} from './session.ts';
 
 // The Ask rail's endpoints on the viewer server:
 //   GET  /api/ask              the chat (the viewer polls it)
@@ -14,6 +22,7 @@ import { createAskSession, type AskLine, type AskQuestion, type AskSelection, ty
 //   POST /api/ask/prompt       the same question as text, for "Copy as prompt"
 //   GET  /api/ask/next         `lens ask listen`: long-polls for the next question
 //   POST /api/ask/<id>/answer  `lens ask reply`: the answer's markdown
+// With an agent picked (`agent`), lens runs it on each question instead, and its final message is the answer.
 
 /** How long one /api/ask/next request waits before answering 204 (the CLI asks again). */
 export const NEXT_WAIT_MS = 25_000;
@@ -21,10 +30,14 @@ const NEXT_STEP_MS = 200;
 const MAX_QUESTION = 4000;
 const MAX_SELECTION_LINES = 400;
 const MAX_ANSWER = 100_000;
+/** The conversation a question carries: its change's last few exchanges */
+const MAX_EARLIER = 5;
 
 export interface AskRoutes extends Router {
   /** After ↻ refresh: mark questions whose code changed */
   refresh(): void;
+  /** With an agent picked: it takes the waiting question, if it isn't on one already */
+  kick(): void;
 }
 
 export function createAskRoutes(current: () => ViewerInput, port: number): AskRoutes {
@@ -60,22 +73,82 @@ export function createAskRoutes(current: () => ViewerInput, port: number): AskRo
     return { text, file, unitId, label, hash, selection: question.selection, concerns, breaks };
   };
 
+  /** What was asked and answered before on the same change, while its code is still the same */
+  const earlierOn = (q: Pick<AskQuestion, 'id' | 'file' | 'unitId'>): AskExchange[] =>
+    session
+      .state()
+      .questions.filter((x) => x.id !== q.id && x.answer && !x.stale && x.file === q.file && x.unitId === q.unitId)
+      .slice(-MAX_EARLIER)
+      .map((x) => ({ text: x.text, answer: x.answer!.markdown }));
+
   const textFor = (
     q: Pick<AskQuestion, 'id' | 'text' | 'selection' | 'concerns' | 'breaks' | 'file' | 'unitId' | 'label'>,
-    forCopy: boolean,
+    mode: { forCopy?: boolean; headless?: boolean },
   ) => {
     const input = current();
-    return questionText(q, changeContext(input, q), { forCopy, root: input.root, cwd: input.cwd, port });
+    return questionText(q, changeContext(input, q), {
+      ...mode,
+      earlier: earlierOn(q),
+      root: input.root,
+      cwd: input.cwd,
+      port,
+    });
+  };
+
+  const answerWith = (id: string, markdown: string) => {
+    const input = current();
+    const found = findCites(markdown, input.root, input.cwd);
+    session.answer(id, markdown, found.cites);
+    return found;
+  };
+
+  let agentBusy = false;
+  const kick = () => {
+    const runner = agentRunner(current().agent);
+    if (!runner || agentBusy) return;
+    const q = session.next();
+    if (!q) return;
+    agentBusy = true;
+    const input = current();
+    runAgent(
+      runner,
+      {
+        cwd: input.root,
+        prompt: textFor(q, { headless: true }),
+        access: { kind: 'read' },
+        // past this the session hands the question out again
+        timeoutMs: REHAND_AFTER_MS,
+      },
+      { kind: 'ask', label: q.text },
+    )
+      .then(
+        (markdown) => answerWith(q.id, markdown.slice(0, MAX_ANSWER)),
+        // the rail is where the reader waits: the reason goes there, as the answer
+        (err: Error) =>
+          answerWith(q.id, err.message === STOPPED ? 'Stopped.' : `**The agent couldn't answer.** ${err.message}`),
+      )
+      .finally(() => {
+        agentBusy = false;
+        kick();
+      });
   };
 
   const router = createRouter()
-    .json('GET /api/ask', noBody, () => session.state())
+    .json('GET /api/ask', noBody, () => {
+      const state = session.state();
+      // the agent is started for each question: it's always there to answer
+      return current().agent ? { ...state, listening: true } : state;
+    })
     .json('POST /api/ask', parseQuestion, (question) => {
       // checked right before the add, after the body's read: two posts can't both get in
       if (session.waiting()) throw new HttpError(409, 'wait for the answer to the last question');
-      return session.add(question);
+      const added = session.add(question);
+      kick();
+      return added;
     })
-    .json('POST /api/ask/prompt', parseQuestion, (question) => ({ text: textFor({ ...question, id: '' }, true) }))
+    .json('POST /api/ask/prompt', parseQuestion, (question) => ({
+      text: textFor({ ...question, id: '' }, { forCopy: true }),
+    }))
     .raw('GET /api/ask/next', async ({ res, url }) => {
       session.listenStart();
       let closed = false;
@@ -90,7 +163,7 @@ export function createAskRoutes(current: () => ViewerInput, port: number): AskRo
           if (closed) return;
           const q = session.next();
           if (q) {
-            send(res, 200, { id: q.id, text: textFor(q, false) });
+            send(res, 200, { id: q.id, text: textFor(q, {}) });
             return;
           }
           if (Date.now() >= deadline) {
@@ -109,9 +182,7 @@ export function createAskRoutes(current: () => ViewerInput, port: number): AskRo
       if (!session.get(id)) throw new HttpError(404, `no question ${id} in this lens session`);
       if (!markdown) throw new HttpError(400, 'the answer is empty');
       if (markdown.length > MAX_ANSWER) throw new HttpError(400, `the answer is longer than ${MAX_ANSWER} characters`);
-      const input = current();
-      const { cites, unresolved } = findCites(markdown, input.root, input.cwd);
-      session.answer(id, markdown, cites);
+      const { cites, unresolved } = answerWith(id, markdown);
       send(res, 200, { id, cites: cites.length, unresolved });
     });
 
@@ -121,6 +192,7 @@ export function createAskRoutes(current: () => ViewerInput, port: number): AskRo
       const input = current();
       session.refreshStale((q) => hashOf(input, q));
     },
+    kick,
   };
 }
 

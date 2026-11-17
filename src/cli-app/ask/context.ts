@@ -13,8 +13,10 @@ export const RULES = `RULES — read-only. Answer the question; do not change an
 - Never edit, create or delete files. Never run commands that change the repo or the
   working tree (git commit/checkout/stash/reset, formatters, installs, writing builds).
 - Reading is fine: open any file, search, git log/show/blame/diff.
-- Asked for a fix? Describe it in the answer; don't apply it.
-- If you can, answer from a read-only subagent (e.g. Claude Code's Explore agent).`;
+- Asked for a fix? Describe it in the answer; don't apply it.`;
+
+/** For an agent in the user's own session, whose tools can edit */
+const SUBAGENT_RULE = '- Answer from a read-only subagent if your agent has one.';
 
 // How an answer should read. The rail draws a cite as a small numbered marker and a ```flow
 // block as a lane of steps (src/viewer/ask/markdown.ts), so both are asked for here.
@@ -46,6 +48,11 @@ it, not a retelling.
 - End with one line: "Read: " and the files you opened.
 - As short as the answer allows: about 120 words, up to 300 for a walkthrough. No
   closing summary, no offers to help. Markdown.`;
+
+/** Past this many characters an earlier answer is cut short: the question is what's asked now */
+const EARLIER_ANSWER_CHARS = 2000;
+
+const clip = (text: string, max: number) => (text.length > max ? text.slice(0, max) + ' …' : text);
 
 /** Past this many lines the change is cut short — the agent can read the file. */
 const MAX_CHANGE_LINES = 400;
@@ -136,9 +143,19 @@ function ranges(nums: number[]): string {
   return out.join(', ');
 }
 
+/** An earlier question on the same change, and the answer it got */
+export interface AskExchange {
+  text: string;
+  answer: string;
+}
+
 export interface QuestionTextOptions {
   /** For a chat paste: no rules, no reply command */
   forCopy?: boolean;
+  /** For an agent lens runs itself (agents/): its final message is the answer, so no reply command */
+  headless?: boolean;
+  /** The conversation so far on this change, oldest first */
+  earlier?: AskExchange[];
   /** Repo root, printed so the agent knows what paths are relative to */
   root: string;
   /** Where lens runs: display paths are relative to it */
@@ -160,7 +177,13 @@ export function questionText(
       ? `Question about ${about}, from the lens code viewer:`
       : `lens ask · ${q.id} · ${about}\nrepo: ${toPosix(opts.root)} — paths below are relative to it`,
   );
-  if (!opts.forCopy) out.push(RULES);
+  if (!opts.forCopy) out.push(opts.headless ? RULES : RULES + '\n' + SUBAGENT_RULE);
+  if (opts.earlier && opts.earlier.length > 0) {
+    out.push(
+      'EARLIER  what the reader already asked about this change, and the answers, oldest first — the question may follow up on them\n' +
+        opts.earlier.map((e) => `Q: ${e.text.trim()}\nA: ${clip(e.answer.trim(), EARLIER_ANSWER_CHARS)}`).join('\n\n'),
+    );
+  }
   out.push('QUESTION\n' + q.text.trim());
 
   if (q.selection && q.selection.lines.length > 0) {
@@ -214,7 +237,12 @@ export function questionText(
     );
   }
 
-  if (!opts.forCopy) {
+  if (opts.headless) {
+    out.push(HOW_TO_ANSWER);
+    out.push(`REPLY
+Your final message is the answer, shown in the rail as it is: only its markdown, nothing before or after.
+Answer yourself; don't spawn subagents.`);
+  } else if (!opts.forCopy) {
     // straight in .lens/, which the server already made (it holds server.json)
     const answerFile = toPosix(join(opts.root, '.lens', 'answer.md'));
     out.push(HOW_TO_ANSWER);

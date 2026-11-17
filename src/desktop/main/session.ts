@@ -9,6 +9,8 @@ import { cliReason, type LensCli } from './cli.ts';
 
 /** What the CLI prints once its viewer answers (serveViewer in src/cli-app/render/web/server.ts). */
 const READY = /lens viewer on (http:\/\/127\.0\.0\.1:(\d+)\/)/;
+/** What it prints when its viewer made a worktree for the review (`POST /api/worktree`): its root. */
+const WORKTREE_LINE = /^lens worktree (.+)$/;
 
 export interface ReviewSession {
   url: string;
@@ -96,16 +98,25 @@ function waitFor(done: Promise<void>, ms: number): Promise<boolean> {
 
 /**
  * Starts `lens <args> --no-open --port <port>` in `root`, the repository's root.
- * The CLI's own flags go last, so nothing in `args` can override them.
+ * The CLI's own flags go last, so nothing in `args` can override them. `onWorktree` hears each
+ * worktree the viewer made: only a path, which the caller checks before it opens anything.
  */
-export function startReview(cli: LensCli, root: string, args: string[], port: number): StartingReview {
-  const child: ChildProcess = spawn(cli.command, [...cli.args, ...args, '--no-open', '--port', String(port)], {
-    cwd: root,
-    env: cli.env,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    windowsHide: true,
-  });
+export function startReview(
+  cli: LensCli,
+  root: string,
+  args: string[],
+  port: number,
+  onWorktree: (root: string) => void = () => {},
+): StartingReview {
+  // stdin stays open while the app is: lens stops when it closes, however the app went (a crash too)
+  const child: ChildProcess = spawn(
+    cli.command,
+    [...cli.args, ...args, '--no-open', '--stop-with-stdin', '--port', String(port)],
+    { cwd: root, env: cli.env, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true },
+  );
   let stdout = '';
+  /** Where the lines not read yet start in `stdout` */
+  let lineStart = 0;
   let stderr = '';
   let cancelled = false;
   const exited = new Promise<void>((resolve) => child.on('close', () => resolve()));
@@ -117,7 +128,11 @@ export function startReview(cli: LensCli, root: string, args: string[], port: nu
     }
     if (!(await waitFor(exited, url ? 2000 : 0))) {
       child.kill();
-      await exited;
+      // its stop kills its agent runs and exits at once: one that doesn't must not hold the app open
+      if (!(await waitFor(exited, 2000))) {
+        child.kill('SIGKILL');
+        await exited;
+      }
     }
     removeStaleServerInfo(root, child.pid);
   };
@@ -125,6 +140,11 @@ export function startReview(cli: LensCli, root: string, args: string[], port: nu
   const ready = new Promise<ReviewSession>((resolve, reject) => {
     child.stdout!.on('data', (chunk) => {
       stdout += String(chunk);
+      for (let end = stdout.indexOf('\n', lineStart); end !== -1; end = stdout.indexOf('\n', lineStart)) {
+        const worktree = WORKTREE_LINE.exec(stdout.slice(lineStart, end).trimEnd());
+        lineStart = end + 1;
+        if (worktree) onWorktree(worktree[1]);
+      }
       const match = READY.exec(stdout);
       if (match) resolve({ url: match[1], port: Number(match[2]), exited, stop: () => stop(match[1]) });
     });

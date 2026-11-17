@@ -7,11 +7,10 @@ import { plural } from '../shared.ts';
 import type { BuildProgress, BuildStage } from '../../cli-app/summary/progress.ts';
 import { listModel } from './summaryList.ts';
 import { pickedPlan, planName } from './planTab.ts';
-import { askShown } from './askContext.ts';
 
 export type StatusKind = 'gone' | 'failed' | 'working' | 'waiting' | 'done' | 'idle';
 /** What the status's button does (the handlers are in components/StatusBar/const.ts) */
-export type StatusActionId = 'retry' | 'dismiss' | 'openAsk';
+export type StatusActionId = 'retry' | 'dismiss' | 'openAsk' | 'openRuns';
 
 export interface Status {
   kind: StatusKind;
@@ -70,13 +69,21 @@ const waitingForAgent: StatusSource = (state) => {
   };
 };
 
+/** lens's own agent is on something: how many runs, and how long the oldest has gone */
+const agentRunning: StatusSource = (state) => {
+  const [oldest] = state.agentRuns;
+  if (!oldest || state.serverGone) return null;
+  const detail = plural(state.agentRuns.length, 'run') + ' · ' + agoText(Date.now() - oldest.startedAt);
+  return { kind: 'working', label: 'Agent running', detail, action: 'openRuns' };
+};
+
 const doneNote: StatusSource = (state) =>
   state.notice?.kind === 'done'
     ? { kind: 'done', label: state.notice.label, detail: state.notice.detail ?? null, action: null }
     : null;
 
 /** Strongest first: the first source with something to say is the bar's status. */
-const STATUS_SOURCES: StatusSource[] = [serverStopped, failure, working, waitingForAgent, doneNote];
+const STATUS_SOURCES: StatusSource[] = [serverStopped, failure, working, agentRunning, waitingForAgent, doneNote];
 
 /** The bar's status. Its fields are plain values, so a selector can return it as it is. */
 export function barStatus(state: LensState): Status {
@@ -121,14 +128,6 @@ const changedOnDisk: NoticeSource = (state) =>
 
 const newSummary: NoticeSource = (state) =>
   state.summaryDot ? { id: 'new-summary', text: 'New summary waiting', tone: 'accent', action: 'openSummary' } : null;
-
-const agentListening: NoticeSource = (state) => {
-  // only while the chat is polled (the rail is shown, or a question waits): otherwise it's a guess
-  const live = askShown(state) || waitingQuestion(state) !== null;
-  return live && state.ask.data.listening && !state.serverGone
-    ? { id: 'agent', text: 'Agent listening', tone: 'live', action: null }
-    : null;
-};
 
 /** No write for this long and a run reads as stopped. A big diff's one submit can take minutes, so it's generous. */
 const RUN_QUIET_MS = 20 * 60 * 1000;
@@ -240,14 +239,29 @@ const typescriptServer: NoticeSource = (state) => {
   }
 };
 
+/** lens's own agent didn't finish the summary (it failed, or the reader stopped it): true until the next run starts */
+const agentFailed: NoticeSource = (state) => {
+  const error = state.agentRun?.error;
+  if (!error || state.serverGone) return null;
+  if (error === 'Stopped')
+    return { id: 'agent-failed', text: "The agent's summary run was stopped", tone: 'warn', action: 'openSummary' };
+  return {
+    id: 'agent-failed',
+    text: "The agent's summary run failed",
+    tone: 'warn',
+    action: 'openSummary',
+    tip: error,
+  };
+};
+
 const NOTICE_SOURCES: NoticeSource[] = [
   configProblems,
+  agentFailed,
   guessedBase,
   changedOnDisk,
   staleSummaries,
   newSummary,
   summaryBuilding,
-  agentListening,
   planAgent,
   typescriptServer,
 ];

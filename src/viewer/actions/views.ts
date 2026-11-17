@@ -67,6 +67,10 @@ export async function checkStamp(): Promise<void> {
     if (JSON.stringify(lsp) !== JSON.stringify(getState().lspStatus)) update({ lspStatus: lsp });
     const building = stamp.building ?? null;
     if (JSON.stringify(building) !== JSON.stringify(summaryBuild)) update({ summaryBuild: building });
+    const agentRun = stamp.agentRun ?? null;
+    if (JSON.stringify(agentRun) !== JSON.stringify(getState().agentRun)) update({ agentRun });
+    const agentRuns = stamp.agentRuns ?? [];
+    if (JSON.stringify(agentRuns) !== JSON.stringify(getState().agentRuns)) update({ agentRuns });
     // another branch checked out: its summary, and whether to check one out first, in either view
     // (nothing new is waiting, so no dot)
     if (data.summary && stamp.key && stamp.key !== data.summary.key) {

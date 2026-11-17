@@ -22,7 +22,7 @@ import { tildePath } from './display.ts';
 import { dispatch, type Handlers } from './ipc.ts';
 import { APP_ORIGIN, allowFrames, allowOrigin, appPagePreferences, isAppPage, viewerPreferences } from './security.ts';
 import { planProxyOrigin } from './session.ts';
-import { needsYou, SETUP_NAMES } from '../shared/setup.ts';
+import { agentNeedsYou, needsYou, SETUP_NAMES } from '../shared/setup.ts';
 import { install, setupState, uninstall, type SetupEnv } from './setup.ts';
 import type { Session, Store } from './store.ts';
 import { Tab, type OwnScreen, type TabHost } from './tab.ts';
@@ -234,6 +234,15 @@ export class AppWindow implements TabHost {
 
   openSetup(): void {
     this.openOwn('setup');
+    // installed or logged in since: the card shows the agent as it is now
+    void this.deps.themes
+      .load()
+      .catch(() => {})
+      .then(() => {
+        const active = this.tabs.active;
+        if (active) this.sendLauncher(active);
+        this.sendStrip();
+      });
   }
 
   /** The design system's sandbox: Setup leads to it. */
@@ -354,6 +363,15 @@ export class AppWindow implements TabHost {
     this.layout();
   }
 
+  /** A tab's viewer made a worktree for its review: the same review opens in it, in a tab of its own. */
+  async worktree(tab: Tab, root: string): Promise<void> {
+    const opening = await tab.worktreeReview(root);
+    if (!opening || this.goTo(root, tab)) return;
+    const next = this.addTab('start');
+    await next.openFolder(root);
+    if (opening.choice && next.repo?.root === root) await next.open(opening.choice);
+  }
+
   goTo(root: string, from: Tab): boolean {
     const other = this.tabs.withRepo(root, from);
     if (other) this.selectTab(other.id);
@@ -369,7 +387,7 @@ export class AppWindow implements TabHost {
       platform: process.platform,
       fullscreen: this.win.isFullScreen(),
       hints: this.hints,
-      setupMissing: Object.values(setupState(this.deps.setup)).some(needsYou),
+      setupMissing: Object.values(setupState(this.deps.setup)).some(needsYou) || agentNeedsYou(this.deps.themes.agent),
     };
   }
 
@@ -397,6 +415,7 @@ export class AppWindow implements TabHost {
       ),
       git: themes.git,
       version: themes.version,
+      agent: themes.agent,
       setup: setupState(setup),
       theme: themes.current,
       zoom: this.deps.zoom.current,

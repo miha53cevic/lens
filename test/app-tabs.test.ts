@@ -38,6 +38,9 @@ function fakeHost() {
     goTo(root) {
       return host.other?.repo?.root === root;
     },
+    worktree(_tab, root) {
+      log.push('worktree ' + root);
+    },
     until(tab, check) {
       if (check(tab)) return Promise.resolve();
       return new Promise((done) => {
@@ -395,3 +398,26 @@ test('tildePath: the home folder as ~', () => {
   assert.equal(tildePath('/Users/anabel/x', '/Users/ana'), '/Users/anabel/x');
   assert.equal(tildePath('/Users/ana', '/Users/ana'), '~');
 });
+
+test("a worktree a tab's viewer made opens with the tab's review, only once lens info lists it; any other folder doesn't", async () => {
+  await withApp(async (dir, tab, host, data) => {
+    await tab.openFolder(dir);
+    const choice = { kind: 'diff', range: 'custom', args: '-- src/orders.ts' } as const;
+    await tab.open(choice);
+    // made after the tab last read the repository, as the viewer's button does
+    const made = dir + '-made';
+    execFileSync('git', ['worktree', 'add', '-q', '--detach', made], { cwd: dir });
+    try {
+      assert.equal(tab.otherWorktree(toPosix(made)), false, 'not listed yet');
+      assert.deepEqual(await tab.worktreeReview(toPosix(made)), { choice });
+      assert.equal(await tab.worktreeReview(data), null, 'any other folder');
+      assert.equal(await tab.worktreeReview(toPosix(dir)), null, 'its own');
+      assert.ok(
+        !host.log.some((line) => line.startsWith('worktree ')),
+        'lens printed nothing: nothing was made through it',
+      );
+    } finally {
+      execFileSync('git', ['worktree', 'remove', '--force', made], { cwd: dir });
+    }
+  });
+}, 60_000);

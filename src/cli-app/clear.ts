@@ -1,6 +1,8 @@
+import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, rmSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { buildProgressReader } from './summary/progress.ts';
+import { WORKTREES_DIR } from './summary/store.ts';
 import { NOTES_DIR, readStoredNotes } from './notes/store.ts';
 import { countMarks, MARKS_DIR, readStoredMarks } from './marks/store.ts';
 import { countText } from './text.ts';
@@ -165,7 +167,55 @@ const timings: ClearKind = {
   },
 };
 
-export const CLEAR_KINDS: ClearKind[] = [summaries, notes, marks, timings];
+function worktreeFolders(at: ClearContext): string[] {
+  const dir = join(at.root, '.lens', WORKTREES_DIR);
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && isFolderName(entry.name))
+    .map((entry) => entry.name)
+    .sort();
+}
+
+const worktreePlan = (folders: string[]): ClearPlan => ({
+  count: folders.length,
+  paths: folders.map((name) => `.lens/${WORKTREES_DIR}/${name}/`),
+});
+
+/**
+ * The worktrees lens made for reviews that end at a commit not checked out (reviewWorktree), in
+ * the main worktree's .lens/worktrees/. Only those: never a worktree the reader made.
+ */
+const worktrees: ClearKind = {
+  id: 'worktrees',
+  label: 'Review worktrees',
+  unit: ['worktree', 'worktrees'],
+  scopes: () => ['all'],
+  describe: (at) => worktreePlan(worktreeFolders(at)),
+  clear(at) {
+    const folders = worktreeFolders(at);
+    const git = (args: string[]) => execFileSync('git', args, { cwd: at.root, stdio: 'ignore' });
+    for (const name of folders) {
+      const path = join(at.root, '.lens', WORKTREES_DIR, name);
+      try {
+        git(['worktree', 'remove', '--force', path]);
+      } catch {
+        // not a worktree git knows anymore: only lens's own folder, so it goes as a folder
+        rmSync(path, { recursive: true, force: true, maxRetries: 3 });
+      }
+    }
+    if (folders.length > 0)
+      try {
+        git(['worktree', 'prune']);
+      } catch {
+        /* nothing listed to prune */
+      }
+    return worktreePlan(folders);
+  },
+  warning: (at) =>
+    worktreeFolders(at).length > 0 ? 'A summary written in one of them goes with it, as do its notes and marks.' : null,
+};
+
+export const CLEAR_KINDS: ClearKind[] = [summaries, notes, marks, worktrees, timings];
 
 export function clearKind(id: string): ClearKind | undefined {
   return CLEAR_KINDS.find((kind) => kind.id === id);

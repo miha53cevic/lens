@@ -149,7 +149,15 @@ async function uninstallCli(env: SetupEnv): Promise<string> {
 // ---- the agent skills ----
 
 const skillsSource = (env: SetupEnv) => join(env.lensRoot, 'skills');
-const skillsTarget = (env: SetupEnv) => join(env.home, '.claude', 'skills');
+/** The skills folders agents read, one agent's own and the shared one: the skills go in both */
+const SKILL_DIRS = [
+  ['.claude', 'skills'],
+  ['.agents', 'skills'],
+];
+const skillsTargets = (env: SetupEnv) => SKILL_DIRS.map((dir) => join(env.home, ...dir));
+/** Each skill's folder in each skills folder */
+const skillTargets = (env: SetupEnv) =>
+  skillsTargets(env).flatMap((target) => skillNames(env).map((name) => ({ name, target: join(target, name) })));
 
 function skillNames(env: SetupEnv): string[] {
   try {
@@ -174,8 +182,10 @@ function skillState(target: string): SkillState {
 }
 
 function skillsItem(env: SetupEnv): SetupItem {
-  const where = tildePath(skillsTarget(env), env.home);
-  const states = skillNames(env).map((name) => skillState(join(skillsTarget(env), name)));
+  const where = skillsTargets(env)
+    .map((target) => tildePath(target, env.home))
+    .join(' · ');
+  const states = skillTargets(env).map(({ target }) => skillState(target));
   if (states.length === 0 || states.includes('missing')) return { state: 'missing', where, note: null };
   if (states.includes('external')) {
     return {
@@ -189,8 +199,7 @@ function skillsItem(env: SetupEnv): SetupItem {
 
 async function installSkills(env: SetupEnv): Promise<string> {
   let copied = 0;
-  for (const name of skillNames(env)) {
-    const target = join(skillsTarget(env), name);
+  for (const { name, target } of skillTargets(env)) {
     if (skillState(target) === 'external') continue;
     rmSync(target, { recursive: true, force: true });
     cpSync(join(skillsSource(env), name), target, { recursive: true });
@@ -202,8 +211,7 @@ async function installSkills(env: SetupEnv): Promise<string> {
 
 async function uninstallSkills(env: SetupEnv): Promise<string> {
   let removed = 0;
-  for (const name of skillNames(env)) {
-    const target = join(skillsTarget(env), name);
+  for (const { target } of skillTargets(env)) {
     if (skillState(target) !== 'ours') continue;
     rmSync(target, { recursive: true, force: true });
     removed++;

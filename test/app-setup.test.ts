@@ -118,14 +118,26 @@ test(
 );
 
 test(
-  'the agent skills: copied with a marker, removed by it, and a linked one is never touched',
+  'the agent skills: copied into both folders with a marker, removed by it, and a linked one is never touched',
   withHome(async (env, home) => {
     const skills = join(home, '.claude', 'skills');
-    assert.deepEqual(setupState(env).skills, { state: 'missing', where: '~/.claude/skills', note: null });
+    const shared = join(home, '.agents', 'skills');
+    assert.deepEqual(setupState(env).skills, {
+      state: 'missing',
+      where: '~/.claude/skills · ~/.agents/skills',
+      note: null,
+    });
 
     assert.equal(await install(env, 'skills'), 'Installed the agent skills');
     assert.equal(setupState(env).skills.state, 'installed');
     assert.match(readFileSync(join(skills, 'lens-review', 'SKILL.md'), 'utf8'), /lens/);
+    assert.match(readFileSync(join(shared, 'lens-review', 'SKILL.md'), 'utf8'), /lens/);
+
+    // installed before the shared folder was one: it asks to be installed again, once
+    rmSync(shared, { recursive: true });
+    assert.equal(setupState(env).skills.state, 'missing');
+    await install(env, 'skills');
+    assert.equal(setupState(env).skills.state, 'installed');
 
     // one of them is a link from a checkout: the app's hands stay off it
     rmSync(join(skills, 'lens-ask'), { recursive: true });
@@ -136,6 +148,7 @@ test(
     assert.ok(existsSync(join(skills, 'lens-ask', 'SKILL.md')), 'the link is still there');
     assert.ok(existsSync(join(lensRoot, 'skills', 'lens-ask', 'SKILL.md')), 'and so is what it points at');
     assert.ok(!existsSync(join(skills, 'lens-review')), 'the copies are gone');
+    assert.ok(!existsSync(join(shared, 'lens-review')), 'from both folders');
     assert.ok(!existsSync(join(lensRoot, 'skills', 'lens-ask', '.lens-app')), 'no marker was written through the link');
     assert.equal(await uninstall(env, 'skills'), 'The skills were not installed by the app');
   }),

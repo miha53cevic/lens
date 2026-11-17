@@ -84,7 +84,7 @@ test('a diff that ends at a branch another worktree has says to review it there'
     units: fresh.units.map((unit) => ({ ...unit, summary: null })),
   };
   try {
-    await open();
+    const page = await open();
     await key('v');
     await settle();
     const how = $('#no-summary');
@@ -96,13 +96,20 @@ test('a diff that ends at a branch another worktree has says to review it there'
       [...how.querySelectorAll('[data-part="copy-cmd-text"]')].map((command) => command.textContent),
       [worktree.command],
     );
+    // its path opens it in a tab (the app's): the server is asked, as for a worktree it makes
+    await click(how.querySelector('[data-part="checkout-worktree"]')!);
+    await settle();
+    assert.deepEqual(
+      page.requests.filter((request) => request.path === '/api/worktree').map((request) => request.method),
+      ['POST'],
+    );
   } finally {
     payload.summary = fresh;
     await close();
   }
 });
 
-test('a diff that ends at a branch not checked out says to check it out, instead of what to run', async () => {
+test('a diff that ends at a branch not checked out offers a worktree or a checkout, instead of what to run', async () => {
   const fresh = payload.summary!;
   payload.summary = {
     ...fresh,
@@ -114,7 +121,7 @@ test('a diff that ends at a branch not checked out says to check it out, instead
     await key('v');
     await settle();
     const how = $('#no-summary');
-    assert.match(how.textContent!, /this diff ends at feature\. Check it out first/);
+    assert.match(how.textContent!, /this diff ends at feature\. Review in a worktree or check it out/);
     assert.deepEqual(
       [...how.querySelectorAll('[data-part="copy-cmd-text"]')].map((command) => command.textContent),
       ['git checkout feature'],
@@ -144,6 +151,37 @@ test('a diff that ends at a branch not checked out says to check it out, instead
       detail: '',
     });
     assert.equal(document.querySelector('#summary-dot'), null, 'nothing new is waiting');
+  } finally {
+    payload.summary = fresh;
+    await close();
+  }
+});
+
+test('Review in a worktree: lens makes it, and the notice turns into reviewing it there', async () => {
+  const fresh = payload.summary!;
+  payload.summary = {
+    ...fresh,
+    checkout: { branch: 'feature', worktree: null },
+    units: fresh.units.map((unit) => ({ ...unit, summary: null })),
+  };
+  const page = await open();
+  try {
+    await key('v');
+    await settle();
+    const button = $('#no-summary [data-part="review-worktree"]') as HTMLButtonElement;
+    assert.equal(button.textContent, 'Review in a worktree');
+    await click(button);
+    await settle();
+    assert.deepEqual(
+      page.requests.filter((request) => request.path === '/api/worktree').map((request) => request.method),
+      ['POST'],
+    );
+    const how = $('#no-summary');
+    assert.match(
+      how.textContent!,
+      /which is checked out in \/repos\/shop\/\.lens\/worktrees\/6de10a6437ab\. Review it there/,
+    );
+    assert.equal($$('[data-part="review-worktree"]').length, 0, 'made: nothing more to make');
   } finally {
     payload.summary = fresh;
     await close();

@@ -1,9 +1,12 @@
 import { Check } from 'lucide-react';
 import type { BuildProgress } from '../../../../cli-app/summary/progress.ts';
 import { Skeleton } from '../../../../ui/Skeleton.tsx';
-import { CopyCommand } from '../../../../ui/CopyCommand.tsx';
+import { SummaryRun } from '../SummaryRun.tsx';
+import { useLens } from '../../../store.ts';
 import { Tag } from '../../../../ui/Tag.tsx';
 import { agoText } from '../../../model/status.ts';
+import { Button } from '../../../../ui/Button.tsx';
+import { stopAgentRun } from '../../../actions/agentRuns.ts';
 
 /** The run's steps, in order: what a Tag shows for each, and which stage it is */
 function steps(build: BuildProgress): { stage: BuildProgress['stage']; label: string }[] {
@@ -16,6 +19,7 @@ function steps(build: BuildProgress): { stage: BuildProgress['stage']; label: st
 
 /** What the agent is on while it writes this summary's overview, in its place and in place of what to run. */
 export function RunProgress({ build, command }: { build: BuildProgress; command: string }) {
+  const ownRun = useLens((state) => state.agentRuns.find((run) => run.kind === 'summary')?.id ?? null);
   // the fixes come after the last step: every step is behind them
   const current =
     build.stage === 'fixes' ? steps(build).length : steps(build).findIndex((step) => step.stage === build.stage);
@@ -44,10 +48,18 @@ export function RunProgress({ build, command }: { build: BuildProgress; command:
           </Tag>
         )}
       </div>
-      {/* lens can't see the agent: if it died, the way to start it again must still be there */}
-      <div data-part='run-restart' className='text-sm text-muted'>
-        Agent stopped? Run <CopyCommand command={command} /> again.
-      </div>
+      {/* lens can't see the reader's own agent: if it died, the way to start it again must still be there. Its own run it can stop. */}
+      {ownRun ? (
+        <div data-part='run-restart' className='text-sm text-muted'>
+          <Button data-part='run-stop' size='sm' onClick={() => void stopAgentRun(ownRun)}>
+            Stop
+          </Button>
+        </div>
+      ) : (
+        <div data-part='run-restart' className='text-sm text-muted'>
+          <SummaryRun command={command}>{(copy) => <>Agent stopped? Run {copy} again.</>}</SummaryRun>
+        </div>
+      )}
       <div className='flex flex-col gap-2 text-lg'>
         <div className='mb-1 text-accent eyebrow'>Agent summary</div>
         <Skeleton />

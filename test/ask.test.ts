@@ -2,7 +2,16 @@ import { test } from 'bun:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
 import { createServer, type IncomingMessage, type Server } from 'node:http';
-import { existsSync, mkdtempSync, mkdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import type { AddressInfo } from 'node:net';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -13,6 +22,7 @@ import { findCites } from '../src/cli-app/ask/cites.ts';
 import { replyNotes } from '../src/cli-app/ask/command.ts';
 import { changeContext, questionText, selectionLabel, HOW_TO_ANSWER, RULES } from '../src/cli-app/ask/context.ts';
 import { createAskRoutes } from '../src/cli-app/ask/routes.ts';
+import { agentRuns, stopRun } from '../src/cli-app/agents/index.ts';
 import { isLocalRequest, readCookie } from '../src/cli-app/render/web/http.ts';
 import type { ViewerInput } from '../src/cli-app/render/web/server.ts';
 
@@ -522,3 +532,127 @@ test("lens ask: listen gets the viewer's question, reply answers it, server.json
     }
   });
 }, 60_000);
+
+test('questionText for an agent lens runs: the answer is its final message, and the conversation so far goes along', async () => {
+  await withRepo(async (dir, git) => {
+    const input = await changedRepo(dir, git);
+    const q = { id: 'q3', text: 'and empty?', file: 'calc.ts', unitId: null, label: 'calc.ts', selection: null };
+    const plain = { ...q, concerns: [], breaks: [] };
+    const opts = { root: dir, cwd: dir, port: 5326 };
+    const agent = questionText(plain, changeContext(input, q), opts);
+    assert.ok(agent.includes('read-only subagent'), "the user's agent may hand it to a read-only one");
+    assert.ok(!agent.includes('EARLIER'), 'nothing asked before: no block');
+
+    const earlier = [
+      { text: 'why reduce?', answer: '**Shorter.** calc.ts:2' },
+      { text: 'is it slower?', answer: 'x'.repeat(3000) },
+    ];
+    const headless = questionText(plain, changeContext(input, q), { ...opts, headless: true, earlier });
+    assert.ok(!headless.includes('lens ask reply'), 'no reply command: its stdout is the answer');
+    assert.ok(!headless.includes('read-only subagent'), 'no subagent: it would only be slower');
+    assert.ok(headless.includes(RULES), 'still read-only');
+    assert.ok(headless.includes(HOW_TO_ANSWER + '\n\nREPLY\nYour final message is the answer'));
+    assert.ok(
+      headless.includes('Q: why reduce?\nA: **Shorter.** calc.ts:2\n\nQ: is it slower?\nA: ' + 'x'.repeat(2000) + ' …'),
+      'oldest first, a long answer cut short',
+    );
+    assert.ok(
+      headless.indexOf('EARLIER') < headless.indexOf('QUESTION\nand empty?'),
+      'the conversation, then the question',
+    );
+    assert.ok(
+      questionText(plain, changeContext(input, q), { ...opts, earlier }).includes('Q: why reduce?'),
+      "the user's agent gets the conversation too",
+    );
+  });
+});
+
+test('ask routes with an agent picked: it answers each question with the conversation so far, read-only', async () => {
+  await withRepo(async (dir, git) => {
+    const input: ViewerInput = { ...(await changedRepo(dir, git)), agent: 'claude' };
+    const fake = join(dir, '.fake-claude');
+    const log = join(dir, '.fake-claude.jsonl');
+    writeFileSync(
+      fake,
+      `#!/bin/sh\nexec '${process.execPath}' '${join(import.meta.dirname, 'fixtures', 'fakeClaude.ts')}' "$@"\n`,
+    );
+    chmodSync(fake, 0o755);
+    const env = { ...process.env };
+    Object.assign(process.env, {
+      LENS_CLAUDE: fake,
+      FAKE_CLAUDE_LOG: log,
+      FAKE_CLAUDE_MODE: 'answer',
+      FAKE_CLAUDE_ANSWER: '**Shorter.** calc.ts:2',
+    });
+    const routes = createAskRoutes(() => input, 5326);
+    const { server, base } = await listen(async (req, res) => {
+      if (!(await routes.handle(req, res, new URL(req.url ?? '/', 'http://x')))) res.writeHead(404).end();
+    });
+    const post = (body: unknown) => fetch(base + '/api/ask', { method: 'POST', body: JSON.stringify(body) });
+    const answered = async (id: string) => {
+      for (let i = 0; i < 200; i++) {
+        const state = await (await fetch(base + '/api/ask')).json();
+        const q = state.questions.find((x: { id: string }) => x.id === id);
+        if (q?.answer) return q;
+        await new Promise((r) => setTimeout(r, 50));
+      }
+      throw new Error(id + ' never answered');
+    };
+    const prompts = () =>
+      readFileSync(log, 'utf8')
+        .trim()
+        .split('\n')
+        .map((line) => JSON.parse(line) as { args: string[]; prompt: string; cwd: string });
+    try {
+      assert.equal((await (await fetch(base + '/api/ask')).json()).listening, true, 'the agent is always there');
+      assert.equal((await post({ text: 'why reduce?', file: 'calc.ts' })).status, 200);
+      const first = await answered('q1');
+      assert.equal(first.answer.markdown, '**Shorter.** calc.ts:2');
+      assert.deepEqual(first.answer.cites, [{ ref: 'calc.ts:2', file: 'calc.ts', line: 2 }]);
+      const [run] = prompts();
+      assert.equal(run.cwd, dir);
+      assert.ok(run.prompt.startsWith('lens ask · q1 · calc.ts'));
+      assert.ok(run.prompt.includes('Your final message is the answer'));
+      assert.ok(!run.prompt.includes('EARLIER'));
+      const denied = run.args.slice(run.args.indexOf('--disallowedTools') + 1);
+      assert.deepEqual(denied, ['Edit', 'Write', 'NotebookEdit'], 'it can read, never write');
+
+      // a follow-up on the same change carries the first exchange; one on another change doesn't
+      assert.equal((await post({ text: 'and empty lists?', file: 'calc.ts' })).status, 200);
+      await answered('q2');
+      assert.ok(prompts()[1].prompt.includes('Q: why reduce?\nA: **Shorter.** calc.ts:2'));
+      assert.equal((await post({ text: 'whole thing?', file: 'calc.ts', unitId: 'calc.ts#total' })).status, 200);
+      await answered('q3');
+      assert.ok(!prompts()[2].prompt.includes('EARLIER'), 'the unit is another change than its file');
+
+      // what went wrong is where the reader waits
+      process.env.FAKE_CLAUDE_MODE = 'fail';
+      assert.equal((await post({ text: 'again?', file: 'calc.ts' })).status, 200);
+      assert.match((await answered('q4')).answer.markdown, /^\*\*The agent couldn't answer\.\*\* .*Not logged in/);
+
+      // a run the reader stops: the question gets that as its answer, and the rail is free again
+      process.env.FAKE_CLAUDE_MODE = 'hang';
+      assert.equal((await post({ text: 'slow one?', file: 'calc.ts' })).status, 200);
+      for (let i = 0; i < 200 && agentRuns().length === 0; i++) await new Promise((r) => setTimeout(r, 25));
+      const [slow] = agentRuns();
+      assert.deepEqual({ kind: slow.kind, label: slow.label }, { kind: 'ask', label: 'slow one?' });
+      stopRun(slow.id);
+      assert.equal((await answered('q5')).answer.markdown, 'Stopped.');
+
+      // none picked: questions wait for an agent's listen, as before
+      input.agent = null;
+      process.env.FAKE_CLAUDE_MODE = 'answer';
+      const ran = prompts().length;
+      assert.equal((await post({ text: 'still there?', file: 'calc.ts' })).status, 200);
+      await new Promise((r) => setTimeout(r, 300));
+      assert.equal(prompts().length, ran, 'no run for it');
+      const handed = await (await fetch(base + '/api/ask/next?wait=0')).json();
+      assert.equal(handed.id, 'q6');
+      assert.ok(handed.text.includes('Q: why reduce?'), 'the listening agent gets the conversation too');
+    } finally {
+      process.env = env;
+      server.closeAllConnections();
+      await new Promise((r) => server.close(r));
+    }
+  });
+}, 30_000);

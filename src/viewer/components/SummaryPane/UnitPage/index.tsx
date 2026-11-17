@@ -8,7 +8,7 @@ import { type Unit, unitLabel } from '../../../model/signals.ts';
 import { openUnitInCode } from '../../../actions/summary.ts';
 import { fileStatus } from '../../../../ui/FileStatus.tsx';
 import { Button } from '../../../../ui/Button.tsx';
-import { CopyCommand } from '../../../../ui/CopyCommand.tsx';
+import { SummaryRun } from '../SummaryRun.tsx';
 import { CodeCard, removedCount } from '../../CodeCard/index.tsx';
 import { Concerns } from './Concerns.tsx';
 import { Changes } from './Changes.tsx';
@@ -19,6 +19,7 @@ import { Drawings } from '../Drawings/index.tsx';
 import { CheckoutFirst } from '../CheckoutFirst.tsx';
 import { runGoing } from '../../../model/status.ts';
 import { AgentText } from '../../AgentText.tsx';
+import { SUMMARY_COLUMN } from '../const.ts';
 
 // Mounted per unit (SummaryPane's key): another unit starts afresh.
 export function UnitPage({ unit }: { unit: Unit }) {
@@ -33,7 +34,7 @@ export function UnitPage({ unit }: { unit: Unit }) {
   const summary = unit.summary;
 
   return (
-    <div data-part='sum-inner' className='flex flex-col gap-5 px-6 pt-6 pb-[104px] [&>*]:min-w-0'>
+    <div data-part='sum-inner' className={SUMMARY_COLUMN}>
       {summary ? (
         <h1
           data-part='sum-headline'
@@ -62,9 +63,7 @@ export function UnitPage({ unit }: { unit: Unit }) {
           ) : checkout ? (
             <CheckoutFirst checkout={checkout} />
           ) : (
-            <>
-              Run <CopyCommand command={command} /> again to update it.
-            </>
+            <SummaryRun command={command}>{(copy) => <>Run {copy} again to update it.</>}</SummaryRun>
           )}
         </div>
       ) : (
@@ -77,9 +76,7 @@ export function UnitPage({ unit }: { unit: Unit }) {
             {running ? null : checkout ? (
               <CheckoutFirst checkout={checkout} />
             ) : (
-              <>
-                Run <CopyCommand command={command} /> in your agent.
-              </>
+              <SummaryRun command={command}>{(copy) => <>Run {copy} in your agent.</>}</SummaryRun>
             )}
           </div>
         )
