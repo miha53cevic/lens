@@ -5,7 +5,7 @@
 
 Agents write code faster than anyone can read it. lens makes reading it fast: it folds away the
 noise, has your own coding agent brief you on each changed function, and lets you ask it
-questions as you read. lens itself calls no AI (unless you pick an `agent` for it to run) and needs no API key.
+questions as you read. lens needs no API key: your agent does the writing.
 
 ![The Summary tab: an overview of the change, a sequence diagram, then each change with its concerns](docs/media/summary.gif)
 
@@ -107,5 +107,4 @@ bun run app         # the desktop app from this checkout
 
 ## Non-goals
 
-lens never calls an AI unless you pick an `agent` (your own agent does the writing), never edits your code, and has no
-terminal UI.
+lens never edits your code and has no terminal UI.

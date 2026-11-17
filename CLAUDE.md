@@ -82,7 +82,7 @@ The Summary tab shows the same code as the Code view, under the agent's summary.
 
 ## Summary mode (`src/cli-app/summary/`)
 
-lens never calls an AI: the user's agent writes `result.json`, lens checks it.
+An agent writes `result.json` (the user's own, or the runner picked in `agent`), lens checks it. lens writes no summary text itself.
 
 - Pipeline: `collect.ts` → `units.ts` → `bundle.ts` (`prepare` writes `.lens/summary/<key>/`) → agent → `validate.ts` (`submit`) → `store.ts` → `view.ts` → the viewer.
 - `prepare` does what lens can: housekeeping units' summaries (import- and formatting-only), and each unit's likely callers (`usages.ts`, one `git grep -w`).
@@ -142,7 +142,7 @@ An Electron shell around the CLI. **It holds no lens logic**: it picks arguments
 
 ## Non-goals
 
-lens never calls an AI except the agent runner picked in `agent`, never edits code, and has no terminal UI (`--json` is for debugging). The desktop app adds none of these.
+lens never edits code and has no terminal UI (`--json` is for debugging). The desktop app adds none of these.
 
 ## Git
 
