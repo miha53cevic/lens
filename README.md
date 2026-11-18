@@ -7,19 +7,20 @@ Agents write code faster than anyone can read it. lens makes reading it fast: it
 noise, has your own coding agent brief you on each changed function, and lets you ask it
 questions as you read. lens needs no API key: your agent does the writing.
 
-![The Summary tab: an overview of the change, a sequence diagram, then each change with its concerns](docs/media/summary.gif)
+![The Summary tab: the overview and its sequence diagram, then one change, its possible bug marked real](docs/media/summary.gif)
 
 ## What it does
 
 - **Code**: folds what carries no review signal (imports, comments, guards, logging,
-  boilerplate) into one-line pills, so you see where the behavior lives.
+  boilerplate) into one-line pills, so you see where the behavior lives. Diffs read inline or
+  side by side.
 - **Summary**: your agent walks you through the change one function at a time: what it does,
   what behaves differently, possible bugs, and callers it may break. lens checks every claim
   against the code.
 - **Ask**: ask your agent about the code you're reading; answers cite the lines.
 - **Plan**: your [Lavish](https://github.com/kunchenguid/lavish-axi) plans, inside lens.
 
-![The Code view: a file's folds, one opened, then side by side](docs/media/code.gif)
+![The Code view: a file's folds opened one by one, then side by side](docs/media/code.gif)
 
 ## Install
 
@@ -61,6 +62,7 @@ Press `?` in lens for every key.
 | `lens diff` | your uncommitted changes (`--staged`, or any `git diff` arguments) |
 | `lens pr 123` | a GitHub PR (no API token needed) |
 | `lens <path>` | files or folders, folded |
+| `lens info` | what could be reviewed here: the branch, its changes, the PR remote |
 | `lens config` | the config in effect, and where each value comes from |
 | `lens clear` | what lens has saved, and clearing it |
 | `lens timings` | how long lens's steps took (send `~/.lens/timings.jsonl` when it's slow) |
