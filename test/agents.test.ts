@@ -270,6 +270,7 @@ test('the summary runner: the agent prepares, writes and submits through this le
   assert.equal(agentRuns()[0]?.kind, 'summary');
   await until(() => !runner.state().running, 30_000);
   assert.deepEqual(runner.state(), { running: false, error: null });
+  assert.ok(runner.endedAt() !== null, 'a run that ended is over, whatever it left out');
   const stored = readStored(dir, 'diff@main');
   assert.equal(stored?.units['calc.ts#one']?.headline, 'Claude wrote this');
   const [run] = runs();
@@ -287,5 +288,5 @@ test('the summary runner: the agent prepares, writes and submits through this le
   stopRun(agentRuns()[0].id);
   await until(() => !runner.state().running);
   assert.equal(runner.state().error, STOPPED);
-  assert.ok(runner.stoppedAt() !== null, 'the server hides the run that was stopped');
+  assert.ok(runner.endedAt() !== null, 'the server hides the run that was stopped');
 }, 60_000);

@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { runAgent, STOPPED, type AgentRunner } from '../agents/index.ts';
+import { runAgent, type AgentRunner } from '../agents/index.ts';
 import { lensDir } from './store.ts';
 import type { AgentSummaryRun } from '../api/contract.ts';
 
@@ -26,18 +26,21 @@ export interface SummaryRunner {
   /** Starts a run of `prepare` (SummaryView.cli) in `cwd`; false when one is going already */
   start(opts: { runner: AgentRunner; cwd: string; root: string; prepare: string; label: string }): boolean;
   state(): AgentSummaryRun;
-  /** When the reader last stopped a run (ms since the epoch); null when no run was stopped since one started */
-  stoppedAt(): number | null;
+  /**
+   * When the last run ended, however it did (ms since the epoch); null while one runs or before
+   * any. The agent writes nothing after, so units it left out aren't on their way.
+   */
+  endedAt(): number | null;
 }
 
 export function createSummaryRunner(): SummaryRunner {
   let run: AgentSummaryRun = { running: false, error: null };
-  let stoppedAt: number | null = null;
+  let endedAt: number | null = null;
   return {
     start({ runner, cwd, root, prepare, label }) {
       if (run.running) return false;
       run = { running: true, error: null };
-      stoppedAt = null;
+      endedAt = null;
       runAgent(
         runner,
         {
@@ -48,15 +51,18 @@ export function createSummaryRunner(): SummaryRunner {
         },
         { kind: 'summary', label },
       ).then(
-        () => (run = { running: false, error: null }),
+        () => {
+          run = { running: false, error: null };
+          endedAt = Date.now();
+        },
         (err: Error) => {
           run = { running: false, error: err.message };
-          if (err.message === STOPPED) stoppedAt = Date.now();
+          endedAt = Date.now();
         },
       );
       return true;
     },
     state: () => run,
-    stoppedAt: () => stoppedAt,
+    endedAt: () => endedAt,
   };
 }

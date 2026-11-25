@@ -422,9 +422,10 @@ export async function serveViewer(
     const at = current.root + '\n' + key;
     if (progress?.at !== at) progress = { at, read: buildProgressReader(current.root, key) };
     const build = progress.read();
-    // a run the reader stopped is over, not under way: until something writes again
-    const stopped = summaryRunner.stoppedAt();
-    return build && stopped !== null && Date.now() - build.quietMs <= stopped ? null : build;
+    // a run lens ran that ended (done, failed or stopped) is over, though units it left out are
+    // still missing: not under way until something writes again (the user's own agent, a new run)
+    const ended = summaryRunner.endedAt();
+    return build && ended !== null && Date.now() - build.quietMs <= ended ? null : build;
   }
 
   /** A submit or another branch since the summary was read: take the new one (the units stay those of the last analysis). */
