@@ -57,7 +57,8 @@ export const load = async (file: string): Promise<Mode | undefined> => {
 `;
 
 const warmed = (async () => {
-  for (const language of ['typescript', 'tsx']) await highlightSource(WARM_UP, language, 'vesper').catch(() => {});
+  for (const language of ['typescript', 'tsx'])
+    await highlightSource(WARM_UP, language, 'andromeda-italic').catch(() => {});
 })();
 
 parentPort!.on('message', async ({ batch, jobs, next }: HighlightBatch) => {

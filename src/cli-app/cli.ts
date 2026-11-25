@@ -53,7 +53,7 @@ output (default: local web viewer):
   --stop-with-stdin stop when stdin closes (what the desktop app passes: lens ends with it)
   --summary         open the browser on the Summary tab (diff/PR mode)
   --fold-level <n>  fold regions with score <= n, -1 for none (default 1; from .lens.json)
-  --theme <name>    any Shiki theme for the viewer (default vesper; from .lens.json)
+  --theme <name>    any Shiki theme for the viewer (default andromeda-italic; from .lens.json)
   --version         print lens's version
 `;
 

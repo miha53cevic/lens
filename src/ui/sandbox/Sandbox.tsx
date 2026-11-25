@@ -44,7 +44,7 @@ import { tipAttrs } from '../Tip.tsx';
 
 /** Two code themes for the theme menu to list: the page itself is in the theme of the page that shows it. */
 const THEMES = {
-  vesper: { bg: '#101010', accent: '#ffc799' },
+  'andromeda-italic': { bg: '#23262E', accent: '#FFE66D' },
   'github-light': { bg: '#ffffff', accent: '#6f42c1' },
 } as const;
 type ThemeName = keyof typeof THEMES;
@@ -69,7 +69,7 @@ function Section({ id, title, children }: { id: string; title: string; children:
  * tab (Settings → Sandbox), in the app's code theme: switch that to see it dark and light.
  */
 export function Sandbox() {
-  const [theme, setTheme] = useState<ThemeName>('vesper');
+  const [theme, setTheme] = useState<ThemeName>('andromeda-italic');
   const [view, setView] = useState('code');
   const [segFilter, setSegFilter] = useState('all');
   const [level, setLevel] = useState(1);

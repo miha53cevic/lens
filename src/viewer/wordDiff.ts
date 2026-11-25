@@ -5,6 +5,7 @@
 
 import type { RemovedBlock } from '../cli-app/model.ts';
 import type { ViewerToken } from '../cli-app/render/highlight.ts';
+import { FONT_BOLD, FONT_ITALIC, FONT_STRIKETHROUGH, FONT_UNDERLINE } from '../cli-app/render/fontStyle.ts';
 import { escapeHtml } from '../cli-app/text.ts';
 
 /** A changed stretch of a line, in characters: [start, end). */
@@ -116,17 +117,31 @@ export function pairWordDiffs(removals: RemovedBlock[], changedLines: number[], 
 export function lineHtml(tokens: ViewerToken[], marked: readonly WordRange[] = [], markClass = 'w-add'): string {
   let html = '';
   let offset = 0;
-  for (const [text, color] of tokens) {
+  for (const [text, color, fontStyle] of tokens) {
     let piece = '';
     for (const part of splitAt(text, offset, marked)) {
       piece += part.marked
         ? '<span class="' + markClass + '">' + escapeHtml(part.text) + '</span>'
         : escapeHtml(part.text);
     }
-    html += color ? '<span style="color:' + color + '">' + piece + '</span>' : piece;
+    const style = [color && 'color:' + color, fontStyle && fontStyleCss(fontStyle)].filter(Boolean).join(';');
+    html += style ? '<span style="' + style + '">' + piece + '</span>' : piece;
     offset += text.length;
   }
   return html;
+}
+
+/** A token's font style (Shiki's bits, ViewerToken) as CSS declarations, `;`-joined. */
+function fontStyleCss(fontStyle: number): string {
+  const lines = [fontStyle & FONT_UNDERLINE && 'underline', fontStyle & FONT_STRIKETHROUGH && 'line-through'];
+  const decoration = lines.filter(Boolean).join(' ');
+  return [
+    fontStyle & FONT_ITALIC && 'font-style:italic',
+    fontStyle & FONT_BOLD && 'font-weight:bold',
+    decoration && 'text-decoration:' + decoration,
+  ]
+    .filter(Boolean)
+    .join(';');
 }
 
 /** `text`, starting at `offset` in its line, cut where the ranges start and end. */

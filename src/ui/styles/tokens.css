@@ -9,10 +9,10 @@
  */
 
 :root {
-  /* ---- inputs: the code theme (vesper's until main.tsx sets the real ones) ---- */
-  --code-bg: #101010;
-  --code-fg: #ffffff;
-  --theme-accent: #ffc799;
+  /* ---- inputs: the code theme (andromeda-italic's until main.tsx sets the real ones) ---- */
+  --code-bg: #23262e;
+  --code-fg: #d5ced9;
+  --theme-accent: #ffe66d;
 
   /* ---- scales ---- */
   --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;

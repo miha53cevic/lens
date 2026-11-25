@@ -16,6 +16,7 @@ import {
   type SplitItem,
 } from '../src/viewer/rows.ts';
 import { lineHtml, pairWordDiffs, splitAt, wordDiff } from '../src/viewer/wordDiff.ts';
+import { FONT_BOLD, FONT_ITALIC, FONT_STRIKETHROUGH, FONT_UNDERLINE } from '../src/cli-app/render/fontStyle.ts';
 import { railEntries } from '../src/viewer/model/steps.ts';
 import type { FileFoldModel, RemovedBlock } from '../src/cli-app/model.ts';
 import type { ViewUnit } from '../src/cli-app/summary/view.ts';
@@ -307,6 +308,18 @@ test('pairWordDiffs: a removed line pairs with the first close-enough added line
   assert.equal(
     marked(newLines[2], diffs.added.get(3)!),
     '  const rows = await db.query("select * from orders where user = ? [and deleted = 0]", [userId]);',
+  );
+});
+
+test("lineHtml: a token's font style joins its color, and a token without one is as before", () => {
+  assert.equal(
+    lineHtml([
+      ['// a', '#aaa', FONT_ITALIC],
+      [' b', '#bbb'],
+      ['c', null, FONT_BOLD | FONT_UNDERLINE | FONT_STRIKETHROUGH],
+    ]),
+    '<span style="color:#aaa;font-style:italic">// a</span><span style="color:#bbb"> b</span>' +
+      '<span style="font-weight:bold;text-decoration:underline line-through">c</span>',
   );
 });
 

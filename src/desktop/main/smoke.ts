@@ -176,7 +176,7 @@ export async function runSmoke(window: AppWindow, themes: Themes, repo: string):
       waited += 100;
     }
     await shot('5-review-light', viewer);
-    await themes.pick('vesper');
+    await themes.pick('andromeda-italic');
 
     // End session in the viewer: the tab falls back to its picker
     await read(viewer, "fetch('/api/shutdown', { method: 'POST' }).then(() => true)");

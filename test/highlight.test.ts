@@ -4,7 +4,14 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { highlightSource, isBundledTheme, SUGGESTED_THEMES, themeAccent } from '../src/cli-app/render/highlight.ts';
+import {
+  highlightSource,
+  isBundledTheme,
+  SUGGESTED_THEMES,
+  themeAccent,
+  type ViewerToken,
+} from '../src/cli-app/render/highlight.ts';
+import { FONT_ITALIC } from '../src/cli-app/render/fontStyle.ts';
 import { DEFAULT_CONFIG } from '../src/cli-app/config.ts';
 import { highlightFiles, oldSideLines } from '../src/cli-app/render/web/server.ts';
 
@@ -61,8 +68,7 @@ test('a refresh re-tokenizes only the files whose text changed', async () => {
     regions: [],
     source,
   });
-  const text = (tokens: [string, string | null][][]) =>
-    tokens.map((line) => line.map(([part]) => part).join('')).join('\n');
+  const text = (tokens: ViewerToken[][]) => tokens.map((line) => line.map(([part]) => part).join('')).join('\n');
   const before = [file('a.ts', 'const a = 1;\n'), file('b.ts', 'const b = 1;\n'), file('c.ts', 'const c = 1;\n')];
   const first = await highlightFiles(before, 'github-dark');
 
@@ -132,7 +138,7 @@ test('the old side is rebuilt from the new one, and removed lines are colored in
   };
   assert.deepEqual(oldSideLines(file), ['/**', ' * old doc']);
   const { removed, tokens } = await highlightFiles([file], 'github-dark');
-  const colors = (line: [string, string | null][]) => [...new Set(line.map(([, color]) => color))];
+  const colors = (line: ViewerToken[]) => [...new Set(line.map(([, color]) => color))];
   assert.deepEqual(colors(removed[0][0][0]), colors(tokens[0][1]), "a comment's line, colored as the comment");
 });
 
@@ -166,6 +172,19 @@ test('every suggested theme is a valid bundled theme', () => {
     assert.ok(isBundledTheme(name), `${name} is not a bundled Shiki theme`);
   }
   assert.ok(SUGGESTED_THEMES.includes(DEFAULT_THEME));
+});
+
+test("lens's own Andromeda Italic: known by name, the default, and its italics reach the tokens", async () => {
+  assert.equal(DEFAULT_THEME, 'andromeda-italic');
+  assert.deepEqual(SUGGESTED_THEMES, ['andromeda-italic', 'github-dark', 'github-light', 'monokai']);
+  assert.ok(isBundledTheme('andromeda-italic'));
+  assert.ok(isBundledTheme('vesper'), "Shiki's other themes still work through --theme and .lens.json");
+  const { tokens, bg } = await highlightSource('// note\nexport const x = 1;', 'typescript', 'andromeda-italic');
+  assert.equal(bg.toLowerCase(), '#23262e');
+  assert.deepEqual(tokens[0], [['// note', '#A0A1A7CC', FONT_ITALIC]], 'a comment, in italics');
+  const style = (text: string) => tokens[1].find(([part]) => part === text)?.[2];
+  assert.equal(style('export'), FONT_ITALIC, 'a keyword, in italics');
+  assert.equal(style('x'), undefined, 'a token without a style carries none');
 });
 
 test("both sides tokenized with the old side's kept lines skipped give the tokens each side whole gives", async () => {
