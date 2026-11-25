@@ -12,7 +12,9 @@ import { ErrorBoundary } from '../ui/ErrorBoundary.tsx';
 import { getState, subscribe, type LensState } from './store.ts';
 import { isLightColor } from '../cli-app/theme.ts';
 import { CODE_SIZE_DEFAULT } from './codeSize.ts';
+import { cleanCodeFont, codeFontValue } from './codeFont.ts';
 import { applyZoom } from '../cli-app/zoom.ts';
+import { diffColorProperties } from '../cli-app/render/diffColors.ts';
 import { setView, stampWatcher } from './actions/views.ts';
 import { openFirstTreeFile } from './actions/tabs.ts';
 import { askWatcher } from './ask/rail.ts';
@@ -27,7 +29,7 @@ import { installTooltips } from '../ui/tooltip.tsx';
 import { measureLoad } from './actions/timings.ts';
 
 /**
- * The document follows the state: the theme's colors (the tokens' inputs), the code's size, the UI's zoom, the tab title, the Ask selection's change.
+ * The document follows the state: the theme's colors (the tokens' inputs), the code's size and font, the UI's zoom, the tab title, the Ask selection's change.
  * The chrome's colors are mixed from the code theme's (styles/tokens.css), and a light theme also flips the
  * fixed colors (diff, signals) to their light set. The server writes the same on the page it sends.
  */
@@ -40,11 +42,27 @@ function syncDocument(state: LensState, previous: LensState | null) {
     root.style.setProperty('--theme-accent', accent);
     root.dataset.appearance = isLightColor(bg) ? 'light' : 'dark';
   }
+  // the theme's diff colors (tokens.css builds the rows' and lens's red and green from them); none, VS Code's defaults
+  if (!previous || previous.data.diff !== state.data.diff) {
+    const root = document.documentElement;
+    const { diff } = state.data;
+    for (const [name, color] of diffColorProperties(diff)) {
+      if (color) root.style.setProperty(name, color);
+      else root.style.removeProperty(name);
+    }
+  }
   // the code's size: at the default the token itself rules
   if (!previous || previous.codeSize !== state.codeSize) {
     const root = document.documentElement;
     if (state.codeSize === CODE_SIZE_DEFAULT) root.style.removeProperty('--text-code');
     else root.style.setProperty('--text-code', state.codeSize + 'px');
+  }
+  // the code's font: none usable (empty, or mid-typing something lens won't use) and the token rules
+  if (!previous || previous.codeFont !== state.codeFont) {
+    const root = document.documentElement;
+    const font = cleanCodeFont(state.codeFont);
+    if (font === '') root.style.removeProperty('--font-code');
+    else root.style.setProperty('--font-code', codeFontValue(font));
   }
   // the whole page's zoom: the server wrote it on the page too, so this changes nothing at start
   if (!previous || previous.uiZoom !== state.uiZoom) applyZoom(document.documentElement, state.uiZoom);

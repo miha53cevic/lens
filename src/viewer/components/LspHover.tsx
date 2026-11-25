@@ -15,18 +15,24 @@ export function LspHover() {
   const { info, tokens, unavailable } = hover;
   const codeHtml = tokens ? tokens.map((line) => lineHtml(line)).join('\n') : escapeHtml(info?.code ?? '');
   return (
-    <HoverCard key={hover.key} anchor={hover.anchor} id='lsp-hover'>
+    // as an editor's hover: wide enough for a signature, the doc right under it (no rule), in reading size
+    <HoverCard
+      key={hover.key}
+      anchor={hover.anchor}
+      id='lsp-hover'
+      className='max-w-[min(760px,calc(var(--screen-w)-16px))] divide-y-0 [&>*]:px-2 [&>*]:py-2 [&>*+*]:pt-1'
+    >
       {info?.code && (
         <pre
           data-part='hover-code'
-          className='font-mono text-code break-words whitespace-pre-wrap'
+          className='font-code text-code break-words whitespace-pre-wrap'
           dangerouslySetInnerHTML={{ __html: codeHtml }}
         />
       )}
       {info?.doc && (
         <div
           data-part='hover-doc'
-          className='answer text-sm [&>:last-child]:mb-0'
+          className='answer text-md/[1.6] [&>:last-child]:mb-0'
           dangerouslySetInnerHTML={{ __html: lspDocHtml(info.doc) }}
         />
       )}

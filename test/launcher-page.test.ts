@@ -962,7 +962,7 @@ pageTest(
     assert.equal(count('#g-skeleton [data-round]'), 2);
     assert.equal(count('#g-skeleton .skeleton[aria-hidden="true"]'), 8, 'a placeholder says nothing to a reader');
     assert.equal(count('#g-review-skeleton [data-part="review-skeleton"] header'), 1, 'the name is real');
-    assert.equal(count('#g-review-skeleton .font-mono > .h-\\[1\\.75em\\]'), 48);
+    assert.equal(count('#g-review-skeleton .font-code > .h-\\[1\\.75em\\]'), 48);
     assert.equal(
       count('#g-error-boundary [data-part="crash"][role="alert"] [data-part="copy-cmd"]'),
       1,
@@ -974,7 +974,8 @@ pageTest(
     assert.equal(count('#g-bars #status[data-kind="failed"] #status-action'), 0, 'the action sits beside the status');
     assert.equal(count('#g-bars [data-part="status-bar"] #status-action'), 1);
     assert.equal(count('#g-bars [data-part="status-notices"] > *'), 3);
-    assert.equal(count('#g-bars [data-part="status-notices"] [data-part="notice-dot"]'), 2, 'a plain fact has no dot');
+    assert.equal(count('#g-bars [data-part="status-notices"] [data-part="notice-dot"]'), 1, 'a plain fact has no dot');
+    assert.equal(count('#g-bars [data-part="status-notices"] [data-part="notice-warn"]'), 1, 'a warning, a triangle');
 
     // a field's clear button empties it and goes
     const field = $('#g-field [data-size="md"]');

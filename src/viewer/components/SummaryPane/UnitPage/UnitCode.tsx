@@ -87,9 +87,9 @@ export function UnitCode({ unit, hoveredCite }: { unit: Unit; hoveredCite: strin
   if (hoveredCite) addClass(hoveredCite, 'hover-cite');
   if (landed && landed.path === unit.displayFile) addClass(landed.label, 'landed');
 
-  const { lines, removed } = plan.file
+  const { lines, removed, replaced } = plan.file
     ? codeLines(plan.file, wordDiff, showRemoved)
-    : { lines: [], removed: NO_REMOVED };
+    : { lines: [], removed: NO_REMOVED, replaced: undefined };
   return (
     <div data-part='unit-code' className=''>
       <div
@@ -104,6 +104,7 @@ export function UnitCode({ unit, hoveredCite }: { unit: Unit; hoveredCite: strin
             lines={lines}
             changedLines={changedLines}
             removed={removed}
+            replaced={replaced}
             gutter={plan.gutter}
             marks={{ classes, left, notes }}
           />
@@ -114,6 +115,7 @@ export function UnitCode({ unit, hoveredCite }: { unit: Unit; hoveredCite: strin
             lines={lines}
             changedLines={changedLines}
             removed={removed}
+            replaced={replaced}
             gutter={plan.gutter}
             marks={{ classes, left, notes }}
           />

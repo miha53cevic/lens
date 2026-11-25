@@ -1,9 +1,10 @@
 // What the reader sets: the sidebar and the view settings (the Settings dialog), which the server keeps for
-// the repository, the code's size and the UI's, in cookies, and the viewed marks, which the server keeps for the review.
+// the repository, the code's size and font and the UI's size, in cookies, and the viewed marks, which the server keeps for the review.
 
 import { commit, getState, update } from '../store.ts';
 import { fileViewKey, INITIAL_DATA, type ViewFile } from '../shared.ts';
 import { CODE_SIZE_COOKIE, CODE_SIZE_DEFAULT, steppedSize } from '../codeSize.ts';
+import { CODE_FONT_COOKIE, CODE_FONT_MAX } from '../codeFont.ts';
 import { steppedZoom, UI_ZOOM_COOKIE, UI_ZOOM_DEFAULT } from '../../cli-app/zoom.ts';
 import { type Unit, unitViewKey } from '../model/signals.ts';
 import { fileProgress, type Progress, unitProgress } from '../model/progress.ts';
@@ -81,7 +82,7 @@ export function setThreshold(threshold: number): void {
   void saveView({ foldLevel: threshold === base ? null : { level: threshold, base } });
 }
 
-// The code's size, in both views. Kept in a cookie, so every repository's viewer opens at it.
+// The code's size and font, in both views. Kept in cookies, so every repository's viewer opens at it.
 
 export function setCodeSize(size: number): void {
   // the default keeps no cookie: a reader who never chose follows the default if it changes
@@ -92,6 +93,14 @@ export function setCodeSize(size: number): void {
 
 export function stepCodeSize(delta: number): void {
   setCodeSize(steppedSize(getState().codeSize, delta));
+}
+
+/** As typed, every keystroke: the field shows it, and the code shows it once it's a usable font list. */
+export function setCodeFont(typed: string): void {
+  const font = typed.slice(0, CODE_FONT_MAX);
+  const kept = font.trim() === '' ? '; max-age=0' : '; max-age=31536000';
+  document.cookie = CODE_FONT_COOKIE + '=' + encodeURIComponent(font) + '; path=/' + kept + '; samesite=lax';
+  update({ codeFont: font });
 }
 
 // The whole page's zoom, kept the same way: the server reads the cookie, so the page arrives at it.

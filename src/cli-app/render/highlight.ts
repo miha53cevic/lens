@@ -1,31 +1,32 @@
 import { extname } from 'node:path';
-import type { Highlighter, BundledTheme, BundledLanguage, GrammarState, ThemedToken } from 'shiki';
+import type { Highlighter, BundledLanguage, BundledTheme, GrammarState, ThemedToken, ThemeRegistration } from 'shiki';
 // the lists alone: Shiki's engine (~40 ms to load) is imported once something is tokenized, so a
 // command that only names themes (`lens info`) doesn't wait for it
 import { bundledThemes } from 'shiki/themes';
 import { bundledLanguages } from 'shiki/langs';
+import andromedaItalic from './themes/andromeda-italic.json' with { type: 'json' };
+import type { DiffColors } from './diffColors.ts';
 
-// One token as shipped to the viewer: [text, color]. Color is a hex string or
-// null for the theme's default foreground.
-export type ViewerToken = [string, string | null];
+// One token as shipped to the viewer: [text, color, style]. Color is a hex string or null for the
+// theme's default foreground; style, only when the theme gives one, is Shiki's FontStyle bits
+// (fontStyle.ts).
+export type ViewerToken = [string, string | null, number?];
+
+/**
+ * Themes lens ships itself, beside Shiki's: VS Code theme files, by the name lens knows them by.
+ * Each one's license is next to it in themes/.
+ */
+const LENS_THEMES: Record<string, ThemeRegistration> = {
+  'andromeda-italic': { ...(andromedaItalic as ThemeRegistration), name: 'andromeda-italic' },
+};
 
 // Shown in the viewer's theme dropdown; any bundled Shiki theme also works
 // via --theme or .lens.json (https://shiki.style/themes).
-export const SUGGESTED_THEMES = [
-  'vesper',
-  'github-dark',
-  'github-light',
-  'one-dark-pro',
-  'dracula',
-  'nord',
-  'catppuccin-mocha',
-  'solarized-light',
-  'monokai',
-  'min-light',
-];
+export const SUGGESTED_THEMES = ['andromeda-italic', 'github-dark', 'github-light', 'monokai'];
 
-export function isBundledTheme(name: string): name is BundledTheme {
-  return Object.hasOwn(bundledThemes, name);
+/** A theme lens can show: one of its own, or one Shiki bundles. */
+export function isBundledTheme(name: string): boolean {
+  return Object.hasOwn(LENS_THEMES, name) || Object.hasOwn(bundledThemes, name);
 }
 
 export interface HighlightResult {
@@ -76,7 +77,7 @@ async function withTheme(theme: string) {
   }
   const highlighter = await getHighlighter();
   if (!highlighter.getLoadedThemes().includes(theme)) {
-    await highlighter.loadTheme(theme);
+    await highlighter.loadTheme(Object.hasOwn(LENS_THEMES, theme) ? LENS_THEMES[theme] : (theme as BundledTheme));
   }
   return { highlighter, loaded: highlighter.getTheme(theme) };
 }
@@ -146,6 +147,30 @@ export async function themeAccent(theme: string): Promise<string> {
     if (best) return best.color;
   }
   return loaded.fg;
+}
+
+/**
+ * The colors the theme gives VS Code's diff (`diffEditor.*`); null when it sets none, and VS Code's
+ * defaults show.
+ */
+export async function themeDiffColors(theme: string): Promise<DiffColors | null> {
+  const { loaded } = await withTheme(theme);
+  const color = (key: string) => withAlpha(loaded.colors?.[`diffEditor.${key}Background`]);
+  const diff: DiffColors = {
+    addText: color('insertedText'),
+    delText: color('removedText'),
+    addLine: color('insertedLine'),
+    delLine: color('removedLine'),
+  };
+  return Object.values(diff).some((value) => value !== null) ? diff : null;
+}
+
+/** `#rgb`, `#rgba`, `#rrggbb` or `#rrggbbaa` as `#rrggbbaa`; null for anything else. */
+function withAlpha(color: string | undefined): string | null {
+  const hex = /^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.exec(color ?? '')?.[1];
+  if (!hex) return null;
+  const full = hex.length <= 4 ? [...hex].map((digit) => digit + digit).join('') : hex;
+  return '#' + (full.length === 6 ? full + 'ff' : full).toLowerCase();
 }
 
 /** A theme as the viewer's theme menu shows it: its name, its colors and its accent. */
@@ -298,5 +323,12 @@ function sameState(a: GrammarState | undefined, b: GrammarState | undefined): bo
 }
 
 function toViewerTokens(tokens: ThemedToken[][]): ViewerToken[][] {
-  return tokens.map((line) => line.map((token) => [token.content, token.color ?? null] as ViewerToken));
+  // no style (0) or none set (-1) leaves it out: most tokens have none, and the payload stays small
+  return tokens.map((line) =>
+    line.map((token): ViewerToken =>
+      token.fontStyle && token.fontStyle > 0
+        ? [token.content, token.color ?? null, token.fontStyle]
+        : [token.content, token.color ?? null],
+    ),
+  );
 }

@@ -19,7 +19,7 @@ const problemsOf = (dir: string) => readConfig(dir).problems.map((problem) => pr
 test('defaults come from lens.defaults.json', () => {
   assert.equal(DEFAULT_CONFIG.foldLevel, 1);
   assert.equal(DEFAULT_CONFIG.folds.import, 0);
-  assert.equal(DEFAULT_CONFIG.theme, 'vesper');
+  assert.equal(DEFAULT_CONFIG.theme, 'andromeda-italic');
   assert.equal(DEFAULT_CONFIG.callPatterns.length, 2);
   assert.ok(DEFAULT_CONFIG.keepCommentMarkers.includes('TODO'));
   assert.equal(DEFAULT_CONFIG.keepDirective, 'lens:keep');
@@ -35,7 +35,7 @@ test('.lens.json extends the base: scalars override, maps merge, lists extend', 
   });
   const config = loadConfig(dir);
   assert.equal(config.foldLevel, 0);
-  assert.equal(config.theme, 'vesper'); // inherited
+  assert.equal(config.theme, 'andromeda-italic'); // inherited
   assert.equal(config.folds.logging, false);
   assert.equal(config.folds.guard, 2);
   assert.equal(config.folds.import, 0); // inherited
@@ -146,7 +146,7 @@ test('a value that does not check is skipped and reported, with its path; the re
   });
   const config = loadConfig(dir);
   assert.equal(config.foldLevel, 1);
-  assert.equal(config.theme, 'vesper');
+  assert.equal(config.theme, 'andromeda-italic');
   assert.equal(config.folds.logging, 1, 'bad value skipped, default kept');
   assert.equal(config.folds.guard, false);
   assert.equal(config.folds.import, 0);

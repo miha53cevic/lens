@@ -33,7 +33,7 @@ export interface LoadedConfig {
 /** What a field holds when nothing sets it: "base": false starts from this. */
 const EMPTY_CONFIG: LensConfig = {
   foldLevel: 1,
-  theme: 'vesper',
+  theme: 'andromeda-italic',
   folds: {},
   callPatterns: [],
   keepCommentMarkers: [],

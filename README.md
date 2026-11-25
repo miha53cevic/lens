@@ -92,7 +92,7 @@ Add a `.lens.json` to your repository; it merges over [lens's defaults](lens.def
 | `keepDirective` | a region marked with it never folds (default `"lens:keep"`) |
 | `testFilePatterns` | what counts as a test, for *hide tests* |
 | `exclude` | files listed but never read |
-| `theme` | the starting code theme, any [Shiki theme](https://shiki.style/themes) (default `"vesper"`) |
+| `theme` | the starting code theme: `"andromeda-italic"` (the default, [Andromeda](https://github.com/EliverLara/Andromeda) Italic, MIT) or any [Shiki theme](https://shiki.style/themes) |
 | `buildPreviews` | the summary includes UI previews and run-time diagrams (default `true`) |
 | `selfChecks` | the summary includes questions to check yourself (default `false`) |
 | `planTab` | show the Plan tab (default `false`) |

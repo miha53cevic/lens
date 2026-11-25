@@ -49,6 +49,7 @@ import { highlightAll, type HighlightJob } from '../highlightPool.ts';
 // HTML bundle (what Bun.serve takes), which an import as text isn't.
 import viewerTemplate from './viewer.html' with { type: 'text' };
 import {
+  themeDiffColors,
   themeSwatch,
   type ThemeSwatch,
   isBundledTheme,
@@ -56,6 +57,7 @@ import {
   SUGGESTED_THEMES,
   type ViewerToken,
 } from '../highlight.ts';
+import { diffColorProperties, type DiffColors } from '../diffColors.ts';
 
 export type ViewerFile = FileFoldModel & {
   source: string;
@@ -130,6 +132,8 @@ export type ViewerPayload = Omit<ViewerInput, 'root' | 'cwd' | 'files' | 'latest
   bg: string;
   /** The theme's function-name color: the viewer's accent */
   accent: string;
+  /** The theme's diff colors; null: lens's own */
+  diff: DiffColors | null;
   /** `removedTokens[block][line]`: the removed lines' tokens, by the file's `removals` */
   files: (ViewerFile & { tokens: ViewerToken[][]; removedTokens: ViewerToken[][][] })[];
   themePinned: boolean;
@@ -153,6 +157,8 @@ export interface ThemeTokens {
   fg: string;
   bg: string;
   accent: string;
+  /** The theme's diff colors; null: lens's own */
+  diff: DiffColors | null;
   /** tokens[fileIndex] — aligned with the files array */
   tokens: ViewerToken[][][];
   /** removed[fileIndex][block][line]: the removed lines' tokens, colored in the old file around them */
@@ -249,10 +255,11 @@ export async function highlightFiles(
     return { ...result, removed };
   });
   // the theme's own colors, not a file's: with no files, the page still follows the theme
-  const swatch = await themeSwatch(theme);
+  const [swatch, diff] = await Promise.all([themeSwatch(theme), themeDiffColors(theme)]);
   return {
     theme,
     accent: swatch.accent,
+    diff,
     fg: results[0]?.fg ?? swatch.fg,
     bg: results[0]?.bg ?? swatch.bg,
     tokens: results.map((r) => r.tokens),
@@ -282,6 +289,7 @@ export function viewerPayload(
     fg: t.fg,
     bg: t.bg,
     accent: t.accent,
+    diff: t.diff,
     files: input.files.map((f, i) => ({ ...f, tokens: t.tokens[i], removedTokens: t.removed[i] })),
     ...opts,
     notes: opts.notes ?? [],
@@ -297,7 +305,10 @@ export function viewerPayload(
  * sets them), so the page's first paint, before its script has run, is already in the theme and at its size.
  */
 export function renderPage(template: string, payload: ViewerPayload, zoom = UI_ZOOM_DEFAULT): string {
-  const colors = `--code-fg:${payload.fg};--code-bg:${payload.bg};--theme-accent:${payload.accent}${zoomStyle(zoom)}`;
+  const diff = diffColorProperties(payload.diff)
+    .flatMap(([name, value]) => (value ? [`;${name}:${value}`] : []))
+    .join('');
+  const colors = `--code-fg:${payload.fg};--code-bg:${payload.bg};--theme-accent:${payload.accent}${diff}${zoomStyle(zoom)}`;
   const root = ` data-appearance="${isLightColor(payload.bg) ? 'light' : 'dark'}" style="${escapeHtml(colors)}"`;
   const data = JSON.stringify(payload).replace(/</g, '\\u003c');
   // Function replacements: plain strings would expand $-sequences in the payload.
@@ -422,9 +433,10 @@ export async function serveViewer(
     const at = current.root + '\n' + key;
     if (progress?.at !== at) progress = { at, read: buildProgressReader(current.root, key) };
     const build = progress.read();
-    // a run the reader stopped is over, not under way: until something writes again
-    const stopped = summaryRunner.stoppedAt();
-    return build && stopped !== null && Date.now() - build.quietMs <= stopped ? null : build;
+    // a run lens ran that ended (done, failed or stopped) is over, though units it left out are
+    // still missing: not under way until something writes again (the user's own agent, a new run)
+    const ended = summaryRunner.endedAt();
+    return build && ended !== null && Date.now() - build.quietMs <= ended ? null : build;
   }
 
   /** A submit or another branch since the summary was read: take the new one (the units stay those of the last analysis). */

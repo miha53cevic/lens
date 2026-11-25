@@ -128,7 +128,7 @@ test('lens info through the CLI, as the picker reads it', async () => {
     const info = await lensInfo(cli, dir, { themes: true });
     assert.equal(info.repo?.changed, 2);
     assert.equal(info.repo?.staged, 0);
-    assert.equal(info.themes?.[0].name, 'vesper');
+    assert.equal(info.themes?.[0].name, 'andromeda-italic');
     await assert.rejects(lensInfo(cli, dir, { base: 'nope' }), { message: '"nope" is not a branch or commit here' });
   } finally {
     rmSync(dir, { recursive: true, force: true });

@@ -259,8 +259,8 @@ test("lens info --themes: the theme menu's themes with their colors, the config'
   await withRepo(async (dir) => {
     assert.equal((await lensInfo(dir)).themes, undefined, 'only when asked: loading them takes a moment');
     const plain = await lensInfo(dir, { themes: true });
-    assert.equal(plain.theme, 'vesper');
-    assert.equal(plain.themes?.[0].name, 'vesper');
+    assert.equal(plain.theme, 'andromeda-italic');
+    assert.equal(plain.themes?.[0].name, 'andromeda-italic');
     assert.match(plain.themes?.[0].accent ?? '', /^#[0-9a-f]{3,8}$/i);
 
     writeFileSync(join(dir, '.lens.json'), JSON.stringify({ theme: 'poimandres' }));
@@ -268,8 +268,8 @@ test("lens info --themes: the theme menu's themes with their colors, the config'
     assert.equal(custom.theme, 'poimandres');
     assert.equal(custom.themes?.[0].name, 'poimandres', 'a theme outside the menu is listed too');
 
-    const asked = await lensInfo(dir, { themes: true, theme: 'nord' });
-    assert.equal(asked.theme, 'nord', "--theme goes before the config's");
+    const asked = await lensInfo(dir, { themes: true, theme: 'monokai' });
+    assert.equal(asked.theme, 'monokai', "--theme goes before the config's");
     assert.equal(asked.themes?.length, plain.themes?.length, "one of the menu's own isn't listed twice");
     await assert.rejects(lensInfo(dir, { theme: 'nope' }), /unknown theme "nope"/);
   });

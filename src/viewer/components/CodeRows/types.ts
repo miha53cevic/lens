@@ -22,6 +22,11 @@ export interface RowContext {
   changedLines: ReadonlySet<number>;
   /** The removed lines, highlighted as HTML (with word diff's marks), by old-side line */
   removed: ReadonlyMap<number, string>;
+  /**
+   * Lines word diff paired with the line they replaced (new side, and old side by old line): their row
+   * takes only the diff's line color, their changed words the stronger one. Absent: every change is whole
+   */
+  replaced?: { lines: ReadonlySet<number>; old: ReadonlySet<number> };
   /** The line-number column's width */
   gutter: number;
   marks?: RowMarks;

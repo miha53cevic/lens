@@ -3,6 +3,7 @@
 // The harness is test/fixtures/viewerPage.ts.
 
 import { test } from 'bun:test';
+import { codeFontHint } from '../src/viewer/codeFont.ts';
 import { fireEvent } from '@testing-library/dom';
 import assert from 'node:assert/strict';
 import {
@@ -38,7 +39,7 @@ pageTest('the page opens on the first file of the tree, folded, hunks only', asy
   assert.deepEqual(rows(), HUNKS);
   assert.deepEqual(
     $$('#code .row.gap').map((gap) => gap.lastElementChild!.textContent),
-    ['⋯ 5 unchanged lines', '⋯ 1 unchanged line', '⋯ 7 unchanged lines'],
+    ['5 hidden lines', '1 hidden line', '7 hidden lines'],
   );
   // the editor's header: its path as a breadcrumb, the lines the diff added and removed; the tab has its status
   assert.equal($('[data-part="tab"][data-active] [data-part="status-letter"]').textContent, 'M');
@@ -210,6 +211,63 @@ test('the code size comes back from its cookie', async () => {
   }
 });
 
+pageTest('the code font: typed as a font list, kept in a cookie, and only a font list reaches the CSS', async () => {
+  const codeFont = () => document.documentElement.style.getPropertyValue('--font-code');
+  const field = $('#code-font');
+  assert.equal(codeFont(), '', 'none typed: the token rules');
+
+  await type(field, "'Fira Code', Menlo");
+  assert.equal(
+    codeFont(),
+    "'Fira Code', Menlo, var(--font-mono)",
+    'the default stack after it, for a font not installed',
+  );
+  assert.ok(document.cookie.includes('lens-code-font='));
+
+  await type(field, "'Fira Co");
+  assert.equal(codeFont(), '', 'a quote still open is no font yet');
+  assert.equal($('#code-font-hint').textContent, 'not a font list yet · the default shows');
+  assert.equal((field as HTMLInputElement).value, "'Fira Co", 'the field keeps what was typed');
+
+  await type(field, 'Menlo; color: red');
+  assert.equal(codeFont(), '', 'anything but names, quotes and commas is not used');
+
+  await type(field, 'JetBrains Mono,');
+  assert.equal(codeFont(), 'JetBrains Mono, var(--font-mono)', 'a trailing comma mid-typing is dropped');
+
+  await click($('#code-font-clear'));
+  assert.equal(codeFont(), '');
+  assert.ok(!document.cookie.includes('lens-code-font'), 'the default keeps no cookie');
+});
+
+test('the code font hint: which of the fonts typed the code shows in', () => {
+  const installed = (name: string) => name === 'Menlo';
+  assert.equal(codeFontHint('', installed), 'font names, comma-separated');
+  assert.equal(codeFontHint("'Menlo'", installed), 'showing Menlo');
+  assert.equal(codeFontHint("'Fira Code', Menlo", installed), 'Fira Code not installed · showing Menlo');
+  assert.equal(codeFontHint('Fira Code, Hack', installed), 'Fira Code, Hack not installed · the default shows');
+  assert.equal(codeFontHint('Fira Code, monospace', installed), 'Fira Code not installed · showing monospace');
+  assert.equal(codeFontHint('Menlo; x', installed), 'not a font list yet · the default shows');
+  assert.equal(
+    codeFontHint('Menlo', () => null),
+    'font names, comma-separated',
+    "a browser that can't tell says nothing",
+  );
+});
+
+test('the code font comes back from its cookie', async () => {
+  await open({}, '', 'lens-code-font=' + encodeURIComponent("'Fira Code', Menlo") + '; path=/');
+  try {
+    assert.equal(
+      document.documentElement.style.getPropertyValue('--font-code'),
+      "'Fira Code', Menlo, var(--font-mono)",
+    );
+    assert.equal(($('#code-font') as HTMLInputElement).value, "'Fira Code', Menlo");
+  } finally {
+    await close();
+  }
+});
+
 pageTest('hunks only: a click shows a hidden stretch, h shows the whole file', async () => {
   await click($$('#code .row.gap')[0]);
   assert.deepEqual(rows().slice(0, 4), ['R1', '4', '5', 'R6']);
@@ -294,13 +352,15 @@ pageTest(
       ['9logginglog.info — "finding orders"', '·'],
     ]);
     assert.ok($$('#code .region .pill-row > .left .pill').length === 0, 'no pill on the old side');
-    // hidden lines: each side numbers its own
+    // hidden lines: the count on each half, and each side's own lines in its tooltip
     assert.deepEqual(
-      $$('#code .gap-row').map((row) => [...row.children].map((half) => half.textContent!.replace('⋯', '').trim())),
+      $$('#code .gap-row').map((row) =>
+        [...row.children].map((half) => half.textContent!.trim() + ' · ' + (half as HTMLElement).dataset.tip),
+      ),
       [
-        ['5 unchanged lines · 1–5', '5 unchanged lines · 1–5'],
-        ['1 unchanged line · 14', '1 unchanged line · 13'],
-        ['7 unchanged lines · 21–27', '7 unchanged lines · 24–30'],
+        ['5 hidden lines · lines 1–5', '5 hidden lines · lines 1–5'],
+        ['1 hidden line · lines 14', '1 hidden line · lines 13'],
+        ['7 hidden lines · lines 21–27', '7 hidden lines · lines 24–30'],
       ],
     );
     await click($('#code .region > .srow.pill-row > .left'));
@@ -546,9 +606,16 @@ pageTest('Settings (,) holds the view settings, a page per section of its rail',
   assert.equal($('#hunks-only').getAttribute('aria-checked'), 'false');
   assert.equal($$('#code .row.gap').length, 0, 'the whole file');
   assert.equal($$('#code .w-add').length, 1, 'word diff: the replaced query marks its new words');
+  const replacedRows = () => $$('#code .row.replaced').map((row) => row.dataset.line ?? 'O' + row.dataset.old);
+  assert.ok(replacedRows().length >= 2, 'the query and the line it replaced: their rows take only the line color');
+  assert.ok(
+    $$('#code .row.changed').some((row) => !row.classList.contains('replaced')),
+    'a whole new line: the text color over it too',
+  );
   await click($('#word-diff'));
   assert.equal($('#word-diff').getAttribute('aria-checked'), 'false');
   assert.equal($$('#code .w-add').length, 0);
+  assert.deepEqual(replacedRows(), [], 'no pairs without word diff: every change is whole');
   fireEvent.keyDown($('#settings-tab-code'), { key: 'ArrowDown' });
   await settle();
   assert.deepEqual(shownPages(), ['summary'], '↓ moves down the rail');
@@ -588,6 +655,12 @@ pageTest("a light theme from the theme menu turns the page light, with the theme
   assert.equal(
     document.documentElement.style.getPropertyValue('--theme-accent'),
     (lightTokens as { accent: string }).accent,
+  );
+  // the diff's colors are the theme's too; the line colors it doesn't set are VS Code's (tokens.css)
+  const root = document.documentElement.style;
+  assert.deepEqual(
+    ['--diff-add-text-src', '--diff-del-text-src', '--diff-add-line-src'].map((name) => root.getPropertyValue(name)),
+    ['#34d05822', '#d73a4922', ''],
   );
   // kept where the server reads it: the next launch's page arrives in this theme
   assert.ok(document.cookie.includes('lens-theme=github-light'));
