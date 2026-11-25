@@ -16,6 +16,8 @@ export interface WordDiffs {
   added: ReadonlyMap<number, WordRange[]>;
   /** The changed words of each paired removed line, by old-side line */
   removed: ReadonlyMap<number, WordRange[]>;
+  /** Every paired line, marks or not: a replaced line, not a whole new or removed one */
+  replaced: { lines: ReadonlySet<number>; old: ReadonlySet<number> };
 }
 
 /** Below this share of unchanged characters, a pair is a rewrite: no word marks. */
@@ -92,6 +94,7 @@ export function pairWordDiffs(removals: RemovedBlock[], changedLines: number[], 
   const added = new Map<number, WordRange[]>();
   const removed = new Map<number, WordRange[]>();
   const changed = new Set(changedLines);
+  const replaced = { lines: new Set<number>(), old: new Set<number>() };
   for (const block of removals) {
     const run: number[] = [];
     for (let line = block.afterLine + 1; changed.has(line); line++) run.push(line);
@@ -100,6 +103,8 @@ export function pairWordDiffs(removals: RemovedBlock[], changedLines: number[], 
       for (let runIndex = next; runIndex < Math.min(run.length, next + PAIR_LOOKAHEAD); runIndex++) {
         const diff = wordDiff(text, newLines[run[runIndex] - 1] ?? '');
         if (!diff) continue;
+        replaced.lines.add(run[runIndex]);
+        replaced.old.add(block.oldStart + offset);
         if (diff.after.length > 0) added.set(run[runIndex], diff.after);
         if (diff.before.length > 0) removed.set(block.oldStart + offset, diff.before);
         next = runIndex + 1;
@@ -107,7 +112,7 @@ export function pairWordDiffs(removals: RemovedBlock[], changedLines: number[], 
       }
     });
   }
-  return { added, removed };
+  return { added, removed, replaced };
 }
 
 /**

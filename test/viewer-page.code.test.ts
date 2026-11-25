@@ -39,7 +39,7 @@ pageTest('the page opens on the first file of the tree, folded, hunks only', asy
   assert.deepEqual(rows(), HUNKS);
   assert.deepEqual(
     $$('#code .row.gap').map((gap) => gap.lastElementChild!.textContent),
-    ['⋯ 5 unchanged lines', '⋯ 1 unchanged line', '⋯ 7 unchanged lines'],
+    ['5 hidden lines', '1 hidden line', '7 hidden lines'],
   );
   // the editor's header: its path as a breadcrumb, the lines the diff added and removed; the tab has its status
   assert.equal($('[data-part="tab"][data-active] [data-part="status-letter"]').textContent, 'M');
@@ -352,13 +352,15 @@ pageTest(
       ['9logginglog.info — "finding orders"', '·'],
     ]);
     assert.ok($$('#code .region .pill-row > .left .pill').length === 0, 'no pill on the old side');
-    // hidden lines: each side numbers its own
+    // hidden lines: the count on each half, and each side's own lines in its tooltip
     assert.deepEqual(
-      $$('#code .gap-row').map((row) => [...row.children].map((half) => half.textContent!.replace('⋯', '').trim())),
+      $$('#code .gap-row').map((row) =>
+        [...row.children].map((half) => half.textContent!.trim() + ' · ' + (half as HTMLElement).dataset.tip),
+      ),
       [
-        ['5 unchanged lines · 1–5', '5 unchanged lines · 1–5'],
-        ['1 unchanged line · 14', '1 unchanged line · 13'],
-        ['7 unchanged lines · 21–27', '7 unchanged lines · 24–30'],
+        ['5 hidden lines · lines 1–5', '5 hidden lines · lines 1–5'],
+        ['1 hidden line · lines 14', '1 hidden line · lines 13'],
+        ['7 hidden lines · lines 21–27', '7 hidden lines · lines 24–30'],
       ],
     );
     await click($('#code .region > .srow.pill-row > .left'));
@@ -604,9 +606,16 @@ pageTest('Settings (,) holds the view settings, a page per section of its rail',
   assert.equal($('#hunks-only').getAttribute('aria-checked'), 'false');
   assert.equal($$('#code .row.gap').length, 0, 'the whole file');
   assert.equal($$('#code .w-add').length, 1, 'word diff: the replaced query marks its new words');
+  const replacedRows = () => $$('#code .row.replaced').map((row) => row.dataset.line ?? 'O' + row.dataset.old);
+  assert.ok(replacedRows().length >= 2, 'the query and the line it replaced: their rows take only the line color');
+  assert.ok(
+    $$('#code .row.changed').some((row) => !row.classList.contains('replaced')),
+    'a whole new line: the text color over it too',
+  );
   await click($('#word-diff'));
   assert.equal($('#word-diff').getAttribute('aria-checked'), 'false');
   assert.equal($$('#code .w-add').length, 0);
+  assert.deepEqual(replacedRows(), [], 'no pairs without word diff: every change is whole');
   fireEvent.keyDown($('#settings-tab-code'), { key: 'ArrowDown' });
   await settle();
   assert.deepEqual(shownPages(), ['summary'], '↓ moves down the rail');
@@ -646,6 +655,12 @@ pageTest("a light theme from the theme menu turns the page light, with the theme
   assert.equal(
     document.documentElement.style.getPropertyValue('--theme-accent'),
     (lightTokens as { accent: string }).accent,
+  );
+  // the diff's colors are the theme's too; the line colors it doesn't set are VS Code's (tokens.css)
+  const root = document.documentElement.style;
+  assert.deepEqual(
+    ['--diff-add-text-src', '--diff-del-text-src', '--diff-add-line-src'].map((name) => root.getPropertyValue(name)),
+    ['#34d05822', '#d73a4922', ''],
   );
   // kept where the server reads it: the next launch's page arrives in this theme
   assert.ok(document.cookie.includes('lens-theme=github-light'));

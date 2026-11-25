@@ -31,7 +31,7 @@ function splitRows(items: SplitItem[], context: RowContext): ReactNode[] {
 
 /** A split row and the notes on its lines, under it across both sides. */
 function itemRows(item: SplitItem, itemIndex: number, context: RowContext): ReactNode[] {
-  const { lines, changedLines, removed: removedLines, gutter, marks } = context;
+  const { lines, changedLines, removed: removedLines, replaced, gutter, marks } = context;
   const notesOn = (labels: string[]) => labels.flatMap((label) => marks?.notes?.get(label) ?? []);
   const lineHalf = (line: number, side: 'left' | 'right', num?: number) => (
     <LineRow
@@ -40,6 +40,7 @@ function itemRows(item: SplitItem, itemIndex: number, context: RowContext): Reac
       num={num}
       html={lines[line - 1] ?? ''}
       changed={side === 'right' && changedLines.has(line)}
+      replaced={replaced?.lines.has(line)}
       gutter={gutter}
       extraClass={clsx('half', side, (side === 'right' ? marks?.classes : marks?.left)?.get('N' + line))}
     />
@@ -67,6 +68,7 @@ function itemRows(item: SplitItem, itemIndex: number, context: RowContext): Reac
               html={removedLines.get(removed.old) ?? escapeHtml(removed.text)}
               oldLine={removed.old}
               numbered
+              replaced={replaced?.old.has(removed.old)}
               gutter={gutter}
               extraClass={clsx('half left', marks?.classes?.get('O' + removed.old))}
             />

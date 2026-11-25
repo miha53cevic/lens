@@ -9,6 +9,7 @@ import {
   isBundledTheme,
   SUGGESTED_THEMES,
   themeAccent,
+  themeDiffColors,
   type ViewerToken,
 } from '../src/cli-app/render/highlight.ts';
 import { FONT_ITALIC } from '../src/cli-app/render/fontStyle.ts';
@@ -172,6 +173,21 @@ test('every suggested theme is a valid bundled theme', () => {
     assert.ok(isBundledTheme(name), `${name} is not a bundled Shiki theme`);
   }
   assert.ok(SUGGESTED_THEMES.includes(DEFAULT_THEME));
+});
+
+test("a theme's diff colors: VS Code's diffEditor ones with their alpha, or none", async () => {
+  assert.deepEqual(
+    await themeDiffColors('andromeda-italic'),
+    { addText: '#29bf1220', delText: '#f21b3f20', addLine: null, delLine: null },
+    "only text colors: VS Code's line colors show under them",
+  );
+  assert.deepEqual(await themeDiffColors('vesper'), {
+    addText: '#99ffe415',
+    delText: '#ff808015',
+    addLine: '#99ffe415',
+    delLine: '#ff808015',
+  });
+  assert.equal(await themeDiffColors('dark-plus'), null, "a theme that sets none: VS Code's defaults");
 });
 
 test("lens's own Andromeda Italic: known by name, the default, and its italics reach the tokens", async () => {

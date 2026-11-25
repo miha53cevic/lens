@@ -74,17 +74,17 @@ function removedLines(file: ViewFile, marked?: WordDiffs['removed']): Map<number
 
 /**
  * What the code rows show of a file: its highlighted lines and removed lines and, with word diff
- * on and the removed lines shown, the changed words of each replaced line on both sides (removed
- * lines hidden: no pairs to mark).
+ * on and the removed lines shown, the changed words of each replaced line on both sides and which
+ * lines were replaced (removed lines hidden: no pairs to mark).
  */
 export function codeLines(
   file: ViewFile,
   wordDiff: boolean,
   showRemoved: boolean,
-): { lines: string[]; removed: ReadonlyMap<number, string> } {
+): { lines: string[]; removed: ReadonlyMap<number, string>; replaced?: WordDiffs['replaced'] } {
   if (!wordDiff || !showRemoved) return { lines: linesFromTokens(file), removed: removedLines(file) };
   const { diffs, lines } = fileWordDiffs(file);
-  return { lines, removed: removedLines(file, diffs.removed) };
+  return { lines, removed: removedLines(file, diffs.removed), replaced: diffs.replaced };
 }
 
 // Plain-text lines per file, split lazily once (search).

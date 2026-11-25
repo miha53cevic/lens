@@ -5,6 +5,7 @@ import type { Highlighter, BundledLanguage, BundledTheme, GrammarState, ThemedTo
 import { bundledThemes } from 'shiki/themes';
 import { bundledLanguages } from 'shiki/langs';
 import andromedaItalic from './themes/andromeda-italic.json' with { type: 'json' };
+import type { DiffColors } from './diffColors.ts';
 
 // One token as shipped to the viewer: [text, color, style]. Color is a hex string or null for the
 // theme's default foreground; style, only when the theme gives one, is Shiki's FontStyle bits
@@ -146,6 +147,30 @@ export async function themeAccent(theme: string): Promise<string> {
     if (best) return best.color;
   }
   return loaded.fg;
+}
+
+/**
+ * The colors the theme gives VS Code's diff (`diffEditor.*`); null when it sets none, and VS Code's
+ * defaults show.
+ */
+export async function themeDiffColors(theme: string): Promise<DiffColors | null> {
+  const { loaded } = await withTheme(theme);
+  const color = (key: string) => withAlpha(loaded.colors?.[`diffEditor.${key}Background`]);
+  const diff: DiffColors = {
+    addText: color('insertedText'),
+    delText: color('removedText'),
+    addLine: color('insertedLine'),
+    delLine: color('removedLine'),
+  };
+  return Object.values(diff).some((value) => value !== null) ? diff : null;
+}
+
+/** `#rgb`, `#rgba`, `#rrggbb` or `#rrggbbaa` as `#rrggbbaa`; null for anything else. */
+function withAlpha(color: string | undefined): string | null {
+  const hex = /^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.exec(color ?? '')?.[1];
+  if (!hex) return null;
+  const full = hex.length <= 4 ? [...hex].map((digit) => digit + digit).join('') : hex;
+  return '#' + (full.length === 6 ? full + 'ff' : full).toLowerCase();
 }
 
 /** A theme as the viewer's theme menu shows it: its name, its colors and its accent. */

@@ -49,6 +49,11 @@ payload.config: object
 payload.configProblems: array
 payload.configSource: string
 payload.deleted: array
+payload.diff.addLine: null
+payload.diff.addText: string
+payload.diff.delLine: null
+payload.diff.delText: string
+payload.diff: object
 payload.excluded: array
 payload.fg: string
 payload.files: array

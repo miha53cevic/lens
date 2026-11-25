@@ -29,57 +29,71 @@
     text-align: right;
     user-select: none;
   }
-  /* the changed-lines bar between the number and the code, square and the row's full height, as
-     VS Code's gutter draws a change: it carries the signal, so a changed row's tint stays light */
+  /* the gutter's sign, right after the number as VS Code draws it: + on a changed line, − on a removed
+     one (unified, a removed line's number is its −). Every row keeps the slot, so the code stays in one
+     column; a fold or a context bar draws a bar in it instead. A ::before, so a copy leaves it out */
   .mark {
     flex: none;
-    width: 3px;
-    margin: 0 -0.8rem 0 -0.35rem;
+    width: 1ch;
+    margin: 0 -0.5rem 0 -1rem;
+    user-select: none;
   }
-  .mark.changed {
-    background: var(--add);
+  .row.changed > .mark::before {
+    content: '+';
+    color: var(--add);
+  }
+  .row.half.removed > .mark::before {
+    content: '−';
+    color: var(--del);
   }
 
+  /* a change as VS Code stacks it: the line color under the row, the text color over a whole added or
+     removed line, or, on a replaced line, only over its changed words */
   .row.changed {
-    background: color-mix(in oklab, var(--add) 7%, transparent);
+    background: linear-gradient(var(--diff-add-text), var(--diff-add-text)), var(--diff-add-line);
   }
   .row.removed {
-    background: var(--del-bg);
-    color: color-mix(in oklab, var(--code-fg) 72%, var(--del));
+    background: linear-gradient(var(--diff-del-text), var(--diff-del-text)), var(--diff-del-line);
   }
-  .row.removed:hover {
-    background: color-mix(in oklab, var(--del) var(--tint-strong), transparent);
+  .row.changed.replaced {
+    background: var(--diff-add-line);
   }
-  /* the old code keeps its theme's colors, a step back from the new: the new side leads */
-  .row.removed > span:last-child {
-    opacity: 0.8;
+  .row.removed.replaced {
+    background: var(--diff-del-line);
   }
   .row.removed .num {
     color: var(--del);
   }
-  .row.removed .mark {
-    background: var(--del);
-    opacity: 0.7;
-  }
-  /* word diff: the words a replaced line changed, on both sides */
   .w-add {
-    background: color-mix(in oklab, var(--add) 32%, transparent);
-    border-radius: var(--radius-xs);
+    background: var(--diff-add-text);
   }
   .w-del {
-    background: color-mix(in oklab, var(--del) 34%, transparent);
-    border-radius: var(--radius-xs);
+    background: var(--diff-del-text);
+  }
+  /* side by side, the half a line is missing from: VS Code's diagonal fill (not beside a fold's pill) */
+  .srow > .row.half.none {
+    background: repeating-linear-gradient(
+      -45deg,
+      transparent 0 5px,
+      color-mix(in oklab, var(--code-fg) 9%, transparent) 5px 6.5px
+    );
+  }
+  .srow.pill-row > .row.half.none {
+    background: none;
   }
 
-  /* hunks only: the hidden stretch, one click from showing */
+  /* hunks only: the hidden stretch, a control one click from showing */
   .row.gap {
-    margin: var(--space-1) 0;
-    border-block: 1px dashed var(--line);
-    background: color-mix(in oklab, var(--surface-2) 55%, transparent);
-    color: var(--faint);
-    font: var(--text-xs) / 2 var(--font-sans);
+    background: color-mix(in oklab, var(--surface-2) 40%, transparent);
+    color: var(--muted);
+    font: var(--text-sm) / 2.1 var(--font-sans);
     cursor: pointer;
     user-select: none;
+  }
+  .row.gap .num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
   }
   .row.gap:hover {
     color: var(--text);
@@ -98,6 +112,10 @@
   /* baseline alignment collapses the empty gutter mark: stretch it back */
   .pill-row .mark {
     align-self: stretch;
+  }
+  /* a fold over changed (or, old side, removed) lines: a bar in the sign's slot */
+  .pill-row .mark.changed {
+    background: linear-gradient(var(--add), var(--add)) left / 3px 100% no-repeat;
   }
   .pill {
     --cat: var(--accent);
@@ -254,10 +272,10 @@
   }
   .context-bar .mark {
     align-self: stretch;
-    background: var(--line-strong);
+    background: linear-gradient(var(--line-strong), var(--line-strong)) left / 3px 100% no-repeat;
   }
   .context-bar .mark.changed {
-    background: var(--add);
+    background-image: linear-gradient(var(--add), var(--add));
   }
   .context-label {
     display: inline-flex;
@@ -327,9 +345,8 @@
   .fold-removed {
     color: var(--del);
   }
-  .mark.del {
-    background: var(--del);
-    opacity: 0.7;
+  .pill-row .mark.del {
+    background: linear-gradient(var(--del), var(--del)) left / 3px 100% no-repeat;
   }
   /* hidden unchanged lines: each half numbers its own side's, and the row is one target */
   .srow.gap-row:hover > .half {

@@ -2,6 +2,7 @@
 // The viewer page: the status bar, and what the page says about the server and the change.
 // The harness is test/fixtures/viewerPage.ts.
 
+import type { DiffColors } from '../src/cli-app/render/diffColors.ts';
 import { test } from 'bun:test';
 import assert from 'node:assert/strict';
 import { fireEvent, within } from '@testing-library/dom';
@@ -387,14 +388,21 @@ pageTest('a refresh brings the newest summary: none is left waiting', async () =
 });
 
 test("the page the server sends carries its theme's colors on <html>, before any script runs", () => {
-  const light = lightTokens as { fg: string; bg: string; accent: string };
+  const light = lightTokens as {
+    fg: string;
+    bg: string;
+    accent: string;
+    diff: DiffColors & { addText: string; delText: string };
+  };
   const html = renderPage('<html lang="en"/*__LENS_ROOT__*/><script>/*__LENS_DATA__*/</script>', {
     ...payload,
-    ...{ fg: light.fg, bg: light.bg, accent: light.accent },
+    ...{ fg: light.fg, bg: light.bg, accent: light.accent, diff: light.diff },
   });
+  assert.equal(light.diff.addText, '#34d05822', "github-light's own, with its alpha");
   assert.ok(
     html.startsWith(
-      `<html lang="en" data-appearance="light" style="--code-fg:${light.fg};--code-bg:${light.bg};--theme-accent:${light.accent}">`,
+      `<html lang="en" data-appearance="light" style="--code-fg:${light.fg};--code-bg:${light.bg};--theme-accent:${light.accent}` +
+        `;--diff-add-text-src:${light.diff.addText};--diff-del-text-src:${light.diff.delText}">`,
     ),
   );
   assert.ok(renderPage('<html/*__LENS_ROOT__*/>', payload).startsWith('<html data-appearance="dark"'));

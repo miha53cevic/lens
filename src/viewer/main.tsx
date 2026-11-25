@@ -14,6 +14,7 @@ import { isLightColor } from '../cli-app/theme.ts';
 import { CODE_SIZE_DEFAULT } from './codeSize.ts';
 import { cleanCodeFont, codeFontValue } from './codeFont.ts';
 import { applyZoom } from '../cli-app/zoom.ts';
+import { diffColorProperties } from '../cli-app/render/diffColors.ts';
 import { setView, stampWatcher } from './actions/views.ts';
 import { openFirstTreeFile } from './actions/tabs.ts';
 import { askWatcher } from './ask/rail.ts';
@@ -40,6 +41,15 @@ function syncDocument(state: LensState, previous: LensState | null) {
     root.style.setProperty('--code-bg', bg);
     root.style.setProperty('--theme-accent', accent);
     root.dataset.appearance = isLightColor(bg) ? 'light' : 'dark';
+  }
+  // the theme's diff colors (tokens.css builds the rows' and lens's red and green from them); none, VS Code's defaults
+  if (!previous || previous.data.diff !== state.data.diff) {
+    const root = document.documentElement;
+    const { diff } = state.data;
+    for (const [name, color] of diffColorProperties(diff)) {
+      if (color) root.style.setProperty(name, color);
+      else root.style.removeProperty(name);
+    }
   }
   // the code's size: at the default the token itself rules
   if (!previous || previous.codeSize !== state.codeSize) {

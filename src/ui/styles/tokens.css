@@ -117,6 +117,17 @@
   --elev-3: 0 30px 70px -20px var(--shadow);
   --add-bg: color-mix(in oklab, var(--add) 10%, transparent);
   --del-bg: color-mix(in oklab, var(--del) 11%, transparent);
+  /* the diff, as VS Code paints it: the theme's diffEditor colors (--diff-*-src, which main.tsx sets),
+     VS Code's defaults where it sets none. Both see-through: the line color under every changed row, the
+     text color over it on a whole added or removed line, and on a replaced line's changed words */
+  --diff-add-line: var(--diff-add-line-src, #9bb95533);
+  --diff-del-line: var(--diff-del-line-src, #ff000033);
+  --diff-add-text: var(--diff-add-text-src, var(--diff-add-text-default));
+  --diff-del-text: var(--diff-del-text-src, #ff000033);
+  /* lens's green and red, everywhere: the theme's diff text color made solid, at a lightness that reads
+     as text on this appearance; lens's own pair when the theme has none */
+  --add: oklch(from var(--diff-add-text-src, var(--add-own)) clamp(var(--diff-l-min), l, var(--diff-l-max)) c h / 1);
+  --del: oklch(from var(--diff-del-text-src, var(--del-own)) clamp(var(--diff-l-min), l, var(--diff-l-max)) c h / 1);
 
   /* ---- semantic: dark themes ---- */
   --bg: color-mix(in oklab, var(--code-bg) 82%, #000);
@@ -127,16 +138,19 @@
   --shadow: #000000b0;
   /* over the page, under a dialog */
   --scrim: #00000066;
-  --add: #6cc58f;
+  --add-own: #6cc58f;
   --mod: #e0b45c;
-  --del: #f0855a;
-  /* destructive actions: a plain red, apart from the removed lines' orange */
+  --del-own: #f0855a;
+  /* destructive actions: a plain red, apart from --del */
   --danger: #f26b6b;
   --ren: #8fb3ff;
   --bug: #f0855a;
   --risk: #e0b45c;
   --question: #8fb3ff;
   --breaks: #c4a5ff;
+  --diff-l-min: 0.6;
+  --diff-l-max: 0.8;
+  --diff-add-text-default: #9ccc2c33;
   color-scheme: dark;
 }
 
@@ -148,14 +162,17 @@
   --text: color-mix(in oklab, var(--code-fg) 78%, #000);
   --shadow: #1c223038;
   --scrim: #1c223052;
-  --add: #1f8a4c;
+  --add-own: #1f8a4c;
   --mod: #a16207;
-  --del: #c2410c;
+  --del-own: #c2410c;
   --danger: #c52a2a;
   --ren: #2563eb;
   --bug: #c2410c;
   --risk: #b45309;
   --question: #2563eb;
   --breaks: #7c3aed;
+  --diff-l-min: 0.45;
+  --diff-l-max: 0.62;
+  --diff-add-text-default: #9ccc2c40;
   color-scheme: light;
 }

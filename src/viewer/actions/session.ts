@@ -32,6 +32,7 @@ export async function switchTheme(theme: string): Promise<boolean> {
           fg: entry.fg,
           bg: entry.bg,
           accent: entry.accent,
+          diff: entry.diff,
           // a theme from the saved choice that isn't in the menu yet joins it
           themes: state.data.themes.some((swatch) => swatch.name === entry.theme)
             ? state.data.themes

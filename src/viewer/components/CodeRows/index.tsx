@@ -26,7 +26,7 @@ export function planRows(items: CodeItem[], context: RowContext): ReactNode[] {
 }
 
 function itemRows(item: CodeItem, itemIndex: number, context: RowContext): ReactNode[] {
-  const { lines, changedLines, removed, gutter, marks } = context;
+  const { lines, changedLines, removed, replaced, gutter, marks } = context;
   const withNotes = (label: string, row: ReactNode) => [row, ...(marks?.notes?.get(label) ?? [])];
   switch (item.kind) {
     case 'line': {
@@ -38,6 +38,7 @@ function itemRows(item: CodeItem, itemIndex: number, context: RowContext): React
           line={item.line}
           html={lines[item.line - 1] ?? ''}
           changed={changedLines.has(item.line)}
+          replaced={replaced?.lines.has(item.line)}
           gutter={gutter}
           extraClass={marks?.classes?.get(label)}
         />,
@@ -51,6 +52,7 @@ function itemRows(item: CodeItem, itemIndex: number, context: RowContext): React
           key={label}
           html={removed.get(item.old) ?? escapeHtml(item.text)}
           oldLine={item.old}
+          replaced={replaced?.old.has(item.old)}
           gutter={gutter}
           extraClass={marks?.classes?.get(label)}
         />,

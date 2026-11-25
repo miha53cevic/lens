@@ -305,6 +305,8 @@ test('pairWordDiffs: a removed line pairs with the first close-enough added line
   );
   assert.deepEqual([...diffs.added.keys()], [3], 'the log line was inserted: the query pairs with line 3');
   assert.deepEqual([...diffs.removed.keys()], [], 'the old query only gained words: nothing on it to mark');
+  assert.deepEqual([...diffs.replaced.lines], [3], 'the log line is a whole new line, the query a replaced one');
+  assert.deepEqual([...diffs.replaced.old], [2], 'replaced, though nothing on it is marked');
   assert.equal(
     marked(newLines[2], diffs.added.get(3)!),
     '  const rows = await db.query("select * from orders where user = ? [and deleted = 0]", [userId]);',
