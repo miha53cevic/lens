@@ -3,7 +3,7 @@
 // draws it, the same in the viewer and in the app's own screens.
 
 import type { ReactNode } from 'react';
-import { Check, CircleAlert, MessageSquare, Unplug } from 'lucide-react';
+import { Check, CircleAlert, MessageSquare, TriangleAlert, Unplug } from 'lucide-react';
 import clsx from 'clsx';
 import { Button } from './Button.tsx';
 import { riseIn } from './motion.ts';
@@ -30,7 +30,7 @@ export interface BarAction {
 export interface BarNotice {
   id: string;
   text: string;
-  /** warn: needs the reader · live: something is connected · accent: something new · plain: a fact, no dot */
+  /** warn: needs the reader (a triangle) · live: something is connected · accent: something new · plain: a fact, no dot */
   tone: 'warn' | 'live' | 'accent' | 'plain';
   /** A notice that leads somewhere is a button */
   run?: () => void;
@@ -62,12 +62,12 @@ const LABEL_COLORS: Record<StatusKind, string> = {
 };
 // ui/Button, at the bar's size
 const BAR_BUTTON = 'h-[20px] px-3 text-xs';
-const NOTICE_DOTS: Record<BarNotice['tone'], string> = {
-  warn: '[--dot:var(--risk)]',
+const NOTICE_DOTS: Record<'live' | 'accent', string> = {
   live: '[--dot:var(--add)]',
   accent: '[--dot:var(--accent)]',
-  plain: '',
 };
+// a notice is a flat item, as an editor's status bar has them: the bar's full height, a tint under the pointer
+const NOTICE = 'inline-flex h-full flex-none items-center gap-2 px-2';
 
 function StatusIcon({ kind }: { kind: StatusKind }) {
   const ICON = 'flex-none ' + ICON_COLORS[kind];
@@ -91,7 +91,7 @@ export function StatusBar({ status, notices }: { status: BarStatus; notices: Bar
   return (
     <footer
       data-part='status-bar'
-      className='flex h-[28px] flex-none items-center gap-2 border-t border-line bg-bg px-3 text-xs whitespace-nowrap text-muted'
+      className='flex h-[28px] flex-none items-center gap-2 border-t border-line bg-bg pr-1 pl-3 text-xs whitespace-nowrap text-muted'
       id='status-bar'
     >
       {/* polite: a screen reader hears what the bar says, without being interrupted */}
@@ -135,38 +135,39 @@ export function StatusBar({ status, notices }: { status: BarStatus; notices: Bar
           {status.action.label}
         </Button>
       )}
-      <div data-part='status-notices' className='ml-auto flex min-w-0 items-center gap-2 overflow-hidden'>
+      {/* the items touch: their hover tints meet, as the bar's own sections */}
+      <div data-part='status-notices' className='ml-auto flex h-full min-w-0 items-center overflow-hidden'>
         {notices.map((notice) => {
-          const dot =
+          const mark =
             notice.icon ??
-            (notice.tone !== 'plain' && (
-              <span
-                data-part='notice-dot'
-                className={clsx('dot', NOTICE_DOTS[notice.tone], notice.tone === 'live' && 'pulse')}
-              />
+            (notice.tone === 'warn' ? (
+              <TriangleAlert data-part='notice-warn' size={13} className='flex-none text-risk' />
+            ) : (
+              notice.tone !== 'plain' && (
+                <span
+                  data-part='notice-dot'
+                  className={clsx('dot', NOTICE_DOTS[notice.tone], notice.tone === 'live' && 'pulse')}
+                />
+              )
             ));
           return notice.run ? (
             <Button
               key={notice.id}
               id={notice.buttonId}
+              variant='ghost'
               size='sm'
               data-part='status-notice'
-              className={clsx(BAR_BUTTON, 'border-line text-muted hover:text-text')}
+              className={clsx(NOTICE, 'rounded-none border-0 text-xs font-normal')}
               data-tone={notice.tone}
               {...tipAttrs(notice.tip)}
               onClick={notice.run}
             >
-              {dot}
+              {mark}
               {notice.text}
             </Button>
           ) : (
-            <span
-              key={notice.id}
-              className='inline-flex flex-none items-center gap-2 px-1'
-              data-tone={notice.tone}
-              {...tipAttrs(notice.tip)}
-            >
-              {dot}
+            <span key={notice.id} className={NOTICE} data-tone={notice.tone} {...tipAttrs(notice.tip)}>
+              {mark}
               {notice.text}
             </span>
           );
