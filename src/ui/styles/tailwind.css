@@ -24,6 +24,7 @@
   --font-sans: var(--font-sans);
   --font-serif: var(--font-serif);
   --font-mono: var(--font-mono);
+  --font-code: var(--font-code);
 
   --text-2xs: var(--text-2xs);
   --text-xs: var(--text-xs);

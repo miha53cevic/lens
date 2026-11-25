@@ -3,6 +3,7 @@
 // The harness is test/fixtures/viewerPage.ts.
 
 import { test } from 'bun:test';
+import { codeFontHint } from '../src/viewer/codeFont.ts';
 import { fireEvent } from '@testing-library/dom';
 import assert from 'node:assert/strict';
 import {
@@ -205,6 +206,63 @@ test('the code size comes back from its cookie', async () => {
   try {
     assert.equal(document.documentElement.style.getPropertyValue('--text-code'), '18px');
     assert.equal($('#code-size output').textContent, '18px');
+  } finally {
+    await close();
+  }
+});
+
+pageTest('the code font: typed as a font list, kept in a cookie, and only a font list reaches the CSS', async () => {
+  const codeFont = () => document.documentElement.style.getPropertyValue('--font-code');
+  const field = $('#code-font');
+  assert.equal(codeFont(), '', 'none typed: the token rules');
+
+  await type(field, "'Fira Code', Menlo");
+  assert.equal(
+    codeFont(),
+    "'Fira Code', Menlo, var(--font-mono)",
+    'the default stack after it, for a font not installed',
+  );
+  assert.ok(document.cookie.includes('lens-code-font='));
+
+  await type(field, "'Fira Co");
+  assert.equal(codeFont(), '', 'a quote still open is no font yet');
+  assert.equal($('#code-font-hint').textContent, 'not a font list yet · the default shows');
+  assert.equal((field as HTMLInputElement).value, "'Fira Co", 'the field keeps what was typed');
+
+  await type(field, 'Menlo; color: red');
+  assert.equal(codeFont(), '', 'anything but names, quotes and commas is not used');
+
+  await type(field, 'JetBrains Mono,');
+  assert.equal(codeFont(), 'JetBrains Mono, var(--font-mono)', 'a trailing comma mid-typing is dropped');
+
+  await click($('#code-font-clear'));
+  assert.equal(codeFont(), '');
+  assert.ok(!document.cookie.includes('lens-code-font'), 'the default keeps no cookie');
+});
+
+test('the code font hint: which of the fonts typed the code shows in', () => {
+  const installed = (name: string) => name === 'Menlo';
+  assert.equal(codeFontHint('', installed), 'font names, comma-separated');
+  assert.equal(codeFontHint("'Menlo'", installed), 'showing Menlo');
+  assert.equal(codeFontHint("'Fira Code', Menlo", installed), 'Fira Code not installed · showing Menlo');
+  assert.equal(codeFontHint('Fira Code, Hack', installed), 'Fira Code, Hack not installed · the default shows');
+  assert.equal(codeFontHint('Fira Code, monospace', installed), 'Fira Code not installed · showing monospace');
+  assert.equal(codeFontHint('Menlo; x', installed), 'not a font list yet · the default shows');
+  assert.equal(
+    codeFontHint('Menlo', () => null),
+    'font names, comma-separated',
+    "a browser that can't tell says nothing",
+  );
+});
+
+test('the code font comes back from its cookie', async () => {
+  await open({}, '', 'lens-code-font=' + encodeURIComponent("'Fira Code', Menlo") + '; path=/');
+  try {
+    assert.equal(
+      document.documentElement.style.getPropertyValue('--font-code'),
+      "'Fira Code', Menlo, var(--font-mono)",
+    );
+    assert.equal(($('#code-font') as HTMLInputElement).value, "'Fira Code', Menlo");
   } finally {
     await close();
   }

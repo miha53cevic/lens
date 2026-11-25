@@ -962,7 +962,7 @@ pageTest(
     assert.equal(count('#g-skeleton [data-round]'), 2);
     assert.equal(count('#g-skeleton .skeleton[aria-hidden="true"]'), 8, 'a placeholder says nothing to a reader');
     assert.equal(count('#g-review-skeleton [data-part="review-skeleton"] header'), 1, 'the name is real');
-    assert.equal(count('#g-review-skeleton .font-mono > .h-\\[1\\.75em\\]'), 48);
+    assert.equal(count('#g-review-skeleton .font-code > .h-\\[1\\.75em\\]'), 48);
     assert.equal(
       count('#g-error-boundary [data-part="crash"][role="alert"] [data-part="copy-cmd"]'),
       1,

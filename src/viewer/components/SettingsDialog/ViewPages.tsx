@@ -8,6 +8,7 @@ import {
   setShowRemoved,
   setSideBySide,
   setThreshold,
+  setCodeFont,
   setWordDiff,
   stepCodeSize,
   stepUiZoom,
@@ -18,6 +19,8 @@ import { CODE_SIZE_DEFAULT, CODE_SIZES } from '../../codeSize.ts';
 import { UI_ZOOM_DEFAULT, UI_ZOOMS } from '../../../cli-app/zoom.ts';
 import { isDiffMode } from '../../shared.ts';
 import { isSplit } from '../../model/plans.ts';
+import { CODE_FONT_MAX, codeFontHint } from '../../codeFont.ts';
+import { Field } from '../../../ui/Field.tsx';
 import { Kbd } from '../../../ui/Kbd.tsx';
 import { Segmented } from '../../../ui/Segmented.tsx';
 import { Select } from '../../../ui/Select.tsx';
@@ -44,6 +47,7 @@ export function ViewPages({ page }: { page: SettingsPage }) {
     split: isSplit(state),
     hideTests: state.hideTests,
     codeSize: state.codeSize,
+    codeFont: state.codeFont,
     uiZoom: state.uiZoom,
     hasSummary: state.data.summary !== null,
     buildPreviews: state.data.buildPreviews,
@@ -71,21 +75,9 @@ export function ViewPages({ page }: { page: SettingsPage }) {
     <>
       {shown(
         'general',
-        group(
-          'Size',
-          <>
-            <SettingRow label='Code size' hint={'default ' + CODE_SIZE_DEFAULT + 'px'} hintId='code-size-hint'>
-              <Stepper
-                id='code-size'
-                label='code size'
-                value={view.codeSize + 'px'}
-                lessLabel='Smaller'
-                moreLabel='Larger'
-                atMin={view.codeSize === CODE_SIZES[0]}
-                atMax={view.codeSize === CODE_SIZES[CODE_SIZES.length - 1]}
-                onStep={stepCodeSize}
-              />
-            </SettingRow>
+        <>
+          {group(
+            'Interface',
             <SettingRow label='UI size' hint={'default ' + UI_ZOOM_DEFAULT + '%'} hintId='ui-zoom-hint'>
               <Stepper
                 id='ui-zoom'
@@ -97,9 +89,45 @@ export function ViewPages({ page }: { page: SettingsPage }) {
                 atMax={view.uiZoom === UI_ZOOMS[UI_ZOOMS.length - 1]}
                 onStep={stepUiZoom}
               />
-            </SettingRow>
-          </>,
-        ),
+            </SettingRow>,
+          )}
+          {group(
+            'Code',
+            <>
+              <SettingRow label='Code size' hint={'default ' + CODE_SIZE_DEFAULT + 'px'} hintId='code-size-hint'>
+                <Stepper
+                  id='code-size'
+                  label='code size'
+                  value={view.codeSize + 'px'}
+                  lessLabel='Smaller'
+                  moreLabel='Larger'
+                  atMin={view.codeSize === CODE_SIZES[0]}
+                  atMax={view.codeSize === CODE_SIZES[CODE_SIZES.length - 1]}
+                  onStep={stepCodeSize}
+                />
+              </SettingRow>
+              <SettingRow
+                label='Code font'
+                htmlFor='code-font'
+                hint={codeFontHint(view.codeFont)}
+                hintId='code-font-hint'
+              >
+                <Field
+                  id='code-font'
+                  size='sm'
+                  className='w-[240px] font-code'
+                  placeholder='the default monospace'
+                  maxLength={CODE_FONT_MAX}
+                  value={view.codeFont}
+                  onChange={(event) => setCodeFont(event.target.value)}
+                  onClear={() => setCodeFont('')}
+                  clearId='code-font-clear'
+                  clearLabel='Back to the default font'
+                />
+              </SettingRow>
+            </>,
+          )}
+        </>,
       )}
       {shown(
         'code',

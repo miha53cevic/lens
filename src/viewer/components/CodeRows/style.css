@@ -10,7 +10,7 @@
     min-width: max-content;
     padding: var(--space-1) 0 var(--space-3);
     color: var(--code-fg);
-    font: var(--text-code) / var(--row-h) var(--font-mono);
+    font: var(--text-code) / var(--row-h) var(--font-code);
   }
 
   .row {
@@ -86,7 +86,7 @@
   }
   .row.gap .num,
   .unit-gap .num {
-    font-family: var(--font-mono);
+    font-family: var(--font-code);
   }
 
   /* a fold: a pill that quotes what it hides. A control, not code: its text can't be selected */
@@ -237,7 +237,7 @@
   .row.context-bar .num {
     position: relative;
     color: var(--muted);
-    font-family: var(--font-mono);
+    font-family: var(--font-code);
   }
   .context-arrow {
     position: absolute;

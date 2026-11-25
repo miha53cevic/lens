@@ -26,6 +26,7 @@ import type { ReaderNote } from '../cli-app/notes/store.ts';
 import type { ConcernMark } from '../cli-app/marks/store.ts';
 import { INITIAL_DATA } from './shared.ts';
 import { CODE_SIZE_DEFAULT, savedCodeSize } from './codeSize.ts';
+import { savedCodeFont } from './codeFont.ts';
 import { savedZoom, UI_ZOOM_DEFAULT } from '../cli-app/zoom.ts';
 
 export type View = 'code' | 'summary' | 'plan';
@@ -111,6 +112,8 @@ export interface LensState {
   sideBySide: boolean;
   /** The code's size in px, one of CODE_SIZES (codeSize.ts) */
   codeSize: number;
+  /** The code's font list as the reader typed it ('' for the default); cleanCodeFont (codeFont.ts) says what of it is used */
+  codeFont: string;
   /** The whole page's zoom in percent, one of UI_ZOOMS (cli-app/zoom.ts) */
   uiZoom: number;
   navCollapsed: boolean;
@@ -208,6 +211,14 @@ function loadCodeSize(): number {
   }
 }
 
+function loadCodeFont(): string {
+  try {
+    return savedCodeFont(document.cookie);
+  } catch {
+    return '';
+  }
+}
+
 function loadUiZoom(): number {
   try {
     return savedZoom(document.cookie);
@@ -280,6 +291,7 @@ const defaultState: LensState = {
   wordDiff: true,
   sideBySide: true,
   codeSize: loadCodeSize(),
+  codeFont: loadCodeFont(),
   uiZoom: loadUiZoom(),
   navCollapsed: false,
   navWidth: 0,

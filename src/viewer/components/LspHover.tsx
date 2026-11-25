@@ -19,7 +19,7 @@ export function LspHover() {
       {info?.code && (
         <pre
           data-part='hover-code'
-          className='font-mono text-code break-words whitespace-pre-wrap'
+          className='font-code text-code break-words whitespace-pre-wrap'
           dangerouslySetInnerHTML={{ __html: codeHtml }}
         />
       )}

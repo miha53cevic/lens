@@ -100,7 +100,7 @@ export function ReviewSkeleton() {
                 <Skeleton size='xs' round width='64px' />
                 <Skeleton size='xs' round width='80px' />
               </div>
-              <div className='min-h-0 flex-1 overflow-hidden pt-1 pb-3 font-mono text-code/[1.75]'>
+              <div className='min-h-0 flex-1 overflow-hidden pt-1 pb-3 font-code text-code/[1.75]'>
                 {CODE_ROWS.map(([indent, length], row) => (
                   <div
                     key={row}
