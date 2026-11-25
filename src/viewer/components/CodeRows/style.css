@@ -70,18 +70,6 @@
   .w-del {
     background: var(--diff-del-text);
   }
-  /* side by side, the half a line is missing from: VS Code's diagonal fill (not beside a fold's pill) */
-  .srow > .row.half.none {
-    background: repeating-linear-gradient(
-      -45deg,
-      transparent 0 5px,
-      color-mix(in oklab, var(--code-fg) 9%, transparent) 5px 6.5px
-    );
-  }
-  .srow.pill-row > .row.half.none {
-    background: none;
-  }
-
   /* hunks only: the hidden stretch, a control one click from showing */
   .row.gap {
     background: color-mix(in oklab, var(--surface-2) 40%, transparent);
@@ -325,9 +313,17 @@
     flex: 1;
     min-width: 0;
   }
-  /* the side a line doesn't have: the hidden stretch's fill */
+  /* the side a line doesn't have: VS Code's diagonal fill, under the pointer too (it holds no line) */
   .row.half.none,
   .row.half.none:hover {
+    background: repeating-linear-gradient(
+      -45deg,
+      transparent 0 5px,
+      color-mix(in oklab, var(--code-fg) 9%, transparent) 5px 6.5px
+    );
+  }
+  /* beside a fold's pill: the hidden stretch's plain fill */
+  .srow.pill-row > .row.half.none {
     background: color-mix(in oklab, var(--surface-2) 55%, transparent);
   }
   /* a fold: its pill on the new half, over the code it quotes; the old half says which of its lines
