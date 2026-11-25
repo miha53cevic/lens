@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.1](https://github.com/miha53cevic/lens/compare/v0.9.0...v0.9.1) (2026-11-25)
+
+
+### Bug Fixes
+
+* make diff editor the same as vscodes ([#75](https://github.com/miha53cevic/lens/issues/75)) ([2698f26](https://github.com/miha53cevic/lens/commit/2698f26982909df176c3950a778ea4034ef115e6))
+
 ## [0.9.0](https://github.com/miha53cevic/lens/compare/v0.8.2...v0.9.0) (2026-11-17)
 
 
