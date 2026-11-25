@@ -41,7 +41,8 @@ export function Resizer({ id, label, panelId, hidden, widthAt, onResized }: Resi
 
   return (
     <div
-      className='w-[9px] flex-none cursor-col-resize bg-line bg-clip-content px-1 [transition:background-color_var(--motion)] hover:bg-accent data-dragging:bg-accent'
+      // the line is 1px; its 4px either side are a wider grip laid over the panels (-mx-1), not a gap between them
+      className='relative z-(--z-sticky) -mx-1 w-[9px] flex-none cursor-col-resize bg-line bg-clip-content px-1 [transition:background-color_var(--motion)] hover:bg-accent data-dragging:bg-accent'
       id={id}
       role='separator'
       aria-label={label}
