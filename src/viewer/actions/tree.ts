@@ -22,6 +22,11 @@ export function collapseFolders(): void {
   commit((state) => ({ closedDirs: new Set(allDirPaths(state)) }));
 }
 
+/** Every folder opens at once, without the grow, as collapseFolders closes them. */
+export function expandFolders(): void {
+  commit(() => ({ closedDirs: new Set<string>() }));
+}
+
 /**
  * The folders a file opened from elsewhere (a tab, a cite, search) sits in open, so its row shows in
  * the tree. A closed folder's path is a prefix of every path under it, compact chains included.

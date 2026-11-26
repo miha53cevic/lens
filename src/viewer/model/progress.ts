@@ -89,3 +89,21 @@ export function unitProgress(state: LensState): Progress | null {
   if (!list) return null;
   return buildUnitProgress(list, state.viewedUnits, state.summaryUnit === null ? null : list.activeId);
 }
+
+/** The whole diff's lines, as the code header counts a file's: the same on both tabs (every changed line is in one change). */
+export interface DiffLines {
+  added: number;
+  removed: number;
+}
+
+const buildDiffLines = memo((files: LensState['data']['files']): DiffLines => ({
+  added: files.reduce((count, file) => count + (file.changedLines?.length ?? 0), 0),
+  removed: files.reduce(
+    (count, file) => count + (file.removals ?? []).reduce((lines, block) => lines + block.lines.length, 0),
+    0,
+  ),
+}));
+
+export function diffLines(state: LensState): DiffLines {
+  return buildDiffLines(state.data.files);
+}

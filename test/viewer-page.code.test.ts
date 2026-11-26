@@ -727,6 +727,15 @@ pageTest('Collapse All closes every folder, and a file opened from its tab opens
   assert.ok($('#tree [data-part="file"][data-active] [data-part="kind-icon"]'));
 });
 
+pageTest('Expand All opens every folder Collapse All closed', async () => {
+  const shown = treeFiles();
+  await click($('#collapse-folders'));
+  assert.deepEqual(treeFiles(), []);
+  await click($('#expand-folders'));
+  assert.deepEqual(treeFiles(), shown);
+  assert.ok($$('#tree [data-part="dir"]').every((dir) => dir.getAttribute('aria-expanded') === 'true'));
+});
+
 pageTest('the tabs close as in VS Code: others, to the right, viewed, all', async () => {
   const tabNames = () => $$('#tabbar [data-part="tab-name"]').map((name) => name.textContent);
   const activeTab = () => $('#tabbar [data-part="tab"][data-active] [data-part="tab-name"]').textContent;

@@ -1,7 +1,6 @@
 import { Copy } from 'lucide-react';
 import { useLens } from '../../store.ts';
-import { fileProgress, unitProgress } from '../../model/progress.ts';
-import { listModel } from '../../model/summaryList.ts';
+import { diffLines, fileProgress, unitProgress } from '../../model/progress.ts';
 import { handoff } from '../../model/realConcerns.ts';
 import { copyForAgent } from '../../actions/notes.ts';
 import { plural } from '../../shared.ts';
@@ -14,6 +13,7 @@ export function FilesProgress() {
   const { done, total, changed } = useLens((state) => fileProgress(state));
   return (
     <ProgressRing done={done} total={total} label={total === 1 ? 'file viewed' : 'files viewed'}>
+      <DiffLinesLine />
       <ChangedLegend changed={changed} />
       <NotesForAgent />
     </ProgressRing>
@@ -57,23 +57,28 @@ function ChangedLegend({ changed }: { changed: number }) {
   );
 }
 
-/** The top of the Summary tab's list: how many changes the reader reviewed, and how many are flagged. */
+/**
+ * The diff's lines added and removed: the third line on both tabs, so the ring keeps its place when the
+ * reader switches. None when nothing was added or removed (a review of paths, not a diff).
+ */
+function DiffLinesLine() {
+  const { added, removed } = useLens((state) => diffLines(state));
+  if (added === 0 && removed === 0) return null;
+  return (
+    <span data-part='diff-lines' className='inline-flex items-baseline gap-1 text-xs'>
+      <span className='font-mono text-add'>+{added.toLocaleString('en-US')}</span>
+      <span className='font-mono text-del'>−{removed.toLocaleString('en-US')}</span>
+      <span className='text-faint'>lines</span>
+    </span>
+  );
+}
+
+/** The top of the Summary tab's list: how many changes the reader reviewed. Its flagged count is the signal filter's "All". */
 export function ChangesProgress() {
-  const { done, total, changed, legend } = useLens((state) => {
-    const list = listModel(state)!;
-    const progress = unitProgress(state)!;
-    return {
-      done: progress.done,
-      total: progress.total,
-      changed: progress.changed,
-      legend: list.summarized === 0 ? 'not summarized yet' : list.counts.any + ' flagged',
-    };
-  });
+  const { done, total, changed } = useLens((state) => unitProgress(state)!);
   return (
     <ProgressRing done={done} total={total} label={total === 1 ? 'change reviewed' : 'changes reviewed'}>
-      <span data-part='legend' className='text-xs text-faint'>
-        {legend}
-      </span>
+      <DiffLinesLine />
       <ChangedLegend changed={changed} />
     </ProgressRing>
   );

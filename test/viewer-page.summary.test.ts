@@ -37,7 +37,23 @@ pageTest(
       ['findOrders', 'legacyTotal'],
       "the test file's unit hides with the tests",
     );
-    assert.equal($('[data-part="progress"] [data-part="legend"]').textContent, '2 flagged');
+    assert.equal(
+      $('#sig-filter [data-value="any"] [data-part="n"]').textContent,
+      '2',
+      'flagged: the filter says how many',
+    );
+    const lines = $('[data-part="progress"] [data-part="diff-lines"]').textContent;
+    assert.match(lines!, /^\+\d+−\d+lines$/, "the diff's lines added and removed");
+    assert.equal($$('[data-part="progress"] [data-part="legend"]').length, 0, 'no line more than the Code tab has');
+    await key('v');
+    await settle();
+    assert.equal(
+      $('[data-part="progress"] [data-part="diff-lines"]').textContent,
+      lines,
+      'the Code tab: the same lines, so the ring keeps its place',
+    );
+    await key('v');
+    await settle();
     assert.ok($('[data-part="sum-overview-item"]').hasAttribute('data-active'));
     assert.deepEqual(
       $$('[data-part="ov-stat"]').map((stat) => stat.textContent),
@@ -92,6 +108,7 @@ test('a diff that ends at a branch another worktree has says to review it there'
       how.textContent!,
       /this diff ends at feature, which is checked out in another worktree\.Review it there/,
     );
+    assert.equal(how.querySelector('[data-part="worktree-root"]')!.textContent, '/repos/shop-feature');
     assert.deepEqual(
       [...how.querySelectorAll('[data-part="copy-cmd-text"]')].map((command) => command.textContent),
       [worktree.command],
@@ -108,7 +125,6 @@ test('a diff that ends at a branch another worktree has says to review it there'
     await close();
   }
 });
-    assert.equal(how.querySelector('[data-part="worktree-root"]')!.textContent, '/repos/shop-feature');
 
 test('a diff that ends at a branch not checked out offers a worktree or a checkout, instead of what to run', async () => {
   const fresh = payload.summary!;
@@ -623,7 +639,7 @@ pageTest("a concern sits under its line; dismissing it drops the note and the un
   await click($('[data-part="sum-inner"] [data-part="vbtn"][data-mark="dismissed"]'));
   assert.equal($$('[data-note="inline"]').length, 0);
   assert.ok($('[data-part=\"concern\"]').dataset.mark === 'dismissed');
-  assert.equal($('[data-part="progress"] [data-part="legend"]').textContent, '1 flagged');
+  assert.equal($('#sig-filter [data-value="any"] [data-part="n"]').textContent, '1');
   assert.equal($$('[data-part="inbox-card"][data-selected] .sig').length, 0);
   assert.deepEqual(
     postedMarks(page).map((change) => (change as { mark: string }).mark),
