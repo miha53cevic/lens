@@ -18,7 +18,7 @@ export function ProgressRing({ done, total, label, children }: ProgressRingProps
   return (
     <div className='flex items-center gap-3 px-2 pt-1 pb-3'>
       <svg className='size-[40px] flex-none -rotate-90' viewBox='0 0 42 42' aria-hidden>
-        <circle className='fill-none stroke-line stroke-4' cx='21' cy='21' r={RADIUS} />
+        <circle className='fill-none stroke-line-strong stroke-4' cx='21' cy='21' r={RADIUS} />
         <circle
           className='fill-none stroke-add stroke-4 [stroke-linecap:round] [transition:stroke-dasharray_var(--motion-slow)]'
           cx='21'

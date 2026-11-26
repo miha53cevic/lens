@@ -68,7 +68,7 @@ function addRows(node: TreeDir, path: string, depth: number, context: TreeContex
           aria-hidden
           data-part='guide'
           data-active={holdsActive || undefined}
-          className='pointer-events-none absolute inset-y-0 w-px bg-line data-active:bg-line-strong'
+          className='pointer-events-none absolute inset-y-0 w-px bg-line-strong data-active:bg-faint'
           style={{ left: indentAt(depth) + TWISTIE / 2 + 'px' }}
         />
         {dirRows}
