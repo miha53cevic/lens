@@ -12,7 +12,7 @@
 - **Timings** (Settings → Debug, or `"timings": true`): every step's time goes to `~/.lens/timings.jsonl`, one file for the machine, each run starting with a line about the machine; `bun run lens timings` (`--repo <name>`, `--json`) reads it. The file is what the user hands over to have speed looked at. A new step worth watching is a `timed(...)` (`src/cli-app/timings.ts`) or `measure(...)` (the viewer's `actions/timings.ts`).
 - Desktop app: `bun run app` (from the checkout; Settings → Sandbox shows every primitive), `bun run app:smoke` (scripted tour, see Desktop app), `bun run app:dist` (packs into `release/`). Package scripts stay shell-free (`bun …`, `&&` at most) so they run on Windows.
 - `bun run compile` makes `dist/lens/lens`, what the packed app runs. Anything the CLI reads at run time is imported, never read from a path beside the sources: `lens.defaults.json` and `package.json` as JSON, `viewer.html` as text, the tree-sitter wasm as files, the viewer as `lens:viewer-bundle` (`VIEWER_MODULE` in `bundle.ts`). `test/compile.test.ts` runs the compiled lens far from the checkout.
-- Releases: release-please (`.github/workflows/macos-app.yml`) bumps the version and `CHANGELOG.md` from conventional commits (`fix:` patch, `feat:` minor) and attaches `Lens.app` to the release. Never bump the version by hand; keep commit prefixes and PR titles conventional (PRs are squash-merged). A build change goes in the scripts or `forge.config.ts`, not the workflow.
+- Releases: release-please (`.github/workflows/macos-app.yml`) bumps the version and `CHANGELOG.md` from conventional commits (`fix:` patch, `feat:` minor) and attaches `Lens.app` to the release. Never bump the version by hand; keep every commit's prefix conventional, since release-please reads each one on `main`. A build change goes in the scripts or `forge.config.ts`, not the workflow.
 
 ## Code rules (everywhere)
 
@@ -146,4 +146,4 @@ lens never edits code and has no terminal UI (`--json` is for debugging). The de
 
 ## Git
 
-Conventional prefixes (`feat:`, `fix:`, `refactor:`, `chore:`). No `Co-Authored-By` or other Claude attribution. Work on `features/*` branches, merged to `main` through PRs. Never push or open PRs, and don't offer to: the user does that.
+Commit straight to `main`: no feature branches, no PRs. Every commit takes a conventional prefix (`feat:`, `fix:`, `refactor:`, `chore:`): release-please opens its release PR from them. No `Co-Authored-By` or other Claude attribution. Never push, and don't offer to: the user does that.
