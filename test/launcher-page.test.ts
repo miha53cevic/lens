@@ -262,7 +262,7 @@ pageTest(
     });
     assert.deepEqual(status(), ["Couldn't open ~/Downloads/notes", 'not inside a git repository']);
     assert.ok($('#status').dataset.kind === 'failed');
-    await click($('#status-action'));
+    await click($('#status-dismiss'));
     assert.deepEqual(page.calls.at(-1), ['dismiss']);
 
     await page.push({ ...START, git: null });
@@ -542,12 +542,12 @@ pageTest(
     await page.push({ ...PICKER, status: failed });
     assert.deepEqual(status(), ["Couldn't open the review", 'no changed supported files in this diff']);
 
+    // lasting, so a notice: the status stays free for what happens
     await page.push({ ...PICKER, running: { port: 5326 } });
-    assert.deepEqual(status(), [
-      'lens is already open on port 5326',
-      "your agent's answers go to whichever started last",
-    ]);
-    await click($('#status-action'));
+    assert.deepEqual(status(), ['Ready']);
+    const running = $$('[data-part="status-notice"]').find((notice) => /already open/.test(notice.textContent!))!;
+    assert.equal(running.textContent, 'lens already open on port 5326');
+    await click(running);
     assert.deepEqual(page.calls.at(-1), ['showRunning']);
 
     assert.equal($('#picker-back').getAttribute('aria-label'), 'Back to Start');
@@ -973,6 +973,7 @@ pageTest(
     assert.equal(count('#g-bars [data-part="header"] [data-part="swatch"]'), 2);
     assert.equal(count('#g-bars #status[data-kind="failed"] #status-action'), 0, 'the action sits beside the status');
     assert.equal(count('#g-bars [data-part="status-bar"] #status-action'), 1);
+    assert.equal(count('#g-bars [data-part="status-bar"] #status-dismiss'), 1, 'and the ×');
     assert.equal(count('#g-bars [data-part="status-notices"] > *'), 3);
     assert.equal(count('#g-bars [data-part="status-notices"] [data-part="notice-dot"]'), 1, 'a plain fact has no dot');
     assert.equal(count('#g-bars [data-part="status-notices"] [data-part="notice-warn"]'), 1, 'a warning, a triangle');

@@ -7,6 +7,7 @@ import { test } from 'bun:test';
 import assert from 'node:assert/strict';
 import { fireEvent, within } from '@testing-library/dom';
 import { renderPage, type ViewerPayload } from '../src/cli-app/render/web/server.ts';
+import { noticesThatFit } from '../src/ui/StatusBar.tsx';
 import {
   payload,
   lightTokens,
@@ -66,8 +67,9 @@ pageTest("a failed refresh stays in the status bar, with the server's reason, un
   await pause(120);
   assert.deepEqual(status(), failed, "a failure doesn't fade");
   assert.equal(($('#refresh') as HTMLButtonElement).disabled, false, 'refresh can be tried again');
-  assert.equal($('#status-action').textContent, 'Dismiss');
-  await click($('#status-action'));
+  assert.equal($('#status-dismiss').getAttribute('aria-label'), 'Dismiss');
+  assert.equal($$('#status-action').length, 0, 'nothing else to do to it');
+  await click($('#status-dismiss'));
   assert.deepEqual(status(), REST);
   // the next action clears a failure too
   await key('r');
@@ -125,7 +127,7 @@ pageTest('a standing notice shows only while it has something to say, and leads 
   assert.deepEqual(status(), { kind: 'done', label: 'New summary loaded', detail: '' });
 });
 
-pageTest("the agent's summary run shows as a notice while it goes: units in, then the final pass", async () => {
+pageTest("the agent's summary run is the status while it goes: units in, then the final pass", async () => {
   const notices = () => $$('#status-bar [data-part="status-notices"] > *').map((notice) => notice.textContent);
   let building: unknown = { done: 12, total: 30, stage: 'changes', drawings: false, quietMs: 1000 };
   const undo = answering((path) =>
@@ -135,20 +137,19 @@ pageTest("the agent's summary run shows as a notice while it goes: units in, the
   );
   window.dispatchEvent(new Event('focus'));
   await settle();
-  assert.deepEqual(notices(), ['Agent writing summary · 12 of 30 units']);
-  assert.ok(
-    $('#status-bar [data-part="notice-dot"]').classList.contains('pulse'),
-    'a live notice pulses, as the Ask dot does',
-  );
+  const writing = (detail: string) => ({ kind: 'working', label: 'Agent writing summary…', detail });
+  assert.deepEqual(status(), writing('12 of 30 units'));
+  assert.deepEqual(notices(), [], 'said once: not a notice as well');
+  assert.equal($$('#status [data-part="status-item"]')[0].tagName, 'SPAN', "the reader's own agent: no run to show");
   building = { done: 30, total: 30, stage: 'story', drawings: false, quietMs: 1000 };
   window.dispatchEvent(new Event('focus'));
   await settle();
-  assert.deepEqual(notices(), ['Agent writing summary · writing the story']);
+  assert.deepEqual(status(), writing('writing the story'));
   building = null;
   window.dispatchEvent(new Event('focus'));
   await settle();
   undo();
-  assert.deepEqual(notices(), [], 'the run is done');
+  assert.notEqual(status().label, 'Agent writing summary…', 'the run is done');
 });
 
 test("a run going over a written overview is only the status bar's, and a stalled one goes back to saying what to run", async () => {
@@ -175,7 +176,7 @@ test("a run going over a written overview is only the status bar's, and a stalle
     window.dispatchEvent(new Event('focus'));
     await settle();
     assert.equal($$('#summary-pane [data-part="run-progress"]').length, 0, 'the overview stays as it is');
-    assert.match($('#status-bar').textContent!, /Agent writing summary · 3 of 61 units/);
+    assert.match($('#status-bar').textContent!, /Agent writing summary…3 of 61 units/);
     assert.equal($$('#summary-pane [data-part="sum-note"][data-stale]').length, 0, "it's being written: no command");
     quietMs = 60 * 60 * 1000;
     window.dispatchEvent(new Event('focus'));
@@ -200,6 +201,7 @@ pageTest("a run with no write for a long time says that, and doesn't say an agen
   await settle();
   undo();
   assert.deepEqual(notices(), ['Summary unfinished · 3 of 61 units · last write 2 h ago']);
+  assert.notEqual(status().label, 'Agent writing summary…');
 });
 
 test("a first run: the page opened before any summary, and shows the agent's run and then its summary", async () => {
@@ -219,7 +221,8 @@ test("a first run: the page opened before any summary, and shows the agent's run
     const undo = answering((path) => (path === '/api/stamp' ? new Response(JSON.stringify(stamp)) : undefined));
     window.dispatchEvent(new Event('focus'));
     await settle();
-    assert.deepEqual(notices(), ['Agent writing summary · 0 of 2 units']);
+    assert.deepEqual(notices(), []);
+    assert.match($('#status-bar').textContent!, /Agent writing summary…0 of 2 units/);
     // the page says where the run is, and doesn't ask for what is already running
     await click($('#view-summary'));
     await settle();
@@ -354,7 +357,7 @@ pageTest(
     // the page asks when its window gets the focus, as it does every few seconds while in sight
     window.dispatchEvent(new Event('focus'));
     await settle();
-    assert.deepEqual(notices(), ['Code changed on disk · Refresh']);
+    assert.deepEqual(notices(), ['Code changed on disk'], 'the click refreshes: its tooltip says so');
     change = payload.changeStamp!; // the edit was undone
     window.dispatchEvent(new Event('focus'));
     await settle();
@@ -393,10 +396,10 @@ test("the page the server sends carries its theme's colors on <html>, before any
     bg: string;
     accent: string;
     diff: DiffColors & { addText: string; delText: string };
+    chrome: ChromeColors;
   };
   const html = renderPage('<html lang="en"/*__LENS_ROOT__*/><script>/*__LENS_DATA__*/</script>', {
     ...payload,
-    chrome: ChromeColors;
     ...{ fg: light.fg, bg: light.bg, accent: light.accent, diff: light.diff, chrome: light.chrome },
   });
   assert.equal(light.diff.addText, '#34d05822', "github-light's own, with its alpha");
@@ -407,11 +410,11 @@ test("the page the server sends carries its theme's colors on <html>, before any
         `;--bg-src:${light.chrome.bg};--raised-src:${light.chrome.raised}`,
     ),
   );
+  assert.match(html, /;--mod-src:#005cc5ff">/, "the theme's chrome colors follow, the ones it sets");
+  assert.doesNotMatch(html, /--shadow-src/, 'none for one it leaves to lens');
   assert.ok(renderPage('<html/*__LENS_ROOT__*/>', payload).startsWith('<html data-appearance="dark"'));
 });
 
-  assert.match(html, /;--mod-src:#005cc5ff">/, "the theme's chrome colors follow, the ones it sets");
-  assert.doesNotMatch(html, /--shadow-src/, 'none for one it leaves to lens');
 test('the page the server sends is at the UI size, so it arrives at it instead of jumping to it', () => {
   assert.match(renderPage('<html/*__LENS_ROOT__*/>', payload, 125), /;zoom:1.25;--ui-zoom:1.25">$/);
   assert.doesNotMatch(renderPage('<html/*__LENS_ROOT__*/>', payload, 100), /zoom/, 'nothing at the default');
@@ -724,4 +727,12 @@ pageTest('with timings off, the page measures nothing, and the ⋯ switch turns 
     page.requests.filter((request) => request.path === '/api/settings').map((request) => request.body),
     [{ timings: true }],
   );
+});
+
+test("notices that don't fit fold, from the last, into a +N that keeps room for itself", () => {
+  assert.equal(noticesThatFit([100, 100, 100], 300), 3, 'they fit: no +N');
+  assert.equal(noticesThatFit([100, 100, 100], 250), 2);
+  assert.equal(noticesThatFit([100, 100, 100], 200), 1, 'two would fit, but not with the +N');
+  assert.equal(noticesThatFit([100, 100], 60), 0, 'all fold');
+  assert.equal(noticesThatFit([0, 0, 0], 0), 3, 'no layout: all');
 });

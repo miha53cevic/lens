@@ -20,7 +20,12 @@ export function StatusBar() {
   const notices = useLens(barNotices);
   return (
     <Bar
-      status={{ ...status, action: status.action && STATUS_ACTIONS[status.action] }}
+      status={{
+        kind: status.kind,
+        label: status.label,
+        detail: status.detail,
+        ...(status.action && STATUS_ACTIONS[status.action]),
+      }}
       notices={notices.map((notice) => ({
         id: notice.id,
         text: notice.text,

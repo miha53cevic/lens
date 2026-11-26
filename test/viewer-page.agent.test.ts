@@ -84,10 +84,10 @@ pageTest("the agent's runs: the bar says so, its dialog lists them, and Stop end
     { id: '2', kind: 'ask', label: 'Can total() return a negative number now?', startedAt: Date.now() - 12_000 },
   ];
   await poll();
-  assert.equal($('#status-bar [data-part="status-label"]').textContent, 'Agent running');
+  assert.equal($('#status-bar [data-part="status-label"]').textContent, 'Agent running…');
   assert.match($('#status-bar [data-part="status-detail"]').textContent!, /^2 runs · 3 min$/);
-  assert.equal($('#status-action').textContent, 'Show');
-  await click($('#status-action'));
+  assert.equal($$('#status-action').length, 0, 'the status itself is the button');
+  await click($('#status [data-part="status-item"]'));
   await settle();
   const dialog = $('#runs-modal') as HTMLDialogElement;
   assert.ok(dialog.open);
@@ -103,7 +103,7 @@ pageTest("the agent's runs: the bar says so, its dialog lists them, and Stop end
   page.agentRuns = [];
   await poll();
   assert.equal(dialog.querySelector('.empty')?.textContent, 'Nothing is running.');
-  assert.notEqual($('#status-bar [data-part="status-label"]').textContent, 'Agent running');
+  assert.notEqual($('#status-bar [data-part="status-label"]').textContent, 'Agent running…');
 });
 
 pageTest('the rail with an agent listening says so itself: the bar has no notice for it', async (page) => {

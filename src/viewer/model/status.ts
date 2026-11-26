@@ -9,7 +9,7 @@ import { listModel } from './summaryList.ts';
 import { pickedPlan, planName } from './planTab.ts';
 
 export type StatusKind = 'gone' | 'failed' | 'working' | 'waiting' | 'done' | 'idle';
-/** What the status's button does (the handlers are in components/StatusBar/const.ts) */
+/** What the status's click does: where it leads, or what it does to the status (the handlers are in components/StatusBar/const.ts) */
 export type StatusActionId = 'retry' | 'dismiss' | 'openAsk' | 'openRuns';
 
 export interface Status {
@@ -69,12 +69,25 @@ const waitingForAgent: StatusSource = (state) => {
   };
 };
 
-/** lens's own agent is on something: how many runs, and how long the oldest has gone */
+/** lens's own agent is on something: the summary it writes, or how many runs; and how long the oldest has gone */
 const agentRunning: StatusSource = (state) => {
   const [oldest] = state.agentRuns;
   if (!oldest || state.serverGone) return null;
-  const detail = plural(state.agentRuns.length, 'run') + ' · ' + agoText(Date.now() - oldest.startedAt);
-  return { kind: 'working', label: 'Agent running', detail, action: 'openRuns' };
+  const runs = state.agentRuns.length;
+  const ago = agoText(Date.now() - oldest.startedAt);
+  const build = runGoing(state);
+  if (build) {
+    const detail = [buildProgress(build), runs > 1 && plural(runs, 'run'), ago].filter(Boolean).join(' · ');
+    return { kind: 'working', label: 'Agent writing summary…', detail, action: 'openRuns' };
+  }
+  return { kind: 'working', label: 'Agent running…', detail: plural(runs, 'run') + ' · ' + ago, action: 'openRuns' };
+};
+
+/** The reader's own agent writes the summary: lens sees only its writes, and has no run to show */
+const summaryWriting: StatusSource = (state) => {
+  const build = runGoing(state);
+  if (!build || state.agentRuns.length > 0) return null;
+  return { kind: 'working', label: 'Agent writing summary…', detail: buildProgress(build), action: null };
 };
 
 const doneNote: StatusSource = (state) =>
@@ -83,7 +96,15 @@ const doneNote: StatusSource = (state) =>
     : null;
 
 /** Strongest first: the first source with something to say is the bar's status. */
-const STATUS_SOURCES: StatusSource[] = [serverStopped, failure, working, agentRunning, waitingForAgent, doneNote];
+const STATUS_SOURCES: StatusSource[] = [
+  serverStopped,
+  failure,
+  working,
+  agentRunning,
+  waitingForAgent,
+  doneNote,
+  summaryWriting,
+];
 
 /** The bar's status. Its fields are plain values, so a selector can return it as it is. */
 export function barStatus(state: LensState): Status {
@@ -117,17 +138,25 @@ const staleSummaries: NoticeSource = (state) => {
   const stale = listModel(state)?.units.filter((unit) => unit.stale).length ?? 0;
   if (stale === 0) return null;
   const text = stale === 1 ? '1 summary out of date' : stale + ' summaries out of date';
-  return { id: 'stale-summaries', text, tone: 'warn', action: 'openOverview' };
+  return { id: 'stale-summaries', text, tone: 'warn', action: 'openOverview', tip: 'Open the overview' };
 };
 
 const changedOnDisk: NoticeSource = (state) =>
   // known only from the stamp poll, which sets it and takes it back (see stampWatcher)
   state.changedOnDisk && state.data.canRefresh && !state.serverGone
-    ? { id: 'changed-on-disk', text: 'Code changed on disk · Refresh', tone: 'warn', action: 'refresh' }
+    ? { id: 'changed-on-disk', text: 'Code changed on disk', tone: 'warn', action: 'refresh', tip: 'Refresh' }
     : null;
 
 const newSummary: NoticeSource = (state) =>
-  state.summaryDot ? { id: 'new-summary', text: 'New summary waiting', tone: 'accent', action: 'openSummary' } : null;
+  state.summaryDot
+    ? {
+        id: 'new-summary',
+        text: 'New summary waiting',
+        tone: 'accent',
+        action: 'openSummary',
+        tip: 'Open the Summary tab',
+      }
+    : null;
 
 /** No write for this long and a run reads as stopped. A big diff's one submit can take minutes, so it's generous. */
 const RUN_QUIET_MS = 20 * 60 * 1000;
@@ -160,17 +189,19 @@ const STAGE_TEXT: Record<Exclude<BuildStage, 'changes'>, string> = {
   fixes: 'fixing what submit rejected',
 };
 
-const summaryBuilding: NoticeSource = (state) => {
+/** Where a run got to: "12 of 40 units", or the stage after them */
+function buildProgress(build: BuildProgress): string {
+  return build.stage === 'changes' ? build.done + ' of ' + plural(build.total, 'unit') : STAGE_TEXT[build.stage];
+}
+
+/** A run left unfinished lasts: a notice. One under way is the status (agentRunning, summaryWriting). */
+const summaryStalled: NoticeSource = (state) => {
   // known only from the stamp poll, which sets it and takes it back once the run is done
   const build = state.summaryBuild;
-  if (!build || state.serverGone) return null;
+  if (!build || !buildStalled(build) || state.serverGone) return null;
   const count = build.done + ' of ' + plural(build.total, 'unit');
-  if (buildStalled(build)) {
-    const text = 'Summary unfinished · ' + count + ' · last write ' + agoText(build.quietMs) + ' ago';
-    return { id: 'summary-build', text, tone: 'warn', action: null };
-  }
-  const progress = build.stage === 'changes' ? count : STAGE_TEXT[build.stage];
-  return { id: 'summary-build', text: 'Agent writing summary · ' + progress, tone: 'live', action: null };
+  const text = 'Summary unfinished · ' + count + ' · last write ' + agoText(build.quietMs) + ' ago';
+  return { id: 'summary-build', text, tone: 'warn', action: null };
 };
 
 const guessedBase: NoticeSource = (state) =>
@@ -194,6 +225,7 @@ const configProblems: NoticeSource = (state) => {
     text: files + ': ' + plural(problems.length, 'problem'),
     tone: 'warn',
     action: 'openSettings',
+    tip: 'Open Settings',
   };
 };
 
@@ -221,7 +253,7 @@ const typescriptServer: NoticeSource = (state) => {
         tip: 'Running TypeScript ' + lsp.version + ' (tsc --lsp): hover a name, ⌘-click it',
       };
     case 'starting':
-      return { ...base, text: 'TypeScript starting', tone: 'plain', icon: 'typescript-busy' };
+      return { ...base, text: 'TypeScript starting', tone: 'plain', icon: 'typescript-busy', tip: 'Open Settings' };
     case 'stopped':
       return {
         ...base,
@@ -244,7 +276,13 @@ const agentFailed: NoticeSource = (state) => {
   const error = state.agentRun?.error;
   if (!error || state.serverGone) return null;
   if (error === 'Stopped')
-    return { id: 'agent-failed', text: "The agent's summary run was stopped", tone: 'warn', action: 'openSummary' };
+    return {
+      id: 'agent-failed',
+      text: "The agent's summary run was stopped",
+      tone: 'warn',
+      action: 'openSummary',
+      tip: 'Open the Summary tab',
+    };
   return {
     id: 'agent-failed',
     text: "The agent's summary run failed",
@@ -261,7 +299,7 @@ const NOTICE_SOURCES: NoticeSource[] = [
   changedOnDisk,
   staleSummaries,
   newSummary,
-  summaryBuilding,
+  summaryStalled,
   planAgent,
   typescriptServer,
 ];

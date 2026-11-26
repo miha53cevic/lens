@@ -1,6 +1,7 @@
 // What the bar's buttons do. The model (model/status.ts) names an action; this is where it runs.
 
 import type { NoticeActionId, StatusActionId } from '../../model/status.ts';
+import type { BarStatus } from '../../../ui/StatusBar.tsx';
 import { openSettings } from '../../actions/dialogs.ts';
 import { refresh } from '../../actions/session.ts';
 import { dismissNotice, retryServer } from '../../actions/status.ts';
@@ -9,18 +10,14 @@ import { setView } from '../../actions/views.ts';
 import { askSetOpen } from '../../ask/rail.ts';
 import { openRuns } from '../../actions/agentRuns.ts';
 
-interface StatusAction {
-  label: string;
-  /** The one thing left to do gets the accent */
-  primary?: boolean;
-  run: () => void;
-}
+/** Where the status leads (the item is the button), or what is done to it (an item after it, or ×) */
+type StatusAction = Pick<BarStatus, 'run' | 'tip' | 'action' | 'dismiss'>;
 
 export const STATUS_ACTIONS: Record<StatusActionId, StatusAction> = {
-  retry: { label: 'Retry', primary: true, run: retryServer },
-  dismiss: { label: 'Dismiss', run: dismissNotice },
-  openAsk: { label: 'Open Ask', run: () => askSetOpen(true) },
-  openRuns: { label: 'Show', run: openRuns },
+  retry: { action: { label: 'Retry', primary: true, run: retryServer } },
+  dismiss: { dismiss: dismissNotice },
+  openAsk: { run: () => askSetOpen(true), tip: 'Open Ask' },
+  openRuns: { run: openRuns, tip: 'Show the runs' },
 };
 
 export const NOTICE_ACTIONS: Record<NoticeActionId, () => void> = {

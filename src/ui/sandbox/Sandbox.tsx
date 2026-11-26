@@ -411,7 +411,8 @@ export function Sandbox() {
               kind: 'failed',
               label: 'Refresh failed',
               detail: 'git exited with 128',
-              action: { label: 'Dismiss', run: () => {} },
+              action: { label: 'Retry', run: () => {} },
+              dismiss: () => {},
             }}
             notices={[
               { id: 'stale', text: '2 summaries are stale', tone: 'warn', run: () => {} },
