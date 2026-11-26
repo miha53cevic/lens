@@ -32,8 +32,8 @@ beforeAll(async () => {
   menu = (await bundlePage(join(app, 'menu', 'main.tsx'))).script;
 });
 
-const VESPER: ThemeSwatch = { name: 'vesper', bg: '#101010', fg: '#ffffff', accent: '#ffc799' };
-const LIGHT: ThemeSwatch = { name: 'github-light', bg: '#ffffff', fg: '#24292e', accent: '#6f42c1' };
+const VESPER: ThemeSwatch = { name: 'vesper', bg: '#101010', fg: '#ffffff', accent: '#ffc799', chrome: null };
+const LIGHT: ThemeSwatch = { name: 'github-light', bg: '#ffffff', fg: '#24292e', accent: '#6f42c1', chrome: null };
 
 const REPO: RepoInfo = {
   root: '/Users/ana/repos/storefront',

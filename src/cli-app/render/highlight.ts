@@ -5,7 +5,8 @@ import type { Highlighter, BundledLanguage, BundledTheme, GrammarState, ThemedTo
 import { bundledThemes } from 'shiki/themes';
 import { bundledLanguages } from 'shiki/langs';
 import andromedaItalic from './themes/andromeda-italic.json' with { type: 'json' };
-import type { DiffColors } from './diffColors.ts';
+import { isLightColor } from '../theme.ts';
+import { CHROME_KEYS, type ChromeColors, type ChromeToken, type DiffColors } from './themeColors.ts';
 
 // One token as shipped to the viewer: [text, color, style]. Color is a hex string or null for the
 // theme's default foreground; style, only when the theme gives one, is Shiki's FontStyle bits
@@ -165,6 +166,62 @@ export async function themeDiffColors(theme: string): Promise<DiffColors | null>
   return Object.values(diff).some((value) => value !== null) ? diff : null;
 }
 
+/** The surfaces: one the same as the code would hide what it marks (Andromeda's selection is its editor's background). */
+const SURFACES: ChromeToken[] = ['bg', 'raised', 'selected-bg', 'hover-bg'];
+
+/**
+ * The colors the theme gives VS Code's workbench, for lens's chrome (`CHROME_KEYS`); null when it sets
+ * none lens can use, and lens's own mixes show. A surface the same as the code's background, a line that
+ * doesn't stand out from it, and a grey focus ring are left to lens.
+ */
+export async function themeChromeColors(theme: string): Promise<ChromeColors | null> {
+  const { loaded } = await withTheme(theme);
+  const codeBg = withAlpha(loaded.bg);
+  const chrome = {} as ChromeColors;
+  for (const [token, key] of Object.entries(CHROME_KEYS) as [ChromeToken, string][]) {
+    const color = withAlpha(loaded.colors?.[key]);
+    const hidden = SURFACES.includes(token) && color !== null && codeBg !== null && sameColor(color, codeBg);
+    const grey = token === 'focus' && color !== null && saturation(color) < 0.3;
+    const sunk = token === 'line' && color !== null && codeBg !== null && !standsOut(color, codeBg);
+    chrome[token] = hidden || grey || sunk ? null : color;
+  }
+  return Object.values(chrome).some((value) => value !== null) ? chrome : null;
+}
+
+/**
+ * Whether a line stands out on lens's page, which is the code's background taken further from the text
+ * (darker on a dark theme): only when the line goes the other way, toward the text. A VS Code border can
+ * go either way, since its panels are lighter than it (Andromeda's and GitHub Dark's are darker than their code).
+ */
+function standsOut(line: string, codeBg: string): boolean {
+  const brightness = (color: string) => {
+    const [red, green, blue] = channels(color);
+    return 0.299 * red + 0.587 * green + 0.114 * blue;
+  };
+  const towardText = isLightColor(codeBg)
+    ? brightness(codeBg) - brightness(line)
+    : brightness(line) - brightness(codeBg);
+  return towardText >= 8;
+}
+
+/** Two `#rrggbbaa` colors' red, green and blue, as 0–255 */
+function channels(color: string): number[] {
+  return [1, 3, 5].map((offset) => parseInt(color.slice(offset, offset + 2), 16));
+}
+
+/** Whether two `#rrggbbaa` colors look the same, alpha aside */
+function sameColor(a: string, b: string): boolean {
+  const [ca, cb] = [channels(a), channels(b)];
+  return ca.every((value, index) => Math.abs(value - cb[index]) <= 4);
+}
+
+/** A `#rrggbbaa` color's HSL saturation, 0–1 */
+function saturation(color: string): number {
+  const [red, green, blue] = channels(color).map((value) => value / 255);
+  const [max, min] = [Math.max(red, green, blue), Math.min(red, green, blue)];
+  return max === min ? 0 : (max - min) / (1 - Math.abs(max + min - 1));
+}
+
 /** `#rgb`, `#rgba`, `#rrggbb` or `#rrggbbaa` as `#rrggbbaa`; null for anything else. */
 function withAlpha(color: string | undefined): string | null {
   const hex = /^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.exec(color ?? '')?.[1];
@@ -173,18 +230,20 @@ function withAlpha(color: string | undefined): string | null {
   return '#' + (full.length === 6 ? full + 'ff' : full).toLowerCase();
 }
 
-/** A theme as the viewer's theme menu shows it: its name, its colors and its accent. */
+/** A theme as the theme menus show it and the app's pages paint it: its name, its colors and its accent. */
 export interface ThemeSwatch {
   name: string;
   bg: string;
   fg: string;
   accent: string;
+  /** The chrome's colors from the theme's workbench ones; null: lens's own */
+  chrome: ChromeColors | null;
 }
 
 export async function themeSwatch(theme: string): Promise<ThemeSwatch> {
-  const accent = await themeAccent(theme);
+  const [accent, chrome] = await Promise.all([themeAccent(theme), themeChromeColors(theme)]);
   const { loaded } = await withTheme(theme);
-  return { name: theme, bg: loaded.bg, fg: loaded.fg, accent };
+  return { name: theme, bg: loaded.bg, fg: loaded.fg, accent, chrome };
 }
 
 /**

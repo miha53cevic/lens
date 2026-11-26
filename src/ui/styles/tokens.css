@@ -4,6 +4,8 @@
  *   2. semantic — what components use: surfaces, text, lines, accent, diff and signal colors,
  *      mixed from the inputs so the chrome matches any Shiki theme
  *   3. component — the few a part needs (--row-h, --pill-*), defined next to that part
+ * Where the theme sets a VS Code workbench color for a tier-2 token, that token reads it (`--<token>-src`,
+ * render/themeColors.ts) as VS Code would paint it, and its mix is the fallback.
  * Components use tier 2 and the scales, never raw colors, and never a size, space, radius, shadow
  * or layer of their own: test/tokens.test.ts holds them to it.
  */
@@ -94,20 +96,20 @@
 
   /* ---- semantic: the same for light and dark themes ---- */
   --surface: var(--code-bg);
-  --line: color-mix(in oklab, var(--code-fg) 13%, var(--code-bg));
+  --line: var(--line-src, color-mix(in oklab, var(--code-fg) 13%, var(--code-bg)));
   --line-strong: color-mix(in oklab, var(--code-fg) 24%, var(--code-bg));
-  --muted: color-mix(in oklab, var(--text) 64%, var(--code-bg));
+  --muted: var(--muted-src, color-mix(in oklab, var(--text) 64%, var(--code-bg)));
   --faint: color-mix(in oklab, var(--text) 42%, var(--code-bg));
   --accent: var(--theme-accent);
   --accent-fg: var(--code-bg);
   /* what's selected, open or on (a tab, a row, a pressed button): the accent, softly; a picked option is solid --accent */
-  --selected-bg: color-mix(in oklab, var(--accent) 13%, var(--surface));
+  --selected-bg: var(--selected-bg-src, color-mix(in oklab, var(--accent) 13%, var(--surface)));
   --selected-ring: color-mix(in oklab, var(--accent) 45%, transparent);
-  --focus: var(--accent);
+  --focus: var(--focus-src, var(--accent));
   /* the border of the field being typed into */
   --field-focus: color-mix(in oklab, var(--accent) 60%, var(--line));
   /* under the pointer, whatever it sits on: the page, a card, a selected pill */
-  --hover-bg: color-mix(in oklab, var(--text) 7%, transparent);
+  --hover-bg: var(--hover-bg-src, color-mix(in oklab, var(--text) 7%, transparent));
   /* a placeholder for what isn't there yet (ui/Skeleton), and the highlight that sweeps over it */
   --skeleton: color-mix(in oklab, var(--text) 9%, transparent);
   --skeleton-glint: color-mix(in oklab, var(--text) 17%, transparent);
@@ -128,24 +130,30 @@
      as text on this appearance; lens's own pair when the theme has none */
   --add: oklch(from var(--diff-add-text-src, var(--add-own)) clamp(var(--diff-l-min), l, var(--diff-l-max)) c h / 1);
   --del: oklch(from var(--diff-del-text-src, var(--del-own)) clamp(var(--diff-l-min), l, var(--diff-l-max)) c h / 1);
+  /* the signals the theme also colors (its error and warning, its modified files), at the same readable
+     lightness; lens's own where it doesn't. A bug is shown as the theme's error */
+  --danger: oklch(from var(--danger-src, var(--danger-own)) clamp(var(--diff-l-min), l, var(--diff-l-max)) c h / 1);
+  --bug: oklch(from var(--danger-src, var(--bug-own)) clamp(var(--diff-l-min), l, var(--diff-l-max)) c h / 1);
+  --risk: oklch(from var(--risk-src, var(--risk-own)) clamp(var(--diff-l-min), l, var(--diff-l-max)) c h / 1);
+  --mod: oklch(from var(--mod-src, var(--mod-own)) clamp(var(--diff-l-min), l, var(--diff-l-max)) c h / 1);
 
   /* ---- semantic: dark themes ---- */
-  --bg: color-mix(in oklab, var(--code-bg) 82%, #000);
+  --bg: var(--bg-src, color-mix(in oklab, var(--code-bg) 82%, #000));
   --surface-2: color-mix(in oklab, var(--code-bg) 90%, var(--code-fg));
   /* menus, tooltips, the review pill: lifted off the page */
-  --raised: color-mix(in oklab, var(--code-bg) 92%, var(--code-fg));
+  --raised: var(--raised-src, color-mix(in oklab, var(--code-bg) 92%, var(--code-fg)));
   --text: color-mix(in oklab, var(--code-fg) 90%, #fff);
-  --shadow: #000000b0;
+  --shadow: var(--shadow-src, #000000b0);
   /* over the page, under a dialog */
   --scrim: #00000066;
   --add-own: #6cc58f;
-  --mod: #e0b45c;
+  --mod-own: #e0b45c;
   --del-own: #f0855a;
   /* destructive actions: a plain red, apart from --del */
-  --danger: #f26b6b;
+  --danger-own: #f26b6b;
   --ren: #8fb3ff;
-  --bug: #f0855a;
-  --risk: #e0b45c;
+  --bug-own: #f0855a;
+  --risk-own: #e0b45c;
   --question: #8fb3ff;
   --breaks: #c4a5ff;
   --diff-l-min: 0.6;
@@ -156,19 +164,19 @@
 
 /* a light code theme: warm paper around the code */
 :root[data-appearance='light'] {
-  --bg: color-mix(in oklab, var(--code-bg) 94%, #9c7f3c);
+  --bg: var(--bg-src, color-mix(in oklab, var(--code-bg) 94%, #9c7f3c));
   --surface-2: color-mix(in oklab, var(--code-bg) 89%, #9c7f3c);
-  --raised: var(--code-bg);
+  --raised: var(--raised-src, var(--code-bg));
   --text: color-mix(in oklab, var(--code-fg) 78%, #000);
-  --shadow: #1c223038;
+  --shadow: var(--shadow-src, #1c223038);
   --scrim: #1c223052;
   --add-own: #1f8a4c;
-  --mod: #a16207;
+  --mod-own: #a16207;
   --del-own: #c2410c;
-  --danger: #c52a2a;
+  --danger-own: #c52a2a;
   --ren: #2563eb;
-  --bug: #c2410c;
-  --risk: #b45309;
+  --bug-own: #c2410c;
+  --risk-own: #b45309;
   --question: #2563eb;
   --breaks: #7c3aed;
   --diff-l-min: 0.45;

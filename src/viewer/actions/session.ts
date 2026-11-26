@@ -33,10 +33,14 @@ export async function switchTheme(theme: string): Promise<boolean> {
           bg: entry.bg,
           accent: entry.accent,
           diff: entry.diff,
+          chrome: entry.chrome,
           // a theme from the saved choice that isn't in the menu yet joins it
           themes: state.data.themes.some((swatch) => swatch.name === entry.theme)
             ? state.data.themes
-            : [...state.data.themes, { name: entry.theme, bg: entry.bg, fg: entry.fg, accent: entry.accent }],
+            : [
+                ...state.data.themes,
+                { name: entry.theme, bg: entry.bg, fg: entry.fg, accent: entry.accent, chrome: entry.chrome },
+              ],
           files: state.data.files.map((file, fileIndex) => ({
             ...file,
             tokens: entry.tokens[fileIndex],

@@ -15,7 +15,7 @@ const A_YEAR = 365 * 24 * 60 * 60;
 export class Themes {
   /** The theme menu's themes */
   all: ThemeSwatch[] = [];
-  current: ThemeSwatch = { name: 'andromeda-italic', bg: '#23262E', fg: '#D5CED9', accent: '#FFE66D' };
+  current: ThemeSwatch = { name: 'andromeda-italic', bg: '#23262E', fg: '#D5CED9', accent: '#FFE66D', chrome: null };
   /** lens's version and git's, which the same `lens info` answers */
   version = '';
   git: string | null = null;

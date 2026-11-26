@@ -57,7 +57,7 @@ import {
   SUGGESTED_THEMES,
   type ViewerToken,
 } from '../highlight.ts';
-import { diffColorProperties, type DiffColors } from '../diffColors.ts';
+import { chromeColorProperties, diffColorProperties, type ChromeColors, type DiffColors } from '../themeColors.ts';
 
 export type ViewerFile = FileFoldModel & {
   source: string;
@@ -134,6 +134,8 @@ export type ViewerPayload = Omit<ViewerInput, 'root' | 'cwd' | 'files' | 'latest
   accent: string;
   /** The theme's diff colors; null: lens's own */
   diff: DiffColors | null;
+  /** The chrome's colors from the theme's workbench ones; null: lens's own */
+  chrome: ChromeColors | null;
   /** `removedTokens[block][line]`: the removed lines' tokens, by the file's `removals` */
   files: (ViewerFile & { tokens: ViewerToken[][]; removedTokens: ViewerToken[][][] })[];
   themePinned: boolean;
@@ -159,6 +161,8 @@ export interface ThemeTokens {
   accent: string;
   /** The theme's diff colors; null: lens's own */
   diff: DiffColors | null;
+  /** The chrome's colors from the theme's workbench ones; null: lens's own */
+  chrome: ChromeColors | null;
   /** tokens[fileIndex] — aligned with the files array */
   tokens: ViewerToken[][][];
   /** removed[fileIndex][block][line]: the removed lines' tokens, colored in the old file around them */
@@ -260,6 +264,7 @@ export async function highlightFiles(
     theme,
     accent: swatch.accent,
     diff,
+    chrome: swatch.chrome,
     fg: results[0]?.fg ?? swatch.fg,
     bg: results[0]?.bg ?? swatch.bg,
     tokens: results.map((r) => r.tokens),
@@ -290,6 +295,7 @@ export function viewerPayload(
     bg: t.bg,
     accent: t.accent,
     diff: t.diff,
+    chrome: t.chrome,
     files: input.files.map((f, i) => ({ ...f, tokens: t.tokens[i], removedTokens: t.removed[i] })),
     ...opts,
     notes: opts.notes ?? [],
@@ -305,10 +311,10 @@ export function viewerPayload(
  * sets them), so the page's first paint, before its script has run, is already in the theme and at its size.
  */
 export function renderPage(template: string, payload: ViewerPayload, zoom = UI_ZOOM_DEFAULT): string {
-  const diff = diffColorProperties(payload.diff)
+  const themed = [...diffColorProperties(payload.diff), ...chromeColorProperties(payload.chrome)]
     .flatMap(([name, value]) => (value ? [`;${name}:${value}`] : []))
     .join('');
-  const colors = `--code-fg:${payload.fg};--code-bg:${payload.bg};--theme-accent:${payload.accent}${diff}${zoomStyle(zoom)}`;
+  const colors = `--code-fg:${payload.fg};--code-bg:${payload.bg};--theme-accent:${payload.accent}${themed}${zoomStyle(zoom)}`;
   const root = ` data-appearance="${isLightColor(payload.bg) ? 'light' : 'dark'}" style="${escapeHtml(colors)}"`;
   const data = JSON.stringify(payload).replace(/</g, '\\u003c');
   // Function replacements: plain strings would expand $-sequences in the payload.

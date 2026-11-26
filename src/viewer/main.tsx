@@ -14,7 +14,7 @@ import { isLightColor } from '../cli-app/theme.ts';
 import { CODE_SIZE_DEFAULT } from './codeSize.ts';
 import { cleanCodeFont, codeFontValue } from './codeFont.ts';
 import { applyZoom } from '../cli-app/zoom.ts';
-import { diffColorProperties } from '../cli-app/render/diffColors.ts';
+import { chromeColorProperties, diffColorProperties } from '../cli-app/render/themeColors.ts';
 import { setView, stampWatcher } from './actions/views.ts';
 import { openFirstTreeFile } from './actions/tabs.ts';
 import { askWatcher } from './ask/rail.ts';
@@ -47,6 +47,14 @@ function syncDocument(state: LensState, previous: LensState | null) {
     const root = document.documentElement;
     const { diff } = state.data;
     for (const [name, color] of diffColorProperties(diff)) {
+      if (color) root.style.setProperty(name, color);
+      else root.style.removeProperty(name);
+    }
+  }
+  // the theme's workbench colors for the chrome (tokens.css); none, lens's own mixes
+  if (!previous || previous.data.chrome !== state.data.chrome) {
+    const root = document.documentElement;
+    for (const [name, color] of chromeColorProperties(state.data.chrome)) {
       if (color) root.style.setProperty(name, color);
       else root.style.removeProperty(name);
     }

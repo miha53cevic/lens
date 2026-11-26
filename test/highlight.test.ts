@@ -9,6 +9,7 @@ import {
   isBundledTheme,
   SUGGESTED_THEMES,
   themeAccent,
+  themeChromeColors,
   themeDiffColors,
   type ViewerToken,
 } from '../src/cli-app/render/highlight.ts';
@@ -188,6 +189,31 @@ test("a theme's diff colors: VS Code's diffEditor ones with their alpha, or none
     delLine: '#ff808015',
   });
   assert.equal(await themeDiffColors('dark-plus'), null, "a theme that sets none: VS Code's defaults");
+});
+
+test("a theme's chrome colors: VS Code's workbench ones, but none that would hide what they mark", async () => {
+  assert.deepEqual(await themeChromeColors('github-light'), {
+    bg: '#f6f8faff',
+    raised: '#f6f8faff',
+    'selected-bg': '#e2e5e9ff',
+    'hover-bg': '#ebf0f4ff',
+    shadow: null,
+    line: '#e1e4e8ff',
+    muted: '#6a737dff',
+    focus: '#2188ffff',
+    danger: '#cb2431ff',
+    risk: '#f9c513ff',
+    mod: '#005cc5ff',
+  });
+  const andromeda = await themeChromeColors('andromeda-italic');
+  assert.equal(andromeda?.['selected-bg'], null, "its selection is its editor's background: lens's own shows");
+  assert.equal(andromeda?.bg, null, 'so is its side bar');
+  assert.equal(andromeda?.focus, null, 'a grey focus ring: the accent shows');
+  assert.equal(andromeda?.line, null, 'its border is darker than its code: no line on a page darker still');
+  assert.equal((await themeChromeColors('github-dark'))?.line, null, "so is GitHub Dark's");
+  assert.equal((await themeChromeColors('dracula'))?.line, '#bd93f9ff', 'a border lighter than the code stays');
+  assert.equal(andromeda?.danger, '#fc644dff');
+  assert.equal(await themeChromeColors('dark-plus'), null, "a theme that sets none lens takes: lens's own");
 });
 
 test("lens's own Andromeda Italic: known by name, the default, and its italics reach the tokens", async () => {

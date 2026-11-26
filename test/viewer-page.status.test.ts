@@ -2,7 +2,7 @@
 // The viewer page: the status bar, and what the page says about the server and the change.
 // The harness is test/fixtures/viewerPage.ts.
 
-import type { DiffColors } from '../src/cli-app/render/diffColors.ts';
+import type { ChromeColors, DiffColors } from '../src/cli-app/render/themeColors.ts';
 import { test } from 'bun:test';
 import assert from 'node:assert/strict';
 import { fireEvent, within } from '@testing-library/dom';
@@ -396,18 +396,22 @@ test("the page the server sends carries its theme's colors on <html>, before any
   };
   const html = renderPage('<html lang="en"/*__LENS_ROOT__*/><script>/*__LENS_DATA__*/</script>', {
     ...payload,
-    ...{ fg: light.fg, bg: light.bg, accent: light.accent, diff: light.diff },
+    chrome: ChromeColors;
+    ...{ fg: light.fg, bg: light.bg, accent: light.accent, diff: light.diff, chrome: light.chrome },
   });
   assert.equal(light.diff.addText, '#34d05822', "github-light's own, with its alpha");
   assert.ok(
     html.startsWith(
       `<html lang="en" data-appearance="light" style="--code-fg:${light.fg};--code-bg:${light.bg};--theme-accent:${light.accent}` +
-        `;--diff-add-text-src:${light.diff.addText};--diff-del-text-src:${light.diff.delText}">`,
+        `;--diff-add-text-src:${light.diff.addText};--diff-del-text-src:${light.diff.delText}` +
+        `;--bg-src:${light.chrome.bg};--raised-src:${light.chrome.raised}`,
     ),
   );
   assert.ok(renderPage('<html/*__LENS_ROOT__*/>', payload).startsWith('<html data-appearance="dark"'));
 });
 
+  assert.match(html, /;--mod-src:#005cc5ff">/, "the theme's chrome colors follow, the ones it sets");
+  assert.doesNotMatch(html, /--shadow-src/, 'none for one it leaves to lens');
 test('the page the server sends is at the UI size, so it arrives at it instead of jumping to it', () => {
   assert.match(renderPage('<html/*__LENS_ROOT__*/>', payload, 125), /;zoom:1.25;--ui-zoom:1.25">$/);
   assert.doesNotMatch(renderPage('<html/*__LENS_ROOT__*/>', payload, 100), /zoom/, 'nothing at the default');
