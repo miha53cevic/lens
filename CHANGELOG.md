@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.10.0](https://github.com/miha53cevic/lens/compare/v0.9.1...v0.10.0) (2026-11-26)
+
+
+### Features
+
+* make the status bar's left side the same flat items as its notices, and fold notices that don't fit ([98d2d6f](https://github.com/miha53cevic/lens/commit/98d2d6f40c41841ee8d4dda6a26d0b8ee83ffc82))
+* show the diff's lines added and removed under the progress ring on both tabs, and add Expand All ([c09b7f3](https://github.com/miha53cevic/lens/commit/c09b7f383dac9359445f3ec34621d99ba932898e))
+* take the chrome's colors from the theme, as VS Code does, and color the icon from the default theme ([e529702](https://github.com/miha53cevic/lens/commit/e52970228dc9e4e95eaeb9d1f1b4ffb8393fef78))
+
+
+### Bug Fixes
+
+* keep a filter's count by its name, rework the checkout notice, and let tab buttons' edge be clicked through ([6c9ea5b](https://github.com/miha53cevic/lens/commit/6c9ea5bceda6a1ea6e588a6e511ed2cfd3cf7856))
+* make the progress ring's track and the tree's guides readable on dark themes ([2afde8f](https://github.com/miha53cevic/lens/commit/2afde8f5effcb3da3d5064c45b23245c189af509))
+
 ## [0.9.1](https://github.com/miha53cevic/lens/compare/v0.9.0...v0.9.1) (2026-11-25)
 
 
