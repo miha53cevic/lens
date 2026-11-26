@@ -90,7 +90,7 @@ test('a diff that ends at a branch another worktree has says to review it there'
     const how = $('#no-summary');
     assert.match(
       how.textContent!,
-      /this diff ends at feature, which is checked out in \/repos\/shop-feature\. Review it there/,
+      /this diff ends at feature, which is checked out in another worktree\.Review it there/,
     );
     assert.deepEqual(
       [...how.querySelectorAll('[data-part="copy-cmd-text"]')].map((command) => command.textContent),
@@ -108,6 +108,7 @@ test('a diff that ends at a branch another worktree has says to review it there'
     await close();
   }
 });
+    assert.equal(how.querySelector('[data-part="worktree-root"]')!.textContent, '/repos/shop-feature');
 
 test('a diff that ends at a branch not checked out offers a worktree or a checkout, instead of what to run', async () => {
   const fresh = payload.summary!;
@@ -121,7 +122,10 @@ test('a diff that ends at a branch not checked out offers a worktree or a checko
     await key('v');
     await settle();
     const how = $('#no-summary');
-    assert.match(how.textContent!, /this diff ends at feature\. Review in a worktree or check it out/);
+    assert.match(
+      how.textContent!,
+      /this diff ends at feature, which isn't checked out here\.Review in a worktreeor check it out/,
+    );
     assert.deepEqual(
       [...how.querySelectorAll('[data-part="copy-cmd-text"]')].map((command) => command.textContent),
       ['git checkout feature'],
@@ -177,9 +181,10 @@ test('Review in a worktree: lens makes it, and the notice turns into reviewing i
       ['POST'],
     );
     const how = $('#no-summary');
-    assert.match(
-      how.textContent!,
-      /which is checked out in \/repos\/shop\/\.lens\/worktrees\/6de10a6437ab\. Review it there/,
+    assert.match(how.textContent!, /which is checked out in another worktree\.Review it there/);
+    assert.equal(
+      how.querySelector('[data-part="worktree-root"]')!.textContent,
+      '/repos/shop/.lens/worktrees/6de10a6437ab',
     );
     assert.equal($$('[data-part="review-worktree"]').length, 0, 'made: nothing more to make');
   } finally {

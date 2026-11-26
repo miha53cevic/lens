@@ -26,9 +26,9 @@ export function AgentOverview({ summary, anySummarized, checking }: AgentOvervie
         <div data-part='ov-what-label' className='mb-1 text-accent eyebrow'>
           Agent summary
         </div>
-        <p className='[&&]:m-0 [&&]:text-md/[1.6] [&&]:text-muted'>
+        <div className='text-md/[1.6] text-muted'>
           <CheckoutFirst checkout={summary.checkout} />
-        </p>
+        </div>
       </div>
     );
   }

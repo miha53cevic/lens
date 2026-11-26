@@ -98,7 +98,8 @@ export function Segmented<T extends string | number>({
           onClick={() => onChange(option.value)}
         >
           {option.icon}
-          {option.label}
+          {/* one flex item: the gap is between it and its icon or badge, never inside it ("All 69") */}
+          <span className='whitespace-nowrap'>{option.label}</span>
           {option.badge}
         </button>
       ))}

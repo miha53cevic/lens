@@ -29,8 +29,8 @@ interface TabProps {
    */
   flat?: boolean;
   /**
-   * Its buttons keep no room: they show over the tab's end while it's hovered or focused, the words
-   * fading under them, so a tab is as wide as its words and never changes width (the app's strip).
+   * Its buttons keep no room: they show over the tab's end while it's hovered or focused, covering the
+   * words' end, so a tab is as wide as its words and never changes width (the app's strip).
    */
   floatButtons?: boolean;
   className?: string;
@@ -112,8 +112,9 @@ export function Tab({
       {floatButtons ? (
         <span
           data-part='tab-buttons'
-          // the page's own color under them, then the tab's (the selected tint in front), faded in over the words
-          className='absolute inset-y-0 right-1 hidden items-center rounded-r-full bg-[linear-gradient(to_right,transparent,var(--bg)_var(--space-5))] pl-5 group-focus-within/tab:flex group-hover/tab:flex group-data-active/tab:bg-[linear-gradient(to_right,transparent,var(--selected-bg)_var(--space-5)),linear-gradient(to_right,transparent,var(--bg)_var(--space-5))]'
+          // solid, in the tab's own color (the page's, the selected tint over it in front): the buttons cover the
+          // words' end with no fade. Only the buttons take clicks, so the tab stays clickable up to them
+          className='pointer-events-none absolute inset-y-0 right-1 hidden items-center rounded-r-full bg-bg pl-1 group-focus-within/tab:flex group-hover/tab:flex group-data-active/tab:[background:linear-gradient(var(--selected-bg),var(--selected-bg)),var(--bg)] [&>*]:pointer-events-auto'
         >
           {actions}
           {close}
