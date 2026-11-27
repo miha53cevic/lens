@@ -29,6 +29,7 @@ import { Tab, type OwnScreen, type TabHost } from './tab.ts';
 import { TabKeys } from './tabKeys.ts';
 import { TabList } from './tabs.ts';
 import type { Themes } from './themes.ts';
+import type { Updater } from './update.ts';
 import type { UiZoom } from './zoom.ts';
 
 /** The strip's height: the views start under it. The shell's stylesheet has the same number. */
@@ -58,6 +59,7 @@ export interface WindowDeps {
   zoom: UiZoom;
   preload: string;
   setup: SetupEnv;
+  updater: Updater;
 }
 
 export class AppWindow implements TabHost {
@@ -417,6 +419,7 @@ export class AppWindow implements TabHost {
       version: themes.version,
       agent: themes.agent,
       setup: setupState(setup),
+      update: this.deps.updater.state,
       theme: themes.current,
       zoom: this.deps.zoom.current,
       platform: process.platform,
@@ -440,6 +443,11 @@ export class AppWindow implements TabHost {
   private sendLauncher(tab: Tab): void {
     const view = this.views.get(tab.id)?.launcher;
     if (view && !view.webContents.isDestroyed()) view.webContents.send('launcher:changed', this.launcherState(tab));
+  }
+
+  /** The app's update moved on: every launcher page shows it (the App page is the one that does). */
+  updateChanged(): void {
+    for (const tab of this.tabs.all) this.sendLauncher(tab);
   }
 
   /** The theme changed: the window's own colors, every page of the app, and the open reviews. */
@@ -622,6 +630,8 @@ export class AppWindow implements TabHost {
       sandbox: () => this.openSandbox(),
       install: (part) => this.setup(tab, 'install', part),
       uninstall: (part) => this.setup(tab, 'uninstall', part),
+      checkUpdate: () => this.deps.updater.check(),
+      applyUpdate: () => this.deps.updater.apply(),
     };
   }
 

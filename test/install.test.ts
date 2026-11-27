@@ -8,7 +8,7 @@ import { existsSync, mkdtempSync, readFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { APP_ASSET, REPOSITORY } from '../src/desktop/main/release.ts';
+import { APP_ASSET, INSTALL_COMMAND, REPOSITORY } from '../src/desktop/shared/release.ts';
 import { fakeAppZip } from './fixtures/fakeApp.ts';
 
 const root = join(import.meta.dirname, '..');
@@ -27,7 +27,7 @@ test('install.sh fetches the asset the release workflow attaches, from the repos
   assert.match(workflow, new RegExp(`gh release upload "\\$TAG" ${APP_ASSET.replace('.', '\\.')}`));
   assert.ok(source.includes(`https://github.com/${REPOSITORY}/releases/latest/download/${APP_ASSET}`));
   const readme = readFileSync(join(root, 'README.md'), 'utf8');
-  assert.ok(readme.includes(`curl -fsSL https://raw.githubusercontent.com/${REPOSITORY}/main/install.sh | sh`));
+  assert.ok(readme.includes(INSTALL_COMMAND), "the README's line is the one the App page offers");
 });
 
 test.skipIf(process.platform !== 'darwin' || process.arch !== 'arm64')(

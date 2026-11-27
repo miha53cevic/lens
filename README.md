@@ -31,6 +31,9 @@ running it again updates it.
 curl -fsSL https://raw.githubusercontent.com/miha53cevic/lens/main/install.sh | sh
 ```
 
+To update, **App → Check for updates** downloads the newer release and restarts lens (the `lens` command
+updates with it).
+
 **From source** (needs [Bun](https://bun.com) 1.4+ and git): `bun install`, then `bun run app`.
 
 Then in the app, **App** (the plug in the tab strip) installs the `lens` command and the agent skills (into

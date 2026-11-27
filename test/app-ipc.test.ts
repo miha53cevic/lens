@@ -25,6 +25,11 @@ test('each parser takes its own arguments and drops anything else', () => {
   assert.deepEqual(LAUNCHER_ARGS.setCommitCount([40]), [40]);
   assert.equal(LAUNCHER_ARGS.setCommitCount([41]), null, 'only the counts the picker offers');
   assert.equal(LAUNCHER_ARGS.setCommitCount(['40']), null);
+  assert.deepEqual(
+    LAUNCHER_ARGS.applyUpdate(['https://example.com/other.zip']),
+    [],
+    "what's downloaded is never a page's",
+  );
   assert.deepEqual(LAUNCHER_ARGS.install(['skills']), ['skills']);
   assert.equal(LAUNCHER_ARGS.install(['everything']), null);
   assert.deepEqual(LAUNCHER_ARGS.open([{ kind: 'diff', range: 'staged', extra: 1 }]), [

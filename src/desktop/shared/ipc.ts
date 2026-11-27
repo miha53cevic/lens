@@ -68,6 +68,9 @@ export const LAUNCHER_ARGS: Parsers<LauncherApi> = {
   sandbox: none,
   install: part,
   uninstall: part,
+  // no arguments: what is checked and downloaded is the main process's own (main/update.ts), never a page's
+  checkUpdate: none,
+  applyUpdate: none,
 };
 
 export const MENU_ARGS: Parsers<MenuApi> = {

@@ -68,6 +68,23 @@ export interface SetupItem {
   note: string | null;
 }
 
+/**
+ * Where the app's own update stands (main/update.ts). It checks only when the reader asks.
+ * source: run from a checkout (git pull updates it) · unsupported: a build with no release to take
+ * idle: not checked yet · current: the latest release is this one
+ * available: a newer release; `canApply` false when the app's folder can't be written to (install.sh instead)
+ * applying: downloading and unpacking it, then the app restarts · failed: the check or the update didn't work
+ */
+export type UpdateState =
+  | { kind: 'source' }
+  | { kind: 'unsupported' }
+  | { kind: 'idle' }
+  | { kind: 'checking' }
+  | { kind: 'current' }
+  | { kind: 'available'; version: string; canApply: boolean; folder: string }
+  | { kind: 'applying'; version: string }
+  | { kind: 'failed'; label: string; detail: string };
+
 /** How many commits the picker can list; the first is what `lens info` lists unless asked (COMMITS_SHOWN) */
 export const COMMIT_COUNTS = [20, 40, 60] as const;
 export type CommitCount = (typeof COMMIT_COUNTS)[number];
@@ -106,6 +123,8 @@ export interface LauncherState {
   /** The agent lens runs itself (the machine's `agent` pick) and whether it can; null when none is picked */
   agent: AgentInfo | null;
   setup: Record<SetupPart, SetupItem>;
+  /** The app's own update: whether a newer release is there, and taking it */
+  update: UpdateState;
   theme: ThemeSwatch;
   /** The UI's size in percent: the viewer's (cli-app/zoom.ts), which the launcher's pages take too */
   zoom: number;
@@ -155,6 +174,10 @@ export interface LauncherApi {
   sandbox(): void;
   install(part: SetupPart): void;
   uninstall(part: SetupPart): void;
+  /** Ask GitHub for the latest release */
+  checkUpdate(): void;
+  /** Take the newer release the check found: download it, quit, swap the app, start it again */
+  applyUpdate(): void;
 }
 
 /** The strip's theme menu: a page of its own, in a view over the whole window while it is open. */

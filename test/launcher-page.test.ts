@@ -105,6 +105,7 @@ const START: LauncherState = {
     cli: { state: 'installed', where: '~/.local/bin/lens', note: null },
     skills: { state: 'installed', where: '~/.claude/skills · ~/.agents/skills', note: null },
   },
+  update: { kind: 'idle' },
   theme: VESPER,
   zoom: 100,
   platform: 'darwin',
@@ -860,6 +861,43 @@ pageTest("Setup: the picked agent's card, in each of its states", 'launcher', SE
   await page.push({ ...SETUP, agent: { ...CLAUDE, problem: 'unknown' } });
   assert.ok(!card().hasAttribute('data-needed'), "what lens can't read is no alarm");
   assert.equal($$('#setup-agent .dot').length, 0);
+});
+
+pageTest("Setup: the app's update, from asking to restarting", 'launcher', SETUP, async (page) => {
+  assert.equal($('#setup-update').dataset.state, 'idle');
+  assert.equal(text('#setup-update button'), 'Check for updates', 'nothing is checked until asked');
+  await click($('#setup-update button'));
+  assert.deepEqual(page.calls.at(-1), ['checkUpdate']);
+
+  await page.push({ ...SETUP, update: { kind: 'checking' } });
+  assert.equal(text('#setup-update [data-part="update-busy"]'), 'Checking…');
+  assert.equal($$('#setup-update button').length, 0);
+
+  await page.push({ ...SETUP, update: { kind: 'current' } });
+  assert.match(text('#setup-update'), /^Up to datelens 0\.1\.0 is the latest release\.LatestCheck again$/);
+
+  const available = { kind: 'available' as const, version: '0.2.0', canApply: true, folder: '/Applications' };
+  await page.push({ ...SETUP, update: available });
+  assert.match(text('#setup-update'), /^lens 0\.2\.0 is available/);
+  assert.equal($$('#setup-update .dot').length, 1);
+  assert.equal(text('#setup-update button'), 'Update and restart');
+  await click($('#setup-update button'));
+  assert.deepEqual(page.calls.at(-1), ['applyUpdate']);
+
+  await page.push({ ...SETUP, update: { ...available, canApply: false } });
+  assert.equal($$('#setup-update button[data-variant="primary"]').length, 0, "an app it can't replace: no button");
+  assert.match(text('#setup-update [data-part="copy-cmd-text"]'), /install\.sh \| sh$/, 'the curl line instead');
+
+  await page.push({ ...SETUP, update: { kind: 'applying', version: '0.2.0' } });
+  assert.equal(text('#setup-update [data-part="update-busy"]'), 'Downloading…');
+
+  const failed = { kind: 'failed' as const, label: "Couldn't check for updates", detail: 'GitHub answered 503.' };
+  await page.push({ ...SETUP, update: failed });
+  assert.match(text('#setup-update'), /^Couldn't check for updatesGitHub answered 503\.Check again$/);
+
+  await page.push({ ...SETUP, update: { kind: 'source' } });
+  assert.match(text('#setup-update'), /git pull updates it\.$/);
+  assert.equal($$('#setup-update button').length, 0, 'a checkout updates with git, not here');
 });
 
 // ---- the sandbox ----

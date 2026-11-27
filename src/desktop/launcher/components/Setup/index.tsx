@@ -5,6 +5,7 @@ import { useApp } from '../../store.ts';
 import { AgentCard } from './AgentCard.tsx';
 import { ROW } from './const.ts';
 import { SetupRow } from './SetupRow.tsx';
+import { UpdateRow } from './UpdateRow.tsx';
 
 /** Setup, in a tab of its own: what your agent needs to work with lens, and the way to the sandbox. */
 export function Setup() {
@@ -13,6 +14,7 @@ export function Setup() {
   const version = useApp((state) => state.version);
   const agent = useApp((state) => state.agent);
   const busy = useApp((state) => state.status.kind === 'working');
+  const update = useApp((state) => state.update);
   return (
     <main
       data-part='setup'
@@ -26,6 +28,10 @@ export function Setup() {
             lens {version}
           </span>
         </div>
+        <h2 className='mt-6 mb-2 px-2 eyebrow'>Updates</h2>
+        <ul className='m-0 grid list-none gap-3 p-0'>
+          <UpdateRow update={update} version={version} />
+        </ul>
         <h2 className='mt-6 mb-2 px-2 eyebrow'>Agent</h2>
         <ul className='m-0 grid list-none gap-3 p-0'>
           <SetupRow

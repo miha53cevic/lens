@@ -1,6 +1,7 @@
 // The desktop app's main process. It holds no lens logic: it starts the same CLI you would type,
 // shows that CLI's viewer in a tab, and offers screens to pick what the CLI should open.
 
+import { spawn } from 'node:child_process';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -12,9 +13,10 @@ import { setWindowsUserPath, terminalPath, type SetupEnv } from './setup.ts';
 import { runSmoke } from './smoke.ts';
 import { openStore } from './store.ts';
 import { Themes } from './themes.ts';
+import { Updater } from './update.ts';
 import { UiZoom } from './zoom.ts';
 import { AppWindow } from './window.ts';
-import { SOURCE_URL } from './release.ts';
+import { SOURCE_URL } from '../shared/release.ts';
 
 // this file, bundled, is dist/main.mjs: the pages and the preload sit next to it
 const distDir = import.meta.dirname;
@@ -73,6 +75,20 @@ async function start(): Promise<void> {
     pathDirs: await terminalPath(process.env, process.platform),
     setUserPath: process.platform === 'win32' ? setWindowsUserPath : undefined,
   };
+  const updater = new Updater({
+    current: app.getVersion(),
+    packed: app.isPackaged,
+    platform: process.platform,
+    arch: process.arch,
+    execPath: process.execPath,
+    pid: process.pid,
+    tempDir: app.getPath('temp'),
+    fetch: (url, init) => fetch(url, init),
+    // its own process group, so quitting the app leaves it running to swap the bundle
+    startScript: (path) => spawn('/bin/sh', [path], { detached: true, stdio: 'ignore' }).unref(),
+    quit: () => app.quit(),
+    changed: () => window?.updateChanged(),
+  });
   window = new AppWindow({
     cli,
     store: openStore(join(app.getPath('userData'), 'state.json')),
@@ -80,6 +96,7 @@ async function start(): Promise<void> {
     zoom,
     preload: join(distDir, 'preload.cjs'),
     setup,
+    updater,
   });
   setAppMenu(window);
   if (process.env.LENS_APP_SMOKE) void runSmoke(window, themes, process.env.LENS_APP_SMOKE);
