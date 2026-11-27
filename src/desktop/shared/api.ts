@@ -32,6 +32,8 @@ export interface StripState {
   hints: boolean;
   /** The lens command or the agent skills need installing, or the picked agent can't run (shared/setup.ts): Setup's button carries a dot */
   setupMissing: boolean;
+  /** The app's own update: Setup's button carries a dot while one is offered, running or failed */
+  update: UpdateState;
 }
 
 /** One status, as the viewer's status bar has one: what the tab is doing, or what went wrong. */
@@ -72,8 +74,10 @@ export interface SetupItem {
  * Where the app's own update stands (main/update.ts). It checks only when the reader asks.
  * source: run from a checkout (git pull updates it) · unsupported: a build with no release to take
  * idle: not checked yet · current: the latest release is this one
- * available: a newer release; `canApply` false when the app's folder can't be written to (install.sh instead)
- * applying: downloading and unpacking it, then the app restarts · failed: the check or the update didn't work
+ * available: a newer release; `canApply` false when the app's folder can't be written to (install.sh instead),
+ * `notes` its release notes (markdown, as GitHub has them; shared/release.ts `cleanNotes`), null when it has none
+ * applying: downloading and unpacking it, then the app restarts; `progress` 0–1 of the download, null while
+ * its size isn't known · failed: the check or the update didn't work
  */
 export type UpdateState =
   | { kind: 'source' }
@@ -81,8 +85,8 @@ export type UpdateState =
   | { kind: 'idle' }
   | { kind: 'checking' }
   | { kind: 'current' }
-  | { kind: 'available'; version: string; canApply: boolean; folder: string }
-  | { kind: 'applying'; version: string }
+  | { kind: 'available'; version: string; canApply: boolean; folder: string; notes: string | null }
+  | { kind: 'applying'; version: string; progress: number | null }
   | { kind: 'failed'; label: string; detail: string };
 
 /** How many commits the picker can list; the first is what `lens info` lists unless asked (COMMITS_SHOWN) */
@@ -125,6 +129,10 @@ export interface LauncherState {
   setup: Record<SetupPart, SetupItem>;
   /** The app's own update: whether a newer release is there, and taking it */
   update: UpdateState;
+  /** This version's release notes (markdown, from the CHANGELOG the app was built with); null when it has none */
+  whatsNew: { version: string; notes: string } | null;
+  /** The app was updated and the App page hasn't been opened since: a notice leads there */
+  justUpdated: boolean;
   theme: ThemeSwatch;
   /** The UI's size in percent: the viewer's (cli-app/zoom.ts), which the launcher's pages take too */
   zoom: number;
@@ -178,6 +186,8 @@ export interface LauncherApi {
   checkUpdate(): void;
   /** Take the newer release the check found: download it, quit, swap the app, start it again */
   applyUpdate(): void;
+  /** The release notes on GitHub, in the browser: the offered release's, else this version's */
+  openReleaseNotes(): void;
 }
 
 /** The strip's theme menu: a page of its own, in a view over the whole window while it is open. */

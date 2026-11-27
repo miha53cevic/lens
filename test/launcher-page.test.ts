@@ -106,6 +106,8 @@ const START: LauncherState = {
     skills: { state: 'installed', where: '~/.claude/skills · ~/.agents/skills', note: null },
   },
   update: { kind: 'idle' },
+  whatsNew: null,
+  justUpdated: false,
   theme: VESPER,
   zoom: 100,
   platform: 'darwin',
@@ -876,7 +878,13 @@ pageTest("Setup: the app's update, from asking to restarting", 'launcher', SETUP
   await page.push({ ...SETUP, update: { kind: 'current' } });
   assert.match(text('#setup-update'), /^Up to datelens 0\.1\.0 is the latest release\.LatestCheck again$/);
 
-  const available = { kind: 'available' as const, version: '0.2.0', canApply: true, folder: '/Applications' };
+  const available = {
+    kind: 'available' as const,
+    version: '0.2.0',
+    canApply: true,
+    folder: '/Applications',
+    notes: null,
+  };
   await page.push({ ...SETUP, update: available });
   assert.match(text('#setup-update'), /^lens 0\.2\.0 is available/);
   assert.equal($$('#setup-update .dot').length, 1);
@@ -888,8 +896,10 @@ pageTest("Setup: the app's update, from asking to restarting", 'launcher', SETUP
   assert.equal($$('#setup-update button[data-variant="primary"]').length, 0, "an app it can't replace: no button");
   assert.match(text('#setup-update [data-part="copy-cmd-text"]'), /install\.sh \| sh$/, 'the curl line instead');
 
-  await page.push({ ...SETUP, update: { kind: 'applying', version: '0.2.0' } });
-  assert.equal(text('#setup-update [data-part="update-busy"]'), 'Downloading…');
+  await page.push({ ...SETUP, update: { kind: 'applying', version: '0.2.0', progress: null } });
+  assert.equal(text('#setup-update [data-part="update-busy"]'), 'Downloading…', 'no size known: no share of it');
+  await page.push({ ...SETUP, update: { kind: 'applying', version: '0.2.0', progress: 0.624 } });
+  assert.equal(text('#setup-update [data-part="update-busy"]'), 'Downloading… 62%');
 
   const failed = { kind: 'failed' as const, label: "Couldn't check for updates", detail: 'GitHub answered 503.' };
   await page.push({ ...SETUP, update: failed });
@@ -898,6 +908,76 @@ pageTest("Setup: the app's update, from asking to restarting", 'launcher', SETUP
   await page.push({ ...SETUP, update: { kind: 'source' } });
   assert.match(text('#setup-update'), /git pull updates it\.$/);
   assert.equal($$('#setup-update button').length, 0, 'a checkout updates with git, not here');
+});
+
+const NOTES =
+  '### Features\n\n* show the update everywhere\n* keep <b>tags</b> and [links](https://example.com) as text';
+
+pageTest("Setup: a newer release's notes, open, and this version's, folded", 'launcher', SETUP, async (page) => {
+  const available = { kind: 'available' as const, version: '0.2.0', canApply: true, folder: '/Applications' };
+  await page.push({ ...SETUP, update: { ...available, notes: NOTES } });
+  assert.equal(text('#setup-update [data-part="disclosure"]'), "What's new in 0.2.0");
+  assert.ok($('#setup-update [data-part="release-notes"]').hasAttribute('data-open'), 'what you are about to take');
+  const notes = $('#setup-update [data-part="release-notes-text"]');
+  assert.ok(notes.querySelector('h3')!.classList.contains('eyebrow'));
+  assert.deepEqual(
+    [...notes.querySelectorAll('li')].map((item) => item.textContent),
+    ['show the update everywhere', 'keep <b>tags</b> and links as text'],
+  );
+  assert.equal(notes.querySelectorAll('b, a, img').length, 0, 'text to show, never markup or a way out');
+  await click($$('#setup-update button').find((button) => /Full notes on GitHub/.test(button.textContent!))!);
+  assert.deepEqual(page.calls.at(-1), ['openReleaseNotes'], 'the main process picks the address');
+
+  await page.push({ ...SETUP, update: { ...available, notes: null } });
+  assert.equal($$('#setup-update [data-part="release-notes"]').length, 0, 'a release with no notes: nothing to open');
+
+  await page.push({ ...SETUP, update: { kind: 'current' }, whatsNew: { version: '0.1.0', notes: NOTES } });
+  assert.equal(text('#setup-update [data-part="disclosure"]'), "What's new in 0.1.0");
+  assert.equal($$('#setup-update [data-part="release-notes-text"]').length, 0, "this version's: folded");
+  await click($('#setup-update [data-part="disclosure"]'));
+  assert.equal($$('#setup-update [data-part="release-notes-text"] li').length, 2);
+
+  await page.push({ ...SETUP, update: { kind: 'applying', version: '0.2.0', progress: 0.5 } });
+  assert.equal($$('#setup-update [data-part="release-notes"]').length, 0, 'while it updates, only that');
+});
+
+pageTest('the update shows in the status bar of every screen but the App page', 'launcher', PICKER, async (page) => {
+  const notice = () => $$('[data-part="status-notice"]').find((item) => /lens \d/.test(item.textContent!));
+  assert.equal(notice(), undefined, 'nothing checked: nothing to say');
+
+  await page.push({ ...PICKER, update: { kind: 'applying', version: '0.2.0', progress: 0.62 } });
+  assert.equal(notice()!.textContent, 'Updating to lens 0.2.0 · 62%');
+  await click(notice()!);
+  assert.deepEqual(page.calls.at(-1), ['setup'], 'it leads to the App page');
+  assert.equal(status()[0], 'Ready', "the app's, not the tab's: the status stays free");
+
+  await page.push({ ...PICKER, update: { kind: 'applying', version: '0.2.0', progress: null } });
+  assert.equal(notice()!.textContent, 'Updating to lens 0.2.0…');
+
+  const offered = {
+    kind: 'available' as const,
+    version: '0.2.0',
+    canApply: true,
+    folder: '/Applications',
+    notes: null,
+  };
+  await page.push({ ...PICKER, update: offered });
+  assert.equal(notice()!.textContent, 'lens 0.2.0 available');
+
+  const failed = { kind: 'failed' as const, label: "Couldn't update to 0.2.0", detail: 'GitHub answered 503.' };
+  await page.push({ ...PICKER, update: failed });
+  const warning = $$('[data-part="status-notice"]').find((item) => /Couldn't update/.test(item.textContent!))!;
+  assert.equal(warning.querySelectorAll('[data-part="notice-warn"]').length, 1);
+
+  const whatsNew = { version: '0.1.0', notes: NOTES };
+  await page.push({ ...PICKER, whatsNew, justUpdated: true });
+  assert.equal(notice()!.textContent, "Updated to lens 0.1.0 · What's new");
+  await page.push({ ...PICKER, whatsNew, justUpdated: false });
+  assert.equal(notice(), undefined, 'gone once the App page was opened');
+
+  const applying = { kind: 'applying' as const, version: '0.2.0', progress: 0.62 };
+  await page.push({ ...SETUP, update: applying, whatsNew, justUpdated: true });
+  assert.equal(notice(), undefined, 'the App page says it in its row');
 });
 
 // ---- the sandbox ----
@@ -1068,6 +1148,7 @@ const STRIP: StripState = {
   fullscreen: false,
   hints: false,
   setupMissing: false,
+  update: { kind: 'idle' },
 };
 
 pageTest(
@@ -1127,6 +1208,45 @@ pageTest("the strip: Setup's button carries a dot while something isn't installe
 
   await page.push({ ...STRIP, setupMissing: false });
   assert.ok(!$('#setup-btn').hasAttribute('data-missing'));
+});
+
+pageTest("the strip: the App button carries the app's update, on every tab", 'strip', STRIP, async (page) => {
+  const dot = () => $$('#setup-btn .dot')[0];
+  const label = () => $('#setup-btn').getAttribute('aria-label');
+  const applying = { kind: 'applying' as const, version: '0.2.0', progress: 0.3 };
+
+  await page.push({ ...STRIP, update: applying });
+  assert.equal($('#setup-btn').dataset.update, 'applying');
+  assert.equal(label(), 'App: updating to lens 0.2.0');
+  assert.ok(dot().classList.contains('pulse'), 'it runs');
+  assert.ok(dot().className.includes('--accent'));
+
+  await page.push({ ...STRIP, setupMissing: true, update: applying });
+  assert.equal(label(), 'App: updating to lens 0.2.0', 'an update running says so first');
+
+  const offered = {
+    kind: 'available' as const,
+    version: '0.2.0',
+    canApply: true,
+    folder: '/Applications',
+    notes: null,
+  };
+  await page.push({ ...STRIP, setupMissing: true, update: offered });
+  assert.equal(label(), 'App: not everything is installed', 'what needs you comes before what is offered');
+  assert.ok(dot().className.includes('--risk'));
+
+  await page.push({ ...STRIP, update: offered });
+  assert.equal(label(), 'App: lens 0.2.0 is available');
+  assert.ok(!dot().classList.contains('pulse'));
+
+  const failed = { kind: 'failed' as const, label: "Couldn't update to 0.2.0", detail: 'GitHub answered 503.' };
+  await page.push({ ...STRIP, update: failed });
+  assert.equal(label(), "App: Couldn't update to 0.2.0");
+  assert.ok(dot().className.includes('--risk'));
+
+  await page.push({ ...STRIP, update: { kind: 'current' } });
+  assert.equal($$('#setup-btn .dot').length, 0);
+  assert.ok(!$('#setup-btn').hasAttribute('data-update'));
 });
 
 pageTest('the strip: ⌘ held alone numbers the tabs, the ninth key the last one', 'strip', STRIP, async (page) => {

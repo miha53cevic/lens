@@ -1,17 +1,30 @@
 import clsx from 'clsx';
 import { Check, RefreshCw } from 'lucide-react';
-import type { UpdateState } from '../../../shared/api.ts';
+import type { LauncherState, UpdateState } from '../../../shared/api.ts';
 import { INSTALL_COMMAND } from '../../../shared/release.ts';
 import { Button } from '../../../../ui/Button.tsx';
 import { CopyCommand } from '../../../../ui/CopyCommand.tsx';
 import { Spinner } from '../../../../ui/Spinner.tsx';
 import { ROW } from './const.ts';
+import { ReleaseNotes } from './ReleaseNotes.tsx';
+
+/** How much of the download is in, as the busy label says it; nothing while its size isn't known */
+const percent = (progress: number | null) => (progress === null ? '' : ' ' + Math.round(progress * 100) + '%');
 
 /**
  * The app's own update (main/update.ts). Nothing is checked until the reader asks; a newer release
- * takes the accent on its edge, and its button downloads it and restarts the app.
+ * takes the accent on its edge, shows its notes, and its button downloads it and restarts the app.
+ * Otherwise the row has this version's notes, folded.
  */
-export function UpdateRow({ update, version }: { update: UpdateState; version: string }) {
+export function UpdateRow({
+  update,
+  version,
+  whatsNew,
+}: {
+  update: UpdateState;
+  version: string;
+  whatsNew: LauncherState['whatsNew'];
+}) {
   const { launcher } = window.lensApp;
   const offered = update.kind === 'available';
   const name =
@@ -62,6 +75,12 @@ export function UpdateRow({ update, version }: { update: UpdateState; version: s
             <CopyCommand command={INSTALL_COMMAND} />
           </span>
         )}
+        {update.kind === 'available' && update.notes && (
+          <ReleaseNotes key={update.version} version={update.version} notes={update.notes} open />
+        )}
+        {update.kind !== 'available' && update.kind !== 'applying' && whatsNew && (
+          <ReleaseNotes version={whatsNew.version} notes={whatsNew.notes} open={false} />
+        )}
       </span>
       <span className='flex items-center gap-3 self-center'>
         {update.kind === 'current' && (
@@ -73,7 +92,7 @@ export function UpdateRow({ update, version }: { update: UpdateState; version: s
         {(update.kind === 'checking' || update.kind === 'applying') && (
           <span data-part='update-busy' className='inline-flex items-center gap-2 text-sm whitespace-nowrap text-muted'>
             <Spinner />
-            {update.kind === 'checking' ? 'Checking…' : 'Downloading…'}
+            {update.kind === 'checking' ? 'Checking…' : 'Downloading…' + percent(update.progress)}
           </span>
         )}
         {(update.kind === 'idle' || update.kind === 'current' || update.kind === 'failed') && (

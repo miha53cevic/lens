@@ -98,3 +98,17 @@ test("the store keeps the window's place and the tabs, and reads back only what 
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('the store keeps the version the App page was last opened in', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'lens-app-'));
+  const file = join(dir, 'state.json');
+  try {
+    assert.equal(openStore(file).seenVersion(), null, 'never opened: nothing seen');
+    openStore(file).setSeenVersion('0.11.0');
+    assert.equal(openStore(file).seenVersion(), '0.11.0');
+    writeFileSync(file, JSON.stringify({ seenVersion: 11 }));
+    assert.equal(openStore(file).seenVersion(), null, 'not a version the app wrote');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

@@ -10,6 +10,7 @@ import {
   dialog,
   ipcMain,
   screen,
+  shell,
   type IpcMainEvent,
   type IpcMainInvokeEvent,
   type WebContents,
@@ -22,6 +23,7 @@ import { tildePath } from './display.ts';
 import { dispatch, type Handlers } from './ipc.ts';
 import { APP_ORIGIN, allowFrames, allowOrigin, appPagePreferences, isAppPage, viewerPreferences } from './security.ts';
 import { planProxyOrigin } from './session.ts';
+import { releaseUrl } from '../shared/release.ts';
 import { agentNeedsYou, needsYou, SETUP_NAMES } from '../shared/setup.ts';
 import { install, setupState, uninstall, type SetupEnv } from './setup.ts';
 import type { Session, Store } from './store.ts';
@@ -60,6 +62,10 @@ export interface WindowDeps {
   preload: string;
   setup: SetupEnv;
   updater: Updater;
+  /** The app's own version (what an update replaces) */
+  appVersion: string;
+  /** This version's release notes, from the CHANGELOG the app was built with */
+  whatsNew: LauncherState['whatsNew'];
 }
 
 export class AppWindow implements TabHost {
@@ -325,6 +331,8 @@ export class AppWindow implements TabHost {
   private show(): void {
     this.closeMenu();
     const active = this.tabs.active;
+    // the App page in sight: the notes of an update are there, so the notice that leads to them goes
+    if (active?.screen === 'setup') this.deps.store.setSeenVersion(this.deps.appVersion);
     if (active) this.sendLauncher(active);
     this.sendStrip();
     this.layout();
@@ -390,6 +398,7 @@ export class AppWindow implements TabHost {
       fullscreen: this.win.isFullScreen(),
       hints: this.hints,
       setupMissing: Object.values(setupState(this.deps.setup)).some(needsYou) || agentNeedsYou(this.deps.themes.agent),
+      update: this.deps.updater.state,
     };
   }
 
@@ -420,6 +429,8 @@ export class AppWindow implements TabHost {
       agent: themes.agent,
       setup: setupState(setup),
       update: this.deps.updater.state,
+      whatsNew: this.deps.whatsNew,
+      justUpdated: store.seenVersion() !== this.deps.appVersion,
       theme: themes.current,
       zoom: this.deps.zoom.current,
       platform: process.platform,
@@ -445,9 +456,10 @@ export class AppWindow implements TabHost {
     if (view && !view.webContents.isDestroyed()) view.webContents.send('launcher:changed', this.launcherState(tab));
   }
 
-  /** The app's update moved on: every launcher page shows it (the App page is the one that does). */
+  /** The app's update moved on: every launcher page shows it, and the strip's App button. */
   updateChanged(): void {
     for (const tab of this.tabs.all) this.sendLauncher(tab);
+    this.sendStrip();
   }
 
   /** The theme changed: the window's own colors, every page of the app, and the open reviews. */
@@ -632,6 +644,13 @@ export class AppWindow implements TabHost {
       uninstall: (part) => this.setup(tab, 'uninstall', part),
       checkUpdate: () => this.deps.updater.check(),
       applyUpdate: () => this.deps.updater.apply(),
+      openReleaseNotes: () => {
+        // the release the App page shows notes of: the one offered or being taken, else this one
+        const { state } = this.deps.updater;
+        const offered = state.kind === 'available' || state.kind === 'applying' ? state.version : null;
+        const url = releaseUrl(offered ?? this.deps.appVersion);
+        if (url) void shell.openExternal(url);
+      },
     };
   }
 

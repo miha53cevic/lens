@@ -16,7 +16,9 @@ import { Themes } from './themes.ts';
 import { Updater } from './update.ts';
 import { UiZoom } from './zoom.ts';
 import { AppWindow } from './window.ts';
-import { SOURCE_URL } from '../shared/release.ts';
+import { changelogSection, SOURCE_URL } from '../shared/release.ts';
+// bundled into the app, as the release built it: the notes of the version that runs need no network
+import changelog from '../../../CHANGELOG.md' with { type: 'text' };
 
 // this file, bundled, is dist/main.mjs: the pages and the preload sit next to it
 const distDir = import.meta.dirname;
@@ -89,14 +91,21 @@ async function start(): Promise<void> {
     quit: () => app.quit(),
     changed: () => window?.updateChanged(),
   });
+  const store = openStore(join(app.getPath('userData'), 'state.json'));
+  const appVersion = app.getVersion();
+  // the first run, or the first of a version that kept none: nothing to announce
+  if (store.seenVersion() === null) store.setSeenVersion(appVersion);
+  const notes = changelogSection(changelog, appVersion);
   window = new AppWindow({
     cli,
-    store: openStore(join(app.getPath('userData'), 'state.json')),
+    store,
     themes,
     zoom,
     preload: join(distDir, 'preload.cjs'),
     setup,
     updater,
+    appVersion,
+    whatsNew: notes ? { version: appVersion, notes } : null,
   });
   setAppMenu(window);
   if (process.env.LENS_APP_SMOKE) void runSmoke(window, themes, process.env.LENS_APP_SMOKE);

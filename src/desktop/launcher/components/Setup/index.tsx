@@ -15,6 +15,7 @@ export function Setup() {
   const agent = useApp((state) => state.agent);
   const busy = useApp((state) => state.status.kind === 'working');
   const update = useApp((state) => state.update);
+  const whatsNew = useApp((state) => state.whatsNew);
   return (
     <main
       data-part='setup'
@@ -30,7 +31,7 @@ export function Setup() {
         </div>
         <h2 className='mt-6 mb-2 px-2 eyebrow'>Updates</h2>
         <ul className='m-0 grid list-none gap-3 p-0'>
-          <UpdateRow update={update} version={version} />
+          <UpdateRow update={update} version={version} whatsNew={whatsNew} />
         </ul>
         <h2 className='mt-6 mb-2 px-2 eyebrow'>Agent</h2>
         <ul className='m-0 grid list-none gap-3 p-0'>

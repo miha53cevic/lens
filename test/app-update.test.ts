@@ -9,7 +9,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpath
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { UpdateState } from '../src/desktop/shared/api.ts';
-import { APP_ASSET, REPOSITORY } from '../src/desktop/shared/release.ts';
+import { APP_ASSET, changelogSection, cleanNotes, releaseUrl, REPOSITORY } from '../src/desktop/shared/release.ts';
 import {
   appBundle,
   bundleVersion,
@@ -36,12 +36,57 @@ test('versions compare as numbers, and only x.y.z counts', () => {
 });
 
 test("GitHub's release: its version and the app's zip, from GitHub's own download address only", () => {
-  assert.deepEqual(parseRelease(RELEASE), { version: '0.11.0', assetUrl: DOWNLOAD });
+  assert.deepEqual(parseRelease(RELEASE), { version: '0.11.0', assetUrl: DOWNLOAD, notes: null });
   assert.equal(parseRelease({ ...RELEASE, assets: [] }), null, 'no app attached yet');
   assert.equal(parseRelease({ ...RELEASE, tag_name: 'nightly' }), null);
   const elsewhere = [{ name: APP_ASSET, browser_download_url: 'https://example.com/Lens.zip' }];
   assert.equal(parseRelease({ ...RELEASE, assets: elsewhere }), null);
   assert.equal(parseRelease('not json'), null);
+});
+
+// what release-please writes, as a release's body and as CHANGELOG.md's sections
+const NOTES_0_11 = [
+  '## [0.11.0](https://github.com/miha53cevic/lens/compare/v0.10.0...v0.11.0) (2026-11-27)',
+  '',
+  '',
+  '### Features',
+  '',
+  '* update the app from GitHub Releases ([0da62af](https://github.com/miha53cevic/lens/commit/0da62af97f104dc8))',
+  '* keep <b>tags</b> as text',
+  '',
+].join('\n');
+const CHANGELOG = [
+  '# Changelog',
+  '',
+  NOTES_0_11,
+  '## [0.10.0](https://github.com/miha53cevic/lens/compare/v0.9.1...v0.10.0) (2026-11-26)',
+  '',
+  '### Bug Fixes',
+  '',
+  '* an older fix ([6c9ea5b](https://github.com/miha53cevic/lens/commit/6c9ea5b))',
+].join('\n');
+const CLEAN_0_11 = '### Features\n\n* update the app from GitHub Releases\n* keep <b>tags</b> as text';
+
+test("release notes: without the version's heading and the commit links, from a release or the changelog", () => {
+  assert.equal(cleanNotes(NOTES_0_11), CLEAN_0_11);
+  assert.equal(parseRelease({ ...RELEASE, body: NOTES_0_11 })?.notes, CLEAN_0_11);
+  assert.equal(parseRelease({ ...RELEASE, body: '## [0.11.0](x) (2026-11-27)\n' })?.notes, null, 'nothing left');
+  assert.equal(parseRelease({ ...RELEASE, body: 42 })?.notes, null);
+
+  assert.equal(changelogSection(CHANGELOG, '0.11.0'), CLEAN_0_11);
+  assert.equal(
+    changelogSection(CHANGELOG, '0.10.0'),
+    '### Bug Fixes\n\n* an older fix',
+    'the last section runs to the end',
+  );
+  assert.equal(changelogSection(CHANGELOG, '0.9.0'), null);
+  assert.ok(cleanNotes('x'.repeat(50_000)).length <= 20_000, 'a body past any release is cut');
+});
+
+test("a release's page is built only from x.y.z", () => {
+  assert.equal(releaseUrl('0.11.0'), `https://github.com/${REPOSITORY}/releases/tag/v0.11.0`);
+  assert.equal(releaseUrl('0.11.0/../../evil'), null);
+  assert.equal(releaseUrl(''), null);
 });
 
 test('the bundle an executable runs from', () => {
@@ -58,11 +103,12 @@ function setup(version = '0.10.0', answers: Record<string, () => Response> = {})
   const zip = onMac ? readFileSync(fakeAppZip(dir, '0.11.0')) : new Uint8Array();
   const routes: Record<string, () => Response> = {
     [`https://api.github.com/repos/${REPOSITORY}/releases/latest`]: () => Response.json(RELEASE),
-    [DOWNLOAD]: () => new Response(zip),
+    [DOWNLOAD]: () => new Response(zip, { headers: { 'content-length': String(zip.length) } }),
     ...answers,
   };
   const did: string[] = [];
   const states: UpdateState['kind'][] = [];
+  const told: UpdateState[] = [];
   const deps: UpdaterDeps = {
     current: version,
     packed: true,
@@ -77,11 +123,14 @@ function setup(version = '0.10.0', answers: Record<string, () => Response> = {})
     },
     startScript: (path) => void did.push('script ' + path),
     quit: () => void did.push('quit'),
-    changed: () => void states.push(updater.state.kind),
+    changed: () => {
+      states.push(updater.state.kind);
+      told.push(updater.state);
+    },
     relaunch: false,
   };
   const updater = new Updater(deps);
-  return { dir, apps, updater, did, states, deps };
+  return { dir, apps, updater, did, states, told, deps };
 }
 
 test('a checkout or another platform has nothing to check', async () => {
@@ -107,6 +156,7 @@ test('a check says up to date, or offers the newer release', async () => {
     version: '0.11.0',
     canApply: true,
     folder: older.apps,
+    notes: null,
   });
 });
 
@@ -123,10 +173,13 @@ test("a check that fails says why, and GitHub's 404 isn't an error dialog", asyn
 });
 
 test.skipIf(!onMac)('taking it: download, unpack, check the version, then the script and quit', async () => {
-  const { updater, did, dir } = setup();
+  const { updater, did, dir, told } = setup();
   await updater.check();
   await updater.apply();
   assert.equal(updater.state.kind, 'applying', 'the app is quitting');
+  const progress = told.flatMap((state) => (state.kind === 'applying' ? [state.progress] : []));
+  assert.equal(progress[0], null, 'nothing in yet');
+  assert.equal(progress.at(-1), 1, 'the whole download, told before the app quits');
   assert.equal(did.at(-1), 'quit');
   const script = did.at(-2)!.replace(/^script /, '');
   assert.ok(script.endsWith('swap.sh'));

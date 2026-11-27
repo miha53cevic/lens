@@ -10,15 +10,19 @@ import { accessSync, constants, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
 import type { UpdateState } from '../shared/api.ts';
-import { APP_ASSET, REPOSITORY } from '../shared/release.ts';
+import { APP_ASSET, cleanNotes, REPOSITORY } from '../shared/release.ts';
 
 const LATEST_URL = `https://api.github.com/repos/${REPOSITORY}/releases/latest`;
+/** How often a download's progress reaches the pages, at most */
+const PROGRESS_MS = 250;
 
 export interface Release {
   /** x.y.z, without the tag's v */
   version: string;
   /** The zip of the macOS app */
   assetUrl: string;
+  /** Its notes (markdown, cleaned); null when it has none */
+  notes: string | null;
 }
 
 /** x.y.z (a leading v allowed) as numbers; null for anything else, a pre-release among them */
@@ -41,14 +45,15 @@ export function isNewer(candidate: string, current: string): boolean {
 /** GitHub's answer for the latest release: its version and the app's zip, or null when it has neither. */
 export function parseRelease(body: unknown): Release | null {
   if (typeof body !== 'object' || body === null) return null;
-  const { tag_name: tag, assets } = body as { tag_name?: unknown; assets?: unknown };
+  const { tag_name: tag, assets, body: text } = body as { tag_name?: unknown; assets?: unknown; body?: unknown };
   if (typeof tag !== 'string' || !parts(tag) || !Array.isArray(assets)) return null;
   const asset = assets.find((item) => (item as { name?: unknown })?.name === APP_ASSET) as
     { browser_download_url?: unknown } | undefined;
   const url = asset?.browser_download_url;
   // only GitHub's own download address: what the app runs next comes from nowhere else
   if (typeof url !== 'string' || !url.startsWith(`https://github.com/${REPOSITORY}/releases/download/`)) return null;
-  return { version: tag.replace(/^v/, ''), assetUrl: url };
+  const notes = typeof text === 'string' ? cleanNotes(text) : '';
+  return { version: tag.replace(/^v/, ''), assetUrl: url, notes: notes || null };
 }
 
 /** The .app bundle an executable runs from (`…/Lens.app/Contents/MacOS/Lens` → `…/Lens.app`); null outside one */
@@ -157,7 +162,13 @@ export class Updater {
       this.release = release;
       if (!isNewer(release.version, this.deps.current)) return this.set({ kind: 'current' });
       const bundle = this.bundle!;
-      this.set({ kind: 'available', version: release.version, canApply: canReplace(bundle), folder: dirname(bundle) });
+      this.set({
+        kind: 'available',
+        version: release.version,
+        canApply: canReplace(bundle),
+        folder: dirname(bundle),
+        notes: release.notes,
+      });
     } catch (error) {
       this.set({ kind: 'failed', label: "Couldn't check for updates", detail: (error as Error).message });
     }
@@ -177,7 +188,7 @@ export class Updater {
   async apply(): Promise<void> {
     const { state, release, bundle } = this;
     if (state.kind !== 'available' || !state.canApply || !release || !bundle) return;
-    this.set({ kind: 'applying', version: release.version });
+    this.set({ kind: 'applying', version: release.version, progress: null });
     const workDir = mkdtempSync(join(this.deps.tempDir, 'lens-update-'));
     try {
       const staged = await this.download(release, workDir);
@@ -192,12 +203,35 @@ export class Updater {
     }
   }
 
+  /** The download's bytes, its progress told to the pages as they come (at most every PROGRESS_MS, and once whole). */
+  private async receive(version: string, response: Response): Promise<Uint8Array> {
+    if (!response.body) throw new Error('The download was empty.');
+    // null: GitHub sent no size, so there is no share of it to tell
+    const total = Number(response.headers.get('content-length')) || null;
+    const progress = (received: number) => (total ? Math.min(1, received / total) : null);
+    const chunks: Uint8Array[] = [];
+    let received = 0;
+    let told = 0;
+    const reader = response.body.getReader();
+    for (let read = await reader.read(); !read.done; read = await reader.read()) {
+      const chunk = read.value;
+      chunks.push(chunk);
+      received += chunk.length;
+      if (Date.now() - told >= PROGRESS_MS) {
+        told = Date.now();
+        this.set({ kind: 'applying', version, progress: progress(received) });
+      }
+    }
+    this.set({ kind: 'applying', version, progress: progress(received) });
+    return Buffer.concat(chunks);
+  }
+
   /** Downloads and unpacks the release's app; its path, once its own version says it is that release. */
   private async download(release: Release, workDir: string): Promise<string> {
     const response = await this.deps.fetch(release.assetUrl, { headers: { 'User-Agent': 'lens-app' } });
     if (!response.ok) throw new Error(`The download answered ${response.status}.`);
     const zip = join(workDir, APP_ASSET);
-    writeFileSync(zip, new Uint8Array(await response.arrayBuffer()));
+    writeFileSync(zip, await this.receive(release.version, response));
     await promisify(execFile)('ditto', ['-x', '-k', zip, join(workDir, 'new')]);
     const staged = join(workDir, 'new', 'Lens.app');
     const version = bundleVersion(staged);

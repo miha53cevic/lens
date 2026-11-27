@@ -1,5 +1,6 @@
+import clsx from 'clsx';
 import { ArrowLeftRight, Folder, Plug, Plus, Shapes } from 'lucide-react';
-import type { StripTab } from '../shared/api.ts';
+import type { StripState, StripTab } from '../shared/api.ts';
 import { IconButton } from '../../ui/IconButton.tsx';
 import { Kbd } from '../../ui/Kbd.tsx';
 import { Tab, TAB_BUTTON } from '../../ui/Tab.tsx';
@@ -12,6 +13,23 @@ function TabIcon({ icon }: { icon: StripTab['icon'] }) {
   if (icon === 'setup') return <Plug size={13} />;
   if (icon === 'sandbox') return <Shapes size={13} />;
   return <Plus size={13} />;
+}
+
+/**
+ * What the App button says, and the dot it carries: the reviews' pages know nothing of the app, so
+ * this is all a review tab shows of an update. Strongest first: an update running, one that failed,
+ * something to install, an update offered.
+ */
+function appButton({ update, setupMissing }: StripState): { label: string; dot: string | null; live: boolean } {
+  if (update.kind === 'applying') {
+    return { label: `App: updating to lens ${update.version}`, dot: '[--dot:var(--accent)]', live: true };
+  }
+  if (update.kind === 'failed') return { label: 'App: ' + update.label, dot: '[--dot:var(--risk)]', live: false };
+  if (setupMissing) return { label: 'App: not everything is installed', dot: '[--dot:var(--risk)]', live: false };
+  if (update.kind === 'available') {
+    return { label: `App: lens ${update.version} is available`, dot: '[--dot:var(--accent)]', live: false };
+  }
+  return { label: 'App', dot: null, live: false };
 }
 
 /** The number that picks the tab at this index: ⌘1–⌘8, and ⌘9 the last one, as in a browser. */
@@ -79,6 +97,8 @@ export function Strip() {
   const state = useStrip((store) => store.strip);
   if (!state) return null;
   const { strip } = window.lensApp;
+  const app = appButton(state);
+  const shownUpdate = ['applying', 'failed', 'available'].includes(state.update.kind) ? state.update.kind : undefined;
   return (
     // a click acts without taking the focus, which stays in the tab's page: the ring is for keys
     <header
@@ -123,12 +143,13 @@ export function Strip() {
       </IconButton>
       <IconButton
         id='setup-btn'
-        label={state.setupMissing ? 'App: not everything is installed' : 'App'}
+        label={app.label}
         data-missing={state.setupMissing || undefined}
+        data-update={shownUpdate}
         onClick={() => strip.setup()}
       >
         <Plug size={15} />
-        {state.setupMissing && <span className='dot absolute top-1 right-1 [--dot:var(--risk)]' />}
+        {app.dot && <span className={clsx('dot absolute top-1 right-1', app.dot, app.live && 'pulse')} />}
       </IconButton>
     </header>
   );

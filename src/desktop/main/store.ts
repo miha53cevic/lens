@@ -1,5 +1,6 @@
 // What the app remembers between runs: the folders you opened, the port each repository's viewer
-// gets, where the window was, and the tabs that were open with the review each showed.
+// gets, where the window was, the tabs that were open with the review each showed, and the version
+// whose notes were last in sight.
 // The last two describe a moment that has passed, so nothing here is trusted when it is read back:
 // a window is placed where a display still is (bounds.ts), and a tab is reopened only once
 // `lens info` has found its repository again and its review has been checked like a page's.
@@ -51,6 +52,8 @@ interface Stored {
   ports: Record<string, number>;
   window: WindowState | null;
   session: Session | null;
+  /** The app's version when the App page was last opened (or the app first ran); null before either */
+  seenVersion: string | null;
 }
 
 const MAX_RECENTS = 12;
@@ -111,9 +114,11 @@ function read(file: string): Stored {
       ports,
       window: readWindow(raw?.window),
       session: readSession(raw?.session),
+      seenVersion: typeof raw?.seenVersion === 'string' ? raw.seenVersion : null,
     };
   } catch {
-    return { recents: [], visits: {}, ports: {}, window: null, session: null }; // no file yet, or not one the app wrote
+    // no file yet, or not one the app wrote
+    return { recents: [], visits: {}, ports: {}, window: null, session: null, seenVersion: null };
   }
 }
 
@@ -133,6 +138,9 @@ export interface Store {
   /** The tabs the app had when it last ran, or null the first time. */
   session(): Session | null;
   setSession(session: Session): void;
+  /** The version the App page was last opened in: one that isn't the app's own means it was updated since. */
+  seenVersion(): string | null;
+  setSeenVersion(version: string): void;
 }
 
 const same = (one: unknown, other: unknown) => JSON.stringify(one) === JSON.stringify(other);
@@ -185,6 +193,12 @@ export function openStore(file: string): Store {
     setSession(session) {
       if (same(session, stored.session)) return;
       stored = { ...stored, session };
+      save();
+    },
+    seenVersion: () => stored.seenVersion,
+    setSeenVersion(version) {
+      if (version === stored.seenVersion) return;
+      stored = { ...stored, seenVersion: version };
       save();
     },
   };
