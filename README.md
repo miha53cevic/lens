@@ -24,12 +24,11 @@ questions as you read. lens needs no API key: your agent does the writing.
 
 ## Install
 
-**macOS**: download `Lens-darwin-arm64.zip` from the
-[latest release](https://github.com/miha53cevic/lens/releases/latest), move `Lens.app` to
-`/Applications`, and run this once (the app isn't notarized):
+**macOS** (Apple silicon): this puts the latest release's `Lens.app` in `/Applications` (or `~/Applications`), and
+running it again updates it.
 
 ```bash
-xattr -dr com.apple.quarantine /Applications/Lens.app
+curl -fsSL https://raw.githubusercontent.com/miha53cevic/lens/main/install.sh | sh
 ```
 
 **From source** (needs [Bun](https://bun.com) 1.4+ and git): `bun install`, then `bun run app`.
