@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.11.0](https://github.com/miha53cevic/lens/compare/v0.10.0...v0.11.0) (2026-11-27)
+
+
+### Features
+
+* install the macOS app with one curl command ([3a43d5e](https://github.com/miha53cevic/lens/commit/3a43d5e6727021ae3e4e456e70a061a3e08c4af7))
+* update the app from GitHub Releases ([0da62af](https://github.com/miha53cevic/lens/commit/0da62af97f104dc8b2fdf8c1ff3c194642b310c7))
+
 ## [0.10.0](https://github.com/miha53cevic/lens/compare/v0.9.1...v0.10.0) (2026-11-26)
 
 
