@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.0](https://github.com/miha53cevic/lens/compare/v0.11.0...v0.12.0) (2026-11-27)
+
+
+### Features
+
+* show the app's update on every screen, with its release notes ([9f9849a](https://github.com/miha53cevic/lens/commit/9f9849acfa07a290c08c757bf2d8da769021065f))
+
 ## [0.11.0](https://github.com/miha53cevic/lens/compare/v0.10.0...v0.11.0) (2026-11-27)
 
 
