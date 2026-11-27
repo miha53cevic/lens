@@ -1,13 +1,19 @@
 #!/bin/sh
-# Installs (or updates) the lens macOS app from its latest GitHub release:
+# Installs or updates the lens macOS app:
 #
 #   curl -fsSL https://raw.githubusercontent.com/miha53cevic/lens/main/install.sh | sh
 #
-# Nothing here asks for the quarantine flag (only browsers and the like set it), so the unsigned app
-# opens without Gatekeeper's prompt and without `xattr`. The app's own updater (src/desktop/main/update.ts)
-# takes the same steps. Never sudo: an /Applications it can't write to means ~/Applications.
+# What it does:
+#   1. Picks /Applications, or ~/Applications if /Applications isn't writable.
+#   2. Downloads Lens.app from the latest GitHub release of miha53cevic/lens and unpacks it
+#      in a temporary folder, deleted when the script ends.
+#   3. Quits Lens if it's open.
+#   4. Moves the new Lens.app into the folder. An older one there is replaced, and put back
+#      if the move fails.
 #
-# LENS_INSTALL_URL and LENS_INSTALL_DIR replace the download and the folder (test/install.test.ts).
+# What it doesn't do: use sudo, touch anything outside those two folders, or run the app.
+#
+# LENS_INSTALL_URL and LENS_INSTALL_DIR override the download and the folder (used by the tests).
 
 set -eu
 
@@ -21,6 +27,7 @@ fail() {
 [ "$(uname -s)" = Darwin ] || fail "the lens app is macOS-only for now"
 [ "$(uname -m)" = arm64 ] || fail "the lens app needs Apple silicon (arm64)"
 
+# 1. Pick the folder
 if [ -n "${LENS_INSTALL_DIR:-}" ]; then
   DEST="$LENS_INSTALL_DIR"
 elif [ -w /Applications ]; then
@@ -30,6 +37,7 @@ else
 fi
 mkdir -p "$DEST"
 
+# 2. Download and unpack into a temporary folder
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
@@ -39,14 +47,14 @@ ditto -x -k "$TMP/lens.zip" "$TMP/new" || fail "couldn't unpack the download"
 [ -f "$TMP/new/Lens.app/Contents/Info.plist" ] || fail "the download has no Lens.app"
 VERSION=$(defaults read "$TMP/new/Lens.app/Contents/Info" CFBundleShortVersionString 2>/dev/null || echo "?")
 
-# an open copy of this very app is quit first, so it isn't replaced under itself
+# 3. Quit Lens if it's open, so it isn't replaced while running
 if pgrep -f "$DEST/Lens.app/Contents/MacOS/" >/dev/null 2>&1; then
   echo "Quitting the open Lens…"
   osascript -e 'quit app "Lens"' >/dev/null 2>&1 || true
   while pgrep -f "$DEST/Lens.app/Contents/MacOS/" >/dev/null 2>&1; do sleep 1; done
 fi
 
-# the old app moves aside until the new one is in place, and comes back if that fails
+# 4. Replace the old app; put it back if that fails
 if [ -e "$DEST/Lens.app" ]; then
   mv "$DEST/Lens.app" "$TMP/old.app" || fail "couldn't move the old $DEST/Lens.app aside"
 fi
