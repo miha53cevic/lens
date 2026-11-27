@@ -124,4 +124,5 @@ test('lens diff in two repositories at once: each gets its own port, and a secon
     rmSync(first, { recursive: true, force: true });
     rmSync(second, { recursive: true, force: true });
   }
-});
+  // three lens starts, each bundling the viewer: seconds apiece under the full suite's load
+}, 30_000);
