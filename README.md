@@ -3,6 +3,9 @@
 
 **The code review tool for the agentic era.**
 
+[What it does](#what-it-does) · [Install](#install) · [Use it](#use-it) · [Command line](#command-line) ·
+[Configuration](#configuration) · [Development](#development) · [Non-goals](#non-goals) · [License](#license)
+
 Agents write code faster than anyone can read it. lens makes reading it fast: it folds away the
 noise, has your own coding agent brief you on each changed function, and lets you ask it
 questions as you read. lens needs no API key: your agent does the writing.
