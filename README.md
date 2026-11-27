@@ -113,3 +113,8 @@ bun run app         # the desktop app from this checkout
 ## Non-goals
 
 lens never edits your code and has no terminal UI.
+
+## License
+
+[AGPL-3.0](LICENSE). A modified lens that you distribute, or run for others over a network, must share its source
+under the same license.

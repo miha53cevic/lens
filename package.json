@@ -2,6 +2,8 @@
   "name": "lens",
   "version": "0.10.0",
   "private": true,
+  "license": "AGPL-3.0-only",
+  "repository": "github:miha53cevic/lens",
   "description": "The code review tool for the agentic era: folds the code that carries no review signal, and has your own agent summarize a change and answer questions about it",
   "type": "module",
   "bin": {

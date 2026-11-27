@@ -14,6 +14,7 @@ import { openStore } from './store.ts';
 import { Themes } from './themes.ts';
 import { UiZoom } from './zoom.ts';
 import { AppWindow } from './window.ts';
+import { SOURCE_URL } from './release.ts';
 
 // this file, bundled, is dist/main.mjs: the pages and the preload sit next to it
 const distDir = import.meta.dirname;
@@ -52,8 +53,14 @@ async function start(): Promise<void> {
     () => zoom.current,
   );
   await Promise.all([themes.load(), zoom.load()]);
-  // lens's version: Electron's own is what About shows from a checkout
-  if (themes.version) app.setAboutPanelOptions({ applicationName: 'lens', applicationVersion: themes.version });
+  // lens's version (Electron's own is what About shows from a checkout), and where its source is: the AGPL
+  // has every copy say so
+  app.setAboutPanelOptions({
+    applicationName: 'lens',
+    ...(themes.version && { applicationVersion: themes.version }),
+    copyright: 'AGPL-3.0 · source at ' + SOURCE_URL,
+    website: SOURCE_URL,
+  });
   themes.watch();
   zoom.watch();
 
